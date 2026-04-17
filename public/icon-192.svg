@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="100" fill="#050810"/>
+  <!-- Outer hexagon -->
+  <polygon
+    points="256,32 452,144 452,368 256,480 60,368 60,144"
+    fill="#f5a62312"
+    stroke="#f5a62360"
+    stroke-width="8"
+  />
+  <!-- Inner hexagon -->
+  <polygon
+    points="256,80 412,168 412,344 256,432 100,344 100,168"
+    fill="none"
+    stroke="#f5a62328"
+    stroke-width="4"
+  />
+  <!-- Waveform -->
+  <path
+    d="M96 256
+       Q128 180 160 256
+       Q192 332 224 256
+       Q256 180 288 256
+       Q320 332 352 256
+       Q384 180 416 256"
+    stroke="#f5a623"
+    stroke-width="20"
+    fill="none"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>
