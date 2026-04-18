@@ -6475,7 +6475,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v1.6</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v1.7</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -6530,76 +6530,79 @@ function SectionLabel({ children, color = '#8a95a0' }) {
 
 
 // ═══════════════════════════════════════════════════════════════
-// DRILL TAB — Q→A Oral Response Training  v1.6
+// DRILL TAB — Q→A Oral Response Training
 // ═══════════════════════════════════════════════════════════════
 
-const Q_TMPL = {
+// ── Fallback question templates by card type ──────────────────
+const Q_TEMPLATES = {
   capacity:   ["What is the current capacity?", "How is the line running today?", "Can you update us on utilization?"],
-  yield:      ["What is the yield rate today?", "How did the line perform?", "Any quality issues to report?"],
+  yield:      ["What is today's yield rate?", "How did the line perform?", "Any quality issues to report?"],
   delay:      ["What is causing the delay?", "When can we expect the shipment?", "What is the revised ETA?"],
   cost:       ["What is driving the cost increase?", "How has the cost structure changed?", "What is the main cost factor?"],
-  output:     ["What was the output today?", "Did we hit the production target?", "How many units were completed?"],
+  output:     ["What was today's output?", "Did we hit the production target?", "How many units were completed?"],
   manpower:   ["What is the current headcount?", "Any manpower shortage today?", "How is staffing looking?"],
   schedule:   ["Are we on schedule?", "What is the current timeline?", "Any risk to the deadline?"],
   bottleneck: ["Where is the bottleneck?", "What is slowing down production?", "Which process needs attention?"],
   margin:     ["What caused the margin change?", "How did gross margin perform?", "What is the main margin driver?"],
-  def:        ["What is the current status?", "Can you give us an update?", "What is your assessment?"],
+  default:    ["What is the current status?", "Can you give us an update?", "What is your assessment?"],
 }
 
-const KW_TMPL = {
-  capacity:   ["line", "%", "today"],
-  yield:      ["rate", "product", "line"],
-  delay:      ["reason", "ETA", "date"],
-  cost:       ["driver", "cost", "%"],
-  output:     ["units", "target", "line"],
-  manpower:   ["headcount", "shortage", "line"],
-  schedule:   ["status", "date", "risk"],
-  bottleneck: ["process", "line", "issue"],
-  margin:     ["driver", "margin", "%"],
-  def:        ["status", "update", "action"],
+const KW_TEMPLATES = {
+  capacity:   ['line', '%', 'today'],
+  yield:      ['rate', 'product', 'line'],
+  delay:      ['reason', 'ETA', 'date'],
+  cost:       ['driver', 'cost', '%'],
+  output:     ['units', 'target', 'line'],
+  manpower:   ['headcount', 'shortage', 'line'],
+  schedule:   ['status', 'date', 'risk'],
+  bottleneck: ['process', 'line', 'issue'],
+  margin:     ['driver', 'margin', '%'],
+  default:    ['status', 'update', 'action'],
 }
 
-function detectType(card) {
-  const t = ((card.template || '') + ' ' + (card.context || '') + ' ' + (card.hint || '')).toLowerCase()
-  if (/capacity|utiliz|running at/.test(t))    return 'capacity'
-  if (/yield|defect|quality|fpy/.test(t))       return 'yield'
-  if (/delay|shipment|eta|deliver/.test(t))     return 'delay'
-  if (/cost|silver|paste|material/.test(t))     return 'cost'
-  if (/output|units|produc/.test(t))            return 'output'
-  if (/manpower|headcount|staff|labor/.test(t)) return 'manpower'
+function detectCardType(card) {
+  const t = (card.template + ' ' + card.context + ' ' + (card.hint||'')).toLowerCase()
+  if (/capacity|utiliz|running at/.test(t))   return 'capacity'
+  if (/yield|defect|quality|fpy/.test(t))      return 'yield'
+  if (/delay|shipment|eta|deliver/.test(t))    return 'delay'
+  if (/cost|silver|paste|material/.test(t))    return 'cost'
+  if (/output|units|produc/.test(t))           return 'output'
+  if (/manpower|headcount|staff|labor/.test(t))return 'manpower'
   if (/schedule|deadline|timeline|plan/.test(t))return 'schedule'
-  if (/bottleneck|slow|block/.test(t))          return 'bottleneck'
-  if (/margin|gross|profit/.test(t))            return 'margin'
-  return 'def'
+  if (/bottleneck|slow|block/.test(t))         return 'bottleneck'
+  if (/margin|gross|profit/.test(t))           return 'margin'
+  return 'default'
 }
 
-function getPattern(template) {
+function buildAnswerPattern(template) {
   const main = template.replace(/\{[^}]+\}/g, '___')
-  const kws = []
-  const re = /\{([^}]+)\}/g
-  let m
-  while ((m = re.exec(template)) !== null) kws.push(m[1])
-  return { main, kws: kws.slice(0, 5) }
+  const blanks = []
+  const re = /\{([^}]+)\}/g; let m
+  while ((m = re.exec(template)) !== null) blanks.push(m[1])
+  return { main, keywords: blanks.slice(0, 5) }
 }
 
-async function fetchQuestions(card, apiKey) {
-  const cacheKey = 'fsi:dq2:' + card.id
+async function generateQuestions(card, apiKey) {
+  const cacheKey = 'fsi:dq:' + card.id
   try {
     const cached = localStorage.getItem(cacheKey)
     if (cached) return JSON.parse(cached)
-  } catch (_) {}
+  } catch {}
 
-  const type = detectType(card)
-  const fallback = Q_TMPL[type]
+  const type = detectCardType(card)
+  const fallback = Q_TEMPLATES[type]
 
   if (!apiKey) return fallback
 
   try {
-    const prompt = 'Factory meeting. Generate exactly 3 short questions (under 12 words each) where the answer is:\n"' +
-      card.template + '"\nContext: ' + card.context +
-      '\nReturn ONLY a JSON array like: ["Q1?","Q2?","Q3?"]'
+    const prompt = `Factory meeting context. Generate exactly 3 short questions (under 12 words each) that someone might ask in a meeting, where the answer would be:
+"${card.template}"
+Scenario: ${card.context}${card.hint ? ' — ' + card.hint : ''}
 
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+Return ONLY a JSON array of 3 strings, no markdown, no explanation.
+Example: ["Question 1?","Question 2?","Question 3?"]`
+
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -6609,438 +6612,572 @@ async function fetchQuestions(card, apiKey) {
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 150,
+        max_tokens: 200,
         messages: [{ role: 'user', content: prompt }]
       })
     })
-    const data = await resp.json()
-    const raw = (data.content && data.content[0] && data.content[0].text) ? data.content[0].text : ''
-    const clean = raw.replace(/```json|```/g, '').trim()
-    const qs = JSON.parse(clean)
-    if (Array.isArray(qs) && qs.length === 3) {
-      localStorage.setItem(cacheKey, JSON.stringify(qs))
-      return qs
+    const d = await r.json()
+    const text = d.content?.[0]?.text ?? ""
+    const questions = JSON.parse(text.replace(/```json|```/g, "").trim())
+    if (Array.isArray(questions) && questions.length === 3) {
+      localStorage.setItem(cacheKey, JSON.stringify(questions))
+      return questions
     }
-  } catch (_) {}
+  } catch {}
   return fallback
 }
 
-function DrillProgressBar({ duration, running, onTimeout, color }) {
+// ── Progress bar component ────────────────────────────────────
+function ProgressBar({ duration, onTimeout, running, color = T.amber }) {
   const [pct, setPct] = useState(100)
-  const startRef = useRef(null)
-  const rafRef = useRef(null)
-  const firedRef = useRef(false)
+  const start = useRef(null)
+  const raf   = useRef(null)
 
   useEffect(() => {
-    firedRef.current = false
     if (!running) { setPct(100); return }
-    startRef.current = performance.now()
-    const ms = duration * 1000
+    start.current = performance.now()
     function tick(now) {
-      const elapsed = now - startRef.current
-      const rem = Math.max(0, 1 - elapsed / ms)
-      setPct(rem * 100)
-      if (rem > 0) {
-        rafRef.current = requestAnimationFrame(tick)
-      } else if (!firedRef.current) {
-        firedRef.current = true
-        if (onTimeout) onTimeout()
+      const elapsed = now - start.current
+      const remaining = Math.max(0, 1 - elapsed / (duration * 1000))
+      setPct(remaining * 100)
+      if (remaining > 0) {
+        raf.current = requestAnimationFrame(tick)
+      } else {
+        onTimeout?.()
       }
     }
-    rafRef.current = requestAnimationFrame(tick)
-    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
+    raf.current = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf.current)
   }, [running, duration])
 
-  const barColor = color || '#f5a623'
   return (
-    <div style={{ height: 4, background: '#21262d', borderRadius: 2, overflow: 'hidden' }}>
-      <div style={{ width: pct + '%', height: '100%', background: barColor, borderRadius: 2, transition: 'width 0.1s linear' }} />
+    <div style={{ height:4, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
+      <div style={{ width:`${pct}%`, height:'100%', background:color, borderRadius:2, transition:'width 0.1s linear' }}/>
     </div>
   )
 }
 
-function DrillStageIndicator({ stage }) {
-  const items = [
-    { id: 'shadow',   label: 'SHADOW',   color: '#58a6ff' },
-    { id: 'respond',  label: 'RESPOND',  color: '#f5a623' },
-    { id: 'pressure', label: 'PRESSURE', color: '#f85149' },
-  ]
+// ── Stage indicator ───────────────────────────────────────────
+function StageIndicator({ stage }) {
+  const stages = ['shadow','respond','pressure']
+  const labels = ['SHADOW','RESPOND','PRESSURE']
+  const colors = [T.blue, T.amber, T.red]
+  const ci = stages.indexOf(stage)
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      {items.map((item, i) => {
-        const stages = ['shadow', 'respond', 'pressure']
-        const ci = stages.indexOf(stage)
-        const done = i < ci
-        const active = i === ci
-        return (
-          <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <div style={{
-              width: active ? 9 : 7,
-              height: active ? 9 : 7,
-              borderRadius: '50%',
-              background: done ? '#3fb950' : active ? item.color : '#21262d',
-              border: active ? '2px solid ' + item.color + '50' : 'none',
-              transition: 'all 0.3s',
-            }} />
-            {active && (
-              <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: item.color, letterSpacing: '0.12em', fontWeight: 600 }}>
-                {item.label}
-              </span>
-            )}
-          </div>
-        )
-      })}
+    <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+      {stages.map((s, i) => (
+        <div key={s} style={{ display:'flex', alignItems:'center', gap:5 }}>
+          <div style={{
+            width: i === ci ? 8 : 6,
+            height: i === ci ? 8 : 6,
+            borderRadius:'50%',
+            background: i < ci ? T.grn : i === ci ? colors[i] : T.bdr2,
+            transition:'all 0.3s',
+            border: i === ci ? `2px solid ${colors[i]}40` : 'none',
+          }}/>
+          {i === ci && (
+            <span style={{ fontFamily:MONO, fontSize:9, color:colors[i], letterSpacing:'0.12em', fontWeight:600 }}>
+              {labels[i]}
+            </span>
+          )}
+        </div>
+      ))}
     </div>
   )
 }
 
-function SentenceDisplay({ template }) {
-  const parts = []
-  const re = /\{([^}]+)\}/g
-  let last = 0, m
-  while ((m = re.exec(template)) !== null) {
-    if (m.index > last) parts.push({ type: 'text', val: template.slice(last, m.index) })
-    parts.push({ type: 'word', val: m[1] })
-    last = m.index + m[0].length
-  }
-  if (last < template.length) parts.push({ type: 'text', val: template.slice(last) })
-  return (
-    <span>
-      {parts.map((p, i) =>
-        p.type === 'word'
-          ? <span key={i} style={{ color: '#f5a623', fontWeight: 500 }}>[{p.val}]</span>
-          : <span key={i}>{p.val}</span>
-      )}
-    </span>
-  )
-}
-
-function DrillTab({ sentences, settings }) {
-  const [progress, setProgress] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('fsi:drill2') || '{}') } catch (_) { return {} }
+// ── Main DrillTab ─────────────────────────────────────────────
+function DrillTab({ sentences, vocab, settings }) {
+  const [drillProgress, setDrillProgress] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('fsi:drill') || '{}') } catch { return {} }
   })
   const [cardIdx, setCardIdx] = useState(0)
-  const [phase, setPhase] = useState('question')
-  const [timerRunning, setTimerRunning] = useState(false)
+  const [phase, setPhase] = useState('question') // question | answered
   const [timedOut, setTimedOut] = useState(false)
+  const [timerRunning, setTimerRunning] = useState(false)
   const [showHint, setShowHint] = useState(false)
   const [showKw, setShowKw] = useState(false)
   const [questions, setQuestions] = useState(null)
   const [loadingQ, setLoadingQ] = useState(false)
   const [showInfo, setShowInfo] = useState(false)
+  const [rideMode, setRideMode] = useState(null) // null | 'fsi' | 'vocab'
+  const [rideStatus, setRideStatus] = useState('idle') // idle | playing | paused
+  const [rideCurrent, setRideCurrent] = useState({ text:'', label:'' })
+  const rideTimer = useRef(null)
+  const rideStop = useRef(false)
 
-  const cards = useMemo(() =>
-    (sentences || []).filter(function(s) { return s.mode === 'simple' }),
-    [sentences]
-  )
-
-  function getProg(id) {
-    return progress[id] || { stage: 'shadow', shadowCount: 0, respondOk: 0, qIndex: 0 }
+  // ── Ride mode engine ──────────────────────────────────────
+  function clearRideTimers() {
+    if (rideTimer.current) clearTimeout(rideTimer.current)
+    window.speechSynthesis?.cancel()
   }
 
-  function saveProg(id, updates) {
-    setProgress(function(prev) {
-      const next = Object.assign({}, prev, { [id]: Object.assign({}, getProg(id), updates) })
-      localStorage.setItem('fsi:drill2', JSON.stringify(next))
+  function speakRide(text, lang, rate, onEnd) {
+    if (rideStop.current) return
+    window.speechSynthesis?.cancel()
+    const u = new SpeechSynthesisUtterance(text)
+    u.lang = lang; u.rate = rate
+    u.onend = () => { if (!rideStop.current) onEnd?.() }
+    u.onerror = () => { if (!rideStop.current) onEnd?.() }
+    window.speechSynthesis?.speak(u)
+  }
+
+  function startFSIRide(allCards, qMap, idx) {
+    if (rideStop.current || allCards.length === 0) return
+    const card = allCards[idx % allCards.length]
+    const type = detectCardType(card)
+    const qs = qMap[card.id] || Q_TEMPLATES[type] || Q_TEMPLATES.default
+    const question = qs[0]
+    const answer = card.template.replace(/\{[^}]+\}/g, w => w.slice(1,-1))
+
+    setRideCurrent({ text: question, label: 'QUESTION' })
+    speakRide(question, 'en-US', 0.9, () => {
+      setRideCurrent({ text: '...', label: 'YOUR TURN — 3 SEC' })
+      rideTimer.current = setTimeout(() => {
+        if (rideStop.current) return
+        setRideCurrent({ text: answer, label: 'ANSWER' })
+        speakRide(answer, 'en-US', 0.9, () => {
+          setRideCurrent({ text: answer, label: 'SHADOW' })
+          speakRide(answer, 'en-US', 0.82, () => {
+            rideTimer.current = setTimeout(() => {
+              startFSIRide(allCards, qMap, idx + 1)
+            }, 1000)
+          })
+        })
+      }, 3000)
+    })
+  }
+
+  function startVocabRide(words, idx) {
+    if (rideStop.current || words.length === 0) return
+    const w = words[idx % words.length]
+    setRideCurrent({ text: w.word, label: 'WORD' })
+    speakRide(w.word, 'en-US', 0.88, () => {
+      rideTimer.current = setTimeout(() => {
+        if (rideStop.current) return
+        const def = w.def || w.word
+        const lang = /[一-鿿]/.test(def) ? 'zh-TW' : 'en-US'
+        setRideCurrent({ text: def, label: 'DEFINITION' })
+        speakRide(def, lang, 0.9, () => {
+          rideTimer.current = setTimeout(() => {
+            startVocabRide(words, idx + 1)
+          }, 1000)
+        })
+      }, 1000)
+    })
+  }
+
+  function beginRide(mode) {
+    rideStop.current = false
+    setRideMode(mode)
+    setRideStatus('playing')
+    if (mode === 'fsi') {
+      const allCards = (sentences ?? []).filter(s => s.mode === 'simple')
+      const shuffled = [...allCards].sort(() => Math.random() - 0.5)
+      // Build question map from cache
+      const qMap = {}
+      shuffled.forEach(c => {
+        try { const v = localStorage.getItem('fsi:dq:' + c.id); if (v) qMap[c.id] = JSON.parse(v) } catch {}
+      })
+      startFSIRide(shuffled, qMap, 0)
+    } else {
+      const words = [...(vocab ?? [])].filter(v => !v.archived).sort(() => Math.random() - 0.5)
+      startVocabRide(words, 0)
+    }
+  }
+
+  function stopRide() {
+    rideStop.current = true
+    clearRideTimers()
+    setRideMode(null)
+    setRideStatus('idle')
+    setRideCurrent({ text:'', label:'' })
+  }
+
+  // Cleanup on unmount
+  useEffect(() => () => { rideStop.current = true; clearRideTimers() }, [])
+
+  const cards = useMemo(() => (sentences ?? []).filter(s => s.mode === 'simple'), [sentences])
+
+  function getProgress(id) {
+    return drillProgress[id] ?? { stage:'shadow', shadowCount:0, respondOk:0, qIndex:0 }
+  }
+
+  function saveProgress(id, data) {
+    setDrillProgress(prev => {
+      const next = { ...prev, [id]: { ...getProgress(id), ...data } }
+      localStorage.setItem('fsi:drill', JSON.stringify(next))
       return next
     })
   }
 
   const card = cards.length > 0 ? cards[cardIdx % cards.length] : null
-  const prog = card ? getProg(card.id) : { stage: 'shadow', shadowCount: 0, respondOk: 0, qIndex: 0 }
-  const stage = prog.stage
-  const cardType = card ? detectType(card) : 'def'
-  const pattern = card ? getPattern(card.template) : { main: '', kws: [] }
-  const qIndex = prog.qIndex || 0
-  const currentQ = questions ? questions[qIndex % 3] : (Q_TMPL[cardType] && Q_TMPL[cardType][qIndex % 3])
+  const prog = card ? getProgress(card.id) : null
+  const stage = prog?.stage ?? 'shadow'
+  const type  = card ? detectCardType(card) : 'default'
+  const pattern = card ? buildAnswerPattern(card.template) : null
+  const qIndex = prog?.qIndex ?? 0
+  const currentQ = questions ? questions[qIndex % 3] : null
 
-  useEffect(function() {
+  // Load questions when card changes
+  useEffect(() => {
     if (!card) return
     setPhase('question')
-    setTimerRunning(false)
     setTimedOut(false)
+    setTimerRunning(false)
     setShowHint(false)
     setShowKw(false)
     setQuestions(null)
 
-    try {
-      const cached = localStorage.getItem('fsi:dq2:' + card.id)
-      if (cached) { setQuestions(JSON.parse(cached)); return }
-    } catch (_) {}
+    const cacheKey = 'fsi:dq:' + card.id
+    const cached = localStorage.getItem(cacheKey)
+    if (cached) {
+      try { setQuestions(JSON.parse(cached)); return } catch {}
+    }
+    if (stage !== 'shadow') {
+      setLoadingQ(true)
+      generateQuestions(card, settings?.apiKey).then(qs => {
+        setQuestions(qs); setLoadingQ(false)
+      })
+    } else {
+      // Silent background generation during shadow stage
+      generateQuestions(card, settings?.apiKey).then(qs => setQuestions(qs))
+    }
+  }, [cardIdx, card?.id])
 
-    setLoadingQ(true)
-    fetchQuestions(card, settings && settings.apiKey).then(function(qs) {
-      setQuestions(qs)
-      setLoadingQ(false)
-    })
-  }, [cardIdx, card ? card.id : null])
-
-  useEffect(function() {
+  // Start timer when entering respond/pressure question phase
+  useEffect(() => {
     if (phase === 'question' && (stage === 'respond' || stage === 'pressure')) {
-      const t = setTimeout(function() { setTimerRunning(true) }, 500)
-      return function() { clearTimeout(t) }
+      const t = setTimeout(() => setTimerRunning(true), 400)
+      return () => clearTimeout(t)
     }
   }, [phase, stage, cardIdx])
 
   function handleTimeout() {
-    setTimerRunning(false)
     if (stage === 'pressure') setShowKw(true)
-    if (stage === 'respond') setTimedOut(true)
+    if (stage === 'respond')  setTimedOut(true)
   }
 
   function handleSpoke() {
     setTimerRunning(false)
     setPhase('answered')
-    if (card) speak(card.template)
+    speak(card.template)
   }
 
   function handleShadow() {
-    if (!card) return
-    const newCount = (prog.shadowCount || 0) + 1
-    speak(card.template)
+    const newCount = (prog.shadowCount ?? 0) + 1
     if (newCount >= 3) {
-      saveProg(card.id, { shadowCount: newCount, stage: 'respond' })
-      setTimeout(function() { nextCard() }, 1200)
+      saveProgress(card.id, { shadowCount: newCount, stage: 'respond' })
+      speak(card.template)
+      setTimeout(() => nextCard(), 1200)
     } else {
-      saveProg(card.id, { shadowCount: newCount })
+      saveProgress(card.id, { shadowCount: newCount })
+      speak(card.template)
     }
   }
 
   function handleRate(ok) {
-    if (!card) return
-    const newOk = (prog.respondOk || 0) + (ok ? 1 : 0)
-    const nextQ = (qIndex + 1) % 3
+    const newOk = (prog.respondOk ?? 0) + (ok ? 1 : 0)
+    const nextQIndex = (qIndex + 1) % 3
+
     if (stage === 'respond' && newOk >= 3) {
-      saveProg(card.id, { stage: 'pressure', respondOk: newOk, qIndex: nextQ })
-    } else if (stage === 'pressure') {
-      const rotate = Math.random() < 0.3 ? 'respond' : 'pressure'
-      saveProg(card.id, { stage: rotate, qIndex: nextQ })
+      saveProgress(card.id, { stage:'pressure', respondOk: newOk, qIndex: nextQIndex })
     } else {
-      saveProg(card.id, { respondOk: newOk, qIndex: nextQ })
+      // PRESSURE: 70/30 rotation
+      if (stage === 'pressure') {
+        const rotate = Math.random() < 0.3 ? 'respond' : 'pressure'
+        saveProgress(card.id, { stage: rotate, qIndex: nextQIndex })
+      } else {
+        saveProgress(card.id, { respondOk: newOk, qIndex: nextQIndex })
+      }
     }
     nextCard()
   }
 
   function nextCard() {
-    setCardIdx(function(i) { return (i + 1) % Math.max(1, cards.length) })
+    setCardIdx(i => (i + 1) % Math.max(1, cards.length))
     setPhase('question')
-    setTimerRunning(false)
     setTimedOut(false)
+    setTimerRunning(false)
     setShowHint(false)
     setShowKw(false)
   }
 
-  if (!card) {
+  if (!card) return (
+    <div style={{ padding:'40px 16px', textAlign:'center', color:T.txt3, fontFamily:SERIF, fontSize:14 }}>
+      練習庫是空的。<br/>先在 Practice 或 AI 標籤新增句子。
+    </div>
+  )
+
+  const shadowCount = prog.shadowCount ?? 0
+  const respondOk   = prog.respondOk ?? 0
+
+  // ── Ride Mode Overlay ────────────────────────────────────────
+  if (rideMode) {
+    const isYourTurn = rideCurrent.label.includes('YOUR TURN')
+    const isAnswer   = rideCurrent.label === 'ANSWER' || rideCurrent.label === 'SHADOW'
+    const isWord     = rideCurrent.label === 'WORD'
+    const isDef      = rideCurrent.label === 'DEFINITION'
     return (
-      <div style={{ padding: '40px 16px', textAlign: 'center', color: '#7a8390', fontFamily: "'Crimson Pro',serif", fontSize: 14 }}>
-        練習庫是空的。<br />先在 Build 或 AI 標籤新增句子。
+      <div style={{ position:'fixed', top:0, left:0, right:0, bottom:0, background:T.bg, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:24, padding:32, zIndex:100 }}>
+        {/* Status label */}
+        <div style={{ fontFamily:MONO, fontSize:10, color: isYourTurn ? T.grn : isAnswer ? T.amber : T.txt3, letterSpacing:'0.18em', animation: isYourTurn ? 'pulse 1s infinite' : 'none' }}>
+          {rideCurrent.label || (rideMode === 'fsi' ? 'FSI RIDE' : 'VOCAB RIDE')}
+        </div>
+
+        {/* Current text */}
+        <div style={{ fontFamily: isWord ? DISP : MONO, fontSize: isYourTurn ? 22 : 18, color: isYourTurn ? T.grn : isWord ? T.amber : T.txt, textAlign:'center', lineHeight:1.6, maxWidth:320 }}>
+          {isYourTurn ? '開口說 ···' : rideCurrent.text || '···'}
+        </div>
+
+        {/* Waveform animation */}
+        <div style={{ display:'flex', alignItems:'center', gap:4, height:32 }}>
+          {[1,2,3,4,5,6,7].map(i => (
+            <div key={i} style={{
+              width:4, borderRadius:2,
+              background: isYourTurn ? T.grn : T.amber,
+              height: isYourTurn ? 8 : `${10 + Math.sin(i * 0.9) * 14}px`,
+              animation: (!isYourTurn) ? `pulse ${0.4 + i*0.08}s ease infinite alternate` : 'none',
+              opacity: isYourTurn ? 0.3 : 0.8,
+              transition:'height 0.3s'
+            }}/>
+          ))}
+        </div>
+
+        {/* Mode indicator */}
+        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, letterSpacing:'0.1em' }}>
+          {rideMode === 'fsi' ? '🚴 FSI 騎車模式' : '🎧 單字騎車模式'}
+        </div>
+
+        {/* STOP button */}
+        <button className="btn" onClick={stopRide}
+          style={{ marginTop:20, background:T.redD, border:`2px solid ${T.red}80`, color:T.red, padding:'18px 48px', fontSize:14, letterSpacing:'0.12em', borderRadius:14, width:'100%', maxWidth:280 }}>
+          ■ 停止
+        </button>
+        <div style={{ fontFamily:SERIF, fontStyle:'italic', fontSize:11, color:T.txt3 }}>
+          到達目的地後按停止
+        </div>
       </div>
     )
   }
 
-  const shadowCount = prog.shadowCount || 0
-  const respondOk = prog.respondOk || 0
-  const mono = "'JetBrains Mono',monospace"
-  const serif = "'Crimson Pro',serif"
-
   return (
-    <div style={{ padding: '16px 16px 0', display: 'flex', flexDirection: 'column', gap: 14 }} className="fadeUp">
+    <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:14 }} className="fadeUp">
 
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <DrillStageIndicator stage={stage} />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontFamily: mono, fontSize: 9, color: '#7a8390' }}>
-            {(cardIdx % cards.length) + 1}/{cards.length}
-          </span>
-          <div onClick={function() { setShowInfo(function(s) { return !s }) }}
-            style={{ cursor: 'pointer', color: showInfo ? '#f5a623' : '#7a8390', padding: '4px 8px', background: '#161b22', borderRadius: 7, fontFamily: mono, fontSize: 10 }}>
-            ?
-          </div>
+      {/* ── RIDE MODE BUTTONS ── */}
+      <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, letterSpacing:'0.12em', marginBottom:2 }}>騎車模式 — 純口說反射</div>
+        <div style={{ display:'flex', gap:8 }}>
+          <button className="btn" onClick={() => beginRide('fsi')}
+            style={{ flex:1, background:`${T.amber}15`, border:`1px solid ${T.amber}50`, color:T.amber, padding:'13px 8px', fontSize:11, letterSpacing:'0.06em' }}>
+            🚴 FSI 騎車練習
+          </button>
+          <button className="btn" onClick={() => beginRide('vocab')}
+            style={{ flex:1, background:`${T.blue}15`, border:`1px solid ${T.blue}50`, color:T.blue, padding:'13px 8px', fontSize:11, letterSpacing:'0.06em' }}>
+            🎧 單字騎車練習
+          </button>
+        </div>
+        <div style={{ fontFamily:SERIF, fontStyle:'italic', fontSize:11, color:T.txt3, lineHeight:1.5 }}>
+          問題 → 3秒開口 → 答案 → Shadow → 下一題，全程免手
         </div>
       </div>
 
-      {/* Info */}
+      <div style={{ height:1, background:T.bdr }}/>
+
+      {/* Header: stage + info */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <StageIndicator stage={stage}/>
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+            {cardIdx % cards.length + 1}/{cards.length}
+          </span>
+          <div onClick={() => setShowInfo(s=>!s)}
+            style={{ cursor:'pointer', color: showInfo ? T.amber : T.txt3, padding:'4px 8px', background:T.surf2, borderRadius:7, fontFamily:MONO, fontSize:10 }}>?</div>
+        </div>
+      </div>
+
+      {/* Info panel */}
       {showInfo && (
-        <div style={{ background: '#161b22', border: '1px solid #2d333b', borderRadius: 11, padding: 14 }} className="fadeUp">
-          <div style={{ fontFamily: mono, fontSize: 9, color: '#f5a623', letterSpacing: '0.1em', marginBottom: 8 }}>DRILL 三階段</div>
-          <div style={{ fontFamily: serif, fontSize: 13, color: '#aab3be', lineHeight: 1.75 }}>
-            <strong style={{ color: '#58a6ff' }}>SHADOW</strong> — 看完整句跟TTS朗讀3次，熟悉句型後自動升級<br />
-            <strong style={{ color: '#f5a623' }}>RESPOND</strong> — 看問題，5秒內開口，按「我說完了」看答案，✓ 累積3次升級<br />
-            <strong style={{ color: '#f85149' }}>PRESSURE</strong> — 3秒倒數，超時只顯示關鍵詞，模擬會議壓力
+        <div style={{ background:T.surf2, border:`1px solid ${T.bdr2}`, borderRadius:11, padding:14 }} className="fadeUp">
+          <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, marginBottom:8, letterSpacing:'0.1em' }}>DRILL 三階段說明</div>
+          <div style={{ fontFamily:SERIF, fontSize:13, color:T.txt2, lineHeight:1.75 }}>
+            <b style={{color:T.blue}}>SHADOW</b> — 看完整句，跟TTS朗讀3次，熟悉句型後自動升級<br/>
+            <b style={{color:T.amber}}>RESPOND</b> — 看問題，5秒內開口說完整句，按「我說完了」看答案<br/>
+            <b style={{color:T.red}}>PRESSURE</b> — 3秒倒數，超時只顯示關鍵詞，模擬會議壓力
           </div>
         </div>
       )}
 
-      {/* ── SHADOW ── */}
+      {/* ─── SHADOW STAGE ─────────────────────────────── */}
       {stage === 'shadow' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ background: '#0d1117', border: '1px solid #21262d', borderRadius: 14, padding: 20 }}>
-            <div style={{ fontFamily: mono, fontSize: 8.5, color: '#9aa5b0', letterSpacing: '0.12em', marginBottom: 10 }}>
+        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+          <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:14, padding:20 }}>
+            <div style={{ fontFamily:MONO, fontSize:8.5, color:'#9aa5b0', letterSpacing:'0.12em', marginBottom:10 }}>
               {card.context.toUpperCase()}
-              {card.hint ? <span style={{ color: '#7a8390' }}> — {card.hint}</span> : null}
+              {card.hint && <span style={{ color:T.txt3 }}> — {card.hint}</span>}
             </div>
-            <div style={{ fontFamily: mono, fontSize: 14, color: '#e6edf3', lineHeight: 2, marginBottom: 16 }}>
-              <SentenceDisplay template={card.template} />
+            <div style={{ fontFamily:MONO, fontSize:14, color:T.txt, lineHeight:2, marginBottom:16 }}>
+              {card.template.replace(/\{[^}]+\}/g, w =>
+                `[${w.slice(1,-1)}]`
+              ).split(/(\[[^\]]+\])/).map((part, i) =>
+                part.startsWith('[') ? (
+                  <span key={i} style={{ color:T.amber, fontWeight:500 }}>{part}</span>
+                ) : <span key={i}>{part}</span>
+              )}
             </div>
-            <div onClick={function() { speak(card.template) }}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', color: '#7a8390' }}>
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                <path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none" />
-                <path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-              </svg>
-              <span style={{ fontFamily: mono, fontSize: 9 }}>播放</span>
+            <div onClick={() => speak(card.template)} style={{ display:'flex', alignItems:'center', gap:6, cursor:'pointer', color:T.txt3, marginBottom:4 }}
+              onMouseOver={e=>e.currentTarget.style.color=T.amber} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M12 2.5a6 6 0 010 11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+              <span style={{ fontFamily:MONO, fontSize:9, letterSpacing:'0.08em' }}>播放</span>
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-            {[0, 1, 2].map(function(i) {
-              return (
-                <div key={i} style={{
-                  width: 10, height: 10, borderRadius: '50%',
-                  background: i < shadowCount ? '#58a6ff' : '#21262d',
-                  transition: 'background 0.3s',
-                }} />
-              )
-            })}
+          {/* Shadow progress */}
+          <div style={{ display:'flex', gap:6, justifyContent:'center', marginBottom:4 }}>
+            {[0,1,2].map(i => (
+              <div key={i} style={{ width:10, height:10, borderRadius:'50%', background: i < shadowCount ? T.blue : T.bdr2, transition:'background 0.3s' }}/>
+            ))}
           </div>
-
-          <div style={{ fontFamily: serif, fontStyle: 'italic', fontSize: 12, color: '#7a8390', textAlign: 'center' }}>
-            {shadowCount === 0 ? '跟著TTS朗讀，按下方按鈕計次'
-              : shadowCount === 1 ? '再跟讀 2 次後解鎖 RESPOND'
-              : '再跟讀 1 次後解鎖 RESPOND'}
+          <div style={{ fontFamily:SERIF, fontStyle:'italic', fontSize:12, color:T.txt3, textAlign:'center' }}>
+            {shadowCount === 0 ? '跟著TTS朗讀，按下方按鈕計次' : shadowCount === 1 ? '再跟讀 2 次後解鎖下一階段' : '再跟讀 1 次後解鎖下一階段'}
           </div>
 
           <button className="btn" onClick={handleShadow}
-            style={{ background: '#58a6ff18', border: '1px solid #58a6ff60', color: '#58a6ff', width: '100%', fontSize: 12, letterSpacing: '0.08em', padding: '14px' }}>
-            {'🎙 跟讀 (' + shadowCount + '/3)'}
+            style={{ background:T.blueD, border:`1px solid ${T.blue}60`, color:T.blue, width:'100%', fontSize:12, letterSpacing:'0.08em', padding:'14px' }}>
+            🎙 跟讀（{shadowCount}/3）
           </button>
         </div>
       )}
 
-      {/* ── RESPOND / PRESSURE ── */}
+      {/* ─── RESPOND / PRESSURE STAGE ─────────────────── */}
       {(stage === 'respond' || stage === 'pressure') && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
 
-          <div style={{ background: '#0d1117', border: '1px solid ' + (stage === 'pressure' ? '#f8514940' : '#21262d'), borderRadius: 14, padding: 20 }}>
-            <div style={{ fontFamily: mono, fontSize: 8.5, color: '#9aa5b0', letterSpacing: '0.1em', marginBottom: 12 }}>
+          {/* Question card */}
+          <div style={{ background:T.surf, border:`1px solid ${stage==='pressure' ? T.red+'40' : T.bdr}`, borderRadius:14, padding:20 }}>
+            <div style={{ fontFamily:MONO, fontSize:8.5, color:'#9aa5b0', letterSpacing:'0.1em', marginBottom:12 }}>
               {card.context.toUpperCase()}
             </div>
 
-            {loadingQ
-              ? <div style={{ fontFamily: mono, fontSize: 11, color: '#7a8390', animation: 'pulse 1.2s infinite' }}>生成問題中…</div>
-              : <div style={{ fontFamily: "'Cinzel',serif", fontSize: 17, color: '#e6edf3', lineHeight: 1.6, marginBottom: 14 }}>
-                  {currentQ || (Q_TMPL[cardType] && Q_TMPL[cardType][qIndex % 3])}
-                </div>
-            }
+            {loadingQ ? (
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, animation:'pulse 1.2s infinite' }}>生成問題中…</div>
+            ) : (
+              <div style={{ fontFamily:DISP, fontSize:17, color:T.txt, lineHeight:1.55, marginBottom:14 }}>
+                {currentQ ?? Q_TEMPLATES[type][qIndex % 3]}
+              </div>
+            )}
 
+            {/* Timer bar */}
             {phase === 'question' && (
-              <DrillProgressBar
+              <ProgressBar
                 duration={stage === 'pressure' ? 3 : 5}
                 running={timerRunning}
                 onTimeout={handleTimeout}
-                color={stage === 'pressure' ? '#f85149' : '#f5a623'}
+                color={stage === 'pressure' ? T.red : T.amber}
               />
             )}
 
+            {/* Respond: Answer Pattern */}
             {stage === 'respond' && phase === 'question' && (
-              <div style={{ marginTop: 14, background: '#161b22', borderRadius: 9, padding: 12 }}>
-                <div style={{ fontFamily: mono, fontSize: 8.5, color: '#f5a623', letterSpacing: '0.1em', marginBottom: 7 }}>ANSWER PATTERN</div>
-                <div style={{ fontFamily: mono, fontSize: 12, color: '#e6edf3', lineHeight: 1.7, marginBottom: 8 }}>
-                  {pattern.main}
+              <div style={{ marginTop:14, background:T.surf2, borderRadius:9, padding:12 }}>
+                <div style={{ fontFamily:MONO, fontSize:8.5, color:T.amber, letterSpacing:'0.1em', marginBottom:7 }}>ANSWER PATTERN</div>
+                <div style={{ fontFamily:MONO, fontSize:12, color:T.txt, lineHeight:1.7, marginBottom:6 }}>
+                  {pattern?.main}
                 </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                  {pattern.kws.map(function(k, i) {
-                    return <span key={i} style={{ fontFamily: mono, fontSize: 10, color: '#aab3be', background: '#21262d', padding: '2px 8px', borderRadius: 10 }}>{k}</span>
-                  })}
+                <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
+                  {pattern?.keywords.map((k,i) => (
+                    <span key={i} style={{ fontFamily:MONO, fontSize:10, color:T.txt2, background:T.bdr, padding:'2px 8px', borderRadius:10 }}>{k}</span>
+                  ))}
                 </div>
               </div>
             )}
 
+            {/* Pressure: keyword hint after timeout */}
+            {stage === 'pressure' && showKw && phase === 'question' && (
+              <div style={{ marginTop:12, display:'flex', gap:6, flexWrap:'wrap' }} className="fadeUp">
+                {KW_TEMPLATES[type].map((k,i) => (
+                  <span key={i} style={{ fontFamily:MONO, fontSize:11, color:T.red, background:`${T.red}12`, border:`1px solid ${T.red}40`, padding:'3px 10px', borderRadius:12 }}>{k}</span>
+                ))}
+              </div>
+            )}
+
+            {/* Respond: hint button */}
             {stage === 'respond' && phase === 'question' && !showHint && (
-              <div onClick={function() { setShowHint(true) }}
-                style={{ marginTop: 12, cursor: 'pointer', fontFamily: mono, fontSize: 10, color: '#7a8390', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                <span style={{ fontSize: 8 }}>▶</span> HINT
+              <div onClick={() => setShowHint(true)} style={{ marginTop:12, cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt3, display:'inline-flex', alignItems:'center', gap:5 }}>
+                <span style={{ fontSize:8 }}>▶</span> HINT
               </div>
             )}
             {stage === 'respond' && showHint && (
-              <div style={{ marginTop: 10, fontFamily: mono, fontSize: 11, color: '#f5a623', lineHeight: 1.6 }} className="fadeUp">
-                {(KW_TMPL[cardType] || KW_TMPL.def).join(' / ')}
-              </div>
-            )}
-
-            {stage === 'pressure' && showKw && phase === 'question' && (
-              <div style={{ marginTop: 12, display: 'flex', gap: 6, flexWrap: 'wrap' }} className="fadeUp">
-                {(KW_TMPL[cardType] || KW_TMPL.def).map(function(k, i) {
-                  return <span key={i} style={{ fontFamily: mono, fontSize: 11, color: '#f85149', background: '#f8514912', border: '1px solid #f8514940', padding: '3px 10px', borderRadius: 12 }}>{k}</span>
-                })}
+              <div style={{ marginTop:10, fontFamily:MONO, fontSize:11, color:T.amber, lineHeight:1.6 }} className="fadeUp">
+                {KW_TEMPLATES[type].join(' / ')}
               </div>
             )}
           </div>
 
+          {/* Timed out warning (respond) */}
           {timedOut && phase === 'question' && (
-            <div style={{ fontFamily: mono, fontSize: 10, color: '#f85149', textAlign: 'center', animation: 'pulse 1.5s infinite' }}>
+            <div style={{ fontFamily:MONO, fontSize:10, color:T.red, textAlign:'center', animation:'pulse 1.5s infinite' }}>
               ⏱ 時間到！先開口說，再按「我說完了」
             </div>
           )}
 
+          {/* Speak button */}
           {phase === 'question' && (
             <button className="btn" onClick={handleSpoke}
-              style={{
-                background: stage === 'pressure' ? '#f8514920' : '#f5a62318',
-                border: '1px solid ' + (stage === 'pressure' ? '#f8514960' : '#f5a62360'),
-                color: stage === 'pressure' ? '#f85149' : '#f5a623',
-                width: '100%', fontSize: 12, letterSpacing: '0.08em', padding: '15px',
-              }}>
+              style={{ background: stage==='pressure' ? `${T.red}20` : T.amberD, border:`1px solid ${stage==='pressure' ? T.red+'60' : T.amber+'60'}`, color: stage==='pressure' ? T.red : T.amber, width:'100%', fontSize:12, letterSpacing:'0.08em', padding:'15px' }}>
               🎙 我說完了，看答案
             </button>
           )}
 
+          {/* Answer reveal */}
           {phase === 'answered' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }} className="fadeUp">
-              <div style={{ background: '#0d1117', border: '1px solid #3fb95040', borderRadius: 12, padding: 18 }}>
-                <div style={{ fontFamily: mono, fontSize: 8.5, color: '#3fb950', letterSpacing: '0.1em', marginBottom: 8 }}>ANSWER</div>
-                <div style={{ fontFamily: mono, fontSize: 14, color: '#e6edf3', lineHeight: 1.9, marginBottom: 12 }}>
-                  <SentenceDisplay template={card.template} />
+            <div style={{ display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
+              <div style={{ background:T.surf, border:`1px solid ${T.grn}40`, borderRadius:12, padding:18 }}>
+                <div style={{ fontFamily:MONO, fontSize:8.5, color:T.grn, letterSpacing:'0.1em', marginBottom:8 }}>ANSWER</div>
+                <div style={{ fontFamily:MONO, fontSize:14, color:T.txt, lineHeight:1.9 }}>
+                  {card.template.replace(/\{[^}]+\}/g, w =>
+                    `[${w.slice(1,-1)}]`
+                  ).split(/(\[[^\]]+\])/).map((part, i) =>
+                    part.startsWith('[') ? (
+                      <span key={i} style={{ color:T.amber, fontWeight:500 }}>{part}</span>
+                    ) : <span key={i}>{part}</span>
+                  )}
                 </div>
-                <div style={{ display: 'flex', gap: 14 }}>
-                  <div onClick={function() { speak(card.template) }}
-                    style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, color: '#7a8390', fontFamily: mono, fontSize: 10 }}>
-                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                      <path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none" />
-                      <path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-                    </svg>
+                <div style={{ display:'flex', gap:10, marginTop:12 }}>
+                  <div onClick={() => speak(card.template)} style={{ cursor:'pointer', display:'flex', alignItems:'center', gap:5, color:T.txt3, fontFamily:MONO, fontSize:10 }}
+                    onMouseOver={e=>e.currentTarget.style.color=T.amber} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
                     Replay
                   </div>
-                  <div onClick={function() { speak(card.template, 0.65) }}
-                    style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, color: '#7a8390', fontFamily: mono, fontSize: 10 }}>
-                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                      <path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none" />
-                      <path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-                    </svg>
-                    Slow
+                  <div onClick={() => { speak(card.template, 0.7) }} style={{ cursor:'pointer', display:'flex', alignItems:'center', gap:5, color:T.txt3, fontFamily:MONO, fontSize:10 }}
+                    onMouseOver={e=>e.currentTarget.style.color=T.blue} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+                    Repeat Slow
                   </div>
                 </div>
               </div>
 
+              {/* Stage progress info */}
               {stage === 'respond' && (
-                <div style={{ fontFamily: mono, fontSize: 9, color: '#7a8390', textAlign: 'center' }}>
-                  {'RESPOND ' + respondOk + '/3 ✓ → 解鎖 PRESSURE'}
+                <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, textAlign:'center' }}>
+                  RESPOND 進度：{respondOk}/3 ✓ 解鎖 PRESSURE
                 </div>
               )}
 
-              <div style={{ display: 'flex', gap: 10 }}>
-                <button className="btn" onClick={function() { handleRate(false) }}
-                  style={{ flex: 1, background: '#f8514918', border: '1px solid #f8514950', color: '#f85149', fontSize: 13, padding: '14px' }}>
+              {/* Rating */}
+              <div style={{ display:'flex', gap:10 }}>
+                <button className="btn" onClick={() => handleRate(false)}
+                  style={{ flex:1, background:T.redD, border:`1px solid ${T.red}50`, color:T.red, fontSize:13, padding:'14px' }}>
                   ✗ 沒開口
                 </button>
-                <button className="btn" onClick={function() { handleRate(true) }}
-                  style={{ flex: 1, background: '#3fb95018', border: '1px solid #3fb95050', color: '#3fb950', fontSize: 13, padding: '14px' }}>
+                <button className="btn" onClick={() => handleRate(true)}
+                  style={{ flex:1, background:T.grnD, border:`1px solid ${T.grn}50`, color:T.grn, fontSize:13, padding:'14px' }}>
                   ✓ 有開口
                 </button>
               </div>
 
-              <div style={{ fontFamily: mono, fontSize: 8, color: '#484f58', textAlign: 'center' }}>
+              {/* Weakness tag placeholder */}
+              <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, textAlign:'center', opacity:0.5 }}>
                 WEAKNESS TAGS — coming soon
               </div>
             </div>
@@ -7048,15 +7185,14 @@ function DrillTab({ sentences, settings }) {
         </div>
       )}
 
-      <div style={{ padding: '10px 14px', background: '#161b22', borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
-        <span style={{ fontFamily: mono, fontSize: 9, color: '#7a8390', letterSpacing: '0.1em' }}>STAGE 4 — BOSS FOLLOW-UP</span>
-        <span style={{ fontFamily: mono, fontSize: 8, color: '#7a8390', background: '#21262d', padding: '2px 8px', borderRadius: 10 }}>COMING SOON</span>
+      {/* BOSS placeholder */}
+      <div style={{ marginTop:4, padding:'10px 14px', background:T.surf2, borderRadius:9, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3, letterSpacing:'0.1em' }}>STAGE 4 — BOSS FOLLOW-UP</span>
+        <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3, background:T.bdr, padding:'2px 8px', borderRadius:10 }}>COMING SOON</span>
       </div>
-
     </div>
   )
 }
-
 
 // ═══════════════════════════════════════════════════════════════
 // PRACTICE TAB
@@ -7840,7 +7976,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v1.6</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v1.7</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
@@ -7853,7 +7989,6 @@ export default function App() {
       <Header stats={stats}/>
       <div style={{ flex:1, overflowY:'auto', paddingBottom:80 }}>
         {tab==='practice' && <PracticeTab {...P}/>}
-        {tab==='drill'    && <DrillTab    {...P}/>}
         {tab==='drill'    && <DrillTab    {...P}/>}
         {tab==='vocab'    && <VocabTab    {...P}/>}
         {tab==='email'    && <EmailTab    {...P}/>}
