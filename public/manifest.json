@@ -1,56 +1,39 @@
 {
   "name": "FSI Command",
   "short_name": "FSI",
-  "description": "FSI English Substitution Drill \u2014 Spaced Repetition for Business English",
-  "start_url": "/",
+  "description": "FSI English Substitution Drill — Business English Practice",
+  "start_url": "/fsi-command/",
+  "scope": "/fsi-command/",
   "display": "fullscreen",
   "orientation": "portrait-primary",
   "theme_color": "#050810",
   "background_color": "#050810",
-  "categories": [
-    "education",
-    "productivity"
-  ],
   "lang": "en-US",
   "icons": [
     {
-      "src": "/icon-192.svg",
+      "src": "/fsi-command/icon.svg?v=2",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/fsi-command/icon-192.svg?v=2",
       "sizes": "192x192",
       "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "/icon-512.svg",
+      "src": "/fsi-command/icon-512.svg?v=2",
       "sizes": "512x512",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "maskable any"
     }
   ],
-  "screenshots": [],
   "shortcuts": [
     {
       "name": "Practice",
-      "short_name": "Practice",
-      "description": "Start a drill session",
-      "url": "/?tab=practice",
-      "icons": [
-        {
-          "src": "/icon-192.svg",
-          "sizes": "192x192"
-        }
-      ]
-    },
-    {
-      "name": "Vocabulary",
-      "short_name": "Vocab",
-      "description": "Review vocabulary",
-      "url": "/?tab=vocab",
-      "icons": [
-        {
-          "src": "/icon-192.svg",
-          "sizes": "192x192"
-        }
-      ]
+      "url": "/fsi-command/?tab=practice",
+      "icons": [{"src": "/fsi-command/icon-192.svg?v=2", "sizes": "192x192"}]
     }
   ]
 }
