@@ -52,20 +52,17 @@ const SERIF = "'Crimson Pro',Georgia,serif"
 const DISP  = "'Cinzel',serif"
 
 // ═══════════════════════════════════════════════════════════════
-// STORAGE  (window.storage with in-memory fallback)
+// STORAGE  (localStorage — persists across sessions)
 // ═══════════════════════════════════════════════════════════════
-const memCache = {}
 const stor = {
   async get(k) {
     try {
-      const r = await window.storage?.get(k)
-      if (r) return JSON.parse(r.value)
-    } catch {}
-    return memCache[k] ?? null
+      const v = localStorage.getItem(k)
+      return v ? JSON.parse(v) : null
+    } catch { return null }
   },
   async set(k, v) {
-    memCache[k] = v
-    try { await window.storage?.set(k, JSON.stringify(v)) } catch {}
+    try { localStorage.setItem(k, JSON.stringify(v)) } catch {}
   }
 }
 
@@ -6478,7 +6475,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v1.3</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v1.4</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -6912,7 +6909,7 @@ Return ONLY valid JSON (no markdown), format:
   return (
     <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:14 }} className="fadeUp">
       <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, letterSpacing:'0.1em' }}>PASTE EMAIL OR BUSINESS TEXT</div>
-      <textarea value={text} onChange={e=>setText(e.target.value)} placeholder="Paste an email, meeting notes, or any business English text here…" style={{ minHeight:130, lineHeight:1.6 }}/>
+      <textarea value={text} onChange={e=>setText(e.target.value)} placeholder="Paste an email, meeting notes, or any business English text here…" style={{ minHeight:240, lineHeight:1.6, fontSize:13 }}/>
       {err && (
         <div style={{ background:T.redD, border:`1px solid ${T.red}50`, borderRadius:8, padding:11, fontFamily:MONO, fontSize:11, color:T.red, lineHeight:1.5 }}>{err}</div>
       )}
@@ -7204,7 +7201,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v1.3</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v1.4</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
