@@ -7,40 +7,23 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="FSI Command" />
-  <meta name="description" content="FSI English Substitution Drill Practice — Spaced Repetition for Business English" />
-
-  <!-- PWA Manifest -->
-  <link rel="manifest" href="/manifest.json" />
-
-  <!-- Apple Touch Icon -->
-  <link rel="apple-touch-icon" href="/icon-apple.svg" />
-
-  <!-- Favicon -->
-  <link rel="icon" type="image/svg+xml" href="/icon.svg" />
-
+  <meta name="description" content="FSI English Substitution Drill — Business English Practice" />
+  <link rel="manifest" href="/fsi-command/manifest.json" />
+  <link rel="apple-touch-icon" href="/fsi-command/icon-apple.svg" />
+  <link rel="icon" type="image/svg+xml" href="/fsi-command/icon.svg" />
   <title>FSI Command</title>
-
   <style>
-    /* Prevent flash of unstyled content */
-    html, body, #root {
-      height: 100%;
-      background: #050810;
-      margin: 0;
-      padding: 0;
-      overscroll-behavior: none;
-    }
+    html,body,#root{height:100%;background:#050810;margin:0;padding:0;overscroll-behavior:none;}
   </style>
 </head>
 <body>
   <div id="root"></div>
   <script type="module" src="/src/main.jsx"></script>
   <script>
-    // Register Service Worker
+    // Unregister all service workers to prevent stale cache issues
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js')
-          .then(reg => console.log('[SW] Registered:', reg.scope))
-          .catch(err => console.warn('[SW] Registration failed:', err))
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        regs.forEach(r => r.unregister())
       })
     }
   </script>
