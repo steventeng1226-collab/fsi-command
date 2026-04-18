@@ -6475,7 +6475,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v1.4</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v1.5</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -6532,15 +6532,26 @@ function SectionLabel({ children, color = '#8a95a0' }) {
 // ═══════════════════════════════════════════════════════════════
 function PracticeTab({ sentences, vocab, stats, settings, updateSentences, updateStats, awardBadge }) {
   const [mode, setMode] = useState('simple')
+  const [category, setCategory] = useState('all')
+  const [showInfo, setShowInfo] = useState(false)
   const [idx, setIdx] = useState(0)
   const [sels, setSels] = useState({})
   const [revealed, setRevealed] = useState(false)
   const [toast, setToast] = useState('')
 
+  const LIFE_CONTEXTS = ['Daily Life','Greeting','Travel','Shopping','Food','Health','Family','Hobby','Lifestyle','生活']
+  const isWork = (s) => !LIFE_CONTEXTS.some(c => (s.context??'').toLowerCase().includes(c.toLowerCase()))
+
   const queue = useMemo(() => {
-    const filtered = (sentences ?? []).filter(s => mode === 'simple' ? s.mode === 'simple' : true)
+    let filtered = (sentences ?? []).filter(s => {
+      if (mode === 'simple' && s.mode !== 'simple') return false
+      if (mode === 'hard'   && s.mode !== 'hard')   return false
+      if (category === 'work' && !isWork(s)) return false
+      if (category === 'life' &&  isWork(s)) return false
+      return true
+    })
     return srsSort(filtered)
-  }, [sentences, mode])
+  }, [sentences, mode, category])
 
   const card = queue.length > 0 ? queue[idx % queue.length] : null
 
@@ -6603,12 +6614,33 @@ function PracticeTab({ sentences, vocab, stats, settings, updateSentences, updat
       )}
 
       {/* Mode toggle */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}>
+      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
         <div style={{ display:'flex', background:T.surf2, borderRadius:9, padding:3, gap:2, flex:1 }}>
           <ModeBtn id="simple" label="SIMPLE"/>
-          <ModeBtn id="hard" label="HARD MODE"/>
+          <ModeBtn id="hard" label="HARD"/>
         </div>
-        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, whiteSpace:'nowrap' }}>
+        <div onClick={() => setShowInfo(s=>!s)} style={{ cursor:'pointer', color: showInfo ? T.amber : T.txt3, padding:'6px 8px', background:T.surf2, borderRadius:9, fontFamily:MONO, fontSize:11, transition:'color 0.14s' }}>?</div>
+      </div>
+
+      {showInfo && (
+        <div style={{ background:T.surf2, border:`1px solid ${T.bdr2}`, borderRadius:11, padding:14 }} className="fadeUp">
+          <div style={{ fontFamily:MONO, fontSize:10, color:T.amber, marginBottom:8 }}>SIMPLE vs HARD</div>
+          <div style={{ fontFamily:SERIF, fontSize:13, color:T.txt2, lineHeight:1.7 }}>
+            <b style={{color:T.txt}}>SIMPLE</b> — 單句填空練習。選好詞組後按「Speak & Reveal」，練習說出完整句子。適合通勤、零碎時間。<br/><br/>
+            <b style={{color:T.txt}}>HARD</b> — 多句對話情境（3句以上）。模擬會議、客戶電話、RCA討論的完整對話。適合有15分鐘以上的練習時間。
+          </div>
+        </div>
+      )}
+
+      {/* Category filter */}
+      <div style={{ display:'flex', gap:6 }}>
+        {[['all','ALL'],['work','💼 WORK'],['life','🏠 LIFE']].map(([id, lbl]) => (
+          <div key={id} onClick={() => { setCategory(id); setIdx(0) }}
+            style={{ flex:1, textAlign:'center', padding:'6px 0', borderRadius:8, cursor:'pointer', fontFamily:MONO, fontSize:9, letterSpacing:'0.06em', border:`1px solid ${category===id ? T.amber+'80' : T.bdr}`, background: category===id ? T.amberD : 'transparent', color: category===id ? T.amber : '#c2cad4', transition:'all 0.14s' }}>
+            {lbl}
+          </div>
+        ))}
+        <div style={{ display:'flex', alignItems:'center', fontFamily:MONO, fontSize:9, color:T.txt3, whiteSpace:'nowrap', paddingLeft:4 }}>
           {queue.length} cards
         </div>
       </div>
@@ -6699,9 +6731,64 @@ function VocabTab({ vocab, updateVocab, updateStats, awardBadge }) {
   const [flipped, setFlipped] = useState(false)
   const [fillAns, setFillAns] = useState('')
   const [fillRes, setFillRes] = useState(null)
+  const [audioPlaying, setAudioPlaying] = useState(false)
+  const audioRef = useRef(null)
 
-  const sorted = useMemo(() => srsSort(vocab ?? []), [vocab])
+  // List: newest first (by id timestamp), archived last
+  const listWords = useMemo(() => {
+    const arr = [...(vocab ?? [])]
+    arr.sort((a, b) => {
+      if (a.archived && !b.archived) return 1
+      if (!a.archived && b.archived) return -1
+      // newest first by id
+      const aTime = parseInt(String(a.id).replace(/\D/g,'')) || 0
+      const bTime = parseInt(String(b.id).replace(/\D/g,'')) || 0
+      return bTime - aTime
+    })
+    return arr
+  }, [vocab])
+
+  const sorted = useMemo(() => srsSort((vocab ?? []).filter(v => !v.archived)), [vocab])
   const cur = sorted.length > 0 ? sorted[flipIdx % sorted.length] : null
+
+  // Audio mode: read all words sequentially
+  function startAudio() {
+    setAudioPlaying(true)
+    const words = listWords.filter(w => !w.archived)
+    let i = 0
+    function playNext() {
+      if (i >= words.length) { setAudioPlaying(false); return }
+      const w = words[i++]
+      const u1 = new SpeechSynthesisUtterance(w.word)
+      u1.lang = 'en-US'; u1.rate = 0.85
+      u1.onend = () => {
+        if (w.def) {
+          setTimeout(() => {
+            const u2 = new SpeechSynthesisUtterance(w.def)
+            u2.lang = 'zh-TW'; u2.rate = 0.9
+            u2.onend = () => setTimeout(playNext, 800)
+            window.speechSynthesis.speak(u2)
+          }, 300)
+        } else {
+          setTimeout(playNext, 800)
+        }
+      }
+      window.speechSynthesis.cancel()
+      window.speechSynthesis.speak(u1)
+    }
+    playNext()
+  }
+  function stopAudio() {
+    window.speechSynthesis.cancel()
+    setAudioPlaying(false)
+  }
+
+  function archiveWord(id) {
+    updateVocab(prev => (prev??[]).map(v => v.id === id ? {...v, archived: true} : v))
+  }
+  function unarchiveWord(id) {
+    updateVocab(prev => (prev??[]).map(v => v.id === id ? {...v, archived: false} : v))
+  }
 
   async function lookupIPA(word) {
     try {
@@ -6753,7 +6840,20 @@ function VocabTab({ vocab, updateVocab, updateStats, awardBadge }) {
     <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:14 }} className="fadeUp">
       <div style={{ display:'flex', background:T.surf2, borderRadius:9, padding:3, gap:2 }}>
         <SubBtn id="list" lbl="LIST"/><SubBtn id="flash" lbl="FLASHCARD"/><SubBtn id="fill" lbl="FILL-IN"/>
+        <div onClick={() => audioPlaying ? stopAudio() : startAudio()}
+          style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:'7px 12px', borderRadius:7, cursor:'pointer', background: audioPlaying ? T.amber : 'transparent', color: audioPlaying ? T.bg : '#c2cad4', transition:'all 0.14s', fontSize:13 }}
+          title="Ride & Listen mode">
+          {audioPlaying ? '⏹' : '🎧'}
+        </div>
       </div>
+
+      {audioPlaying && (
+        <div style={{ background:`${T.amber}18`, border:`1px solid ${T.amber}40`, borderRadius:10, padding:'10px 14px', display:'flex', alignItems:'center', gap:10 }}>
+          <span style={{ fontFamily:MONO, fontSize:10, color:T.amber, animation:'pulse 1.5s infinite' }}>● AUDIO PLAYING</span>
+          <span style={{ fontFamily:SERIF, fontSize:12, color:T.txt2, flex:1 }}>騎車模式：單字 → 中文定義 逐一播放</span>
+          <button className="btn" onClick={stopAudio} style={{ background:T.redD, border:`1px solid ${T.red}50`, color:T.red, padding:'5px 10px', fontSize:11 }}>停止</button>
+        </div>
+      )}
 
       {sub === 'list' && (
         <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
@@ -6770,17 +6870,25 @@ function VocabTab({ vocab, updateVocab, updateStats, awardBadge }) {
               + ADD WORD
             </button>
           )}
-          {(vocab??[]).length === 0 && <div style={{ textAlign:'center', color:T.txt3, fontFamily:SERIF, fontSize:13, padding:'24px 0' }}>No words yet. Add some!</div>}
-          {(vocab??[]).map(w => (
-            <div key={w.id} style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:11, padding:15 }}>
+          {listWords.length === 0 && <div style={{ textAlign:'center', color:T.txt3, fontFamily:SERIF, fontSize:13, padding:'24px 0' }}>No words yet. Add some!</div>}
+          {listWords.map(w => (
+            <div key={w.id} style={{ background:T.surf, border:`1px solid ${w.archived ? T.bdr : T.bdr}`, borderRadius:11, padding:15, opacity: w.archived ? 0.5 : 1, transition:'opacity 0.2s' }}>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:w.def ? 6 : 0 }}>
-                <div>
-                  <span style={{ fontFamily:MONO, fontSize:15, color:T.amber, fontWeight:500 }}>{w.word}</span>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <span style={{ fontFamily:MONO, fontSize:15, color: w.archived ? T.txt3 : T.amber, fontWeight:500 }}>{w.word}</span>
                   {w.ipa_us && <span style={{ fontFamily:MONO, fontSize:10, color:'#9aa5b0', marginLeft:10 }}>{w.ipa_us}</span>}
                 </div>
-                <div onClick={()=>speak(w.word)} style={{ cursor:'pointer', color:T.txt3, padding:5, transition:'color 0.14s' }}
-                  onMouseOver={e=>e.currentTarget.style.color=T.amber} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
-                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+                <div style={{ display:'flex', gap:4, flexShrink:0 }}>
+                  <div onClick={()=>speak(w.word)} style={{ cursor:'pointer', color:T.txt3, padding:5, transition:'color 0.14s' }}
+                    onMouseOver={e=>e.currentTarget.style.color=T.amber} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+                  </div>
+                  <div onClick={()=> w.archived ? unarchiveWord(w.id) : archiveWord(w.id)}
+                    title={w.archived ? '取消封存' : '已熟，移到最後'}
+                    style={{ cursor:'pointer', color: w.archived ? T.grn : T.txt3, padding:5, fontSize:12, transition:'color 0.14s', fontFamily:MONO }}
+                    onMouseOver={e=>e.currentTarget.style.color=T.grn} onMouseOut={e=>e.currentTarget.style.color= w.archived ? T.grn : T.txt3}>
+                    {w.archived ? '↺' : '✓'}
+                  </div>
                 </div>
               </div>
               {w.def && <div style={{ fontFamily:SERIF, fontSize:13, color:T.txt2, lineHeight:1.55 }}>{w.def}</div>}
@@ -7201,7 +7309,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v1.4</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v1.5</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
