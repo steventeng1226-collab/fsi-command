@@ -103,7 +103,96 @@ function speak(text, rate = 0.82) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// CLAUDE API
+// LINKED HINT RENDERER
+// Format spec:
+//   [t'·word]  weak form + liaison  → t' gray, · amber, word normal
+//   [ən·word]  weak and + liaison   → same rule
+//   ·          liaison point        → amber
+//   (t) (d)    elided consonant     → gray parentheses
+//   CAPS       stressed syllable    → white bold
+// ═══════════════════════════════════════════════════════════════
+function renderLinkedHint(hint) {
+  if (!hint) return null
+  const out = []
+  let i = 0
+  const s = hint
+  while (i < s.length) {
+    // [weak·linked] pattern
+    if (s[i] === '[') {
+      const end = s.indexOf(']', i)
+      if (end !== -1) {
+        const inner = s.slice(i + 1, end)
+        const dot = inner.indexOf('·')
+        if (dot !== -1) {
+          out.push(<span key={i+'w'} style={{ color:T.txt3, fontSize:'0.9em' }}>{inner.slice(0, dot)}</span>)
+          out.push(<span key={i+'d'} style={{ color:T.amber, fontWeight:700 }}>·</span>)
+          out.push(<span key={i+'l'}>{inner.slice(dot + 1)}</span>)
+        } else {
+          out.push(<span key={i}>{inner}</span>)
+        }
+        i = end + 1; continue
+      }
+    }
+    // (t) (d) elision
+    if (s[i] === '(') {
+      const end = s.indexOf(')', i)
+      if (end !== -1) {
+        out.push(<span key={i} style={{ color:T.txt3, fontSize:'0.82em', opacity:0.7 }}>({s.slice(i+1,end)})</span>)
+        i = end + 1; continue
+      }
+    }
+    // · liaison dot
+    if (s[i] === '·') {
+      out.push(<span key={i} style={{ color:T.amber, fontWeight:700 }}>·</span>)
+      i++; continue
+    }
+    // collect regular text chunk
+    let j = i
+    while (j < s.length && s[j] !== '[' && s[j] !== '(' && s[j] !== '·') j++
+    if (j > i) {
+      const chunk = s.slice(i, j)
+      // uppercase = stress
+      chunk.split(/([A-ZÀÁÂÃÄÅÆÇ]{2,})/).forEach((p, pi) => {
+        if (/^[A-Z]{2,}$/.test(p)) {
+          out.push(<span key={i+'_'+pi} style={{ color:T.txt, fontWeight:700 }}>{p}</span>)
+        } else {
+          out.push(<span key={i+'_'+pi}>{p}</span>)
+        }
+      })
+      i = j
+    } else {
+      out.push(<span key={i}>{s[i]}</span>); i++
+    }
+  }
+  return out
+}
+
+// Extract playable chunks from linked_hint for individual 🔊 buttons
+// Returns array of { label, ttsText }
+function extractLiaisonChunks(hint) {
+  if (!hint) return []
+  const chunks = []
+  const bracketRe = /\[([^\]]+)\]/g
+  const dotRe = /(\S+·\S+)/g
+  let m
+  const seen = new Set()
+  while ((m = bracketRe.exec(hint)) !== null) {
+    const inner = m[1]
+    const dot = inner.indexOf('·')
+    const tts = dot !== -1 ? inner.slice(0, dot).replace(/'/g,'') + ' ' + inner.slice(dot+1) : inner
+    const label = m[0]
+    if (!seen.has(label)) { seen.add(label); chunks.push({ label, tts: tts.trim() }) }
+  }
+  // also pick up word·word patterns outside brackets
+  const noBrackets = hint.replace(/\[[^\]]*\]/g, '')
+  while ((m = dotRe.exec(noBrackets)) !== null) {
+    const parts = m[1].split('·')
+    const tts = parts.join(' ')
+    if (!seen.has(m[1])) { seen.add(m[1]); chunks.push({ label: m[1], tts }) }
+  }
+  return chunks
+}
+
 // ═══════════════════════════════════════════════════════════════
 async function callClaude(apiKey, messages, system = '') {
   const r = await fetch('https://api.anthropic.com/v1/messages', {
@@ -126,255 +215,26 @@ async function callClaude(apiKey, messages, system = '') {
 // ═══════════════════════════════════════════════════════════════
 const SEED_S = [
   {
-    "id": "s30_01",
-    "context": "Production Issue",
-    "hint": "Reporting a bottleneck in a meeting",
-    "original": "We have identified a major bottleneck in the packaging stage.",
-    "linked_hint": "We-have identified / a major bottleneck / in the packaging stage.",
-    "rhythm": "We have identified a major bottleneck in the packaging stage.",
-    "tts": "We have identified a major bottleneck in the packaging stage.",
+    "id": "s1",
     "mode": "simple",
-    "subs": [],
-    "reps": 0,
-    "ease": 2.5,
-    "interval": 1,
-    "dueDate": 0,
-    "lastSeen": 0
-  },
-  {
-    "id": "s30_02",
-    "context": "Production Flow",
-    "hint": "Explaining impact on production",
-    "original": "This is currently slowing down our entire production flow.",
-    "linked_hint": "This-is currently / slowing down / our entire production flow.",
-    "rhythm": "This is currently slowing down our entire production flow.",
-    "tts": "This is currently slowing down our entire production flow.",
-    "mode": "simple",
-    "subs": [],
-    "reps": 0,
-    "ease": 2.5,
-    "interval": 1,
-    "dueDate": 0,
-    "lastSeen": 0
-  },
-  {
-    "id": "s30_03",
-    "context": "Inventory Control",
-    "hint": "Requesting inventory reduction",
-    "original": "We need to reduce the inventory level.",
-    "linked_hint": "We need t' reduce / the inventory level.",
-    "rhythm": "We need to reduce the inventory level.",
-    "tts": "We need to reduce the inventory level.",
-    "mode": "simple",
-    "subs": [],
-    "reps": 0,
-    "ease": 2.5,
-    "interval": 1,
-    "dueDate": 0,
-    "lastSeen": 0
-  },
-  {
-    "id": "s30_04",
-    "context": "Logistics",
-    "hint": "Pushing for faster shipment",
-    "original": "We must expedite the current shipments.",
-    "linked_hint": "We must expedite / the current shipments.",
-    "rhythm": "We must expedite the current shipments.",
-    "tts": "We must expedite the current shipments.",
-    "mode": "simple",
-    "subs": [],
-    "reps": 0,
-    "ease": 2.5,
-    "interval": 1,
-    "dueDate": 0,
-    "lastSeen": 0
-  },
-  {
-    "id": "s30_05",
-    "context": "Delay Management",
-    "hint": "Coordinating with logistics team",
-    "original": "We are working with logistics to mitigate the delays.",
-    "linked_hint": "We-are working / with logistics / t' mitigate the delays.",
-    "rhythm": "We are working with logistics to mitigate the delays.",
-    "tts": "We are working with logistics to mitigate the delays.",
-    "mode": "simple",
-    "subs": [],
-    "reps": 0,
-    "ease": 2.5,
-    "interval": 1,
-    "dueDate": 0,
-    "lastSeen": 0
-  },
-  {
-    "id": "s30_06",
-    "context": "Management Principle",
-    "hint": "Emphasizing proactive mindset",
-    "original": "It is vital to be proactive rather than reactive.",
-    "linked_hint": "It-is vital / t' be proactive / rather than reactive.",
-    "rhythm": "It is vital to be proactive rather than reactive.",
-    "tts": "It is vital to be proactive rather than reactive.",
-    "mode": "simple",
-    "subs": [],
-    "reps": 0,
-    "ease": 2.5,
-    "interval": 1,
-    "dueDate": 0,
-    "lastSeen": 0
-  },
-  {
-    "id": "s30_07",
-    "context": "Budget Review",
-    "hint": "Requesting justification for expense",
-    "original": "Please provide a clear justification.",
-    "linked_hint": "Please provide / a clear justification.",
-    "rhythm": "Please provide a clear justification.",
-    "tts": "Please provide a clear justification.",
-    "mode": "simple",
-    "subs": [],
-    "reps": 0,
-    "ease": 2.5,
-    "interval": 1,
-    "dueDate": 0,
-    "lastSeen": 0
-  },
-  {
-    "id": "s30_08",
-    "context": "Budget Review",
-    "hint": "Management evaluating the expense",
-    "original": "Management will evaluate the rationality of this expense.",
-    "linked_hint": "Management will evaluate / the rationality / of this expense.",
-    "rhythm": "Management will evaluate the rationality of this expense.",
-    "tts": "Management will evaluate the rationality of this expense.",
-    "mode": "simple",
-    "subs": [],
-    "reps": 0,
-    "ease": 2.5,
-    "interval": 1,
-    "dueDate": 0,
-    "lastSeen": 0
-  },
-  {
-    "id": "s30_09",
-    "context": "Team Restructure",
-    "hint": "Announcing assembly team consolidation",
-    "original": "We will consolidate assembly teams to improve efficiency.",
-    "linked_hint": "We will consolidate / assembly teams / t' improve efficiency.",
-    "rhythm": "We will consolidate assembly teams to improve efficiency.",
-    "tts": "We will consolidate assembly teams to improve efficiency.",
-    "mode": "simple",
-    "subs": [],
-    "reps": 0,
-    "ease": 2.5,
-    "interval": 1,
-    "dueDate": 0,
-    "lastSeen": 0
-  },
-  {
-    "id": "s30_10",
-    "context": "Quality Alignment",
-    "hint": "Setting expectation for alignment",
-    "original": "I expect perfect alignment between production and quality control.",
-    "linked_hint": "I expect / perfect alignment / between production n' quality control.",
-    "rhythm": "I expect perfect alignment between production and quality control.",
-    "tts": "I expect perfect alignment between production and quality control.",
-    "mode": "simple",
-    "subs": [],
-    "reps": 0,
-    "ease": 2.5,
-    "interval": 1,
-    "dueDate": 0,
-    "lastSeen": 0
-  },
-  {
-    "id": "s30_11",
-    "context": "Execution",
-    "hint": "Emphasizing execution over planning",
-    "original": "Even the best plans fail without strong execution.",
-    "linked_hint": "Even the best plans / fail without / strong execution.",
-    "rhythm": "Even the best plans fail without strong execution.",
-    "tts": "Even the best plans fail without strong execution.",
-    "mode": "simple",
-    "subs": [],
-    "reps": 0,
-    "ease": 2.5,
-    "interval": 1,
-    "dueDate": 0,
-    "lastSeen": 0
-  },
-  {
-    "id": "s30_12",
-    "context": "Pricing Decision",
-    "hint": "Recommending price adjustment based on data",
-    "original": "Based on the data, we need to adjust pricing.",
-    "linked_hint": "Based-on the data / we need t' adjust pricing.",
-    "rhythm": "Based on the data, we need to adjust pricing.",
-    "tts": "Based on the data, we need to adjust pricing.",
-    "mode": "simple",
-    "subs": [],
-    "reps": 0,
-    "ease": 2.5,
-    "interval": 1,
-    "dueDate": 0,
-    "lastSeen": 0
-  },
-  {
-    "id": "s30_13",
-    "context": "Quality Improvement",
-    "hint": "Targeting yield and scrap reduction",
-    "original": "We need to improve yield and reduce scrap.",
-    "linked_hint": "We need t' improve yield / n' reduce scrap.",
-    "rhythm": "We need to improve yield and reduce scrap.",
-    "tts": "We need to improve yield and reduce scrap.",
-    "mode": "simple",
-    "subs": [],
-    "reps": 0,
-    "ease": 2.5,
-    "interval": 1,
-    "dueDate": 0,
-    "lastSeen": 0
-  },
-  {
-    "id": "s30_14",
-    "context": "Root Cause Analysis",
-    "hint": "Identifying source of process issue",
-    "original": "The issue is coming from process variation.",
-    "linked_hint": "The issue / is coming from / process variation.",
-    "rhythm": "The issue is coming from process variation.",
-    "tts": "The issue is coming from process variation.",
-    "mode": "simple",
-    "subs": [],
-    "reps": 0,
-    "ease": 2.5,
-    "interval": 1,
-    "dueDate": 0,
-    "lastSeen": 0
-  },
-  {
-    "id": "s30_15",
-    "context": "Root Cause Analysis",
-    "hint": "Setting priority in RCA meeting",
-    "original": "We need to identify the root cause first.",
-    "linked_hint": "We need t' identify / the root cause first.",
-    "rhythm": "We need to identify the root cause first.",
-    "tts": "We need to identify the root cause first.",
-    "mode": "simple",
-    "subs": [],
-    "reps": 0,
-    "ease": 2.5,
-    "interval": 1,
-    "dueDate": 0,
-    "lastSeen": 0
-  },
-  {
-    "id": "s30_16",
     "context": "Production Status",
-    "hint": "Daily standup capacity report",
-    "original": "The capacity is running at eighty-five percent today.",
-    "linked_hint": "The capacity / is running at / eighty-five percent today.",
-    "rhythm": "The capacity is running at eighty-five percent today.",
-    "tts": "The capacity is running at eighty-five percent today.",
-    "mode": "simple",
-    "subs": [],
+    "hint": "Daily standup — reporting line output",
+    "template": "The {line} is running at {capacity}% capacity today.",
+    "subs": [
+      [
+        "SMD line",
+        "packaging line",
+        "assembly line",
+        "coating line"
+      ],
+      [
+        "85",
+        "90",
+        "72",
+        "100",
+        "65"
+      ]
+    ],
     "reps": 0,
     "ease": 2.5,
     "interval": 1,
@@ -382,15 +242,31 @@ const SEED_S = [
     "lastSeen": 0
   },
   {
-    "id": "s30_17",
-    "context": "Planning Alignment",
-    "hint": "Requesting alignment with production plan",
-    "original": "We need to align with the production plan.",
-    "linked_hint": "We need t' align / with the production plan.",
-    "rhythm": "We need to align with the production plan.",
-    "tts": "We need to align with the production plan.",
+    "id": "s2",
     "mode": "simple",
-    "subs": [],
+    "context": "Gross Margin",
+    "hint": "Presenting Q results to management",
+    "template": "Our gross margin {changed} by {amount}% due to {reason}.",
+    "subs": [
+      [
+        "declined",
+        "improved",
+        "remained stable"
+      ],
+      [
+        "2.3",
+        "1.5",
+        "4.1",
+        "0.8"
+      ],
+      [
+        "higher silver paste cost",
+        "product mix shift",
+        "volume scale-up",
+        "ASP pressure",
+        "inventory write-down"
+      ]
+    ],
     "reps": 0,
     "ease": 2.5,
     "interval": 1,
@@ -398,15 +274,30 @@ const SEED_S = [
     "lastSeen": 0
   },
   {
-    "id": "s30_18",
-    "context": "Data Verification",
-    "hint": "Asking someone to verify data",
-    "original": "Please check the data and confirm.",
-    "linked_hint": "Please check the data / n' confirm.",
-    "rhythm": "Please check the data and confirm.",
-    "tts": "Please check the data and confirm.",
+    "id": "s3",
     "mode": "simple",
-    "subs": [],
+    "context": "Yield Report",
+    "hint": "Presenting process quality results",
+    "template": "We achieved a {yield}% yield rate on the {product} line this {period}.",
+    "subs": [
+      [
+        "98.2",
+        "96.5",
+        "99.1",
+        "94.3"
+      ],
+      [
+        "0603",
+        "beads",
+        "CLH",
+        "inductor"
+      ],
+      [
+        "week",
+        "month",
+        "quarter"
+      ]
+    ],
     "reps": 0,
     "ease": 2.5,
     "interval": 1,
@@ -414,15 +305,31 @@ const SEED_S = [
     "lastSeen": 0
   },
   {
-    "id": "s30_19",
-    "context": "Gap Closure",
-    "hint": "Urging team to close performance gap",
-    "original": "We need to close the gap as soon as possible.",
-    "linked_hint": "We need t' close the gap / as soon-as possible.",
-    "rhythm": "We need to close the gap as soon as possible.",
-    "tts": "We need to close the gap as soon as possible.",
+    "id": "s4",
     "mode": "simple",
-    "subs": [],
+    "context": "Quality Issue",
+    "hint": "Reporting a defect finding in QC meeting",
+    "template": "We found {count} defective units in the {batch}, with a defect rate of {rate}%.",
+    "subs": [
+      [
+        "3",
+        "12",
+        "47",
+        "156"
+      ],
+      [
+        "latest shipment",
+        "incoming lot",
+        "Q2 batch",
+        "sampling group"
+      ],
+      [
+        "0.3",
+        "1.2",
+        "2.8",
+        "0.05"
+      ]
+    ],
     "reps": 0,
     "ease": 2.5,
     "interval": 1,
@@ -430,15 +337,43 @@ const SEED_S = [
     "lastSeen": 0
   },
   {
-    "id": "s30_20",
-    "context": "Decision Making",
-    "hint": "Proposing review before decision",
-    "original": "Let us review the numbers before making a decision.",
-    "linked_hint": "Let-us review the numbers / before making a decision.",
-    "rhythm": "Let us review the numbers before making a decision.",
-    "tts": "Let us review the numbers before making a decision.",
-    "mode": "simple",
-    "subs": [],
+    "id": "s5",
+    "mode": "hard",
+    "context": "Customer Call",
+    "hint": "Negotiating delivery schedule",
+    "template": "A: When can we expect the delivery?\nB: We can {deliver} the order by {date}.\nA: Can you {guarantee} that schedule?\nB: Let me {check} with our {team} and confirm by EOD.",
+    "subs": [
+      [
+        "deliver",
+        "ship",
+        "dispatch",
+        "complete"
+      ],
+      [
+        "end of this week",
+        "next Monday",
+        "the 25th",
+        "Friday"
+      ],
+      [
+        "confirm",
+        "guarantee",
+        "commit to",
+        "ensure"
+      ],
+      [
+        "check",
+        "verify",
+        "confirm",
+        "follow up"
+      ],
+      [
+        "production team",
+        "plant manager",
+        "logistics team",
+        "scheduling team"
+      ]
+    ],
     "reps": 0,
     "ease": 2.5,
     "interval": 1,
@@ -446,15 +381,42 @@ const SEED_S = [
     "lastSeen": 0
   },
   {
-    "id": "s30_21",
-    "context": "Supply Chain",
-    "hint": "Reporting delay due to shortage",
-    "original": "We are facing a delay due to material shortage.",
-    "linked_hint": "We-are facing a delay / due t' material shortage.",
-    "rhythm": "We are facing a delay due to material shortage.",
-    "tts": "We are facing a delay due to material shortage.",
-    "mode": "simple",
-    "subs": [],
+    "id": "s6",
+    "mode": "hard",
+    "context": "RCA Meeting",
+    "hint": "Root cause analysis discussion",
+    "template": "A: What caused the margin drop?\nB: The primary driver was {cause}.\nA: When did this start?\nB: We first {noticed} the issue in {period}.\nA: What's the {action}?\nB: We're {measure} to address it.",
+    "subs": [
+      [
+        "higher raw material cost",
+        "unfavorable product mix",
+        "ASP erosion",
+        "volume underabsorption"
+      ],
+      [
+        "noticed",
+        "identified",
+        "detected",
+        "flagged"
+      ],
+      [
+        "early March",
+        "Q1",
+        "last month",
+        "Week 10"
+      ],
+      [
+        "corrective action",
+        "mitigation plan",
+        "recovery roadmap"
+      ],
+      [
+        "renegotiating supplier contracts",
+        "optimizing product mix",
+        "raising ASP",
+        "reducing fixed cost allocation"
+      ]
+    ],
     "reps": 0,
     "ease": 2.5,
     "interval": 1,
@@ -462,15 +424,20 @@ const SEED_S = [
     "lastSeen": 0
   },
   {
-    "id": "s30_22",
-    "context": "Output Target",
-    "hint": "Pushing for higher output this week",
-    "original": "We need to increase output this week.",
-    "linked_hint": "We need t' increase output / this week.",
-    "rhythm": "We need to increase output this week.",
-    "tts": "We need to increase output this week.",
+    "id": "xl_s0",
     "mode": "simple",
-    "subs": [],
+    "context": "Issue",
+    "hint": "The main issue is low yield.",
+    "template": "The main issue is {blank}.",
+    "subs": [
+      [
+        "yield",
+        "cost",
+        "delay",
+        "manpower",
+        "material"
+      ]
+    ],
     "reps": 0,
     "ease": 2.5,
     "interval": 1,
@@ -478,15 +445,20 @@ const SEED_S = [
     "lastSeen": 0
   },
   {
-    "id": "s30_23",
-    "context": "Line Performance",
-    "hint": "Reporting underperformance in standup",
-    "original": "The line is running below target today.",
-    "linked_hint": "The line / is running below target / today.",
-    "rhythm": "The line is running below target today.",
-    "tts": "The line is running below target today.",
+    "id": "xl_s1",
     "mode": "simple",
-    "subs": [],
+    "context": "Impact",
+    "hint": "The impact is mainly from silver price.",
+    "template": "The impact is mainly from {blank}.",
+    "subs": [
+      [
+        "silver price",
+        "labor cost",
+        "downtime",
+        "scrap",
+        "demand"
+      ]
+    ],
     "reps": 0,
     "ease": 2.5,
     "interval": 1,
@@ -494,15 +466,20 @@ const SEED_S = [
     "lastSeen": 0
   },
   {
-    "id": "s30_24",
-    "context": "Problem Solving",
-    "hint": "Reassuring team that work is in progress",
-    "original": "We are working on a solution right now.",
-    "linked_hint": "We-are working on / a solution / right now.",
-    "rhythm": "We are working on a solution right now.",
-    "tts": "We are working on a solution right now.",
+    "id": "xl_s2",
     "mode": "simple",
-    "subs": [],
+    "context": "Status",
+    "hint": "The project is on track.",
+    "template": "The project is {blank}.",
+    "subs": [
+      [
+        "on track",
+        "delayed",
+        "behind schedule",
+        "at risk",
+        "completed"
+      ]
+    ],
     "reps": 0,
     "ease": 2.5,
     "interval": 1,
@@ -510,15 +487,20 @@ const SEED_S = [
     "lastSeen": 0
   },
   {
-    "id": "s30_25",
-    "context": "Delivery Risk",
-    "hint": "Warning about delivery schedule impact",
-    "original": "This will impact our delivery schedule.",
-    "linked_hint": "This will impact / our delivery schedule.",
-    "rhythm": "This will impact our delivery schedule.",
-    "tts": "This will impact our delivery schedule.",
+    "id": "xl_s3",
     "mode": "simple",
-    "subs": [],
+    "context": "Action",
+    "hint": "We need to improve FPY.",
+    "template": "We need to improve {blank}.",
+    "subs": [
+      [
+        "FPY",
+        "Cpk",
+        "yield",
+        "efficiency",
+        "quality"
+      ]
+    ],
     "reps": 0,
     "ease": 2.5,
     "interval": 1,
@@ -526,15 +508,20 @@ const SEED_S = [
     "lastSeen": 0
   },
   {
-    "id": "s30_26",
-    "context": "Issue Resolution",
-    "hint": "Demanding immediate fix",
-    "original": "We need to fix this issue immediately.",
-    "linked_hint": "We need t' fix / this issue / immediately.",
-    "rhythm": "We need to fix this issue immediately.",
-    "tts": "We need to fix this issue immediately.",
+    "id": "xl_s4",
     "mode": "simple",
-    "subs": [],
+    "context": "Timeline",
+    "hint": "The target date is next Friday.",
+    "template": "The target date is {blank}.",
+    "subs": [
+      [
+        "next Friday",
+        "end of month",
+        "Q2",
+        "this week",
+        "TBD"
+      ]
+    ],
     "reps": 0,
     "ease": 2.5,
     "interval": 1,
@@ -542,15 +529,20 @@ const SEED_S = [
     "lastSeen": 0
   },
   {
-    "id": "s30_27",
-    "context": "Root Cause Analysis",
-    "hint": "Updating status on investigation",
-    "original": "The root cause is still under investigation.",
-    "linked_hint": "The root cause / is still under investigation.",
-    "rhythm": "The root cause is still under investigation.",
-    "tts": "The root cause is still under investigation.",
+    "id": "xl_s5",
     "mode": "simple",
-    "subs": [],
+    "context": "Bottleneck",
+    "hint": "The bottleneck is at the winding stage.",
+    "template": "The bottleneck is at the {blank} stage.",
+    "subs": [
+      [
+        "winding",
+        "coating",
+        "assembly",
+        "inspection",
+        "packaging"
+      ]
+    ],
     "reps": 0,
     "ease": 2.5,
     "interval": 1,
@@ -558,15 +550,28 @@ const SEED_S = [
     "lastSeen": 0
   },
   {
-    "id": "s30_28",
-    "context": "Status Update",
-    "hint": "Committing to end-of-day update",
-    "original": "We will update you by end of today.",
-    "linked_hint": "We will update you / by-end of today.",
-    "rhythm": "We will update you by end of today.",
-    "tts": "We will update you by end of today.",
+    "id": "life_01",
     "mode": "simple",
-    "subs": [],
+    "context": "Daily Life",
+    "hint": "Someone asks what you had",
+    "template": "I had {food} for {meal}.",
+    "subs": [
+      [
+        "rice and soup",
+        "noodles",
+        "a sandwich",
+        "fried rice",
+        "sushi",
+        "congee",
+        "toast"
+      ],
+      [
+        "breakfast",
+        "lunch",
+        "dinner",
+        "brunch"
+      ]
+    ],
     "reps": 0,
     "ease": 2.5,
     "interval": 1,
@@ -574,15 +579,28 @@ const SEED_S = [
     "lastSeen": 0
   },
   {
-    "id": "s30_29",
-    "context": "Action Item",
-    "hint": "Asking someone to follow up",
-    "original": "Please follow up on this action item.",
-    "linked_hint": "Please follow-up / on this action item.",
-    "rhythm": "Please follow up on this action item.",
-    "tts": "Please follow up on this action item.",
+    "id": "life_02",
     "mode": "simple",
-    "subs": [],
+    "context": "Daily Life",
+    "hint": "Telling someone where you ate",
+    "template": "I ate at {place} near {location}.",
+    "subs": [
+      [
+        "a small restaurant",
+        "the cafeteria",
+        "a noodle shop",
+        "a convenience store",
+        "home",
+        "a coffee shop"
+      ],
+      [
+        "the office",
+        "the station",
+        "my place",
+        "the park",
+        "the hospital"
+      ]
+    ],
     "reps": 0,
     "ease": 2.5,
     "interval": 1,
@@ -590,15 +608,265 @@ const SEED_S = [
     "lastSeen": 0
   },
   {
-    "id": "s30_30",
-    "context": "Decision",
-    "hint": "Moving forward with current plan",
-    "original": "Let us move forward with the current plan.",
-    "linked_hint": "Let-us move forward / with the current plan.",
-    "rhythm": "Let us move forward with the current plan.",
-    "tts": "Let us move forward with the current plan.",
+    "id": "life_03",
     "mode": "simple",
-    "subs": [],
+    "context": "Appointment",
+    "hint": "Confirming schedule details",
+    "template": "The appointment is at {time} on {day}.",
+    "subs": [
+      [
+        "9 AM",
+        "2 PM",
+        "10:30",
+        "3:30 PM",
+        "noon"
+      ],
+      [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "this weekend"
+      ]
+    ],
+    "reps": 0,
+    "ease": 2.5,
+    "interval": 1,
+    "dueDate": 0,
+    "lastSeen": 0
+  },
+  {
+    "id": "life_04",
+    "mode": "simple",
+    "context": "Daily Request",
+    "hint": "Telling someone what you need",
+    "template": "I need {item} by {deadline}.",
+    "subs": [
+      [
+        "the documents",
+        "your signature",
+        "a copy",
+        "the receipt",
+        "the report",
+        "some help",
+        "more time"
+      ],
+      [
+        "today",
+        "this afternoon",
+        "end of day",
+        "tomorrow morning",
+        "Friday",
+        "next week"
+      ]
+    ],
+    "reps": 0,
+    "ease": 2.5,
+    "interval": 1,
+    "dueDate": 0,
+    "lastSeen": 0
+  },
+  {
+    "id": "life_05",
+    "mode": "simple",
+    "context": "Office Task",
+    "hint": "Clarifying who needs something",
+    "template": "{person} needs the {document} by {time}.",
+    "subs": [
+      [
+        "The manager",
+        "Our client",
+        "HR",
+        "The director",
+        "Cliff",
+        "My supervisor"
+      ],
+      [
+        "report",
+        "proposal",
+        "summary",
+        "invoice",
+        "contract",
+        "presentation"
+      ],
+      [
+        "today",
+        "tomorrow",
+        "end of week",
+        "Monday",
+        "3 PM"
+      ]
+    ],
+    "reps": 0,
+    "ease": 2.5,
+    "interval": 1,
+    "dueDate": 0,
+    "lastSeen": 0
+  },
+  {
+    "id": "life_06",
+    "mode": "simple",
+    "context": "Phone Call",
+    "hint": "Answering who is on the line",
+    "template": "{person} from {company} is calling about {topic}.",
+    "subs": [
+      [
+        "Mr. Chen",
+        "A client",
+        "Someone",
+        "Our supplier",
+        "The auditor"
+      ],
+      [
+        "YAGEO",
+        "the head office",
+        "the factory",
+        "our partner",
+        "procurement"
+      ],
+      [
+        "the order",
+        "the shipment",
+        "the meeting",
+        "the invoice",
+        "the quality issue"
+      ]
+    ],
+    "reps": 0,
+    "ease": 2.5,
+    "interval": 1,
+    "dueDate": 0,
+    "lastSeen": 0
+  },
+  {
+    "id": "life_07",
+    "mode": "simple",
+    "context": "Message Relay",
+    "hint": "Passing on a message",
+    "template": "The message is that {person} will {action} at {time}.",
+    "subs": [
+      [
+        "he",
+        "she",
+        "the team",
+        "the manager",
+        "our client"
+      ],
+      [
+        "call back",
+        "arrive",
+        "send the file",
+        "join the meeting",
+        "confirm the order"
+      ],
+      [
+        "10 AM",
+        "noon",
+        "this afternoon",
+        "3 PM",
+        "tomorrow",
+        "end of day"
+      ]
+    ],
+    "reps": 0,
+    "ease": 2.5,
+    "interval": 1,
+    "dueDate": 0,
+    "lastSeen": 0
+  },
+  {
+    "id": "life_08",
+    "mode": "simple",
+    "context": "Deadline Check",
+    "hint": "Clarifying when something is needed",
+    "template": "I need it by {time} at the {latest}.",
+    "subs": [
+      [
+        "noon",
+        "3 PM",
+        "end of day",
+        "tomorrow morning",
+        "Friday"
+      ],
+      [
+        "latest",
+        "absolute latest",
+        "very latest",
+        "most"
+      ]
+    ],
+    "reps": 0,
+    "ease": 2.5,
+    "interval": 1,
+    "dueDate": 0,
+    "lastSeen": 0
+  },
+  {
+    "id": "life_09",
+    "mode": "simple",
+    "context": "Office Intro",
+    "hint": "Introducing who is in charge",
+    "template": "{person} is in charge of {department} here.",
+    "subs": [
+      [
+        "Mr. Lin",
+        "Ms. Wang",
+        "Cliff",
+        "Our director",
+        "The senior manager"
+      ],
+      [
+        "this department",
+        "production",
+        "quality",
+        "finance",
+        "the project",
+        "the whole team"
+      ]
+    ],
+    "reps": 0,
+    "ease": 2.5,
+    "interval": 1,
+    "dueDate": 0,
+    "lastSeen": 0
+  },
+  {
+    "id": "life_10",
+    "mode": "simple",
+    "context": "Data Presentation",
+    "hint": "Explaining a chart or graph",
+    "template": "The chart shows that {metric} {trend} by {amount} this {period}.",
+    "subs": [
+      [
+        "revenue",
+        "output",
+        "yield rate",
+        "cost",
+        "margin",
+        "headcount"
+      ],
+      [
+        "increased",
+        "decreased",
+        "dropped",
+        "improved",
+        "remained stable"
+      ],
+      [
+        "5%",
+        "10%",
+        "2.3%",
+        "significantly",
+        "slightly"
+      ],
+      [
+        "month",
+        "quarter",
+        "week",
+        "year"
+      ]
+    ],
     "reps": 0,
     "ease": 2.5,
     "interval": 1,
@@ -6886,7 +7154,7 @@ function DrillTab({ sentences, vocab, settings }) {
     const type = detectCardType(card)
     const qs = qMap[card.id] || Q_TEMPLATES[type] || Q_TEMPLATES.default
     const question = qs[0]
-    const answer = card.tts || card.original || card.template.replace(/\{[^}]+\}/g, w => w.slice(1,-1))
+    const answer = card.template.replace(/\{[^}]+\}/g, w => w.slice(1,-1))
 
     setRideCurrent({ text: question, label: 'QUESTION' })
     speakRide(question, 'en-US', 0.82, () => {
@@ -7170,28 +7438,63 @@ function DrillTab({ sentences, vocab, settings }) {
       {stage === 'shadow' && (
         <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
           <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:14, padding:20 }}>
-            {/* Context */}
-            <div style={{ fontFamily:MONO, fontSize:8.5, color:'#9aa5b0', letterSpacing:'0.12em', marginBottom:14 }}>
-              {card.context.toUpperCase()}
+            <div style={{ fontFamily:MONO, fontSize:8.5, color:'#9aa5b0', letterSpacing:'0.12em', marginBottom:10 }}>
+              {card.context}
               {card.hint && <span style={{ color:T.txt3 }}> — {card.hint}</span>}
             </div>
-
-            {/* Linked Hint — large, main display */}
-            <div style={{ fontFamily:MONO, fontSize:17, color:T.amber, lineHeight:1.85, marginBottom:14, letterSpacing:'0.01em', wordBreak:'break-word' }}>
-              {card.linked_hint || card.original || card.template}
+            <div style={{ fontFamily:MONO, fontSize:14, color:T.txt, lineHeight:2, marginBottom:16 }}>
+              {card.template.replace(/\{[^}]+\}/g, w =>
+                `[${w.slice(1,-1)}]`
+              ).split(/(\[[^\]]+\])/).map((part, i) =>
+                part.startsWith('[') ? (
+                  <span key={i} style={{ color:T.amber, fontWeight:500 }}>{part}</span>
+                ) : <span key={i}>{part}</span>
+              )}
             </div>
 
-            {/* Original sentence — reference */}
-            <div style={{ fontFamily:SERIF, fontSize:13, color:T.txt2, lineHeight:1.6, marginBottom:14, borderTop:`1px solid ${T.bdr}`, paddingTop:10 }}>
-              {card.original || card.template}
-            </div>
+            {/* linked_hint 連音視覺化 */}
+            {card.linked_hint && (() => {
+              const chunks = extractLiaisonChunks(card.linked_hint)
+              return (
+                <div style={{ marginBottom:14, padding:'11px 13px', background:T.surf2, borderRadius:10, border:`1px solid ${T.amber}22` }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
+                    <div style={{ fontFamily:MONO, fontSize:8, color:T.amber, letterSpacing:'0.1em' }}>LIAISON</div>
+                    <span style={{ fontFamily:MONO, fontSize:8, color:T.amber }}>· 連音</span>
+                    <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>[ ] 弱化</span>
+                    <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>( ) 省略</span>
+                    <span style={{ fontFamily:MONO, fontSize:8, color:T.txt, fontWeight:700 }}>大寫 重音</span>
+                  </div>
+                  <div style={{ fontFamily:SERIF, fontSize:15, lineHeight:2, letterSpacing:'0.02em', color:T.txt2, marginBottom: chunks.length ? 10 : 0 }}>
+                    {renderLinkedHint(card.linked_hint)}
+                  </div>
+                  {chunks.length > 0 && (
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                      {chunks.map((c, ci) => (
+                        <div key={ci} onClick={() => speak(c.tts, 0.65)}
+                          style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', background:T.amberD, border:`1px solid ${T.amber}40`, borderRadius:7, padding:'4px 9px' }}
+                          onMouseOver={e=>e.currentTarget.style.opacity='0.8'} onMouseOut={e=>e.currentTarget.style.opacity='1'}>
+                          <span style={{ fontFamily:MONO, fontSize:10, color:T.amber }}>{c.label}</span>
+                          <svg width="10" height="10" viewBox="0 0 16 16" fill="none" style={{color:T.amber}}><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.4" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
+                          <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>0.65x</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
 
-            {/* TTS play button */}
-            <div onClick={() => speak(card.tts || card.original || card.template)}
-              style={{ display:'flex', alignItems:'center', gap:6, cursor:'pointer', color:T.txt3 }}
-              onMouseOver={e=>e.currentTarget.style.color=T.amber} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M12 2.5a6 6 0 010 11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
-              <span style={{ fontFamily:MONO, fontSize:9, letterSpacing:'0.08em' }}>播放句子</span>
+            <div style={{ display:'flex', gap:8 }}>
+              <div onClick={() => speak(card.template, 0.82)} style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', color:T.txt3, padding:'5px 10px', background:T.bdr, borderRadius:7, transition:'color 0.14s' }}
+                onMouseOver={e=>e.currentTarget.style.color=T.amber} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M12 2.5a6 6 0 010 11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+                <span style={{ fontFamily:MONO, fontSize:9 }}>0.82x</span>
+              </div>
+              <div onClick={() => speak(card.template, 0.65)} style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', color:T.txt3, padding:'5px 10px', background:T.bdr, borderRadius:7, transition:'color 0.14s' }}
+                onMouseOver={e=>e.currentTarget.style.color=T.blue} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
+                <span style={{ fontFamily:MONO, fontSize:11 }}>🐢</span>
+                <span style={{ fontFamily:MONO, fontSize:9 }}>0.65x</span>
+              </div>
             </div>
           </div>
 
@@ -7219,7 +7522,7 @@ function DrillTab({ sentences, vocab, settings }) {
           {/* Question card */}
           <div style={{ background:T.surf, border:`1px solid ${stage==='pressure' ? T.red+'40' : T.bdr}`, borderRadius:14, padding:20 }}>
             <div style={{ fontFamily:MONO, fontSize:8.5, color:'#9aa5b0', letterSpacing:'0.1em', marginBottom:12 }}>
-              {card.context.toUpperCase()}
+              {card.context}
             </div>
 
             {loadingQ ? (
@@ -7240,12 +7543,17 @@ function DrillTab({ sentences, vocab, settings }) {
               />
             )}
 
-            {/* Respond: Rhythm hint */}
+            {/* Respond: Answer Pattern */}
             {stage === 'respond' && phase === 'question' && (
-              <div style={{ marginTop:14, background:T.surf2, borderRadius:9, padding:14 }}>
-                <div style={{ fontFamily:MONO, fontSize:8.5, color:T.amber, letterSpacing:'0.1em', marginBottom:8 }}>RHYTHM GUIDE</div>
-                <div style={{ fontFamily:MONO, fontSize:14, color:T.txt, lineHeight:1.75 }}>
-                  {card.rhythm || card.original || pattern?.main}
+              <div style={{ marginTop:14, background:T.surf2, borderRadius:9, padding:12 }}>
+                <div style={{ fontFamily:MONO, fontSize:8.5, color:T.amber, letterSpacing:'0.1em', marginBottom:7 }}>ANSWER PATTERN</div>
+                <div style={{ fontFamily:MONO, fontSize:12, color:T.txt, lineHeight:1.7, marginBottom:6 }}>
+                  {pattern?.main}
+                </div>
+                <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
+                  {pattern?.keywords.map((k,i) => (
+                    <span key={i} style={{ fontFamily:MONO, fontSize:10, color:T.txt2, background:T.bdr, padding:'2px 8px', borderRadius:10 }}>{k}</span>
+                  ))}
                 </div>
               </div>
             )}
@@ -7292,11 +7600,14 @@ function DrillTab({ sentences, vocab, settings }) {
             <div style={{ display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
               <div style={{ background:T.surf, border:`1px solid ${T.grn}40`, borderRadius:12, padding:18 }}>
                 <div style={{ fontFamily:MONO, fontSize:8.5, color:T.grn, letterSpacing:'0.1em', marginBottom:8 }}>ANSWER</div>
-                <div style={{ fontFamily:MONO, fontSize:15, color:T.amber, lineHeight:1.75, marginBottom:6 }}>
-                  {card.original || card.template}
-                </div>
-                <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.6 }}>
-                  {card.linked_hint}
+                <div style={{ fontFamily:MONO, fontSize:14, color:T.txt, lineHeight:1.9 }}>
+                  {card.template.replace(/\{[^}]+\}/g, w =>
+                    `[${w.slice(1,-1)}]`
+                  ).split(/(\[[^\]]+\])/).map((part, i) =>
+                    part.startsWith('[') ? (
+                      <span key={i} style={{ color:T.amber, fontWeight:500 }}>{part}</span>
+                    ) : <span key={i}>{part}</span>
+                  )}
                 </div>
                 <div style={{ display:'flex', gap:10, marginTop:12 }}>
                   <div onClick={() => speak(card.template)} style={{ cursor:'pointer', display:'flex', alignItems:'center', gap:5, color:T.txt3, fontFamily:MONO, fontSize:10 }}
@@ -7360,6 +7671,18 @@ function PracticeTab({ sentences, vocab, stats, settings, updateSentences, updat
   const [sels, setSels] = useState({})
   const [revealed, setRevealed] = useState(false)
   const [toast, setToast] = useState('')
+  const [round, setRound] = useState(1)
+  const [showRoundComplete, setShowRoundComplete] = useState(false)
+  const [dailyCount, setDailyCount] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('fsi:daily') || 'null')
+      const today = new Date().toISOString().slice(0,10)
+      return (saved?.date === today) ? (saved.count ?? 0) : 0
+    } catch { return 0 }
+  })
+  const [dailyGoal] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('fsi:goal') || '200') } catch { return 200 }
+  })
 
   const LIFE_CONTEXTS = ['Daily Life','Greeting','Travel','Shopping','Food','Health','Family','Hobby','Lifestyle','生活']
   const isWork = (s) => !LIFE_CONTEXTS.some(c => (s.context??'').toLowerCase().includes(c.toLowerCase()))
@@ -7399,6 +7722,12 @@ function PracticeTab({ sentences, vocab, stats, settings, updateSentences, updat
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 1800) }
 
+  function saveDailyCount(n) {
+    const today = new Date().toISOString().slice(0,10)
+    localStorage.setItem('fsi:daily', JSON.stringify({ date: today, count: n }))
+    setDailyCount(n)
+  }
+
   function handleReveal() {
     setRevealed(true)
     speak(buildFilled())
@@ -7415,7 +7744,22 @@ function PracticeTab({ sentences, vocab, stats, settings, updateSentences, updat
     if (newTotal >= 5) awardBadge('five_drills')
     if (newStreak >= 5) awardBadge('perfect_5')
     if (card.mode === 'hard' && isCorrect) awardBadge('hard_done')
-    setIdx(i => i + 1); setSels({}); setRevealed(false)
+    // daily count
+    const newDaily = dailyCount + 1
+    saveDailyCount(newDaily)
+    // round complete check
+    const nextIdx = idx + 1
+    if (nextIdx >= queue.length) {
+      setShowRoundComplete(true)
+      setTimeout(() => {
+        setShowRoundComplete(false)
+        setRound(r => r + 1)
+        setIdx(0)
+      }, 2200)
+    } else {
+      setIdx(nextIdx)
+    }
+    setSels({}); setRevealed(false)
     showToast(q === 5 ? '✓ Easy +5 XP' : q === 3 ? '◎ Hard +3 XP' : '↺ Again +1 XP')
   }
 
@@ -7430,6 +7774,35 @@ function PracticeTab({ sentences, vocab, stats, settings, updateSentences, updat
 
   return (
     <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:14 }} className="fadeUp">
+
+      {/* Round Complete Overlay */}
+      {showRoundComplete && (
+        <div style={{ position:'fixed', top:0, left:0, right:0, bottom:0, background:'#050810ee', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:16, zIndex:200, animation:'fadeUp 0.3s ease' }}>
+          <div style={{ fontFamily:DISP, fontSize:28, color:T.amber, letterSpacing:'0.12em' }}>✦ Round {round} ✦</div>
+          <div style={{ fontFamily:MONO, fontSize:13, color:T.txt2 }}>完成！今日已練 <span style={{color:T.amber,fontWeight:700}}>{dailyCount}</span> 句</div>
+          {dailyCount < dailyGoal
+            ? <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>距離目標還差 {dailyGoal - dailyCount} 句</div>
+            : <div style={{ fontFamily:MONO, fontSize:11, color:T.grn }}>🎉 今日目標達成！</div>
+          }
+          <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, animation:'pulse 1.2s infinite', marginTop:8 }}>自動進入 Round {round + 1}…</div>
+        </div>
+      )}
+
+      {/* Daily Progress Bar */}
+      <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:12, padding:'12px 14px' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+          <div style={{ display:'flex', gap:16 }}>
+            <span style={{ fontFamily:MONO, fontSize:11, color:T.txt }}>🗣 <b style={{color:T.amber}}>{dailyCount}</b> 句</span>
+            <span style={{ fontFamily:MONO, fontSize:11, color:T.txt }}>🔄 Round <b style={{color:T.blue}}>{round}</b></span>
+            <span style={{ fontFamily:MONO, fontSize:11, color:T.txt }}>🔥 <b style={{color:T.red}}>{stats?.streak ?? 0}</b> 天</span>
+          </div>
+          <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>目標 {dailyGoal}</span>
+        </div>
+        <div style={{ height:5, background:T.bdr2, borderRadius:3, overflow:'hidden' }}>
+          <div style={{ width:`${Math.min(100, (dailyCount/dailyGoal)*100)}%`, height:'100%', background: dailyCount >= dailyGoal ? T.grn : T.amber, borderRadius:3, transition:'width 0.4s ease' }}/>
+        </div>
+      </div>
+
       {/* Toast */}
       {toast && (
         <div style={{ position:'fixed', top:70, left:'50%', transform:'translateX(-50%)', background:T.surf2, border:`1px solid ${T.bdr2}`, borderRadius:20, padding:'8px 18px', fontFamily:MONO, fontSize:11, color:T.amber, zIndex:50, whiteSpace:'nowrap', animation:'fadeUp 0.2s ease' }}>{toast}</div>
@@ -7474,7 +7847,7 @@ function PracticeTab({ sentences, vocab, stats, settings, updateSentences, updat
         </div>
       ) : (
         <>
-          <SectionLabel color={T.amber}>{card.context.toUpperCase()}</SectionLabel>
+          <SectionLabel color={T.amber}>{card.context}</SectionLabel>
 
           {/* Drill card */}
           <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:14, padding:20, position:'relative' }}>
@@ -7503,7 +7876,57 @@ function PracticeTab({ sentences, vocab, stats, settings, updateSentences, updat
               })}
             </div>
 
+            {/* Speed buttons */}
+            <div style={{ display:'flex', gap:8, marginTop:10 }}>
+              <div onClick={() => speak(card.template.replace(/\{[^}]+\}/g, w=>w.slice(1,-1)), 0.82)}
+                style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', color:T.txt3, padding:'5px 10px', background:T.surf2, borderRadius:7, transition:'color 0.14s' }}
+                onMouseOver={e=>e.currentTarget.style.color=T.amber} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M12 2.5a6 6 0 010 11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+                <span style={{ fontFamily:MONO, fontSize:9 }}>0.82x</span>
+              </div>
+              <div onClick={() => speak(card.template.replace(/\{[^}]+\}/g, w=>w.slice(1,-1)), 0.65)}
+                style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', color:T.txt3, padding:'5px 10px', background:T.surf2, borderRadius:7, transition:'color 0.14s' }}
+                onMouseOver={e=>e.currentTarget.style.color=T.blue} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
+                <span style={{ fontFamily:MONO, fontSize:11 }}>🐢</span>
+                <span style={{ fontFamily:MONO, fontSize:9 }}>0.65x</span>
+              </div>
+            </div>
+
           </div>
+
+          {/* ── LIAISON section ─────────────────────────── */}
+          {card.linked_hint && (() => {
+            const chunks = extractLiaisonChunks(card.linked_hint)
+            return (
+              <div style={{ background:T.surf, border:`1px solid ${T.amber}22`, borderRadius:12, padding:'13px 15px' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
+                  <div style={{ fontFamily:MONO, fontSize:8.5, color:T.amber, letterSpacing:'0.1em' }}>LIAISON</div>
+                  <div style={{ display:'flex', gap:10 }}>
+                    <span style={{ fontFamily:MONO, fontSize:8, color:T.amber }}>· 連音</span>
+                    <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>[ ] 弱化</span>
+                    <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>( ) 省略</span>
+                    <span style={{ fontFamily:MONO, fontSize:8, color:T.txt, fontWeight:700 }}>大寫 重音</span>
+                  </div>
+                </div>
+                <div style={{ fontFamily:SERIF, fontSize:15, lineHeight:2, letterSpacing:'0.02em', color:T.txt2, marginBottom: chunks.length ? 12 : 0 }}>
+                  {renderLinkedHint(card.linked_hint)}
+                </div>
+                {chunks.length > 0 && (
+                  <div style={{ display:'flex', flexWrap:'wrap', gap:7 }}>
+                    {chunks.map((c, ci) => (
+                      <div key={ci} onClick={() => speak(c.tts, 0.65)}
+                        style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', background:T.amberD, border:`1px solid ${T.amber}40`, borderRadius:8, padding:'5px 10px', transition:'all 0.14s' }}
+                        onMouseOver={e=>e.currentTarget.style.background=T.amber+'33'} onMouseOut={e=>e.currentTarget.style.background=T.amberD}>
+                        <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>{c.label}</span>
+                        <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style={{color:T.amber}}><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.4" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
+                        <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>0.65x</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })()}
 
           {/* Substitution chips */}
           {!revealed && (card.subs ?? []).map((group, gi) => (
@@ -7991,8 +8414,16 @@ Analyze the text and extract:
 - 3-5 FSI substitution drill sentences using manufacturing/business vocabulary
 - 3-5 vocabulary words worth learning
 
+For each sentence, also generate a "linked_hint" showing connected speech features:
+RULES for linked_hint:
+1. Consonant+Vowel liaison: use · between linked sounds. e.g. "turn it off" → "tur·NIT·off"
+2. Weak forms (to/and/of/for): use [t'·word] [ən·word] [ə·word] notation. e.g. "need to adjust" → "need [t'·aDJUST]"
+3. Elision (t/d drops before consonant): use (t) (d). e.g. "last night" → "las(t) night"
+4. Stress: CAPITALIZE stressed syllables. e.g. "production" → "proDUCtion"
+5. Keep {slot} placeholders as-is, do not annotate inside them.
+
 Return ONLY valid JSON (no markdown), format:
-{"sentences":[{"template":"...with {blank} for substitution","context":"Short context name","hint":"When you'd say this","subs":[["opt1","opt2","opt3"]]}],"vocab":[{"word":"word","def":"concise definition","ex":"example sentence from the text or invented"}]}`
+{"sentences":[{"template":"...with {blank} for substitution","context":"Short context name","hint":"When you'd say this","linked_hint":"annotated version using · [ ] ( ) CAPS rules","subs":[["opt1","opt2","opt3"]]}],"vocab":[{"word":"word","def":"concise definition","ex":"example sentence from the text or invented"}]}`
       const raw = await callClaude(settings.apiKey, [{ role:'user', content: text }], system)
       const parsed = JSON.parse(raw.replace(/```json|```/g,'').trim())
       setRes(parsed)
@@ -8005,7 +8436,7 @@ Return ONLY valid JSON (no markdown), format:
 
   function addSentence(s) {
     const id = `ai_${Date.now()}`
-    updateSentences(prev => [...(prev??[]), { id, mode:'simple', context:s.context||'AI', hint:s.hint||'', template:s.template, subs:s.subs||[], reps:0,ease:2.5,interval:1,dueDate:0,lastSeen:0 }])
+    updateSentences(prev => [...(prev??[]), { id, mode:'simple', context:s.context||'AI', hint:s.hint||'', template:s.template, linked_hint:s.linked_hint||'', subs:s.subs||[], reps:0,ease:2.5,interval:1,dueDate:0,lastSeen:0 }])
     setAddedS(a => [...a, s.template])
     updateStats(st => ({ ...st, xp: (st.xp??0) + 5 }))
   }
