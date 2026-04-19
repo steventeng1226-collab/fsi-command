@@ -6499,7 +6499,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v2.0</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v2.1</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -8023,7 +8023,7 @@ function AchieveTab({ stats, earned, sentences, vocab }) {
 // ═══════════════════════════════════════════════════════════════
 // SETTINGS TAB
 // ═══════════════════════════════════════════════════════════════
-function SettingsTab({ sentences, updateSentences, settings, updateSettings }) {
+function SettingsTab({ sentences, vocab, updateSentences, settings, updateSettings }) {
   const [key, setKey] = useState(settings?.apiKey ?? '')
   const [url, setUrl] = useState(settings?.sheetUrl ?? '')
   const [showKey, setShowKey] = useState(false)
@@ -8031,6 +8031,30 @@ function SettingsTab({ sentences, updateSentences, settings, updateSettings }) {
   const [msg, setMsg] = useState('')
 
   function flash(m) { setMsg(m); setTimeout(() => setMsg(''), 3000) }
+
+  function exportJSON() {
+    const data = { version:'2.1', exportedAt:new Date().toISOString(), sentences: sentences??[], vocab: vocab??[] }
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type:'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = `fsi-backup-${new Date().toISOString().slice(0,10)}.json`; a.click()
+    URL.revokeObjectURL(url)
+    flash('✓ JSON 備份已下載')
+  }
+
+  function exportCSV() {
+    const rows = [['mode','context','hint','template','subs']]
+    ;(sentences??[]).forEach(s => {
+      rows.push([s.mode, s.context, s.hint??'', s.template, (s.subs??[]).map(g=>g.join('|')).join('\uff5c')])
+    })
+    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n')
+    const blob = new Blob(['\uFEFF'+csv], { type:'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = `fsi-sentences-${new Date().toISOString().slice(0,10)}.csv`; a.click()
+    URL.revokeObjectURL(url)
+    flash('✓ CSV 已下載，可直接貼入 Google Sheets')
+  }
 
   function save() {
     updateSettings(() => ({ apiKey: key.trim(), sheetUrl: url.trim() }))
@@ -8107,6 +8131,24 @@ function SettingsTab({ sentences, updateSentences, settings, updateSettings }) {
         SAVE SETTINGS
       </button>
 
+      {/* ── BACKUP / EXPORT ── */}
+      <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
+        <label style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>DATA BACKUP</label>
+        <div style={{ display:'flex', gap:8 }}>
+          <button className="btn" onClick={exportJSON}
+            style={{ flex:1, background:T.grnD, border:`1px solid ${T.grn}50`, color:T.grn, fontSize:10 }}>
+            ⬇ 備份 JSON
+          </button>
+          <button className="btn" onClick={exportCSV}
+            style={{ flex:1, background:T.blueD, border:`1px solid ${T.blue}50`, color:T.blue, fontSize:10 }}>
+            📊 匯出 Sheets CSV
+          </button>
+        </div>
+        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
+          JSON：完整備份可還原 ／ CSV：可貼入 Google Sheets 查閱
+        </div>
+      </div>
+
       {msg && (
         <div style={{ fontFamily:MONO, fontSize:11, color: msg.startsWith('✓') ? T.grn : msg.startsWith('✗') ? T.red : T.txt2, textAlign:'center', padding:6, animation:'fadeUp 0.2s ease' }}>
           {msg}
@@ -8151,7 +8193,17 @@ export default function App() {
       stor.get('fsi:s'), stor.get('fsi:v'), stor.get('fsi:st'),
       stor.get('fsi:se'), stor.get('fsi:ea')
     ]).then(([s, v, st, se, ea]) => {
-      setSentences(s ?? SEED_S)
+      // Merge SEED_S: add any new seed cards not already in storage
+      let sentences = s ?? SEED_S
+      if (s && s.length > 0) {
+        const existingIds = new Set(s.map(c => c.id))
+        const newCards = SEED_S.filter(c => !existingIds.has(c.id))
+        if (newCards.length > 0) {
+          sentences = [...s, ...newCards]
+          stor.set('fsi:s', sentences)
+        }
+      }
+      setSentences(sentences)
       setVocab(v ?? SEED_V)
       setStats(st ?? { xp:0, streak:0, lastDate:'', totalDrills:0, correct:0, perfectStreak:0 })
       setSettings(se ?? { apiKey:'', sheetUrl:'' })
@@ -8180,7 +8232,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v2.0</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v2.1</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
