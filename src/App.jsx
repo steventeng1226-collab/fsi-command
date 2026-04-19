@@ -6499,7 +6499,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v1.9</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v2.0</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -6525,7 +6525,7 @@ const NAV = [
 ]
 function BottomNav({ tab, setTab }) {
   return (
-    <nav style={{ position:'fixed', bottom:0, left:'50%', transform:'translateX(-50%)', width:'100%', maxWidth:480, background:T.surf, borderTop:`1px solid ${T.bdr}`, display:'flex', paddingBottom:'env(safe-area-inset-bottom,0px)', zIndex:20 }}>
+    <nav style={{ position:'fixed', bottom:0, left:'50%', transform:'translateX(-50%)', width:'100%', maxWidth:480, background:T.surf, borderTop:`1px solid ${T.bdr}`, display:'flex', paddingBottom:'env(safe-area-inset-bottom, 16px)', zIndex:20 }}>
       {NAV.map(n => {
         const on = tab === n.id
         return (
@@ -7457,16 +7457,33 @@ function VocabTab({ vocab, updateVocab, updateStats, awardBadge }) {
     if (!query.trim()) return
     setSearching(true); setSearchRes(null); setSearchMsg('')
     try {
+      // Fetch English definition
       const r = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(query.trim())}`)
       const d = await r.json()
       if (!Array.isArray(d) || !d[0]) { setSearchMsg('找不到這個單字，請確認拼字'); return }
       const ipa = d[0]?.phonetics?.find(p => p.text)?.text ?? ''
       const meanings = d[0]?.meanings ?? []
       const defs = meanings.flatMap(m =>
-        m.definitions.slice(0,2).map(def => ({ pos: m.partOfSpeech, def: def.definition, ex: def.example ?? '' }))
+        m.definitions.slice(0,2).map(def => ({ pos: m.partOfSpeech, def: def.definition, ex: def.example ?? '', zh: '' }))
       ).slice(0,3)
-      setSearchRes({ word: d[0].word ?? query.trim(), ipa, defs })
+      const word = d[0].word ?? query.trim()
+      setSearchRes({ word, ipa, defs })
       setPendingDiff('mid')
+
+      // Fetch Chinese translations in parallel
+      const zhResults = await Promise.all(
+        defs.map(async (def) => {
+          try {
+            const tr = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(def.def)}&langpair=en|zh-TW`)
+            const tj = await tr.json()
+            return tj?.responseData?.translatedText ?? ''
+          } catch { return '' }
+        })
+      )
+      setSearchRes(prev => prev ? {
+        ...prev,
+        defs: prev.defs.map((def, i) => ({ ...def, zh: zhResults[i] ?? '' }))
+      } : null)
     } catch { setSearchMsg('查詢失敗，請稍後再試') }
     finally { setSearching(false) }
   }
@@ -7477,7 +7494,8 @@ function VocabTab({ vocab, updateVocab, updateStats, awardBadge }) {
     if (exists) { setSearchMsg(`「${searchRes.word}」已在單字庫中`); return }
     const entry = {
       id: `v${Date.now()}`, word: searchRes.word, ipa_us: searchRes.ipa,
-      def: def.def, ex: def.ex, diff: pendingDiff,
+      def: def.zh ? `${def.zh}` : def.def,
+      defEn: def.def, ex: def.ex, diff: pendingDiff,
       reps:0, ease:2.5, interval:1, dueDate:0, lastSeen:0
     }
     updateVocab(prev => {
@@ -7654,8 +7672,15 @@ function VocabTab({ vocab, updateVocab, updateStats, awardBadge }) {
                     + 加入單字庫
                   </button>
                 </div>
-                <div style={{ fontFamily:SERIF, fontSize:13, color:T.txt, lineHeight:1.55, marginBottom:4 }}>{def.def}</div>
-                {def.ex && <div style={{ fontFamily:SERIF, fontStyle:'italic', fontSize:12, color:T.txt3 }}>"{def.ex}"</div>}
+                {/* Chinese translation */}
+                {def.zh && (
+                  <div style={{ fontFamily:MONO, fontSize:13, color:T.amber, fontWeight:500, marginBottom:5, lineHeight:1.4 }}>
+                    {def.zh}
+                  </div>
+                )}
+                {/* English definition */}
+                <div style={{ fontFamily:SERIF, fontSize:12, color:T.txt2, lineHeight:1.55, marginBottom:4 }}>{def.def}</div>
+                {def.ex && <div style={{ fontFamily:SERIF, fontStyle:'italic', fontSize:11, color:T.txt3 }}>"{def.ex}"</div>}
               </div>
             ))}
           </div>
@@ -8155,7 +8180,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v1.9</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v2.0</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
@@ -8166,7 +8191,7 @@ export default function App() {
     <div style={{ background:T.bg, minHeight:'100vh', maxWidth:480, margin:'0 auto', display:'flex', flexDirection:'column', position:'relative' }}>
       <style>{G}</style>
       <Header stats={stats}/>
-      <div style={{ flex:1, overflowY:'auto', paddingBottom:110 }}>
+      <div style={{ flex:1, overflowY:'auto', paddingBottom:'calc(110px + env(safe-area-inset-bottom, 20px))' }}>
         {tab==='practice' && <PracticeTab {...P}/>}
         {tab==='drill'    && <DrillTab    {...P}/>}
         {tab==='vocab'    && <VocabTab    {...P}/>}
