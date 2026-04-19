@@ -6458,6 +6458,19 @@ const BADGES = [
   { id:'b1_reached',  name:'B1 Unlocked',     desc:'Reach B1 Intermediate level',   icon:'🌟', xp:100 },
 ]
 
+
+// ═══════════════════════════════════════════════════════════════
+// DIFFICULTY LEVELS
+// ═══════════════════════════════════════════════════════════════
+const DIFF = {
+  easy: { label:'EASY', color:'#3fb950', bg:'#3fb95018' },
+  mid:  { label:'MID',  color:'#f5a623', bg:'#f5a62318' },
+  hard: { label:'HARD', color:'#f85149', bg:'#f8514918' },
+}
+function nextDiff(d) {
+  return d === 'easy' ? 'mid' : d === 'mid' ? 'hard' : 'easy'
+}
+
 // ═══════════════════════════════════════════════════════════════
 // APP ICON
 // ═══════════════════════════════════════════════════════════════
@@ -6486,7 +6499,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v1.8</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v1.9</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -7402,9 +7415,18 @@ function PracticeTab({ sentences, vocab, stats, settings, updateSentences, updat
 // ═══════════════════════════════════════════════════════════════
 function VocabTab({ vocab, updateVocab, updateStats, awardBadge }) {
   const [sub, setSub] = useState('list')
+  // Search
+  const [query, setQuery] = useState('')
+  const [searching, setSearching] = useState(false)
+  const [searchRes, setSearchRes] = useState(null)
+  const [searchMsg, setSearchMsg] = useState('')
+  const [pendingDiff, setPendingDiff] = useState('mid')
+  // List
+  const [diffFilter, setDiffFilter] = useState('all')
   const [adding, setAdding] = useState(false)
   const [newWord, setNewWord] = useState('')
   const [loading, setLoading] = useState(false)
+  // Flash/Fill
   const [flipIdx, setFlipIdx] = useState(0)
   const [flipped, setFlipped] = useState(false)
   const [fillAns, setFillAns] = useState('')
@@ -7412,24 +7434,67 @@ function VocabTab({ vocab, updateVocab, updateStats, awardBadge }) {
   const [audioPlaying, setAudioPlaying] = useState(false)
   const audioRef = useRef(null)
 
-  // List: newest first (by id timestamp), archived last
+  // List: newest first, archived last
   const listWords = useMemo(() => {
-    const arr = [...(vocab ?? [])]
+    const arr = [...(vocab ?? [])].filter(w =>
+      diffFilter === 'all' ? true : (w.diff ?? 'mid') === diffFilter
+    )
     arr.sort((a, b) => {
       if (a.archived && !b.archived) return 1
       if (!a.archived && b.archived) return -1
-      // newest first by id
       const aTime = parseInt(String(a.id).replace(/\D/g,'')) || 0
       const bTime = parseInt(String(b.id).replace(/\D/g,'')) || 0
       return bTime - aTime
     })
     return arr
-  }, [vocab])
+  }, [vocab, diffFilter])
 
   const sorted = useMemo(() => srsSort((vocab ?? []).filter(v => !v.archived)), [vocab])
   const cur = sorted.length > 0 ? sorted[flipIdx % sorted.length] : null
 
-  // Audio mode: read all words sequentially
+  // ── Word Search ─────────────────────────────────────────────
+  async function searchWord() {
+    if (!query.trim()) return
+    setSearching(true); setSearchRes(null); setSearchMsg('')
+    try {
+      const r = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(query.trim())}`)
+      const d = await r.json()
+      if (!Array.isArray(d) || !d[0]) { setSearchMsg('找不到這個單字，請確認拼字'); return }
+      const ipa = d[0]?.phonetics?.find(p => p.text)?.text ?? ''
+      const meanings = d[0]?.meanings ?? []
+      const defs = meanings.flatMap(m =>
+        m.definitions.slice(0,2).map(def => ({ pos: m.partOfSpeech, def: def.definition, ex: def.example ?? '' }))
+      ).slice(0,3)
+      setSearchRes({ word: d[0].word ?? query.trim(), ipa, defs })
+      setPendingDiff('mid')
+    } catch { setSearchMsg('查詢失敗，請稍後再試') }
+    finally { setSearching(false) }
+  }
+
+  function addSearchResult(def) {
+    if (!searchRes) return
+    const exists = (vocab ?? []).some(v => v.word.toLowerCase() === searchRes.word.toLowerCase())
+    if (exists) { setSearchMsg(`「${searchRes.word}」已在單字庫中`); return }
+    const entry = {
+      id: `v${Date.now()}`, word: searchRes.word, ipa_us: searchRes.ipa,
+      def: def.def, ex: def.ex, diff: pendingDiff,
+      reps:0, ease:2.5, interval:1, dueDate:0, lastSeen:0
+    }
+    updateVocab(prev => {
+      const next = [...(prev??[]), entry]
+      if (next.length >= 5) awardBadge('vocab_5')
+      if (next.length >= 10) awardBadge('vocab_10')
+      return next
+    })
+    updateStats(s => ({ ...s, xp: (s.xp??0) + 3 }))
+    setSearchMsg(`✓ 已加入單字庫（${DIFF[pendingDiff].label}）`)
+  }
+
+  function toggleDiff(id) {
+    updateVocab(prev => (prev??[]).map(v => v.id === id ? { ...v, diff: nextDiff(v.diff ?? 'mid') } : v))
+  }
+
+  // ── Audio mode ───────────────────────────────────────────────
   function startAudio() {
     setAudioPlaying(true)
     const words = listWords.filter(w => !w.archived)
@@ -7443,30 +7508,21 @@ function VocabTab({ vocab, updateVocab, updateStats, awardBadge }) {
         if (w.def) {
           setTimeout(() => {
             const u2 = new SpeechSynthesisUtterance(w.def)
-            u2.lang = 'zh-TW'; u2.rate = 0.9
+            u2.lang = /[\u4e00-\u9fff]/.test(w.def) ? 'zh-TW' : 'en-US'; u2.rate = 0.9
             u2.onend = () => setTimeout(playNext, 800)
             window.speechSynthesis.speak(u2)
           }, 300)
-        } else {
-          setTimeout(playNext, 800)
-        }
+        } else { setTimeout(playNext, 800) }
       }
       window.speechSynthesis.cancel()
       window.speechSynthesis.speak(u1)
     }
     playNext()
   }
-  function stopAudio() {
-    window.speechSynthesis.cancel()
-    setAudioPlaying(false)
-  }
+  function stopAudio() { window.speechSynthesis.cancel(); setAudioPlaying(false) }
 
-  function archiveWord(id) {
-    updateVocab(prev => (prev??[]).map(v => v.id === id ? {...v, archived: true} : v))
-  }
-  function unarchiveWord(id) {
-    updateVocab(prev => (prev??[]).map(v => v.id === id ? {...v, archived: false} : v))
-  }
+  function archiveWord(id)   { updateVocab(prev => (prev??[]).map(v => v.id === id ? {...v, archived:true}  : v)) }
+  function unarchiveWord(id) { updateVocab(prev => (prev??[]).map(v => v.id === id ? {...v, archived:false} : v)) }
 
   async function lookupIPA(word) {
     try {
@@ -7481,9 +7537,11 @@ function VocabTab({ vocab, updateVocab, updateStats, awardBadge }) {
 
   async function handleAdd() {
     if (!newWord.trim()) return
+    const exists = (vocab ?? []).some(v => v.word.toLowerCase() === newWord.trim().toLowerCase())
+    if (exists) { setAdding(false); setNewWord(''); return }
     setLoading(true)
     const extra = await lookupIPA(newWord)
-    const entry = { id:`v${Date.now()}`, word:newWord.trim(), ipa_us:extra.ipa_us||`/${newWord}/`, def:extra.def||'', ex:extra.ex||'', reps:0,ease:2.5,interval:1,dueDate:0,lastSeen:0 }
+    const entry = { id:`v${Date.now()}`, word:newWord.trim(), ipa_us:extra.ipa_us||`/${newWord}/`, def:extra.def||'', ex:extra.ex||'', diff:'mid', reps:0,ease:2.5,interval:1,dueDate:0,lastSeen:0 }
     updateVocab(prev => {
       const next = [...(prev??[]), entry]
       if (next.length >= 5) awardBadge('vocab_5')
@@ -7514,10 +7572,103 @@ function VocabTab({ vocab, updateVocab, updateStats, awardBadge }) {
     </div>
   )
 
+  const DiffTag = ({ diff, onClick }) => {
+    const d = DIFF[diff ?? 'mid']
+    return (
+      <div onClick={onClick} title="點擊切換難度"
+        style={{ cursor:'pointer', fontFamily:MONO, fontSize:8, color:d.color, background:d.bg, border:`1px solid ${d.color}50`, padding:'2px 7px', borderRadius:8, letterSpacing:'0.08em', flexShrink:0, userSelect:'none' }}>
+        {d.label}
+      </div>
+    )
+  }
+
+  const DiffFilterBtn = ({ id, label }) => (
+    <div onClick={() => setDiffFilter(id)}
+      style={{ flex:1, textAlign:'center', padding:'5px 0', borderRadius:7, cursor:'pointer', fontFamily:MONO, fontSize:9, letterSpacing:'0.06em',
+        background: diffFilter===id ? (id==='all'?T.surf2 : DIFF[id]?.bg ?? T.surf2) : 'transparent',
+        color: diffFilter===id ? (id==='all'?T.amber : DIFF[id]?.color ?? T.amber) : '#9aa5b0',
+        border: `1px solid ${diffFilter===id ? (id==='all'?T.amber+'50' : DIFF[id]?.color+'50' ?? T.amber) : T.bdr}`,
+        transition:'all 0.14s' }}>
+      {label}
+    </div>
+  )
+
   return (
     <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:14 }} className="fadeUp">
+
+      {/* ── WORD SEARCH ── */}
+      <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, letterSpacing:'0.12em' }}>WORD SEARCH</div>
+        <div style={{ display:'flex', gap:8 }}>
+          <input type="text" value={query} onChange={e=>setQuery(e.target.value)}
+            placeholder="Type English word to look up…"
+            onKeyDown={e=>e.key==='Enter'&&searchWord()}
+            style={{ flex:1 }}/>
+          <button className="btn" onClick={searchWord} disabled={searching||!query.trim()}
+            style={{ background:T.blueD, border:`1px solid ${T.blue}50`, color:T.blue, padding:'10px 14px', whiteSpace:'nowrap' }}>
+            {searching ? '…' : '🔍'}
+          </button>
+        </div>
+
+        {searchMsg && (
+          <div style={{ fontFamily:MONO, fontSize:11, color: searchMsg.startsWith('✓') ? T.grn : searchMsg.startsWith('「') ? T.txt2 : T.red, padding:'4px 2px' }}>
+            {searchMsg}
+          </div>
+        )}
+
+        {searchRes && (
+          <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:12, padding:16, display:'flex', flexDirection:'column', gap:10 }} className="fadeUp">
+            {/* Word header */}
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+              <div>
+                <span style={{ fontFamily:DISP, fontSize:20, color:T.amber }}>{searchRes.word}</span>
+                {searchRes.ipa && <span style={{ fontFamily:MONO, fontSize:10, color:'#9aa5b0', marginLeft:10 }}>{searchRes.ipa}</span>}
+              </div>
+              <div onClick={()=>speak(searchRes.word)} style={{ cursor:'pointer', color:T.txt3, padding:5 }}
+                onMouseOver={e=>e.currentTarget.style.color=T.amber} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M12 2.5a6 6 0 010 11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+              </div>
+            </div>
+
+            {/* Difficulty selector */}
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>難度：</span>
+              {['easy','mid','hard'].map(d => (
+                <div key={d} onClick={() => setPendingDiff(d)}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color: pendingDiff===d ? DIFF[d].color : T.txt3,
+                    background: pendingDiff===d ? DIFF[d].bg : 'transparent',
+                    border:`1px solid ${pendingDiff===d ? DIFF[d].color+'70' : T.bdr}`,
+                    padding:'3px 10px', borderRadius:10, transition:'all 0.14s' }}>
+                  {DIFF[d].label}
+                </div>
+              ))}
+            </div>
+
+            {/* Definitions */}
+            {searchRes.defs.map((def, i) => (
+              <div key={i} style={{ background:T.surf2, borderRadius:9, padding:12 }}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:5 }}>
+                  <span style={{ fontFamily:MONO, fontSize:9, color:T.blue, letterSpacing:'0.08em' }}>{def.pos?.toUpperCase()}</span>
+                  <button className="btn" onClick={() => addSearchResult(def)}
+                    style={{ background:T.amberD, border:`1px solid ${T.amber}50`, color:T.amber, padding:'4px 12px', fontSize:10 }}>
+                    + 加入單字庫
+                  </button>
+                </div>
+                <div style={{ fontFamily:SERIF, fontSize:13, color:T.txt, lineHeight:1.55, marginBottom:4 }}>{def.def}</div>
+                {def.ex && <div style={{ fontFamily:SERIF, fontStyle:'italic', fontSize:12, color:T.txt3 }}>"{def.ex}"</div>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div style={{ height:1, background:T.bdr }}/>
+
+      {/* Sub-tabs */}
       <div style={{ display:'flex', background:T.surf2, borderRadius:9, padding:3, gap:2 }}>
-        <SubBtn id="list" lbl="LIST"/><SubBtn id="flash" lbl="FLASHCARD"/><SubBtn id="fill" lbl="FILL-IN"/>
+        <SubBtn id="list" lbl="LIST"/>
+        <SubBtn id="flash" lbl="FLASHCARD"/>
+        <SubBtn id="fill" lbl="FILL-IN"/>
         <div onClick={() => audioPlaying ? stopAudio() : startAudio()}
           style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:'7px 12px', borderRadius:7, cursor:'pointer', background: audioPlaying ? T.amber : 'transparent', color: audioPlaying ? T.bg : '#c2cad4', transition:'all 0.14s', fontSize:13 }}
           title="Ride & Listen mode">
@@ -7527,14 +7678,22 @@ function VocabTab({ vocab, updateVocab, updateStats, awardBadge }) {
 
       {audioPlaying && (
         <div style={{ background:`${T.amber}18`, border:`1px solid ${T.amber}40`, borderRadius:10, padding:'10px 14px', display:'flex', alignItems:'center', gap:10 }}>
-          <span style={{ fontFamily:MONO, fontSize:10, color:T.amber, animation:'pulse 1.5s infinite' }}>● AUDIO PLAYING</span>
-          <span style={{ fontFamily:SERIF, fontSize:12, color:T.txt2, flex:1 }}>騎車模式：單字 → 中文定義 逐一播放</span>
+          <span style={{ fontFamily:MONO, fontSize:10, color:T.amber, animation:'pulse 1.5s infinite' }}>● AUDIO</span>
+          <span style={{ fontFamily:SERIF, fontSize:12, color:T.txt2, flex:1 }}>騎車模式播放中</span>
           <button className="btn" onClick={stopAudio} style={{ background:T.redD, border:`1px solid ${T.red}50`, color:T.red, padding:'5px 10px', fontSize:11 }}>停止</button>
         </div>
       )}
 
       {sub === 'list' && (
         <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+          {/* Difficulty filter */}
+          <div style={{ display:'flex', gap:6 }}>
+            <DiffFilterBtn id="all"  label="ALL"/>
+            <DiffFilterBtn id="hard" label="🔴 HARD"/>
+            <DiffFilterBtn id="mid"  label="🟡 MID"/>
+            <DiffFilterBtn id="easy" label="🟢 EASY"/>
+          </div>
+
           {adding ? (
             <div style={{ display:'flex', gap:8 }}>
               <input type="text" value={newWord} onChange={e=>setNewWord(e.target.value)} placeholder="Type English word…" onKeyDown={e=>e.key==='Enter'&&handleAdd()} autoFocus/>
@@ -7548,13 +7707,19 @@ function VocabTab({ vocab, updateVocab, updateStats, awardBadge }) {
               + ADD WORD
             </button>
           )}
-          {listWords.length === 0 && <div style={{ textAlign:'center', color:T.txt3, fontFamily:SERIF, fontSize:13, padding:'24px 0' }}>No words yet. Add some!</div>}
+
+          {listWords.length === 0 && (
+            <div style={{ textAlign:'center', color:T.txt3, fontFamily:SERIF, fontSize:13, padding:'24px 0' }}>
+              {diffFilter === 'all' ? 'No words yet. Search above to add!' : `No ${diffFilter.toUpperCase()} words yet.`}
+            </div>
+          )}
           {listWords.map(w => (
-            <div key={w.id} style={{ background:T.surf, border:`1px solid ${w.archived ? T.bdr : T.bdr}`, borderRadius:11, padding:15, opacity: w.archived ? 0.5 : 1, transition:'opacity 0.2s' }}>
+            <div key={w.id} style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:11, padding:15, opacity: w.archived ? 0.5 : 1, transition:'opacity 0.2s' }}>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:w.def ? 6 : 0 }}>
-                <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ flex:1, minWidth:0, display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
                   <span style={{ fontFamily:MONO, fontSize:15, color: w.archived ? T.txt3 : T.amber, fontWeight:500 }}>{w.word}</span>
-                  {w.ipa_us && <span style={{ fontFamily:MONO, fontSize:10, color:'#9aa5b0', marginLeft:10 }}>{w.ipa_us}</span>}
+                  {w.ipa_us && <span style={{ fontFamily:MONO, fontSize:10, color:'#9aa5b0' }}>{w.ipa_us}</span>}
+                  <DiffTag diff={w.diff} onClick={() => toggleDiff(w.id)}/>
                 </div>
                 <div style={{ display:'flex', gap:4, flexShrink:0 }}>
                   <div onClick={()=>speak(w.word)} style={{ cursor:'pointer', color:T.txt3, padding:5, transition:'color 0.14s' }}
@@ -7563,7 +7728,7 @@ function VocabTab({ vocab, updateVocab, updateStats, awardBadge }) {
                   </div>
                   <div onClick={()=> w.archived ? unarchiveWord(w.id) : archiveWord(w.id)}
                     title={w.archived ? '取消封存' : '已熟，移到最後'}
-                    style={{ cursor:'pointer', color: w.archived ? T.grn : T.txt3, padding:5, fontSize:12, transition:'color 0.14s', fontFamily:MONO }}
+                    style={{ cursor:'pointer', color: w.archived ? T.grn : T.txt3, padding:5, fontSize:12, fontFamily:MONO }}
                     onMouseOver={e=>e.currentTarget.style.color=T.grn} onMouseOut={e=>e.currentTarget.style.color= w.archived ? T.grn : T.txt3}>
                     {w.archived ? '↺' : '✓'}
                   </div>
@@ -7583,11 +7748,12 @@ function VocabTab({ vocab, updateVocab, updateStats, awardBadge }) {
               <div style={{ fontFamily:MONO, fontSize:9, color:'#9aa5b0', textAlign:'center', letterSpacing:'0.1em' }}>
                 CARD {flipIdx % sorted.length + 1} / {sorted.length}
               </div>
-              <div onClick={() => setFlipped(f=>!f)} style={{ background:T.surf, border:`1px solid ${flipped ? T.amber+'70' : T.bdr}`, borderRadius:16, padding:'36px 24px', minHeight:190, cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:10, transition:'border-color 0.25s', animation: flipped ? 'glow 1.5s ease' : 'none' }}>
+              <div onClick={() => setFlipped(f=>!f)} style={{ background:T.surf, border:`1px solid ${flipped ? T.amber+'70' : T.bdr}`, borderRadius:16, padding:'36px 24px', minHeight:190, cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:10, transition:'border-color 0.25s' }}>
                 {!flipped ? (
                   <>
                     <div style={{ fontFamily:DISP, fontSize:26, color:T.amber, textAlign:'center' }}>{cur.word}</div>
                     {cur.ipa_us && <div style={{ fontFamily:MONO, fontSize:11, color:'#9aa5b0' }}>{cur.ipa_us}</div>}
+                    <DiffTag diff={cur.diff}/>
                     <div style={{ fontFamily:MONO, fontSize:9, color:'#9aa5b0', marginTop:8, letterSpacing:'0.1em' }}>TAP TO REVEAL</div>
                   </>
                 ) : (
@@ -7595,8 +7761,7 @@ function VocabTab({ vocab, updateVocab, updateStats, awardBadge }) {
                     <div style={{ fontFamily:MONO, fontSize:11, color:T.amber, marginBottom:4 }}>{cur.word}</div>
                     <div style={{ fontFamily:SERIF, fontSize:15, color:T.txt, textAlign:'center', lineHeight:1.65 }}>{cur.def}</div>
                     {cur.ex && <div style={{ fontFamily:SERIF, fontStyle:'italic', fontSize:13, color:T.txt2, textAlign:'center', lineHeight:1.5 }}>"{cur.ex}"</div>}
-                    <div onClick={e=>{e.stopPropagation();speak(cur.word)}} style={{ cursor:'pointer', color:T.txt3, marginTop:8, padding:4 }}
-                      onMouseOver={e=>e.currentTarget.style.color=T.amber} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
+                    <div onClick={e=>{e.stopPropagation();speak(cur.word)}} style={{ cursor:'pointer', color:T.txt3, marginTop:8, padding:4 }}>
                       <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.2" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><path d="M12 2.5a6 6 0 010 11" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
                     </div>
                   </>
@@ -7619,11 +7784,14 @@ function VocabTab({ vocab, updateVocab, updateStats, awardBadge }) {
           {!cur ? <div style={{ textAlign:'center', color:T.txt3, fontFamily:SERIF, fontSize:13, padding:24 }}>No words yet.</div> : (
             <>
               <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:12, padding:20 }}>
-                <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, letterSpacing:'0.1em', marginBottom:10 }}>FILL IN THE BLANK</div>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, letterSpacing:'0.1em' }}>FILL IN THE BLANK</div>
+                  <DiffTag diff={cur.diff}/>
+                </div>
                 <div style={{ fontFamily:SERIF, fontSize:14, color:T.txt, lineHeight:1.75, marginBottom:14 }}>
                   {cur.ex
-                    ? cur.ex.replace(new RegExp(`\\b${cur.word.replace(/\s/g,'\\s')}\\b`, 'gi'), '＿＿＿＿＿')
-                    : cur.def.replace(new RegExp(`\\b${cur.word.split(' ')[0]}\\w*\\b`, 'gi'), '＿＿＿＿＿')
+                    ? cur.ex.replace(new RegExp(`\b${cur.word.replace(/\s/g,'\\s')}\b`, 'gi'), '＿＿＿＿＿')
+                    : cur.def.replace(new RegExp(`\b${cur.word.split(' ')[0]}\w*\b`, 'gi'), '＿＿＿＿＿')
                   }
                 </div>
                 {cur.ipa_us && <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, marginBottom:10 }}>Hint: {cur.ipa_us}</div>}
@@ -7987,7 +8155,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v1.8</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v1.9</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
@@ -7998,7 +8166,7 @@ export default function App() {
     <div style={{ background:T.bg, minHeight:'100vh', maxWidth:480, margin:'0 auto', display:'flex', flexDirection:'column', position:'relative' }}>
       <style>{G}</style>
       <Header stats={stats}/>
-      <div style={{ flex:1, overflowY:'auto', paddingBottom:80 }}>
+      <div style={{ flex:1, overflowY:'auto', paddingBottom:110 }}>
         {tab==='practice' && <PracticeTab {...P}/>}
         {tab==='drill'    && <DrillTab    {...P}/>}
         {tab==='vocab'    && <VocabTab    {...P}/>}
