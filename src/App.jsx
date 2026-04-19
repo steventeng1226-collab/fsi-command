@@ -126,58 +126,255 @@ async function callClaude(apiKey, messages, system = '') {
 // ═══════════════════════════════════════════════════════════════
 const SEED_S = [
   {
-    "id": "s1",
+    "id": "s30_01",
+    "context": "Production Issue",
+    "hint": "Reporting a bottleneck in a meeting",
+    "original": "We have identified a major bottleneck in the packaging stage.",
+    "linked_hint": "We-have identified / a major bottleneck / in the packaging stage.",
+    "rhythm": "We have identified a major bottleneck in the packaging stage.",
+    "tts": "We have identified a major bottleneck in the packaging stage.",
     "mode": "simple",
+    "subs": [],
+    "reps": 0,
+    "ease": 2.5,
+    "interval": 1,
+    "dueDate": 0,
+    "lastSeen": 0
+  },
+  {
+    "id": "s30_02",
+    "context": "Production Flow",
+    "hint": "Explaining impact on production",
+    "original": "This is currently slowing down our entire production flow.",
+    "linked_hint": "This-is currently / slowing down / our entire production flow.",
+    "rhythm": "This is currently slowing down our entire production flow.",
+    "tts": "This is currently slowing down our entire production flow.",
+    "mode": "simple",
+    "subs": [],
+    "reps": 0,
+    "ease": 2.5,
+    "interval": 1,
+    "dueDate": 0,
+    "lastSeen": 0
+  },
+  {
+    "id": "s30_03",
+    "context": "Inventory Control",
+    "hint": "Requesting inventory reduction",
+    "original": "We need to reduce the inventory level.",
+    "linked_hint": "We need t' reduce / the inventory level.",
+    "rhythm": "We need to reduce the inventory level.",
+    "tts": "We need to reduce the inventory level.",
+    "mode": "simple",
+    "subs": [],
+    "reps": 0,
+    "ease": 2.5,
+    "interval": 1,
+    "dueDate": 0,
+    "lastSeen": 0
+  },
+  {
+    "id": "s30_04",
+    "context": "Logistics",
+    "hint": "Pushing for faster shipment",
+    "original": "We must expedite the current shipments.",
+    "linked_hint": "We must expedite / the current shipments.",
+    "rhythm": "We must expedite the current shipments.",
+    "tts": "We must expedite the current shipments.",
+    "mode": "simple",
+    "subs": [],
+    "reps": 0,
+    "ease": 2.5,
+    "interval": 1,
+    "dueDate": 0,
+    "lastSeen": 0
+  },
+  {
+    "id": "s30_05",
+    "context": "Delay Management",
+    "hint": "Coordinating with logistics team",
+    "original": "We are working with logistics to mitigate the delays.",
+    "linked_hint": "We-are working / with logistics / t' mitigate the delays.",
+    "rhythm": "We are working with logistics to mitigate the delays.",
+    "tts": "We are working with logistics to mitigate the delays.",
+    "mode": "simple",
+    "subs": [],
+    "reps": 0,
+    "ease": 2.5,
+    "interval": 1,
+    "dueDate": 0,
+    "lastSeen": 0
+  },
+  {
+    "id": "s30_06",
+    "context": "Management Principle",
+    "hint": "Emphasizing proactive mindset",
+    "original": "It is vital to be proactive rather than reactive.",
+    "linked_hint": "It-is vital / t' be proactive / rather than reactive.",
+    "rhythm": "It is vital to be proactive rather than reactive.",
+    "tts": "It is vital to be proactive rather than reactive.",
+    "mode": "simple",
+    "subs": [],
+    "reps": 0,
+    "ease": 2.5,
+    "interval": 1,
+    "dueDate": 0,
+    "lastSeen": 0
+  },
+  {
+    "id": "s30_07",
+    "context": "Budget Review",
+    "hint": "Requesting justification for expense",
+    "original": "Please provide a clear justification.",
+    "linked_hint": "Please provide / a clear justification.",
+    "rhythm": "Please provide a clear justification.",
+    "tts": "Please provide a clear justification.",
+    "mode": "simple",
+    "subs": [],
+    "reps": 0,
+    "ease": 2.5,
+    "interval": 1,
+    "dueDate": 0,
+    "lastSeen": 0
+  },
+  {
+    "id": "s30_08",
+    "context": "Budget Review",
+    "hint": "Management evaluating the expense",
+    "original": "Management will evaluate the rationality of this expense.",
+    "linked_hint": "Management will evaluate / the rationality / of this expense.",
+    "rhythm": "Management will evaluate the rationality of this expense.",
+    "tts": "Management will evaluate the rationality of this expense.",
+    "mode": "simple",
+    "subs": [],
+    "reps": 0,
+    "ease": 2.5,
+    "interval": 1,
+    "dueDate": 0,
+    "lastSeen": 0
+  },
+  {
+    "id": "s30_09",
+    "context": "Team Restructure",
+    "hint": "Announcing assembly team consolidation",
+    "original": "We will consolidate assembly teams to improve efficiency.",
+    "linked_hint": "We will consolidate / assembly teams / t' improve efficiency.",
+    "rhythm": "We will consolidate assembly teams to improve efficiency.",
+    "tts": "We will consolidate assembly teams to improve efficiency.",
+    "mode": "simple",
+    "subs": [],
+    "reps": 0,
+    "ease": 2.5,
+    "interval": 1,
+    "dueDate": 0,
+    "lastSeen": 0
+  },
+  {
+    "id": "s30_10",
+    "context": "Quality Alignment",
+    "hint": "Setting expectation for alignment",
+    "original": "I expect perfect alignment between production and quality control.",
+    "linked_hint": "I expect / perfect alignment / between production n' quality control.",
+    "rhythm": "I expect perfect alignment between production and quality control.",
+    "tts": "I expect perfect alignment between production and quality control.",
+    "mode": "simple",
+    "subs": [],
+    "reps": 0,
+    "ease": 2.5,
+    "interval": 1,
+    "dueDate": 0,
+    "lastSeen": 0
+  },
+  {
+    "id": "s30_11",
+    "context": "Execution",
+    "hint": "Emphasizing execution over planning",
+    "original": "Even the best plans fail without strong execution.",
+    "linked_hint": "Even the best plans / fail without / strong execution.",
+    "rhythm": "Even the best plans fail without strong execution.",
+    "tts": "Even the best plans fail without strong execution.",
+    "mode": "simple",
+    "subs": [],
+    "reps": 0,
+    "ease": 2.5,
+    "interval": 1,
+    "dueDate": 0,
+    "lastSeen": 0
+  },
+  {
+    "id": "s30_12",
+    "context": "Pricing Decision",
+    "hint": "Recommending price adjustment based on data",
+    "original": "Based on the data, we need to adjust pricing.",
+    "linked_hint": "Based-on the data / we need t' adjust pricing.",
+    "rhythm": "Based on the data, we need to adjust pricing.",
+    "tts": "Based on the data, we need to adjust pricing.",
+    "mode": "simple",
+    "subs": [],
+    "reps": 0,
+    "ease": 2.5,
+    "interval": 1,
+    "dueDate": 0,
+    "lastSeen": 0
+  },
+  {
+    "id": "s30_13",
+    "context": "Quality Improvement",
+    "hint": "Targeting yield and scrap reduction",
+    "original": "We need to improve yield and reduce scrap.",
+    "linked_hint": "We need t' improve yield / n' reduce scrap.",
+    "rhythm": "We need to improve yield and reduce scrap.",
+    "tts": "We need to improve yield and reduce scrap.",
+    "mode": "simple",
+    "subs": [],
+    "reps": 0,
+    "ease": 2.5,
+    "interval": 1,
+    "dueDate": 0,
+    "lastSeen": 0
+  },
+  {
+    "id": "s30_14",
+    "context": "Root Cause Analysis",
+    "hint": "Identifying source of process issue",
+    "original": "The issue is coming from process variation.",
+    "linked_hint": "The issue / is coming from / process variation.",
+    "rhythm": "The issue is coming from process variation.",
+    "tts": "The issue is coming from process variation.",
+    "mode": "simple",
+    "subs": [],
+    "reps": 0,
+    "ease": 2.5,
+    "interval": 1,
+    "dueDate": 0,
+    "lastSeen": 0
+  },
+  {
+    "id": "s30_15",
+    "context": "Root Cause Analysis",
+    "hint": "Setting priority in RCA meeting",
+    "original": "We need to identify the root cause first.",
+    "linked_hint": "We need t' identify / the root cause first.",
+    "rhythm": "We need to identify the root cause first.",
+    "tts": "We need to identify the root cause first.",
+    "mode": "simple",
+    "subs": [],
+    "reps": 0,
+    "ease": 2.5,
+    "interval": 1,
+    "dueDate": 0,
+    "lastSeen": 0
+  },
+  {
+    "id": "s30_16",
     "context": "Production Status",
-    "hint": "Daily standup — reporting line output",
-    "template": "The {line} is running at {capacity}% capacity today.",
-    "subs": [
-      [
-        "SMD line",
-        "packaging line",
-        "assembly line",
-        "coating line"
-      ],
-      [
-        "85",
-        "90",
-        "72",
-        "100",
-        "65"
-      ]
-    ],
-    "reps": 0,
-    "ease": 2.5,
-    "interval": 1,
-    "dueDate": 0,
-    "lastSeen": 0
-  },
-  {
-    "id": "s2",
+    "hint": "Daily standup capacity report",
+    "original": "The capacity is running at eighty-five percent today.",
+    "linked_hint": "The capacity / is running at / eighty-five percent today.",
+    "rhythm": "The capacity is running at eighty-five percent today.",
+    "tts": "The capacity is running at eighty-five percent today.",
     "mode": "simple",
-    "context": "Gross Margin",
-    "hint": "Presenting Q results to management",
-    "template": "Our gross margin {changed} by {amount}% due to {reason}.",
-    "subs": [
-      [
-        "declined",
-        "improved",
-        "remained stable"
-      ],
-      [
-        "2.3",
-        "1.5",
-        "4.1",
-        "0.8"
-      ],
-      [
-        "higher silver paste cost",
-        "product mix shift",
-        "volume scale-up",
-        "ASP pressure",
-        "inventory write-down"
-      ]
-    ],
+    "subs": [],
     "reps": 0,
     "ease": 2.5,
     "interval": 1,
@@ -185,30 +382,15 @@ const SEED_S = [
     "lastSeen": 0
   },
   {
-    "id": "s3",
+    "id": "s30_17",
+    "context": "Planning Alignment",
+    "hint": "Requesting alignment with production plan",
+    "original": "We need to align with the production plan.",
+    "linked_hint": "We need t' align / with the production plan.",
+    "rhythm": "We need to align with the production plan.",
+    "tts": "We need to align with the production plan.",
     "mode": "simple",
-    "context": "Yield Report",
-    "hint": "Presenting process quality results",
-    "template": "We achieved a {yield}% yield rate on the {product} line this {period}.",
-    "subs": [
-      [
-        "98.2",
-        "96.5",
-        "99.1",
-        "94.3"
-      ],
-      [
-        "0603",
-        "beads",
-        "CLH",
-        "inductor"
-      ],
-      [
-        "week",
-        "month",
-        "quarter"
-      ]
-    ],
+    "subs": [],
     "reps": 0,
     "ease": 2.5,
     "interval": 1,
@@ -216,31 +398,15 @@ const SEED_S = [
     "lastSeen": 0
   },
   {
-    "id": "s4",
+    "id": "s30_18",
+    "context": "Data Verification",
+    "hint": "Asking someone to verify data",
+    "original": "Please check the data and confirm.",
+    "linked_hint": "Please check the data / n' confirm.",
+    "rhythm": "Please check the data and confirm.",
+    "tts": "Please check the data and confirm.",
     "mode": "simple",
-    "context": "Quality Issue",
-    "hint": "Reporting a defect finding in QC meeting",
-    "template": "We found {count} defective units in the {batch}, with a defect rate of {rate}%.",
-    "subs": [
-      [
-        "3",
-        "12",
-        "47",
-        "156"
-      ],
-      [
-        "latest shipment",
-        "incoming lot",
-        "Q2 batch",
-        "sampling group"
-      ],
-      [
-        "0.3",
-        "1.2",
-        "2.8",
-        "0.05"
-      ]
-    ],
+    "subs": [],
     "reps": 0,
     "ease": 2.5,
     "interval": 1,
@@ -248,107 +414,15 @@ const SEED_S = [
     "lastSeen": 0
   },
   {
-    "id": "s5",
-    "mode": "hard",
-    "context": "Customer Call",
-    "hint": "Negotiating delivery schedule",
-    "template": "A: When can we expect the delivery?\nB: We can {deliver} the order by {date}.\nA: Can you {guarantee} that schedule?\nB: Let me {check} with our {team} and confirm by EOD.",
-    "subs": [
-      [
-        "deliver",
-        "ship",
-        "dispatch",
-        "complete"
-      ],
-      [
-        "end of this week",
-        "next Monday",
-        "the 25th",
-        "Friday"
-      ],
-      [
-        "confirm",
-        "guarantee",
-        "commit to",
-        "ensure"
-      ],
-      [
-        "check",
-        "verify",
-        "confirm",
-        "follow up"
-      ],
-      [
-        "production team",
-        "plant manager",
-        "logistics team",
-        "scheduling team"
-      ]
-    ],
-    "reps": 0,
-    "ease": 2.5,
-    "interval": 1,
-    "dueDate": 0,
-    "lastSeen": 0
-  },
-  {
-    "id": "s6",
-    "mode": "hard",
-    "context": "RCA Meeting",
-    "hint": "Root cause analysis discussion",
-    "template": "A: What caused the margin drop?\nB: The primary driver was {cause}.\nA: When did this start?\nB: We first {noticed} the issue in {period}.\nA: What's the {action}?\nB: We're {measure} to address it.",
-    "subs": [
-      [
-        "higher raw material cost",
-        "unfavorable product mix",
-        "ASP erosion",
-        "volume underabsorption"
-      ],
-      [
-        "noticed",
-        "identified",
-        "detected",
-        "flagged"
-      ],
-      [
-        "early March",
-        "Q1",
-        "last month",
-        "Week 10"
-      ],
-      [
-        "corrective action",
-        "mitigation plan",
-        "recovery roadmap"
-      ],
-      [
-        "renegotiating supplier contracts",
-        "optimizing product mix",
-        "raising ASP",
-        "reducing fixed cost allocation"
-      ]
-    ],
-    "reps": 0,
-    "ease": 2.5,
-    "interval": 1,
-    "dueDate": 0,
-    "lastSeen": 0
-  },
-  {
-    "id": "xl_s0",
+    "id": "s30_19",
+    "context": "Gap Closure",
+    "hint": "Urging team to close performance gap",
+    "original": "We need to close the gap as soon as possible.",
+    "linked_hint": "We need t' close the gap / as soon-as possible.",
+    "rhythm": "We need to close the gap as soon as possible.",
+    "tts": "We need to close the gap as soon as possible.",
     "mode": "simple",
-    "context": "Issue",
-    "hint": "The main issue is low yield.",
-    "template": "The main issue is {blank}.",
-    "subs": [
-      [
-        "yield",
-        "cost",
-        "delay",
-        "manpower",
-        "material"
-      ]
-    ],
+    "subs": [],
     "reps": 0,
     "ease": 2.5,
     "interval": 1,
@@ -356,20 +430,15 @@ const SEED_S = [
     "lastSeen": 0
   },
   {
-    "id": "xl_s1",
+    "id": "s30_20",
+    "context": "Decision Making",
+    "hint": "Proposing review before decision",
+    "original": "Let us review the numbers before making a decision.",
+    "linked_hint": "Let-us review the numbers / before making a decision.",
+    "rhythm": "Let us review the numbers before making a decision.",
+    "tts": "Let us review the numbers before making a decision.",
     "mode": "simple",
-    "context": "Impact",
-    "hint": "The impact is mainly from silver price.",
-    "template": "The impact is mainly from {blank}.",
-    "subs": [
-      [
-        "silver price",
-        "labor cost",
-        "downtime",
-        "scrap",
-        "demand"
-      ]
-    ],
+    "subs": [],
     "reps": 0,
     "ease": 2.5,
     "interval": 1,
@@ -377,20 +446,15 @@ const SEED_S = [
     "lastSeen": 0
   },
   {
-    "id": "xl_s2",
+    "id": "s30_21",
+    "context": "Supply Chain",
+    "hint": "Reporting delay due to shortage",
+    "original": "We are facing a delay due to material shortage.",
+    "linked_hint": "We-are facing a delay / due t' material shortage.",
+    "rhythm": "We are facing a delay due to material shortage.",
+    "tts": "We are facing a delay due to material shortage.",
     "mode": "simple",
-    "context": "Status",
-    "hint": "The project is on track.",
-    "template": "The project is {blank}.",
-    "subs": [
-      [
-        "on track",
-        "delayed",
-        "behind schedule",
-        "at risk",
-        "completed"
-      ]
-    ],
+    "subs": [],
     "reps": 0,
     "ease": 2.5,
     "interval": 1,
@@ -398,20 +462,15 @@ const SEED_S = [
     "lastSeen": 0
   },
   {
-    "id": "xl_s3",
+    "id": "s30_22",
+    "context": "Output Target",
+    "hint": "Pushing for higher output this week",
+    "original": "We need to increase output this week.",
+    "linked_hint": "We need t' increase output / this week.",
+    "rhythm": "We need to increase output this week.",
+    "tts": "We need to increase output this week.",
     "mode": "simple",
-    "context": "Action",
-    "hint": "We need to improve the yield.",
-    "template": "We need to {blank}.",
-    "subs": [
-      [
-        "improve yield",
-        "reduce cost",
-        "increase capacity",
-        "hire staff",
-        "review data"
-      ]
-    ],
+    "subs": [],
     "reps": 0,
     "ease": 2.5,
     "interval": 1,
@@ -419,20 +478,15 @@ const SEED_S = [
     "lastSeen": 0
   },
   {
-    "id": "xl_s4",
+    "id": "s30_23",
+    "context": "Line Performance",
+    "hint": "Reporting underperformance in standup",
+    "original": "The line is running below target today.",
+    "linked_hint": "The line / is running below target / today.",
+    "rhythm": "The line is running below target today.",
+    "tts": "The line is running below target today.",
     "mode": "simple",
-    "context": "Analysis",
-    "hint": "Based on the data, we need to adjust pricing.",
-    "template": "Based on the data, {blank}.",
-    "subs": [
-      [
-        "adjust pricing",
-        "reduce cost",
-        "increase output",
-        "optimize process",
-        "review plan"
-      ]
-    ],
+    "subs": [],
     "reps": 0,
     "ease": 2.5,
     "interval": 1,
@@ -440,37 +494,117 @@ const SEED_S = [
     "lastSeen": 0
   },
   {
-    "id": "xl_s5",
+    "id": "s30_24",
+    "context": "Problem Solving",
+    "hint": "Reassuring team that work is in progress",
+    "original": "We are working on a solution right now.",
+    "linked_hint": "We-are working on / a solution / right now.",
+    "rhythm": "We are working on a solution right now.",
+    "tts": "We are working on a solution right now.",
     "mode": "simple",
-    "context": "Recommendation",
-    "hint": "We should control the cost.",
-    "template": "We should {blank}.",
-    "subs": [
-      [
-        "control cost",
-        "increase price",
-        "reduce waste",
-        "optimize manpower",
-        "delay investment"
-      ]
-    ],
+    "subs": [],
+    "reps": 0,
+    "ease": 2.5,
+    "interval": 1,
+    "dueDate": 0,
+    "lastSeen": 0
+  },
+  {
+    "id": "s30_25",
+    "context": "Delivery Risk",
+    "hint": "Warning about delivery schedule impact",
+    "original": "This will impact our delivery schedule.",
+    "linked_hint": "This will impact / our delivery schedule.",
+    "rhythm": "This will impact our delivery schedule.",
+    "tts": "This will impact our delivery schedule.",
+    "mode": "simple",
+    "subs": [],
+    "reps": 0,
+    "ease": 2.5,
+    "interval": 1,
+    "dueDate": 0,
+    "lastSeen": 0
+  },
+  {
+    "id": "s30_26",
+    "context": "Issue Resolution",
+    "hint": "Demanding immediate fix",
+    "original": "We need to fix this issue immediately.",
+    "linked_hint": "We need t' fix / this issue / immediately.",
+    "rhythm": "We need to fix this issue immediately.",
+    "tts": "We need to fix this issue immediately.",
+    "mode": "simple",
+    "subs": [],
+    "reps": 0,
+    "ease": 2.5,
+    "interval": 1,
+    "dueDate": 0,
+    "lastSeen": 0
+  },
+  {
+    "id": "s30_27",
+    "context": "Root Cause Analysis",
+    "hint": "Updating status on investigation",
+    "original": "The root cause is still under investigation.",
+    "linked_hint": "The root cause / is still under investigation.",
+    "rhythm": "The root cause is still under investigation.",
+    "tts": "The root cause is still under investigation.",
+    "mode": "simple",
+    "subs": [],
+    "reps": 0,
+    "ease": 2.5,
+    "interval": 1,
+    "dueDate": 0,
+    "lastSeen": 0
+  },
+  {
+    "id": "s30_28",
+    "context": "Status Update",
+    "hint": "Committing to end-of-day update",
+    "original": "We will update you by end of today.",
+    "linked_hint": "We will update you / by-end of today.",
+    "rhythm": "We will update you by end of today.",
+    "tts": "We will update you by end of today.",
+    "mode": "simple",
+    "subs": [],
+    "reps": 0,
+    "ease": 2.5,
+    "interval": 1,
+    "dueDate": 0,
+    "lastSeen": 0
+  },
+  {
+    "id": "s30_29",
+    "context": "Action Item",
+    "hint": "Asking someone to follow up",
+    "original": "Please follow up on this action item.",
+    "linked_hint": "Please follow-up / on this action item.",
+    "rhythm": "Please follow up on this action item.",
+    "tts": "Please follow up on this action item.",
+    "mode": "simple",
+    "subs": [],
+    "reps": 0,
+    "ease": 2.5,
+    "interval": 1,
+    "dueDate": 0,
+    "lastSeen": 0
+  },
+  {
+    "id": "s30_30",
+    "context": "Decision",
+    "hint": "Moving forward with current plan",
+    "original": "Let us move forward with the current plan.",
+    "linked_hint": "Let-us move forward / with the current plan.",
+    "rhythm": "Let us move forward with the current plan.",
+    "tts": "Let us move forward with the current plan.",
+    "mode": "simple",
+    "subs": [],
     "reps": 0,
     "ease": 2.5,
     "interval": 1,
     "dueDate": 0,
     "lastSeen": 0
   }
-,
-  {"id": "life_01", "mode": "simple", "context": "Daily Life", "hint": "Someone asks what you had", "template": "I had {food} for {meal}.", "subs": [["rice and soup", "noodles", "a sandwich", "fried rice", "sushi", "congee", "toast"], ["breakfast", "lunch", "dinner", "brunch"]], "reps": 0, "ease": 2.5, "interval": 1, "dueDate": 0, "lastSeen": 0},
-  {"id": "life_02", "mode": "simple", "context": "Daily Life", "hint": "Telling someone where you ate", "template": "I ate at {place} near {location}.", "subs": [["a small restaurant", "the cafeteria", "a noodle shop", "a convenience store", "home", "a coffee shop"], ["the office", "the station", "my place", "the park", "the hospital"]], "reps": 0, "ease": 2.5, "interval": 1, "dueDate": 0, "lastSeen": 0},
-  {"id": "life_03", "mode": "simple", "context": "Appointment", "hint": "Confirming schedule details", "template": "The appointment is at {time} on {day}.", "subs": [["9 AM", "2 PM", "10:30", "3:30 PM", "noon"], ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "this weekend"]], "reps": 0, "ease": 2.5, "interval": 1, "dueDate": 0, "lastSeen": 0},
-  {"id": "life_04", "mode": "simple", "context": "Daily Request", "hint": "Telling someone what you need", "template": "I need {item} by {deadline}.", "subs": [["the documents", "your signature", "a copy", "the receipt", "the report", "some help", "more time"], ["today", "this afternoon", "end of day", "tomorrow morning", "Friday", "next week"]], "reps": 0, "ease": 2.5, "interval": 1, "dueDate": 0, "lastSeen": 0},
-  {"id": "life_05", "mode": "simple", "context": "Office Task", "hint": "Clarifying who needs something", "template": "{person} needs the {document} by {time}.", "subs": [["The manager", "Our client", "HR", "The director", "Cliff", "My supervisor"], ["report", "proposal", "summary", "invoice", "contract", "presentation"], ["today", "tomorrow", "end of week", "Monday", "3 PM"]], "reps": 0, "ease": 2.5, "interval": 1, "dueDate": 0, "lastSeen": 0},
-  {"id": "life_06", "mode": "simple", "context": "Phone Call", "hint": "Answering who is on the line", "template": "{person} from {company} is calling about {topic}.", "subs": [["Mr. Chen", "A client", "Someone", "Our supplier", "The auditor"], ["YAGEO", "the head office", "the factory", "our partner", "procurement"], ["the order", "the shipment", "the meeting", "the invoice", "the quality issue"]], "reps": 0, "ease": 2.5, "interval": 1, "dueDate": 0, "lastSeen": 0},
-  {"id": "life_07", "mode": "simple", "context": "Message Relay", "hint": "Passing on a message", "template": "The message is that {person} will {action} at {time}.", "subs": [["he", "she", "the team", "the manager", "our client"], ["call back", "arrive", "send the file", "join the meeting", "confirm the order"], ["10 AM", "noon", "this afternoon", "3 PM", "tomorrow", "end of day"]], "reps": 0, "ease": 2.5, "interval": 1, "dueDate": 0, "lastSeen": 0},
-  {"id": "life_08", "mode": "simple", "context": "Deadline Check", "hint": "Clarifying when something is needed", "template": "I need it by {time} at the {latest}.", "subs": [["noon", "3 PM", "end of day", "tomorrow morning", "Friday"], ["latest", "absolute latest", "very latest", "most"]], "reps": 0, "ease": 2.5, "interval": 1, "dueDate": 0, "lastSeen": 0},
-  {"id": "life_09", "mode": "simple", "context": "Office Intro", "hint": "Introducing who is in charge", "template": "{person} is in charge of {department} here.", "subs": [["Mr. Lin", "Ms. Wang", "Cliff", "Our director", "The senior manager"], ["this department", "production", "quality", "finance", "the project", "the whole team"]], "reps": 0, "ease": 2.5, "interval": 1, "dueDate": 0, "lastSeen": 0},
-  {"id": "life_10", "mode": "simple", "context": "Data Presentation", "hint": "Explaining a chart or graph", "template": "The chart shows that {metric} {trend} by {amount} this {period}.", "subs": [["revenue", "output", "yield rate", "cost", "margin", "headcount"], ["increased", "decreased", "dropped", "improved", "remained stable"], ["5%", "10%", "2.3%", "significantly", "slightly"], ["month", "quarter", "week", "year"]], "reps": 0, "ease": 2.5, "interval": 1, "dueDate": 0, "lastSeen": 0}
 ]
 
 const SEED_V = [
@@ -6499,7 +6633,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v2.3</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v2.4</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -6752,7 +6886,7 @@ function DrillTab({ sentences, vocab, settings }) {
     const type = detectCardType(card)
     const qs = qMap[card.id] || Q_TEMPLATES[type] || Q_TEMPLATES.default
     const question = qs[0]
-    const answer = card.template.replace(/\{[^}]+\}/g, w => w.slice(1,-1))
+    const answer = card.tts || card.original || card.template.replace(/\{[^}]+\}/g, w => w.slice(1,-1))
 
     setRideCurrent({ text: question, label: 'QUESTION' })
     speakRide(question, 'en-US', 0.82, () => {
@@ -7036,23 +7170,28 @@ function DrillTab({ sentences, vocab, settings }) {
       {stage === 'shadow' && (
         <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
           <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:14, padding:20 }}>
-            <div style={{ fontFamily:MONO, fontSize:8.5, color:'#9aa5b0', letterSpacing:'0.12em', marginBottom:10 }}>
+            {/* Context */}
+            <div style={{ fontFamily:MONO, fontSize:8.5, color:'#9aa5b0', letterSpacing:'0.12em', marginBottom:14 }}>
               {card.context.toUpperCase()}
               {card.hint && <span style={{ color:T.txt3 }}> — {card.hint}</span>}
             </div>
-            <div style={{ fontFamily:MONO, fontSize:14, color:T.txt, lineHeight:2, marginBottom:16 }}>
-              {card.template.replace(/\{[^}]+\}/g, w =>
-                `[${w.slice(1,-1)}]`
-              ).split(/(\[[^\]]+\])/).map((part, i) =>
-                part.startsWith('[') ? (
-                  <span key={i} style={{ color:T.amber, fontWeight:500 }}>{part}</span>
-                ) : <span key={i}>{part}</span>
-              )}
+
+            {/* Linked Hint — large, main display */}
+            <div style={{ fontFamily:MONO, fontSize:17, color:T.amber, lineHeight:1.85, marginBottom:14, letterSpacing:'0.01em', wordBreak:'break-word' }}>
+              {card.linked_hint || card.original || card.template}
             </div>
-            <div onClick={() => speak(card.template)} style={{ display:'flex', alignItems:'center', gap:6, cursor:'pointer', color:T.txt3, marginBottom:4 }}
+
+            {/* Original sentence — reference */}
+            <div style={{ fontFamily:SERIF, fontSize:13, color:T.txt2, lineHeight:1.6, marginBottom:14, borderTop:`1px solid ${T.bdr}`, paddingTop:10 }}>
+              {card.original || card.template}
+            </div>
+
+            {/* TTS play button */}
+            <div onClick={() => speak(card.tts || card.original || card.template)}
+              style={{ display:'flex', alignItems:'center', gap:6, cursor:'pointer', color:T.txt3 }}
               onMouseOver={e=>e.currentTarget.style.color=T.amber} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M12 2.5a6 6 0 010 11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
-              <span style={{ fontFamily:MONO, fontSize:9, letterSpacing:'0.08em' }}>播放</span>
+              <span style={{ fontFamily:MONO, fontSize:9, letterSpacing:'0.08em' }}>播放句子</span>
             </div>
           </div>
 
@@ -7101,17 +7240,12 @@ function DrillTab({ sentences, vocab, settings }) {
               />
             )}
 
-            {/* Respond: Answer Pattern */}
+            {/* Respond: Rhythm hint */}
             {stage === 'respond' && phase === 'question' && (
-              <div style={{ marginTop:14, background:T.surf2, borderRadius:9, padding:12 }}>
-                <div style={{ fontFamily:MONO, fontSize:8.5, color:T.amber, letterSpacing:'0.1em', marginBottom:7 }}>ANSWER PATTERN</div>
-                <div style={{ fontFamily:MONO, fontSize:12, color:T.txt, lineHeight:1.7, marginBottom:6 }}>
-                  {pattern?.main}
-                </div>
-                <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
-                  {pattern?.keywords.map((k,i) => (
-                    <span key={i} style={{ fontFamily:MONO, fontSize:10, color:T.txt2, background:T.bdr, padding:'2px 8px', borderRadius:10 }}>{k}</span>
-                  ))}
+              <div style={{ marginTop:14, background:T.surf2, borderRadius:9, padding:14 }}>
+                <div style={{ fontFamily:MONO, fontSize:8.5, color:T.amber, letterSpacing:'0.1em', marginBottom:8 }}>RHYTHM GUIDE</div>
+                <div style={{ fontFamily:MONO, fontSize:14, color:T.txt, lineHeight:1.75 }}>
+                  {card.rhythm || card.original || pattern?.main}
                 </div>
               </div>
             )}
@@ -7158,14 +7292,11 @@ function DrillTab({ sentences, vocab, settings }) {
             <div style={{ display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
               <div style={{ background:T.surf, border:`1px solid ${T.grn}40`, borderRadius:12, padding:18 }}>
                 <div style={{ fontFamily:MONO, fontSize:8.5, color:T.grn, letterSpacing:'0.1em', marginBottom:8 }}>ANSWER</div>
-                <div style={{ fontFamily:MONO, fontSize:14, color:T.txt, lineHeight:1.9 }}>
-                  {card.template.replace(/\{[^}]+\}/g, w =>
-                    `[${w.slice(1,-1)}]`
-                  ).split(/(\[[^\]]+\])/).map((part, i) =>
-                    part.startsWith('[') ? (
-                      <span key={i} style={{ color:T.amber, fontWeight:500 }}>{part}</span>
-                    ) : <span key={i}>{part}</span>
-                  )}
+                <div style={{ fontFamily:MONO, fontSize:15, color:T.amber, lineHeight:1.75, marginBottom:6 }}>
+                  {card.original || card.template}
+                </div>
+                <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.6 }}>
+                  {card.linked_hint}
                 </div>
                 <div style={{ display:'flex', gap:10, marginTop:12 }}>
                   <div onClick={() => speak(card.template)} style={{ cursor:'pointer', display:'flex', alignItems:'center', gap:5, color:T.txt3, fontFamily:MONO, fontSize:10 }}
@@ -8233,7 +8364,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v2.3</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v2.4</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
