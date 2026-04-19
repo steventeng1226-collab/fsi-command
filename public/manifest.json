@@ -4,7 +4,7 @@
   "description": "FSI English Substitution Drill — Business English Practice",
   "start_url": "/fsi-command/",
   "scope": "/fsi-command/",
-  "display": "fullscreen",
+  "display": "standalone",
   "orientation": "portrait-primary",
   "theme_color": "#050810",
   "background_color": "#050810",
