@@ -460,6 +460,17 @@ const SEED_S = [
     "dueDate": 0,
     "lastSeen": 0
   }
+,
+  {"id": "life_01", "mode": "simple", "context": "Daily Life", "hint": "Someone asks what you had", "template": "I had {food} for {meal}.", "subs": [["rice and soup", "noodles", "a sandwich", "fried rice", "sushi", "congee", "toast"], ["breakfast", "lunch", "dinner", "brunch"]], "reps": 0, "ease": 2.5, "interval": 1, "dueDate": 0, "lastSeen": 0},
+  {"id": "life_02", "mode": "simple", "context": "Daily Life", "hint": "Telling someone where you ate", "template": "I ate at {place} near {location}.", "subs": [["a small restaurant", "the cafeteria", "a noodle shop", "a convenience store", "home", "a coffee shop"], ["the office", "the station", "my place", "the park", "the hospital"]], "reps": 0, "ease": 2.5, "interval": 1, "dueDate": 0, "lastSeen": 0},
+  {"id": "life_03", "mode": "simple", "context": "Appointment", "hint": "Confirming schedule details", "template": "The appointment is at {time} on {day}.", "subs": [["9 AM", "2 PM", "10:30", "3:30 PM", "noon"], ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "this weekend"]], "reps": 0, "ease": 2.5, "interval": 1, "dueDate": 0, "lastSeen": 0},
+  {"id": "life_04", "mode": "simple", "context": "Daily Request", "hint": "Telling someone what you need", "template": "I need {item} by {deadline}.", "subs": [["the documents", "your signature", "a copy", "the receipt", "the report", "some help", "more time"], ["today", "this afternoon", "end of day", "tomorrow morning", "Friday", "next week"]], "reps": 0, "ease": 2.5, "interval": 1, "dueDate": 0, "lastSeen": 0},
+  {"id": "life_05", "mode": "simple", "context": "Office Task", "hint": "Clarifying who needs something", "template": "{person} needs the {document} by {time}.", "subs": [["The manager", "Our client", "HR", "The director", "Cliff", "My supervisor"], ["report", "proposal", "summary", "invoice", "contract", "presentation"], ["today", "tomorrow", "end of week", "Monday", "3 PM"]], "reps": 0, "ease": 2.5, "interval": 1, "dueDate": 0, "lastSeen": 0},
+  {"id": "life_06", "mode": "simple", "context": "Phone Call", "hint": "Answering who is on the line", "template": "{person} from {company} is calling about {topic}.", "subs": [["Mr. Chen", "A client", "Someone", "Our supplier", "The auditor"], ["YAGEO", "the head office", "the factory", "our partner", "procurement"], ["the order", "the shipment", "the meeting", "the invoice", "the quality issue"]], "reps": 0, "ease": 2.5, "interval": 1, "dueDate": 0, "lastSeen": 0},
+  {"id": "life_07", "mode": "simple", "context": "Message Relay", "hint": "Passing on a message", "template": "The message is that {person} will {action} at {time}.", "subs": [["he", "she", "the team", "the manager", "our client"], ["call back", "arrive", "send the file", "join the meeting", "confirm the order"], ["10 AM", "noon", "this afternoon", "3 PM", "tomorrow", "end of day"]], "reps": 0, "ease": 2.5, "interval": 1, "dueDate": 0, "lastSeen": 0},
+  {"id": "life_08", "mode": "simple", "context": "Deadline Check", "hint": "Clarifying when something is needed", "template": "I need it by {time} at the {latest}.", "subs": [["noon", "3 PM", "end of day", "tomorrow morning", "Friday"], ["latest", "absolute latest", "very latest", "most"]], "reps": 0, "ease": 2.5, "interval": 1, "dueDate": 0, "lastSeen": 0},
+  {"id": "life_09", "mode": "simple", "context": "Office Intro", "hint": "Introducing who is in charge", "template": "{person} is in charge of {department} here.", "subs": [["Mr. Lin", "Ms. Wang", "Cliff", "Our director", "The senior manager"], ["this department", "production", "quality", "finance", "the project", "the whole team"]], "reps": 0, "ease": 2.5, "interval": 1, "dueDate": 0, "lastSeen": 0},
+  {"id": "life_10", "mode": "simple", "context": "Data Presentation", "hint": "Explaining a chart or graph", "template": "The chart shows that {metric} {trend} by {amount} this {period}.", "subs": [["revenue", "output", "yield rate", "cost", "margin", "headcount"], ["increased", "decreased", "dropped", "improved", "remained stable"], ["5%", "10%", "2.3%", "significantly", "slightly"], ["month", "quarter", "week", "year"]], "reps": 0, "ease": 2.5, "interval": 1, "dueDate": 0, "lastSeen": 0}
 ]
 
 const SEED_V = [
@@ -6475,7 +6486,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v1.7</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v1.8</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -7976,7 +7987,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v1.7</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v1.8</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
