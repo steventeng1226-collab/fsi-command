@@ -94,7 +94,7 @@ function srsSort(items) {
 // ═══════════════════════════════════════════════════════════════
 // TTS
 // ═══════════════════════════════════════════════════════════════
-function speak(text, rate = 0.88) {
+function speak(text, rate = 0.82) {
   const clean = text.replace(/\{[^}]+\}/g, '...').replace(/[ABCD]:/g, '')
   window.speechSynthesis?.cancel()
   const u = new SpeechSynthesisUtterance(clean)
@@ -6499,7 +6499,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v2.1</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v2.3</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -6755,12 +6755,12 @@ function DrillTab({ sentences, vocab, settings }) {
     const answer = card.template.replace(/\{[^}]+\}/g, w => w.slice(1,-1))
 
     setRideCurrent({ text: question, label: 'QUESTION' })
-    speakRide(question, 'en-US', 0.9, () => {
+    speakRide(question, 'en-US', 0.82, () => {
       setRideCurrent({ text: '...', label: 'YOUR TURN — 3 SEC' })
       rideTimer.current = setTimeout(() => {
         if (rideStop.current) return
         setRideCurrent({ text: answer, label: 'ANSWER' })
-        speakRide(answer, 'en-US', 0.9, () => {
+        speakRide(answer, 'en-US', 0.82, () => {
           setRideCurrent({ text: answer, label: 'SHADOW' })
           speakRide(answer, 'en-US', 0.82, () => {
             rideTimer.current = setTimeout(() => {
@@ -7348,8 +7348,15 @@ function PracticeTab({ sentences, vocab, stats, settings, updateSentences, updat
           {/* Drill card */}
           <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:14, padding:20, position:'relative' }}>
             {card.hint && (
-              <div style={{ fontFamily:SERIF, fontStyle:'italic', fontSize:13, color:T.txt2, marginBottom:14, lineHeight:1.6, paddingBottom:14, borderBottom:`1px solid ${T.bdr}` }}>
-                "{card.hint}"
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, marginBottom:12, paddingBottom:12, borderBottom:`1px solid ${T.bdr}` }}>
+                <div style={{ fontFamily:SERIF, fontStyle:'italic', fontSize:15, color:T.txt2, lineHeight:1.3, flex:1 }}>
+                  "{card.hint}"
+                </div>
+                <div onClick={() => speak(card.template.replace(/\{[^}]+\}/g, w => w.slice(1,-1)))} title="朗讀句子"
+                  style={{ cursor:'pointer', color:T.txt3, padding:'4px 5px', flexShrink:0, transition:'color 0.14s' }}
+                  onMouseOver={e=>e.currentTarget.style.color=T.amber} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
+                  <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M12 2.5a6 6 0 010 11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+                </div>
               </div>
             )}
             {/* Template with blanks */}
@@ -7364,13 +7371,7 @@ function PracticeTab({ sentences, vocab, stats, settings, updateSentences, updat
                 )
               })}
             </div>
-            {/* TTS */}
-            <div style={{ display:'flex', justifyContent:'flex-end', marginTop:10 }}>
-              <div onClick={() => speak(buildFilled())} title="Listen" style={{ cursor:'pointer', color:T.txt3, padding:5, borderRadius:6, transition:'color 0.14s' }}
-                onMouseOver={e=>e.currentTarget.style.color=T.amber} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
-                <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.2" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><path d="M12 2.5a6 6 0 010 11" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
-              </div>
-            </div>
+
           </div>
 
           {/* Substitution chips */}
@@ -7521,7 +7522,7 @@ function VocabTab({ vocab, updateVocab, updateStats, awardBadge }) {
       if (i >= words.length) { setAudioPlaying(false); return }
       const w = words[i++]
       const u1 = new SpeechSynthesisUtterance(w.word)
-      u1.lang = 'en-US'; u1.rate = 0.85
+      u1.lang = 'en-US'; u1.rate = 0.82
       u1.onend = () => {
         if (w.def) {
           setTimeout(() => {
@@ -8232,7 +8233,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v2.1</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v2.3</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
