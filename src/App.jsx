@@ -8638,7 +8638,6 @@ function AchieveTab({ stats, earned, sentences, vocab }) {
 // ═══════════════════════════════════════════════════════════════
 function SettingsTab({ sentences, vocab, updateSentences, settings, updateSettings }) {
   const [key, setKey] = useState(settings?.apiKey ?? '')
-  const [url, setUrl] = useState(settings?.sheetUrl ?? '')
   const [showKey, setShowKey] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [msg, setMsg] = useState('')
@@ -8655,49 +8654,39 @@ function SettingsTab({ sentences, vocab, updateSentences, settings, updateSettin
     flash('✓ JSON 備份已下載')
   }
 
-  function exportCSV() {
-    const rows = [['mode','context','hint','template','subs']]
-    ;(sentences??[]).forEach(s => {
-      rows.push([s.mode, s.context, s.hint??'', s.template, (s.subs??[]).map(g=>g.join('|')).join('\uff5c')])
-    })
-    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n')
-    const blob = new Blob(['\uFEFF'+csv], { type:'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url; a.download = `fsi-sentences-${new Date().toISOString().slice(0,10)}.csv`; a.click()
-    URL.revokeObjectURL(url)
-    flash('✓ CSV 已下載，可直接貼入 Google Sheets')
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx_xBUsiWvvoF8Qz9OczKniddNVENSz8W0ToTrzIw7VVCG3V0MlM85vl8Z1VmuNPS8STg/exec'
+
+  async function pushToSheets() {
+    if (!(sentences??[]).length) { flash('✗ 沒有資料可同步'); return }
+    setSyncing(true); flash('')
+    try {
+      const res = await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify({ sentences: sentences ?? [] }),
+      })
+      const json = await res.json()
+      if (json.ok) flash(`✓ 已同步 ${json.count} 筆到 Google Sheets`)
+      else flash('✗ 同步失敗：' + (json.error ?? '未知錯誤'))
+    } catch(e) {
+      flash('✗ ' + (e.message ?? '網路錯誤'))
+    } finally { setSyncing(false) }
   }
 
   function save() {
-    updateSettings(() => ({ apiKey: key.trim(), sheetUrl: url.trim() }))
+    updateSettings(() => ({ apiKey: key.trim() }))
     flash('✓ Settings saved.')
   }
 
   async function syncSheets() {
-    if (!url.trim()) { flash('✗ Please enter a Sheets URL.'); return }
     setSyncing(true); flash('')
     try {
-      let csvUrl = url.trim()
-      // Convert edit URL to CSV export URL
-      const match = csvUrl.match(/\/d\/([a-zA-Z0-9_-]+)/)
-      if (match) csvUrl = `https://docs.google.com/spreadsheets/d/${match[1]}/export?format=csv`
-      
-      const r = await fetch(csvUrl)
-      if (!r.ok) throw new Error('Cannot fetch. Make sure the sheet is set to Anyone → Viewer.')
-      const csv = await r.text()
-      const rows = csv.trim().split('\n').filter((l,i) => i > 0 && l.trim())
-      const cards = rows.map((row, i) => {
-        // Support both comma (CSV) and ｜ delimited
-        const sep = row.includes('｜') ? '｜' : ','
-        const cols = row.split(sep).map(c => c.trim().replace(/^"|"$/g,''))
-        const [mode, context, hint, template, ...rest] = cols
-        const subs = rest.filter(s => s).map(s => s.split('|').filter(Boolean))
-        return { id:`sh${i}_${Date.now()}`, mode:(mode||'simple').toLowerCase().trim(), context:context||'General', hint:hint||'', template:template||'', subs, reps:0,ease:2.5,interval:1,dueDate:0,lastSeen:0 }
-      }).filter(c => c.template)
-      if (!cards.length) throw new Error('No valid sentences found. Check the sheet format.')
+      const r = await fetch(APPS_SCRIPT_URL)
+      const json = await r.json()
+      if (!json.ok) throw new Error(json.error ?? 'Sync failed')
+      const cards = json.sentences
+      if (!cards.length) throw new Error('No valid sentences found.')
       updateSentences(prev => [...(prev??[]).filter(s=>!s.id.startsWith('sh')), ...cards])
-      flash(`✓ Synced ${cards.length} sentences from Sheets.`)
+      flash(`✓ 已從 Sheets 讀入 ${cards.length} 筆`)
     } catch(e) {
       flash('✗ ' + (e.message ?? 'Sync failed.'))
     } finally { setSyncing(false) }
@@ -8717,27 +8706,26 @@ function SettingsTab({ sentences, vocab, updateSentences, settings, updateSettin
         <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>Required for AI Analysis tab and auto-generated context hints.</span>
       </div>
 
-      {/* Sheet URL */}
+      {/* Sheets Sync */}
       <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
-        <label style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>GOOGLE SHEETS URL</label>
-        <input type="text" value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://docs.google.com/spreadsheets/d/…"/>
+        <label style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>GOOGLE SHEETS SYNC</label>
         <div style={{ background:T.surf2, borderRadius:9, padding:13, display:'flex', flexDirection:'column', gap:5 }}>
-          <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, letterSpacing:'0.08em' }}>COLUMN FORMAT  (use ｜ separator)</div>
-          <div style={{ fontFamily:MONO, fontSize:9.5, color:T.txt3, lineHeight:1.7 }}>
-            模式 ｜ 情境名稱 ｜ 情境提示 ｜ 句子模板 ｜ 選項欄1 ｜ 選項欄2 …
-          </div>
-          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, lineHeight:1.7 }}>
-            ▸ 模式: simple 或 hard<br/>
-            ▸ 選項欄: 用 | 分隔同欄選項<br/>
-            ▸ e.g. SMD line|packaging line|assembly line
+          <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, letterSpacing:'0.08em' }}>FSI Practice Sentences</div>
+          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.7 }}>
+            推送：App → Sheets（覆蓋舊資料）<br/>
+            讀入：Sheets → App（合併新資料）
           </div>
         </div>
-        <button className="btn" onClick={syncSheets} disabled={syncing} style={{ background: syncing ? T.bdr : T.blueD, border:`1px solid ${T.blue}50`, color:T.blue }}>
-          {syncing
-            ? <span style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}><span style={{ display:'inline-block', width:9, height:9, border:'2px solid transparent', borderTopColor:T.blue, borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/> SYNCING…</span>
-            : '⟳ SYNC FROM SHEETS'
-          }
-        </button>
+        <div style={{ display:'flex', gap:8 }}>
+          <button className="btn" onClick={pushToSheets} disabled={syncing}
+            style={{ flex:1, background:T.blueD, border:`1px solid ${T.blue}50`, color:T.blue, fontSize:10 }}>
+            {syncing ? '同步中…' : '☁ 推送到 Sheets'}
+          </button>
+          <button className="btn" onClick={syncSheets} disabled={syncing}
+            style={{ flex:1, background:T.grnD, border:`1px solid ${T.grn}50`, color:T.grn, fontSize:10 }}>
+            {syncing ? '讀取中…' : '⟳ 從 Sheets 讀入'}
+          </button>
+        </div>
       </div>
 
       <button className="btn" onClick={save} style={{ background:T.amber, color:T.bg, width:'100%', letterSpacing:'0.08em' }}>
@@ -8747,18 +8735,12 @@ function SettingsTab({ sentences, vocab, updateSentences, settings, updateSettin
       {/* ── BACKUP / EXPORT ── */}
       <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
         <label style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>DATA BACKUP</label>
-        <div style={{ display:'flex', gap:8 }}>
-          <button className="btn" onClick={exportJSON}
-            style={{ flex:1, background:T.grnD, border:`1px solid ${T.grn}50`, color:T.grn, fontSize:10 }}>
-            ⬇ 備份 JSON
-          </button>
-          <button className="btn" onClick={exportCSV}
-            style={{ flex:1, background:T.blueD, border:`1px solid ${T.blue}50`, color:T.blue, fontSize:10 }}>
-            📊 匯出 Sheets CSV
-          </button>
-        </div>
+        <button className="btn" onClick={exportJSON}
+          style={{ background:T.grnD, border:`1px solid ${T.grn}50`, color:T.grn, fontSize:10 }}>
+          ⬇ 備份 JSON（完整還原用）
+        </button>
         <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
-          JSON：完整備份可還原 ／ CSV：可貼入 Google Sheets 查閱
+          JSON 備份包含所有資料與 SRS 進度，可完整還原。
         </div>
       </div>
 
