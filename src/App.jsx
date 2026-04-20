@@ -7763,7 +7763,29 @@ function PracticeTab({ sentences, vocab, stats, settings, updateSentences, updat
     showToast(q === 5 ? '✓ Easy +5 XP' : q === 3 ? '◎ Hard +3 XP' : '↺ Again +1 XP')
   }
 
-  function ModeBtn({ id, label }) {
+  const [generatingHint, setGeneratingHint] = useState(false)
+
+  async function generateLinkedHint() {
+    if (!settings?.apiKey) { showToast('請先在 Setup 設定 API Key'); return }
+    if (!card) return
+    setGeneratingHint(true)
+    try {
+      const system = `You are an English phonetics expert. Given a sentence template, produce a "linked_hint" showing connected speech.
+RULES:
+1. Consonant+Vowel liaison: use · between linked sounds. e.g. "turn it off" → "tur·NIT·off"
+2. Weak forms (to/and/of/for): use bracket notation [t'·word] [ən·word] [ə·word]. e.g. "need to adjust" → "need [t'·aDJUST]"
+3. Elision (t/d drops before consonant): use parentheses. e.g. "last night" → "las(t) night"
+4. Stressed syllables: CAPITALIZE them. e.g. "production" → "proDUCtion"
+5. Keep {slot} placeholders exactly as-is — do not annotate inside them.
+Return ONLY the linked_hint string, no explanation, no quotes, no markdown.`
+      const raw = await callClaude(settings.apiKey, [{ role:'user', content: card.template }], system)
+      const hint = raw.trim().replace(/^["']|["']$/g,'')
+      updateSentences(prev => prev.map(s => s.id === card.id ? { ...s, linked_hint: hint } : s))
+      showToast('✓ 連音標注已產生')
+    } catch(e) {
+      showToast('✗ 產生失敗，請檢查 API Key')
+    } finally { setGeneratingHint(false) }
+  }
     return (
       <div onClick={() => { setMode(id); setIdx(0); setSels({}); setRevealed(false) }}
         style={{ flex:1, textAlign:'center', padding:'7px 0', borderRadius:7, cursor:'pointer', fontFamily:MONO, fontSize:10, letterSpacing:'0.07em', fontWeight:500, background: mode===id ? T.amber : 'transparent', color: mode===id ? T.bg : '#c2cad4', transition:'all 0.14s' }}>
@@ -7856,10 +7878,32 @@ function PracticeTab({ sentences, vocab, stats, settings, updateSentences, updat
                 <div style={{ fontFamily:SERIF, fontStyle:'italic', fontSize:15, color:T.txt2, lineHeight:1.3, flex:1 }}>
                   "{card.hint}"
                 </div>
-                <div onClick={() => speak(card.template.replace(/\{[^}]+\}/g, w => w.slice(1,-1)))} title="朗讀句子"
-                  style={{ cursor:'pointer', color:T.txt3, padding:'4px 5px', flexShrink:0, transition:'color 0.14s' }}
-                  onMouseOver={e=>e.currentTarget.style.color=T.amber} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
-                  <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M12 2.5a6 6 0 010 11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+                <div style={{ display:'flex', gap:6, alignItems:'center', flexShrink:0 }}>
+                  {!card.linked_hint && (
+                    <div onClick={generateLinkedHint} title="產生連音標注"
+                      style={{ cursor: generatingHint ? 'not-allowed' : 'pointer', color: generatingHint ? T.txt3 : T.amber, padding:'4px 6px', background:T.amberD, borderRadius:6, fontFamily:MONO, fontSize:10, display:'flex', alignItems:'center', gap:3, opacity: generatingHint ? 0.6 : 1, transition:'all 0.14s' }}>
+                      {generatingHint
+                        ? <span style={{ display:'inline-block', width:8, height:8, border:'1.5px solid transparent', borderTopColor:T.amber, borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>
+                        : '✨'}
+                      <span style={{ fontSize:8 }}>{generatingHint ? '產生中' : '連音'}</span>
+                    </div>
+                  )}
+                  <div onClick={() => speak(card.template.replace(/\{[^}]+\}/g, w => w.slice(1,-1)))} title="朗讀句子"
+                    style={{ cursor:'pointer', color:T.txt3, padding:'4px 5px', flexShrink:0, transition:'color 0.14s' }}
+                    onMouseOver={e=>e.currentTarget.style.color=T.amber} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
+                    <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M12 2.5a6 6 0 010 11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+                  </div>
+                </div>
+              </div>
+            )}
+            {!card.hint && !card.linked_hint && (
+              <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:8 }}>
+                <div onClick={generateLinkedHint} title="產生連音標注"
+                  style={{ cursor: generatingHint ? 'not-allowed' : 'pointer', color: generatingHint ? T.txt3 : T.amber, padding:'4px 8px', background:T.amberD, borderRadius:6, fontFamily:MONO, fontSize:10, display:'flex', alignItems:'center', gap:3, opacity: generatingHint ? 0.6 : 1 }}>
+                  {generatingHint
+                    ? <span style={{ display:'inline-block', width:8, height:8, border:'1.5px solid transparent', borderTopColor:T.amber, borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>
+                    : '✨'}
+                  <span style={{ fontSize:8 }}>{generatingHint ? '產生中' : '產生連音'}</span>
                 </div>
               </div>
             )}
