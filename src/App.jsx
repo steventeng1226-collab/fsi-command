@@ -8660,13 +8660,12 @@ function SettingsTab({ sentences, vocab, updateSentences, settings, updateSettin
     if (!(sentences??[]).length) { flash('✗ 沒有資料可同步'); return }
     setSyncing(true); flash('')
     try {
-      const res = await fetch(APPS_SCRIPT_URL, {
+      await fetch(APPS_SCRIPT_URL, {
         method: 'POST',
+        mode: 'no-cors',
         body: JSON.stringify({ sentences: sentences ?? [] }),
       })
-      const json = await res.json()
-      if (json.ok) flash(`✓ 已同步 ${json.count} 筆到 Google Sheets`)
-      else flash('✗ 同步失敗：' + (json.error ?? '未知錯誤'))
+      flash('✓ 已推送到 Google Sheets')
     } catch(e) {
       flash('✗ ' + (e.message ?? '網路錯誤'))
     } finally { setSyncing(false) }
