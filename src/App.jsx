@@ -8660,9 +8660,11 @@ function SettingsTab({ sentences, vocab, updateSentences, settings, updateSettin
     if (!(sentences??[]).length) { flash('✗ 沒有資料可同步'); return }
     setSyncing(true); flash('')
     try {
+      const form = new FormData()
+      form.append('data', JSON.stringify({ sentences: sentences ?? [] }))
       const res = await fetch(APPS_SCRIPT_URL, {
         method: 'POST',
-        body: JSON.stringify({ sentences: sentences ?? [] }),
+        body: form,
       })
       const text = await res.text()
       let json
