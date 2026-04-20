@@ -7786,6 +7786,8 @@ Return ONLY the linked_hint string, no explanation, no quotes, no markdown.`
       showToast('✗ 產生失敗，請檢查 API Key')
     } finally { setGeneratingHint(false) }
   }
+
+  function ModeBtn({ id, label }) {
     return (
       <div onClick={() => { setMode(id); setIdx(0); setSels({}); setRevealed(false) }}
         style={{ flex:1, textAlign:'center', padding:'7px 0', borderRadius:7, cursor:'pointer', fontFamily:MONO, fontSize:10, letterSpacing:'0.07em', fontWeight:500, background: mode===id ? T.amber : 'transparent', color: mode===id ? T.bg : '#c2cad4', transition:'all 0.14s' }}>
