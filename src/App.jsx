@@ -7766,7 +7766,11 @@ function PracticeTab({ sentences, vocab, stats, settings, updateSentences, updat
   const [generatingHint, setGeneratingHint] = useState(false)
 
   async function generateLinkedHint() {
-    if (!settings?.apiKey) { showToast('請先在 Setup 設定 API Key'); return }
+    // Read apiKey from prop OR directly from localStorage (most reliable)
+    const apiKey = settings?.apiKey || (() => {
+      try { return JSON.parse(localStorage.getItem('fsi:se') || '{}')?.apiKey ?? '' } catch { return '' }
+    })()
+    if (!apiKey) { showToast('請先在 Setup 設定 API Key'); return }
     if (!card) return
     setGeneratingHint(true)
     try {
@@ -7778,7 +7782,7 @@ RULES:
 4. Stressed syllables: CAPITALIZE them. e.g. "production" → "proDUCtion"
 5. Keep {slot} placeholders exactly as-is — do not annotate inside them.
 Return ONLY the linked_hint string, no explanation, no quotes, no markdown.`
-      const raw = await callClaude(settings.apiKey, [{ role:'user', content: card.template }], system)
+      const raw = await callClaude(apiKey, [{ role:'user', content: card.template }], system)
       const hint = raw.trim().replace(/^["']|["']$/g,'')
       updateSentences(prev => prev.map(s => s.id === card.id ? { ...s, linked_hint: hint } : s))
       showToast('✓ 連音標注已產生')
