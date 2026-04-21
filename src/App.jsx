@@ -95,7 +95,7 @@ function srsSort(items) {
 // TTS
 // ═══════════════════════════════════════════════════════════════
 function speak(text, rate = 0.82) {
-  const clean = text.replace(/\{[^}]+\}/g, '...').replace(/[ABCD]:/g, '')
+  const clean = text.replace(/\{[^}]+\}/g, '...').replace(/[ABCD]:/g, '').replace(/[əɑɪʊ]/g, '')
   window.speechSynthesis?.cancel()
   const u = new SpeechSynthesisUtterance(clean)
   u.lang = 'en-US'; u.rate = rate
@@ -6901,7 +6901,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v2.4</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v2.5</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -7284,21 +7284,29 @@ function DrillTab({ sentences, vocab, settings }) {
     if (stage === 'respond')  setTimedOut(true)
   }
 
+  function buildDrillFilled(c) {
+    if (!c?.template) return ''
+    return c.template.replace(/\{([^}]+)\}/g, (_, label) => {
+      const sub = (c.subs ?? []).find(g => g.length > 0)
+      return sub ? sub[0] : label
+    })
+  }
+
   function handleSpoke() {
     setTimerRunning(false)
     setPhase('answered')
-    speak(card.template)
+    speak(buildDrillFilled(card))
   }
 
   function handleShadow() {
     const newCount = (prog.shadowCount ?? 0) + 1
     if (newCount >= 3) {
       saveProgress(card.id, { shadowCount: newCount, stage: 'respond' })
-      speak(card.template)
+      speak(buildDrillFilled(card))
       setTimeout(() => nextCard(), 1200)
     } else {
       saveProgress(card.id, { shadowCount: newCount })
-      speak(card.template)
+      speak(buildDrillFilled(card))
     }
   }
 
@@ -7438,7 +7446,7 @@ function DrillTab({ sentences, vocab, settings }) {
       {stage === 'shadow' && (
         <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
           <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:14, padding:20 }}>
-            <div style={{ fontFamily:MONO, fontSize:8.5, color:'#9aa5b0', letterSpacing:'0.12em', marginBottom:10 }}>
+            <div style={{ fontFamily:MONO, fontSize:8.5, color:'#9aa5b0', letterSpacing:'0.03em', marginBottom:10 }}>
               {card.context}
               {card.hint && <span style={{ color:T.txt3 }}> — {card.hint}</span>}
             </div>
@@ -7470,12 +7478,12 @@ function DrillTab({ sentences, vocab, settings }) {
                   {chunks.length > 0 && (
                     <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
                       {chunks.map((c, ci) => (
-                        <div key={ci} onClick={() => speak(c.tts, 0.65)}
+                        <div key={ci} onClick={() => speak(c.tts, 0.6)}
                           style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', background:T.amberD, border:`1px solid ${T.amber}40`, borderRadius:7, padding:'4px 9px' }}
                           onMouseOver={e=>e.currentTarget.style.opacity='0.8'} onMouseOut={e=>e.currentTarget.style.opacity='1'}>
                           <span style={{ fontFamily:MONO, fontSize:10, color:T.amber }}>{c.label}</span>
                           <svg width="10" height="10" viewBox="0 0 16 16" fill="none" style={{color:T.amber}}><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.4" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
-                          <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>0.65x</span>
+                          <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>0.6x</span>
                         </div>
                       ))}
                     </div>
@@ -7490,10 +7498,10 @@ function DrillTab({ sentences, vocab, settings }) {
                 <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M12 2.5a6 6 0 010 11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
                 <span style={{ fontFamily:MONO, fontSize:9 }}>0.82x</span>
               </div>
-              <div onClick={() => speak(card.template, 0.65)} style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', color:T.txt3, padding:'5px 10px', background:T.bdr, borderRadius:7, transition:'color 0.14s' }}
+              <div onClick={() => speak(card.template, 0.6)} style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', color:T.txt3, padding:'5px 10px', background:T.bdr, borderRadius:7, transition:'color 0.14s' }}
                 onMouseOver={e=>e.currentTarget.style.color=T.blue} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
                 <span style={{ fontFamily:MONO, fontSize:11 }}>🐢</span>
-                <span style={{ fontFamily:MONO, fontSize:9 }}>0.65x</span>
+                <span style={{ fontFamily:MONO, fontSize:9 }}>0.6x</span>
               </div>
             </div>
           </div>
@@ -7521,7 +7529,7 @@ function DrillTab({ sentences, vocab, settings }) {
 
           {/* Question card */}
           <div style={{ background:T.surf, border:`1px solid ${stage==='pressure' ? T.red+'40' : T.bdr}`, borderRadius:14, padding:20 }}>
-            <div style={{ fontFamily:MONO, fontSize:8.5, color:'#9aa5b0', letterSpacing:'0.1em', marginBottom:12 }}>
+            <div style={{ fontFamily:MONO, fontSize:8.5, color:'#9aa5b0', letterSpacing:'0.03em', marginBottom:12 }}>
               {card.context}
             </div>
 
@@ -7610,12 +7618,12 @@ function DrillTab({ sentences, vocab, settings }) {
                   )}
                 </div>
                 <div style={{ display:'flex', gap:10, marginTop:12 }}>
-                  <div onClick={() => speak(card.template)} style={{ cursor:'pointer', display:'flex', alignItems:'center', gap:5, color:T.txt3, fontFamily:MONO, fontSize:10 }}
+                  <div onClick={() => speak(buildDrillFilled(card))} style={{ cursor:'pointer', display:'flex', alignItems:'center', gap:5, color:T.txt3, fontFamily:MONO, fontSize:10 }}
                     onMouseOver={e=>e.currentTarget.style.color=T.amber} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
                     <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
                     Replay
                   </div>
-                  <div onClick={() => { speak(card.template, 0.7) }} style={{ cursor:'pointer', display:'flex', alignItems:'center', gap:5, color:T.txt3, fontFamily:MONO, fontSize:10 }}
+                  <div onClick={() => { speak(buildDrillFilled(card), 0.6) }} style={{ cursor:'pointer', display:'flex', alignItems:'center', gap:5, color:T.txt3, fontFamily:MONO, fontSize:10 }}
                     onMouseOver={e=>e.currentTarget.style.color=T.blue} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
                     <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
                     Repeat Slow
@@ -7673,6 +7681,8 @@ function PracticeTab({ sentences, vocab, stats, settings, updateSentences, updat
   const [toast, setToast] = useState('')
   const [round, setRound] = useState(1)
   const [showRoundComplete, setShowRoundComplete] = useState(false)
+  const [editingHint, setEditingHint] = useState(false)
+  const [hintDraft, setHintDraft] = useState('')
   const [dailyCount, setDailyCount] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('fsi:daily') || 'null')
@@ -7681,7 +7691,7 @@ function PracticeTab({ sentences, vocab, stats, settings, updateSentences, updat
     } catch { return 0 }
   })
   const [dailyGoal] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('fsi:goal') || '200') } catch { return 200 }
+    try { return JSON.parse(localStorage.getItem('fsi:goal') || '50') } catch { return 50 }
   })
 
   const LIFE_CONTEXTS = ['Daily Life','Greeting','Travel','Shopping','Food','Health','Family','Hobby','Lifestyle','生活']
@@ -7776,11 +7786,13 @@ function PracticeTab({ sentences, vocab, stats, settings, updateSentences, updat
     try {
       const system = `You are an English phonetics expert. Given a sentence template, produce a "linked_hint" showing connected speech.
 RULES:
-1. Consonant+Vowel liaison: use · between linked sounds. e.g. "turn it off" → "tur·NIT·off"
-2. Weak forms (to/and/of/for): use bracket notation [t'·word] [ən·word] [ə·word]. e.g. "need to adjust" → "need [t'·aDJUST]"
-3. Elision (t/d drops before consonant): use parentheses. e.g. "last night" → "las(t) night"
-4. Stressed syllables: CAPITALIZE them. e.g. "production" → "proDUCtion"
-5. Keep {slot} placeholders exactly as-is — do not annotate inside them.
+1. Weak form reductions: merge weak words into the preceding word using ə. e.g. "end of month" → "endə month", "kind of" → "kində", "out of" → "outə", "a lot of" → "a lotə"
+2. Weak "and" → ən. e.g. "black and white" → "blackən white"
+3. Weak "to" → tə. e.g. "need to go" → "need tə go"
+4. Consonant+Vowel liaison: use · between linked sounds. e.g. "turn it off" → "tur·nit·off"
+5. Elision (t/d drops before consonant): use parentheses. e.g. "last night" → "las(t) night"
+6. Stressed syllables: CAPITALIZE them. e.g. "production" → "proDUCtion"
+7. Keep {slot} placeholders exactly as-is — do not annotate inside them.
 Return ONLY the linked_hint string, no explanation, no quotes, no markdown.`
       const raw = await callClaude(apiKey, [{ role:'user', content: card.template }], system)
       const hint = raw.trim().replace(/^["']|["']$/g,'')
@@ -7934,11 +7946,11 @@ Return ONLY the linked_hint string, no explanation, no quotes, no markdown.`
                 <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M12 2.5a6 6 0 010 11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
                 <span style={{ fontFamily:MONO, fontSize:9 }}>0.82x</span>
               </div>
-              <div onClick={() => speak(card.template.replace(/\{[^}]+\}/g, w=>w.slice(1,-1)), 0.65)}
+              <div onClick={() => speak(card.template.replace(/\{[^}]+\}/g, w=>w.slice(1,-1)), 0.6)}
                 style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', color:T.txt3, padding:'5px 10px', background:T.surf2, borderRadius:7, transition:'color 0.14s' }}
                 onMouseOver={e=>e.currentTarget.style.color=T.blue} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
                 <span style={{ fontFamily:MONO, fontSize:11 }}>🐢</span>
-                <span style={{ fontFamily:MONO, fontSize:9 }}>0.65x</span>
+                <span style={{ fontFamily:MONO, fontSize:9 }}>0.6x</span>
               </div>
             </div>
 
@@ -7949,27 +7961,47 @@ Return ONLY the linked_hint string, no explanation, no quotes, no markdown.`
             const chunks = extractLiaisonChunks(card.linked_hint)
             return (
               <div style={{ background:T.surf, border:`1px solid ${T.amber}22`, borderRadius:12, padding:'13px 15px' }}>
-                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
-                  <div style={{ fontFamily:MONO, fontSize:8.5, color:T.amber, letterSpacing:'0.1em' }}>LIAISON</div>
-                  <div style={{ display:'flex', gap:10 }}>
-                    <span style={{ fontFamily:MONO, fontSize:8, color:T.amber }}>· 連音</span>
-                    <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>[ ] 弱化</span>
-                    <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>( ) 省略</span>
-                    <span style={{ fontFamily:MONO, fontSize:8, color:T.txt, fontWeight:700 }}>大寫 重音</span>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                    <div style={{ fontFamily:MONO, fontSize:8.5, color:T.amber, letterSpacing:'0.1em' }}>LIAISON</div>
+                    <div style={{ display:'flex', gap:10 }}>
+                      <span style={{ fontFamily:MONO, fontSize:8, color:T.amber }}>· 連音</span>
+                      <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>ə 弱化</span>
+                      <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>( ) 省略</span>
+                      <span style={{ fontFamily:MONO, fontSize:8, color:T.txt, fontWeight:700 }}>大寫 重音</span>
+                    </div>
+                  </div>
+                  <div onClick={() => { setEditingHint(e => !e); setHintDraft(card.linked_hint) }}
+                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:8, color: editingHint ? T.amber : T.txt3, padding:'3px 7px', background:T.surf2, borderRadius:5 }}>
+                    {editingHint ? '取消' : '✏ 編輯'}
                   </div>
                 </div>
-                <div style={{ fontFamily:SERIF, fontSize:15, lineHeight:2, letterSpacing:'0.02em', color:T.txt2, marginBottom: chunks.length ? 12 : 0 }}>
-                  {renderLinkedHint(card.linked_hint)}
-                </div>
-                {chunks.length > 0 && (
+                {editingHint ? (
+                  <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                    <textarea value={hintDraft} onChange={e => setHintDraft(e.target.value)}
+                      style={{ fontFamily:MONO, fontSize:12, background:T.surf2, border:`1px solid ${T.amber}40`, borderRadius:8, color:T.txt, padding:'8px 10px', minHeight:60, resize:'vertical' }}/>
+                    <button className="btn" onClick={() => {
+                      updateSentences(prev => prev.map(s => s.id === card.id ? { ...s, linked_hint: hintDraft } : s))
+                      setEditingHint(false)
+                      showToast('✓ 連音已更新')
+                    }} style={{ background:T.amberD, border:`1px solid ${T.amber}50`, color:T.amber, fontSize:10 }}>
+                      儲存
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ fontFamily:SERIF, fontSize:15, lineHeight:2, letterSpacing:'0.02em', color:T.txt2, marginBottom: chunks.length ? 12 : 0 }}>
+                    {renderLinkedHint(card.linked_hint)}
+                  </div>
+                )}
+                {!editingHint && chunks.length > 0 && (
                   <div style={{ display:'flex', flexWrap:'wrap', gap:7 }}>
                     {chunks.map((c, ci) => (
-                      <div key={ci} onClick={() => speak(c.tts, 0.65)}
+                      <div key={ci} onClick={() => speak(c.tts, 0.6)}
                         style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', background:T.amberD, border:`1px solid ${T.amber}40`, borderRadius:8, padding:'5px 10px', transition:'all 0.14s' }}
                         onMouseOver={e=>e.currentTarget.style.background=T.amber+'33'} onMouseOut={e=>e.currentTarget.style.background=T.amberD}>
                         <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>{c.label}</span>
                         <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style={{color:T.amber}}><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.4" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
-                        <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>0.65x</span>
+                        <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>0.6x</span>
                       </div>
                     ))}
                   </div>
@@ -8453,6 +8485,7 @@ function EmailTab({ settings, updateSentences, updateVocab, updateStats, awardBa
   const [err, setErr] = useState('')
   const [addedS, setAddedS] = useState([])
   const [addedV, setAddedV] = useState([])
+  const [sentenceCats, setSentenceCats] = useState({}) // index -> 'work' | 'life'
 
   async function analyze() {
     if (!settings?.apiKey) { setErr('Please add your Anthropic API key in Settings first.'); return }
@@ -8466,17 +8499,20 @@ Analyze the text and extract:
 
 For each sentence, also generate a "linked_hint" showing connected speech features:
 RULES for linked_hint:
-1. Consonant+Vowel liaison: use · between linked sounds. e.g. "turn it off" → "tur·NIT·off"
-2. Weak forms (to/and/of/for): use [t'·word] [ən·word] [ə·word] notation. e.g. "need to adjust" → "need [t'·aDJUST]"
-3. Elision (t/d drops before consonant): use (t) (d). e.g. "last night" → "las(t) night"
-4. Stress: CAPITALIZE stressed syllables. e.g. "production" → "proDUCtion"
-5. Keep {slot} placeholders as-is, do not annotate inside them.
+1. Weak form reductions: merge weak words into preceding word using ə. e.g. "end of month" → "endə month", "kind of" → "kində", "out of" → "outə"
+2. Weak "and" → ən. e.g. "black and white" → "blackən white"
+3. Weak "to" → tə. e.g. "need to go" → "need tə go"
+4. Consonant+Vowel liaison: use · between linked sounds. e.g. "turn it off" → "tur·nit·off"
+5. Elision (t/d drops before consonant): use (t) (d). e.g. "last night" → "las(t) night"
+6. Stress: CAPITALIZE stressed syllables. e.g. "production" → "proDUCtion"
+7. Keep {slot} placeholders as-is, do not annotate inside them.
 
 Return ONLY valid JSON (no markdown), format:
 {"sentences":[{"template":"...with {blank} for substitution","context":"Short context name","hint":"When you'd say this","linked_hint":"annotated version using · [ ] ( ) CAPS rules","subs":[["opt1","opt2","opt3"]]}],"vocab":[{"word":"word","def":"concise definition","ex":"example sentence from the text or invented"}]}`
       const raw = await callClaude(settings.apiKey, [{ role:'user', content: text }], system)
       const parsed = JSON.parse(raw.replace(/```json|```/g,'').trim())
       setRes(parsed)
+      setSentenceCats({})
       awardBadge('email_done')
       updateStats(s => ({ ...s, xp: (s.xp??0) + 15 }))
     } catch(e) {
@@ -8484,9 +8520,11 @@ Return ONLY valid JSON (no markdown), format:
     } finally { setBusy(false) }
   }
 
-  function addSentence(s) {
+  function addSentence(s, cat) {
     const id = `ai_${Date.now()}`
-    updateSentences(prev => [...(prev??[]), { id, mode:'simple', context:s.context||'AI', hint:s.hint||'', template:s.template, linked_hint:s.linked_hint||'', subs:s.subs||[], reps:0,ease:2.5,interval:1,dueDate:0,lastSeen:0 }])
+    // If user picked LIFE, override context to trigger LIFE filter
+    const context = cat === 'life' ? (s.context || 'Daily Life') + ' (Life)' : s.context || 'AI'
+    updateSentences(prev => [...(prev??[]), { id, mode:'simple', context, hint:s.hint||'', template:s.template, linked_hint:s.linked_hint||'', subs:s.subs||[], reps:0,ease:2.5,interval:1,dueDate:0,lastSeen:0 }])
     setAddedS(a => [...a, s.template])
     updateStats(st => ({ ...st, xp: (st.xp??0) + 5 }))
   }
@@ -8519,11 +8557,25 @@ Return ONLY valid JSON (no markdown), format:
               <SectionLabel color={T.amber}>FSI DRILL SENTENCES</SectionLabel>
               {res.sentences.map((s, i) => {
                 const done = addedS.includes(s.template)
+                const cat = sentenceCats[i] ?? 'work'
                 return (
                   <div key={i} style={{ background:T.surf, border:`1px solid ${done ? T.grn+'50' : T.bdr}`, borderRadius:11, padding:15, transition:'border-color 0.3s' }}>
                     <div style={{ fontFamily:MONO, fontSize:11.5, color:T.txt, marginBottom:4, lineHeight:1.6 }}>{s.template}</div>
-                    <div style={{ fontFamily:SERIF, fontStyle:'italic', fontSize:12, color:T.txt3, marginBottom:12 }}>{s.context} — {s.hint}</div>
-                    <button className="btn" onClick={() => addSentence(s)} disabled={done}
+                    <div style={{ fontFamily:SERIF, fontStyle:'italic', fontSize:12, color:T.txt3, marginBottom:10 }}>{s.context} — {s.hint}</div>
+                    {/* WORK / LIFE toggle */}
+                    <div style={{ display:'flex', gap:6, marginBottom:10 }}>
+                      {['work','life'].map(c => (
+                        <div key={c} onClick={() => !done && setSentenceCats(p => ({ ...p, [i]: c }))}
+                          style={{ padding:'4px 12px', borderRadius:12, fontFamily:MONO, fontSize:9, cursor: done ? 'default' : 'pointer', letterSpacing:'0.06em',
+                            background: cat === c ? (c==='work' ? T.amberD : T.blueD) : T.surf2,
+                            border: `1px solid ${cat === c ? (c==='work' ? T.amber+'60' : T.blue+'60') : T.bdr}`,
+                            color: cat === c ? (c==='work' ? T.amber : T.blue) : T.txt3,
+                            opacity: done ? 0.5 : 1 }}>
+                          {c === 'work' ? '💼 WORK' : '🏠 LIFE'}
+                        </div>
+                      ))}
+                    </div>
+                    <button className="btn" onClick={() => addSentence(s, cat)} disabled={done}
                       style={{ background: done ? T.grnD : T.amberD, border:`1px solid ${done ? T.grn+'50' : T.amber+'50'}`, color: done ? T.grn : T.amber, fontSize:11 }}>
                       {done ? '✓ Added to Practice' : '+ Add to Practice'}
                     </button>
@@ -8636,7 +8688,7 @@ function AchieveTab({ stats, earned, sentences, vocab }) {
 // ═══════════════════════════════════════════════════════════════
 // SETTINGS TAB
 // ═══════════════════════════════════════════════════════════════
-function SettingsTab({ sentences, vocab, updateSentences, settings, updateSettings }) {
+function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings, updateSettings }) {
   const [key, setKey] = useState(settings?.apiKey ?? '')
   const [showKey, setShowKey] = useState(false)
   const [syncing, setSyncing] = useState(false)
@@ -8657,15 +8709,18 @@ function SettingsTab({ sentences, vocab, updateSentences, settings, updateSettin
   const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx_xBUsiWvvoF8Qz9OczKniddNVENSz8W0ToTrzIw7VVCG3V0MlM85vl8Z1VmuNPS8STg/exec'
 
   async function pushToSheets() {
-    if (!(sentences??[]).length) { flash('✗ 沒有資料可同步'); return }
+    if (!(sentences??[]).length && !(vocab??[]).length) { flash('✗ 沒有資料可同步'); return }
     setSyncing(true); flash('')
     try {
-      const payload = encodeURIComponent(JSON.stringify({ sentences: sentences ?? [] }))
+      const payload = encodeURIComponent(JSON.stringify({
+        sentences: sentences ?? [],
+        vocab: vocab ?? []
+      }))
       const res = await fetch(`${APPS_SCRIPT_URL}?data=${payload}`)
       const text = await res.text()
       let json
       try { json = JSON.parse(text) } catch { json = { ok: false, error: text } }
-      if (json.ok) flash(`✓ 已同步 ${json.count} 筆到 Google Sheets`)
+      if (json.ok) flash(`✓ 已同步 ${json.sentenceCount} 句 + ${json.vocabCount} 單字到 Sheets`)
       else flash('✗ 同步失敗：' + (json.error ?? '未知錯誤'))
     } catch(e) {
       flash('✗ ' + (e.message ?? '網路錯誤'))
@@ -8683,10 +8738,15 @@ function SettingsTab({ sentences, vocab, updateSentences, settings, updateSettin
       const r = await fetch(APPS_SCRIPT_URL)
       const json = await r.json()
       if (!json.ok) throw new Error(json.error ?? 'Sync failed')
-      const cards = json.sentences
-      if (!cards.length) throw new Error('No valid sentences found.')
-      updateSentences(prev => [...(prev??[]).filter(s=>!s.id.startsWith('sh')), ...cards])
-      flash(`✓ 已從 Sheets 讀入 ${cards.length} 筆`)
+      const cards = json.sentences ?? []
+      const words = json.vocab ?? []
+      if (!cards.length && !words.length) throw new Error('No valid data found.')
+      if (cards.length) updateSentences(prev => [...(prev??[]).filter(s=>!s.id.startsWith('sh')), ...cards])
+      if (words.length) updateVocab(prev => {
+        const existing = new Set((prev??[]).map(v => v.word))
+        return [...(prev??[]), ...words.filter(w => !existing.has(w.word))]
+      })
+      flash(`✓ 讀入 ${cards.length} 句 + ${words.length} 單字`)
     } catch(e) {
       flash('✗ ' + (e.message ?? 'Sync failed.'))
     } finally { setSyncing(false) }
@@ -8710,10 +8770,10 @@ function SettingsTab({ sentences, vocab, updateSentences, settings, updateSettin
       <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
         <label style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>GOOGLE SHEETS SYNC</label>
         <div style={{ background:T.surf2, borderRadius:9, padding:13, display:'flex', flexDirection:'column', gap:5 }}>
-          <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, letterSpacing:'0.08em' }}>FSI Practice Sentences</div>
+          <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, letterSpacing:'0.08em' }}>FSI Practice Sentences + FSI Vocab</div>
           <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.7 }}>
-            推送：App → Sheets（覆蓋舊資料）<br/>
-            讀入：Sheets → App（合併新資料）
+            推送：句子 + 單字 → Sheets（覆蓋舊資料）<br/>
+            讀入：Sheets → App（句子合併，單字補新）
           </div>
         </div>
         <div style={{ display:'flex', gap:8 }}>
@@ -8827,7 +8887,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v2.4</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v2.5</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
