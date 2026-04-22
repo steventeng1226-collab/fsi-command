@@ -7821,15 +7821,23 @@ function PracticeTab({ sentences, vocab, stats, settings, updateSentences, updat
     if (!card) return
     setGeneratingHint(true)
     try {
-      const system = `You are an English phonetics expert. Given a sentence template, produce a "linked_hint" showing connected speech.
-RULES:
-1. Weak form reductions: merge weak words into the preceding word using ə. e.g. "end of month" → "endə month", "kind of" → "kində", "out of" → "outə", "a lot of" → "a lotə"
-2. Weak "and" → ən. e.g. "black and white" → "blackən white"
-3. Weak "to" → tə. e.g. "need to go" → "need tə go"
-4. Consonant+Vowel liaison: use · between linked sounds. e.g. "turn it off" → "tur·nit·off"
-5. Elision (t/d drops before consonant): use parentheses. e.g. "last night" → "las(t) night"
-6. Stressed syllables: CAPITALIZE them. e.g. "production" → "proDUCtion"
-7. Keep {slot} placeholders exactly as-is — do not annotate inside them.
+      const system = `You are an English connected speech expert. Given a sentence template, produce a "linked_hint" showing how native speakers actually say it.
+
+RULES (apply ALL that apply):
+1. Consonant+Vowel liaison (MOST IMPORTANT): when a word ends in consonant and next word starts with vowel (A E I O U), merge with ·
+   e.g. "need it" → "nee·dit", "pick it up" → "pi·ki·tup", "turn it on" → "tur·ni·ton", "not at all" → "no·ta·tall", "I ate at" → "I·ei·tat"
+2. Weak "of" → ə merged: "end of" → "endə", "kind of" → "kində", "out of" → "outə", "a lot of" → "a lotə"
+3. Weak "and" → ən merged: "black and white" → "blackən white"
+4. Weak "to" → tə: "need to go" → "need tə go"
+5. Weak "a/the" → ə: "at the" → "ət ðə", "a delay" → "ə delay"
+6. Elision — t/d often dropped before consonant: "last night" → "las(t) night", "need by" → "nee(d) by"
+7. Stressed syllables: CAPITALIZE. e.g. "production" → "proDUCtion", "latest" → "LAtest"
+8. Keep {slot} placeholders exactly as-is.
+
+EXAMPLE:
+Input:  I need it by {time} at the absolute latest.
+Output: I nee·dit by {time} ə(t) ðə·ABsolute LAtest
+
 Return ONLY the linked_hint string, no explanation, no quotes, no markdown.`
       const raw = await callClaude(apiKey, [{ role:'user', content: card.template }], system)
       const hint = raw.trim().replace(/^["']|["']$/g,'')
@@ -8564,15 +8572,17 @@ Analyze the text and extract:
 - 3-5 FSI substitution drill sentences using manufacturing/business vocabulary
 - 3-5 vocabulary words worth learning
 
-For each sentence, also generate a "linked_hint" showing connected speech features:
+For each sentence, generate a "linked_hint" showing how native speakers actually say it:
 RULES for linked_hint:
-1. Weak form reductions: merge weak words into preceding word using ə. e.g. "end of month" → "endə month", "kind of" → "kində", "out of" → "outə"
-2. Weak "and" → ən. e.g. "black and white" → "blackən white"
-3. Weak "to" → tə. e.g. "need to go" → "need tə go"
-4. Consonant+Vowel liaison: use · between linked sounds. e.g. "turn it off" → "tur·nit·off"
-5. Elision (t/d drops before consonant): use (t) (d). e.g. "last night" → "las(t) night"
-6. Stress: CAPITALIZE stressed syllables. e.g. "production" → "proDUCtion"
-7. Keep {slot} placeholders as-is, do not annotate inside them.
+1. Consonant+Vowel liaison (MOST IMPORTANT): word ending in consonant + word starting with vowel (A E I O U) → merge with ·
+   e.g. "need it" → "nee·dit", "pick it up" → "pi·ki·tup", "not at all" → "no·ta·tall", "turn it on" → "tur·ni·ton"
+2. Weak "of" → ə merged: "end of" → "endə", "kind of" → "kində", "out of" → "outə"
+3. Weak "and" → ən merged: "black and white" → "blackən white"
+4. Weak "to" → tə: "need to go" → "need tə go"
+5. Weak "a/the" before vowel → ə: "at the" → "ət ðə"
+6. Elision — t/d dropped before consonant: "last night" → "las(t) night", "need by" → "nee(d) by"
+7. Stressed syllables: CAPITALIZE. e.g. "proDUCtion", "LAtest"
+8. Keep {slot} placeholders as-is.
 
 Return ONLY valid JSON (no markdown), format:
 {"sentences":[{"template":"...with {blank} for substitution","context":"Short context name","hint":"When you'd say this","linked_hint":"annotated version using · [ ] ( ) CAPS rules","subs":[["opt1","opt2","opt3"]]}],"vocab":[{"word":"word","def":"concise definition","ex":"example sentence from the text or invented"}]}`
