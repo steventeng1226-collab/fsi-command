@@ -97,26 +97,27 @@ function srsSort(items) {
 // Clean linked_hint notation for TTS — removes ·, ə, IPA chars, uppercase stress, elision parens
 function cleanForTTS(text) {
   return text
-    .replace(/\{[^}]+\}/g, '...')   // {blank} → ...
-    .replace(/[ABCD]:/g, '')         // dialogue labels
-    .replace(/\[[^\]]*\]/g, w => {   // [t'·word] → word
+    .replace(/\{[^}]+\}/g, '')        // remove {blank} entirely
+    .replace(/[ABCD]:/g, '')           // dialogue labels
+    .replace(/\[[^\]]*\]/g, w => {     // [t'·word] → word only
       const inner = w.slice(1,-1)
       const dot = inner.indexOf('·')
       return dot !== -1 ? inner.slice(dot+1) : inner
     })
-    .replace(/\([^)]\)/g, '')        // (t) (d) elision → remove
-    .replace(/·/g, '')               // liaison dots
-    .replace(/ə/g, 'a')              // schwa → a (closest TTS approximation)
-    .replace(/ɑ/g, 'a')
-    .replace(/ɪ/g, 'i')
-    .replace(/ʊ/g, 'u')
-    .replace(/ŋ/g, 'ng')
-    .replace(/\b([A-Z]{2,})\b/g, w => w.charAt(0) + w.slice(1).toLowerCase()) // proDUCtion → proDuction, TAR → Tar
-    .replace(/([a-zA-Z])([A-Z][A-Z]+)/g, (_, pre, caps) => pre + caps.toLowerCase()) // TARget → target
-    .replace(/\s+/g, ' ').trim()
+    .replace(/\([^)]\)/g, '')          // (t)(d) elision → remove
+    .replace(/·/g, ' ')               // liaison dots → space
+    .replace(/ə/g, 'a')               // schwa → a
+    .replace(/ð/g, 'th')              // ð → th
+    .replace(/ɑ/g, 'a').replace(/ɪ/g, 'i').replace(/ʊ/g, 'u').replace(/ŋ/g, 'ng')
+    .replace(/tə/g, 'to').replace(/ən/g, 'and')  // restore weak forms
+    .replace(/\b([A-Z]{2,})\b/g, w => w.toLowerCase())  // ALL-CAPS words
+    .replace(/\b[A-Z]{2,}[a-z]/g, w => w.toLowerCase()) // Mixed like ORder PRIoritize
+    .replace(/\s+/g, ' ')
+    .replace(/\b([bcdfghjklmnpqrstvwxyz])\b/gi, '$1-') // single consonant → add dash to prevent letter-spelling
+    .trim()
 }
 
-function speak(text, rate = 0.82) {
+function speak(text, rate = 0.6) {
   const clean = cleanForTTS(text)
   window.speechSynthesis?.cancel()
   const u = new SpeechSynthesisUtterance(clean)
@@ -6923,7 +6924,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v2.8</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v2.9</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -7151,7 +7152,7 @@ function DrillTab({ sentences, vocab, settings }) {
   const [rideMode, setRideMode] = useState(null) // null | 'fsi' | 'vocab'
   const [rideStatus, setRideStatus] = useState('idle') // idle | playing | paused
   const [rideCurrent, setRideCurrent] = useState({ text:'', label:'' })
-  const [rideSpeed, setRideSpeed] = useState(0.82) // 0.82 | 0.6
+  const [rideSpeed, setRideSpeed] = useState(0.6) // 0.82 | 0.6
   const rideTimer = useRef(null)
   const rideStop = useRef(false)
 
@@ -7201,13 +7202,13 @@ function DrillTab({ sentences, vocab, settings }) {
     if (rideStop.current || words.length === 0) return
     const w = words[idx % words.length]
     setRideCurrent({ text: w.word, label: 'WORD' })
-    speakRide(w.word, 'en-US', 0.88, () => {
+    speakRide(w.word, 'en-US', 0.6, () => {
       rideTimer.current = setTimeout(() => {
         if (rideStop.current) return
         const def = w.def || w.word
         const lang = /[一-鿿]/.test(def) ? 'zh-TW' : 'en-US'
         setRideCurrent({ text: def, label: 'DEFINITION' })
-        speakRide(def, lang, 0.9, () => {
+        speakRide(def, lang, 0.6, () => {
           rideTimer.current = setTimeout(() => {
             startVocabRide(words, idx + 1)
           }, 1000)
@@ -7309,9 +7310,11 @@ function DrillTab({ sentences, vocab, settings }) {
 
   function buildDrillFilled(c) {
     if (!c?.template) return ''
+    let slotIdx = 0
     return c.template.replace(/\{([^}]+)\}/g, (_, label) => {
-      const sub = (c.subs ?? []).find(g => g.length > 0)
-      return sub ? sub[0] : label
+      const group = (c.subs ?? [])[slotIdx] ?? []
+      slotIdx++
+      return group.length > 0 ? group[0] : label
     })
   }
 
@@ -7761,10 +7764,17 @@ function PracticeTab({ sentences, vocab, stats, settings, updateSentences, updat
   }, [card])
 
   const totalBlanks = tplParts.filter(p => p.t === 'blank').length
-  const allFilled = Object.keys(sels).length >= totalBlanks
+  const allFilled = true // Always allow reveal - unfilled slots use first option
 
   function buildFilled() {
-    return tplParts.map(p => p.t === 'txt' ? p.text : (sels[p.bi] ?? `[${p.label}]`)).join('')
+    return tplParts.map(p => {
+      if (p.t === 'txt') return p.text
+      // Use selected option, or first option as fallback, or label
+      const sel = sels[p.bi]
+      if (sel) return sel
+      const firstOpt = (card?.subs ?? [])[p.bi]?.[0]
+      return firstOpt ?? `[${p.label}]`
+    }).join('')
   }
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 1800) }
@@ -7832,11 +7842,12 @@ RULES (apply ALL that apply):
 5. Weak "a/the" → ə: "at the" → "ət ðə", "a delay" → "ə delay"
 6. Elision — t/d often dropped before consonant: "last night" → "las(t) night", "need by" → "nee(d) by"
 7. Stressed syllables: CAPITALIZE. e.g. "production" → "proDUCtion", "latest" → "LAtest"
-8. Keep {slot} placeholders exactly as-is.
+8. {slot} placeholders: copy them EXACTLY as-is (e.g. {time}, {blank}). NEVER annotate inside or across a slot boundary. Treat each {slot} as an invisible wall — liaison and weak-form rules stop at the { and resume after the }.
 
 EXAMPLE:
 Input:  I need it by {time} at the absolute latest.
 Output: I nee·dit by {time} ə(t) ðə·ABsolute LAtest
+(Note: no liaison between "by" and {time}, and no liaison between {time} and "at")
 
 Return ONLY the linked_hint string, no explanation, no quotes, no markdown.`
       const raw = await callClaude(apiKey, [{ role:'user', content: card.template }], system)
@@ -8582,7 +8593,8 @@ RULES for linked_hint:
 5. Weak "a/the" before vowel → ə: "at the" → "ət ðə"
 6. Elision — t/d dropped before consonant: "last night" → "las(t) night", "need by" → "nee(d) by"
 7. Stressed syllables: CAPITALIZE. e.g. "proDUCtion", "LAtest"
-8. Keep {slot} placeholders as-is.
+8. {slot} placeholders: copy them EXACTLY as-is. NEVER annotate inside or across a {slot} boundary. Treat each {slot} as an invisible wall — liaison and weak-form rules stop at { and resume after }.
+   e.g. "by {time} at" → "by {time} ə(t)" NOT "by {time}·at"
 
 Return ONLY valid JSON (no markdown), format:
 {"sentences":[{"template":"...with {blank} for substitution","context":"Short context name","hint":"When you'd say this","linked_hint":"annotated version using · [ ] ( ) CAPS rules","subs":[["opt1","opt2","opt3"]]}],"vocab":[{"word":"word","def":"concise definition","ex":"example sentence from the text or invented"}]}`
@@ -8787,18 +8799,34 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
 
   async function pushToSheets() {
     if (!(sentences??[]).length && !(vocab??[]).length) { flash('✗ 沒有資料可同步'); return }
-    setSyncing(true); flash('')
+    setSyncing(true); flash('推送中…')
     try {
-      const payload = encodeURIComponent(JSON.stringify({
+      const form = new FormData()
+      form.append('data', JSON.stringify({
         sentences: sentences ?? [],
         vocab: vocab ?? []
       }))
-      const res = await fetch(`${APPS_SCRIPT_URL}?data=${payload}`)
-      const text = await res.text()
-      let json
-      try { json = JSON.parse(text) } catch { json = { ok: false, error: text } }
-      if (json.ok) flash(`✓ 已同步 ${json.sentenceCount} 句 + ${json.vocabCount} 單字到 Sheets`)
-      else flash('✗ 同步失敗：' + (json.error ?? '未知錯誤'))
+      await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        body: form,
+      })
+      // no-cors 無法讀回應，等 1.5 秒讓 Apps Script 處理完再 GET 確認
+      flash('推送完成，確認中…')
+      await new Promise(r => setTimeout(r, 1500))
+      try {
+        const check = await fetch(APPS_SCRIPT_URL)
+        const json = await check.json()
+        const sc = (json.sentences ?? []).length
+        const vc = (json.vocab ?? []).length
+        if (sc || vc) {
+          flash(`✓ Sheets 已確認：${sc} 句 + ${vc} 單字`)
+        } else {
+          flash('✓ 已推送（Sheets 回傳筆數為 0，請手動確認）')
+        }
+      } catch {
+        flash('✓ 已推送（Sheets 無回應，請手動開啟確認）')
+      }
     } catch(e) {
       flash('✗ ' + (e.message ?? '網路錯誤'))
     } finally { setSyncing(false) }
@@ -8985,7 +9013,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v2.8</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v2.9</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
