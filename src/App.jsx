@@ -190,7 +190,7 @@ function renderLinkedHint(hint) {
 }
 
 // Extract playable chunks from linked_hint for individual 🔊 buttons
-// Returns array of { label, ttsText }
+// Returns array of { label, tts }
 function extractLiaisonChunks(hint) {
   if (!hint) return []
   const chunks = []
@@ -201,16 +201,16 @@ function extractLiaisonChunks(hint) {
   while ((m = bracketRe.exec(hint)) !== null) {
     const inner = m[1]
     const dot = inner.indexOf('·')
-    const tts = dot !== -1 ? inner.slice(0, dot).replace(/'/g,'') + ' ' + inner.slice(dot+1) : inner
+    const raw = dot !== -1 ? inner.slice(0, dot).replace(/'/g,'') + ' ' + inner.slice(dot+1) : inner
     const label = m[0]
-    if (!seen.has(label)) { seen.add(label); chunks.push({ label, tts: tts.trim() }) }
+    if (!seen.has(label)) { seen.add(label); chunks.push({ label, tts: cleanForTTS(raw.trim()) }) }
   }
   // also pick up word·word patterns outside brackets
   const noBrackets = hint.replace(/\[[^\]]*\]/g, '')
   while ((m = dotRe.exec(noBrackets)) !== null) {
     const parts = m[1].split('·')
-    const tts = parts.join(' ')
-    if (!seen.has(m[1])) { seen.add(m[1]); chunks.push({ label: m[1], tts }) }
+    const raw = parts.join(' ')
+    if (!seen.has(m[1])) { seen.add(m[1]); chunks.push({ label: m[1], tts: cleanForTTS(raw) }) }
   }
   return chunks
 }
@@ -6923,7 +6923,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v2.6</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v2.7</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -7529,12 +7529,12 @@ function DrillTab({ sentences, vocab, settings }) {
             })()}
 
             <div style={{ display:'flex', gap:8 }}>
-              <div onClick={() => speak(card.template, 0.82)} style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', color:T.txt3, padding:'5px 10px', background:T.bdr, borderRadius:7, transition:'color 0.14s' }}
+              <div onClick={() => speak(buildDrillFilled(card), 0.82)} style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', color:T.txt3, padding:'5px 10px', background:T.bdr, borderRadius:7, transition:'color 0.14s' }}
                 onMouseOver={e=>e.currentTarget.style.color=T.amber} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
                 <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M12 2.5a6 6 0 010 11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
                 <span style={{ fontFamily:MONO, fontSize:9 }}>0.82x</span>
               </div>
-              <div onClick={() => speak(card.template, 0.6)} style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', color:T.txt3, padding:'5px 10px', background:T.bdr, borderRadius:7, transition:'color 0.14s' }}
+              <div onClick={() => speak(buildDrillFilled(card), 0.6)} style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', color:T.txt3, padding:'5px 10px', background:T.bdr, borderRadius:7, transition:'color 0.14s' }}
                 onMouseOver={e=>e.currentTarget.style.color=T.blue} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
                 <span style={{ fontFamily:MONO, fontSize:11 }}>🐢</span>
                 <span style={{ fontFamily:MONO, fontSize:9 }}>0.6x</span>
@@ -7572,7 +7572,7 @@ function DrillTab({ sentences, vocab, settings }) {
             {loadingQ ? (
               <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, animation:'pulse 1.2s infinite' }}>生成問題中…</div>
             ) : (
-              <div style={{ fontFamily:DISP, fontSize:17, color:T.txt, lineHeight:1.55, marginBottom:14 }}>
+              <div style={{ fontFamily:SERIF, fontSize:17, color:T.txt, lineHeight:1.55, marginBottom:14 }}>
                 {currentQ ?? Q_TEMPLATES[type][qIndex % 3]}
               </div>
             )}
@@ -8944,7 +8944,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v2.6</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v2.7</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
