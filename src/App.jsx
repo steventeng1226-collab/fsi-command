@@ -94,8 +94,30 @@ function srsSort(items) {
 // ═══════════════════════════════════════════════════════════════
 // TTS
 // ═══════════════════════════════════════════════════════════════
+// Clean linked_hint notation for TTS — removes ·, ə, IPA chars, uppercase stress, elision parens
+function cleanForTTS(text) {
+  return text
+    .replace(/\{[^}]+\}/g, '...')   // {blank} → ...
+    .replace(/[ABCD]:/g, '')         // dialogue labels
+    .replace(/\[[^\]]*\]/g, w => {   // [t'·word] → word
+      const inner = w.slice(1,-1)
+      const dot = inner.indexOf('·')
+      return dot !== -1 ? inner.slice(dot+1) : inner
+    })
+    .replace(/\([^)]\)/g, '')        // (t) (d) elision → remove
+    .replace(/·/g, '')               // liaison dots
+    .replace(/ə/g, 'a')              // schwa → a (closest TTS approximation)
+    .replace(/ɑ/g, 'a')
+    .replace(/ɪ/g, 'i')
+    .replace(/ʊ/g, 'u')
+    .replace(/ŋ/g, 'ng')
+    .replace(/\b([A-Z]{2,})\b/g, w => w.charAt(0) + w.slice(1).toLowerCase()) // proDUCtion → proDuction, TAR → Tar
+    .replace(/([a-zA-Z])([A-Z][A-Z]+)/g, (_, pre, caps) => pre + caps.toLowerCase()) // TARget → target
+    .replace(/\s+/g, ' ').trim()
+}
+
 function speak(text, rate = 0.82) {
-  const clean = text.replace(/\{[^}]+\}/g, '...').replace(/[ABCD]:/g, '').replace(/[əɑɪʊ]/g, '')
+  const clean = cleanForTTS(text)
   window.speechSynthesis?.cancel()
   const u = new SpeechSynthesisUtterance(clean)
   u.lang = 'en-US'; u.rate = rate
@@ -6901,7 +6923,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v2.5</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v2.6</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -6948,7 +6970,7 @@ function SectionLabel({ children, color = '#8a95a0' }) {
   return (
     <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:2 }}>
       <div style={{ flex:1, height:1, background:T.bdr }}/>
-      <span style={{ fontFamily:MONO, fontSize:9, color, letterSpacing:'0.12em' }}>{children}</span>
+      <span style={{ fontFamily:MONO, fontSize:9, color, letterSpacing:'0.03em' }}>{children}</span>
       <div style={{ flex:1, height:1, background:T.bdr }}/>
     </div>
   )
@@ -7129,6 +7151,7 @@ function DrillTab({ sentences, vocab, settings }) {
   const [rideMode, setRideMode] = useState(null) // null | 'fsi' | 'vocab'
   const [rideStatus, setRideStatus] = useState('idle') // idle | playing | paused
   const [rideCurrent, setRideCurrent] = useState({ text:'', label:'' })
+  const [rideSpeed, setRideSpeed] = useState(0.82) // 0.82 | 0.6
   const rideTimer = useRef(null)
   const rideStop = useRef(false)
 
@@ -7157,14 +7180,14 @@ function DrillTab({ sentences, vocab, settings }) {
     const answer = card.template.replace(/\{[^}]+\}/g, w => w.slice(1,-1))
 
     setRideCurrent({ text: question, label: 'QUESTION' })
-    speakRide(question, 'en-US', 0.82, () => {
+    speakRide(question, 'en-US', rideSpeed, () => {
       setRideCurrent({ text: '...', label: 'YOUR TURN — 3 SEC' })
       rideTimer.current = setTimeout(() => {
         if (rideStop.current) return
         setRideCurrent({ text: answer, label: 'ANSWER' })
-        speakRide(answer, 'en-US', 0.82, () => {
+        speakRide(answer, 'en-US', rideSpeed, () => {
           setRideCurrent({ text: answer, label: 'SHADOW' })
-          speakRide(answer, 'en-US', 0.82, () => {
+          speakRide(answer, 'en-US', rideSpeed, () => {
             rideTimer.current = setTimeout(() => {
               startFSIRide(allCards, qMap, idx + 1)
             }, 1000)
@@ -7401,6 +7424,19 @@ function DrillTab({ sentences, vocab, settings }) {
       {/* ── RIDE MODE BUTTONS ── */}
       <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
         <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, letterSpacing:'0.12em', marginBottom:2 }}>騎車模式 — 純口說反射</div>
+        {/* Speed selector */}
+        <div style={{ display:'flex', gap:6, marginBottom:4 }}>
+          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, alignSelf:'center' }}>語速：</div>
+          {[{label:'0.82x (正常)', val:0.82},{label:'0.6x (慢)', val:0.6}].map(s => (
+            <div key={s.val} onClick={() => setRideSpeed(s.val)}
+              style={{ padding:'4px 12px', borderRadius:12, fontFamily:MONO, fontSize:9, cursor:'pointer',
+                background: rideSpeed === s.val ? T.amberD : T.surf2,
+                border: `1px solid ${rideSpeed === s.val ? T.amber+'60' : T.bdr}`,
+                color: rideSpeed === s.val ? T.amber : T.txt3 }}>
+              {s.label}
+            </div>
+          ))}
+        </div>
         <div style={{ display:'flex', gap:8 }}>
           <button className="btn" onClick={() => beginRide('fsi')}
             style={{ flex:1, background:`${T.amber}15`, border:`1px solid ${T.amber}50`, color:T.amber, padding:'13px 8px', fontSize:11, letterSpacing:'0.06em' }}>
@@ -8867,6 +8903,27 @@ export default function App() {
     })
   }, [])
 
+  // Wake Lock — keep screen on while app is open
+  useEffect(() => {
+    let wakeLock = null
+    async function requestWakeLock() {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLock = await navigator.wakeLock.request('screen')
+        }
+      } catch(e) { /* user denied or not supported */ }
+    }
+    requestWakeLock()
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') requestWakeLock()
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility)
+      wakeLock?.release()
+    }
+  }, [])
+
   const updateSentences = useCallback((fn) => setSentences(prev => { const n=fn(prev); stor.set('fsi:s',n); return n }), [])
   const updateVocab     = useCallback((fn) => setVocab(prev     => { const n=fn(prev); stor.set('fsi:v',n); return n }), [])
   const updateStats     = useCallback((fn) => setStats(prev     => { const n=fn(prev); stor.set('fsi:st',n); return n }), [])
@@ -8887,7 +8944,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v2.5</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v2.6</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
