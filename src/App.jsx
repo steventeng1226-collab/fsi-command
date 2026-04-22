@@ -6923,7 +6923,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v2.7</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v2.8</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -7719,6 +7719,7 @@ function PracticeTab({ sentences, vocab, stats, settings, updateSentences, updat
   const [showRoundComplete, setShowRoundComplete] = useState(false)
   const [editingHint, setEditingHint] = useState(false)
   const [hintDraft, setHintDraft] = useState('')
+  const [activeChunk, setActiveChunk] = useState(null) // { ci, label }
   const [dailyCount, setDailyCount] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('fsi:daily') || 'null')
@@ -7942,7 +7943,7 @@ Return ONLY the linked_hint string, no explanation, no quotes, no markdown.`
                       <span style={{ fontSize:8 }}>{generatingHint ? '產生中' : '連音'}</span>
                     </div>
                   )}
-                  <div onClick={() => speak(card.template.replace(/\{[^}]+\}/g, w => w.slice(1,-1)))} title="朗讀句子"
+                  <div onClick={() => speak(buildFilled())} title="朗讀句子"
                     style={{ cursor:'pointer', color:T.txt3, padding:'4px 5px', flexShrink:0, transition:'color 0.14s' }}
                     onMouseOver={e=>e.currentTarget.style.color=T.amber} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
                     <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M12 2.5a6 6 0 010 11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
@@ -7976,13 +7977,13 @@ Return ONLY the linked_hint string, no explanation, no quotes, no markdown.`
 
             {/* Speed buttons */}
             <div style={{ display:'flex', gap:8, marginTop:10 }}>
-              <div onClick={() => speak(card.template.replace(/\{[^}]+\}/g, w=>w.slice(1,-1)), 0.82)}
+              <div onClick={() => speak(buildFilled(), 0.82)}
                 style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', color:T.txt3, padding:'5px 10px', background:T.surf2, borderRadius:7, transition:'color 0.14s' }}
                 onMouseOver={e=>e.currentTarget.style.color=T.amber} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
                 <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M12 2.5a6 6 0 010 11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
                 <span style={{ fontFamily:MONO, fontSize:9 }}>0.82x</span>
               </div>
-              <div onClick={() => speak(card.template.replace(/\{[^}]+\}/g, w=>w.slice(1,-1)), 0.6)}
+              <div onClick={() => speak(buildFilled(), 0.6)}
                 style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', color:T.txt3, padding:'5px 10px', background:T.surf2, borderRadius:7, transition:'color 0.14s' }}
                 onMouseOver={e=>e.currentTarget.style.color=T.blue} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
                 <span style={{ fontFamily:MONO, fontSize:11 }}>🐢</span>
@@ -8031,15 +8032,45 @@ Return ONLY the linked_hint string, no explanation, no quotes, no markdown.`
                 )}
                 {!editingHint && chunks.length > 0 && (
                   <div style={{ display:'flex', flexWrap:'wrap', gap:7 }}>
-                    {chunks.map((c, ci) => (
-                      <div key={ci} onClick={() => speak(c.tts, 0.6)}
-                        style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', background:T.amberD, border:`1px solid ${T.amber}40`, borderRadius:8, padding:'5px 10px', transition:'all 0.14s' }}
-                        onMouseOver={e=>e.currentTarget.style.background=T.amber+'33'} onMouseOut={e=>e.currentTarget.style.background=T.amberD}>
-                        <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>{c.label}</span>
-                        <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style={{color:T.amber}}><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.4" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
-                        <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>0.6x</span>
-                      </div>
-                    ))}
+                    {chunks.map((c, ci) => {
+                      const isActive = activeChunk === ci
+                      return (
+                        <div key={ci} style={{ display:'flex', flexDirection:'column', gap:3 }}>
+                          <div onClick={() => {
+                            setActiveChunk(ci)
+                            // 方案C：先0.5x慢速，再0.82x正常速
+                            window.speechSynthesis?.cancel()
+                            const u1 = new SpeechSynthesisUtterance(c.tts)
+                            u1.lang = 'en-US'; u1.rate = 0.5
+                            u1.onend = () => {
+                              setTimeout(() => {
+                                const u2 = new SpeechSynthesisUtterance(c.tts)
+                                u2.lang = 'en-US'; u2.rate = 0.82
+                                u2.onend = () => setActiveChunk(null)
+                                window.speechSynthesis?.speak(u2)
+                              }, 600)
+                            }
+                            window.speechSynthesis?.speak(u1)
+                          }}
+                            style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer',
+                              background: isActive ? T.amber+'40' : T.amberD,
+                              border:`1px solid ${isActive ? T.amber : T.amber+'40'}`,
+                              borderRadius:8, padding:'5px 10px', transition:'all 0.14s' }}
+                            onMouseOver={e=>e.currentTarget.style.background=T.amber+'33'}
+                            onMouseOut={e=>e.currentTarget.style.background= isActive ? T.amber+'40' : T.amberD}>
+                            <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>{c.label}</span>
+                            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style={{color:T.amber}}><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.4" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
+                            <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>慢→正常</span>
+                          </div>
+                          {/* 方案B：近似音顯示 */}
+                          {isActive && c.zh && (
+                            <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, textAlign:'center', animation:'fadeUp 0.2s ease' }}>
+                              {c.zh}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </div>
@@ -8944,7 +8975,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v2.7</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v2.8</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
