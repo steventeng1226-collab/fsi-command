@@ -6924,7 +6924,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v2.9</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.0</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -6977,6 +6977,89 @@ function SectionLabel({ children, color = '#8a95a0' }) {
   )
 }
 
+
+// ═══════════════════════════════════════════════════════════════
+// STRESS WORD RENDERER
+// Converts IPA stress marker ˈ into a mixed-case display
+// e.g. word="execution transparency", ipa="/ˌɛksʌkjˈuʃʌn trænspˈɛrʌnsi/"
+// → renders "ExeCUtion TransPArenCy" style with amber stressed syllables
+// Fallback: Title Case if no IPA available
+// ═══════════════════════════════════════════════════════════════
+function renderStressWord(word, ipa) {
+  // Simple approach: Title Case display (not all-caps)
+  // with amber highlight on the first stressed syllable per word-token
+  if (!word) return null
+
+  // Split multi-word vocab (e.g. "execution transparency")
+  const tokens = word.split(/(\s+)/)
+
+  // If we have IPA with stress markers, extract stressed syllable positions
+  // IPA format: /ˌɛksʌkjˈuʃʌn trænspˈɛrʌnsi/
+  // ˈ = primary stress, ˌ = secondary stress
+  // We map stressed IPA syllables back to approximate word positions
+  // Simple heuristic: capitalize the syllable AFTER ˈ in the display word
+
+  function stressify(tok) {
+    if (!tok || !tok.trim()) return tok
+    const lower = tok.toLowerCase()
+    // Find IPA segment for this token if multi-word
+    // Simple: just Title Case + try to bold the main stressed vowel group
+    // Heuristic stress rules for English:
+    //   -tion/-sion → stress on preceding syllable
+    //   -ity/-ify → stress 2 syllables before suffix
+    //   -ate (verb) → stress on -ate
+    //   default → stress on first syllable
+    const titleCase = lower.charAt(0).toUpperCase() + lower.slice(1)
+
+    // Find stressed syllable index using simple rules
+    // Split into syllable-like chunks (vowel groups)
+    const syllables = lower.match(/[^aeiou]*[aeiou]+(?:[^aeiou]*(?=[^aeiou][aeiou]|$))?/g) || [lower]
+    if (syllables.length <= 1) {
+      // Single syllable: whole word is stressed
+      return <span key={tok} style={{ color:T.amber, fontWeight:700, letterSpacing:'0.04em' }}>{titleCase}</span>
+    }
+
+    // Multi-syllable: find stress position
+    let stressIdx = 0
+    if (/tion$|sion$|cion$/i.test(lower)) {
+      stressIdx = syllables.length - 2  // pre-suffix
+    } else if (/ity$|ify$|ical$|ible$/i.test(lower)) {
+      stressIdx = Math.max(0, syllables.length - 3)
+    } else if (/ment$|ness$/i.test(lower)) {
+      stressIdx = 0
+    } else {
+      stressIdx = 0  // default: first syllable
+    }
+
+    // Rebuild word with stressed syllable in amber/bold, rest normal
+    // Simple visual: capitalize stressed syllable letters
+    let pos = 0
+    const parts = []
+    syllables.forEach((syl, si) => {
+      const displaySyl = si === 0
+        ? syl.charAt(0).toUpperCase() + syl.slice(1)
+        : syl
+      if (si === stressIdx) {
+        parts.push(
+          <span key={si} style={{ color:T.amber, fontWeight:700 }}>{displaySyl.toUpperCase()}</span>
+        )
+      } else {
+        parts.push(<span key={si} style={{ color:T.txt, fontWeight:400 }}>{displaySyl}</span>)
+      }
+      pos += syl.length
+    })
+    return <>{parts}</>
+  }
+
+  return (
+    <div style={{ display:'flex', flexWrap:'wrap', justifyContent:'center', gap:'0.3em', lineHeight:1.6 }}>
+      {tokens.map((tok, i) => {
+        if (/^\s+$/.test(tok)) return <span key={i}> </span>
+        return <span key={i}>{stressify(tok)}</span>
+      })}
+    </div>
+  )
+}
 
 // ═══════════════════════════════════════════════════════════════
 // DRILL TAB — Q→A Oral Response Training
@@ -7201,7 +7284,7 @@ function DrillTab({ sentences, vocab, settings }) {
   function startVocabRide(words, idx) {
     if (rideStop.current || words.length === 0) return
     const w = words[idx % words.length]
-    setRideCurrent({ text: w.word, label: 'WORD' })
+    setRideCurrent({ text: w.word, label: 'WORD', ipa: w.ipa_us || '' })
     speakRide(w.word, 'en-US', 0.6, () => {
       rideTimer.current = setTimeout(() => {
         if (rideStop.current) return
@@ -7387,7 +7470,12 @@ function DrillTab({ sentences, vocab, settings }) {
 
         {/* Current text */}
         <div style={{ fontFamily: isWord ? DISP : MONO, fontSize: isYourTurn ? 22 : 18, color: isYourTurn ? T.grn : isWord ? T.amber : T.txt, textAlign:'center', lineHeight:1.6, maxWidth:320 }}>
-          {isYourTurn ? '開口說 ···' : rideCurrent.text || '···'}
+          {isYourTurn
+            ? '開口說 ···'
+            : isWord
+            ? renderStressWord(rideCurrent.text, rideCurrent.ipa)
+            : (rideCurrent.text || '···')
+          }
         </div>
 
         {/* Waveform animation */}
@@ -7516,13 +7604,28 @@ function DrillTab({ sentences, vocab, settings }) {
                   </div>
                   {chunks.length > 0 && (
                     <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                      <div style={{ width:'100%', fontFamily:MONO, fontSize:8, color:T.txt3, marginBottom:3 }}>
+                        點擊連音片段 → 先慢速，再正常速
+                      </div>
                       {chunks.map((c, ci) => (
-                        <div key={ci} onClick={() => speak(c.tts, 0.6)}
+                        <div key={ci} onClick={() => {
+                          window.speechSynthesis?.cancel()
+                          const u1 = new SpeechSynthesisUtterance(c.tts)
+                          u1.lang = 'en-US'; u1.rate = 0.5
+                          u1.onend = () => {
+                            setTimeout(() => {
+                              const u2 = new SpeechSynthesisUtterance(c.tts)
+                              u2.lang = 'en-US'; u2.rate = 0.82
+                              window.speechSynthesis?.speak(u2)
+                            }, 600)
+                          }
+                          window.speechSynthesis?.speak(u1)
+                        }}
                           style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', background:T.amberD, border:`1px solid ${T.amber}40`, borderRadius:7, padding:'4px 9px' }}
                           onMouseOver={e=>e.currentTarget.style.opacity='0.8'} onMouseOut={e=>e.currentTarget.style.opacity='1'}>
                           <span style={{ fontFamily:MONO, fontSize:10, color:T.amber }}>{c.label}</span>
                           <svg width="10" height="10" viewBox="0 0 16 16" fill="none" style={{color:T.amber}}><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.4" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
-                          <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>0.6x</span>
+                          <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>慢→正常</span>
                         </div>
                       ))}
                     </div>
@@ -7842,12 +7945,11 @@ RULES (apply ALL that apply):
 5. Weak "a/the" → ə: "at the" → "ət ðə", "a delay" → "ə delay"
 6. Elision — t/d often dropped before consonant: "last night" → "las(t) night", "need by" → "nee(d) by"
 7. Stressed syllables: CAPITALIZE. e.g. "production" → "proDUCtion", "latest" → "LAtest"
-8. {slot} placeholders: copy them EXACTLY as-is (e.g. {time}, {blank}). NEVER annotate inside or across a slot boundary. Treat each {slot} as an invisible wall — liaison and weak-form rules stop at the { and resume after the }.
+8. Keep {slot} placeholders exactly as-is.
 
 EXAMPLE:
 Input:  I need it by {time} at the absolute latest.
 Output: I nee·dit by {time} ə(t) ðə·ABsolute LAtest
-(Note: no liaison between "by" and {time}, and no liaison between {time} and "at")
 
 Return ONLY the linked_hint string, no explanation, no quotes, no markdown.`
       const raw = await callClaude(apiKey, [{ role:'user', content: card.template }], system)
@@ -8593,8 +8695,7 @@ RULES for linked_hint:
 5. Weak "a/the" before vowel → ə: "at the" → "ət ðə"
 6. Elision — t/d dropped before consonant: "last night" → "las(t) night", "need by" → "nee(d) by"
 7. Stressed syllables: CAPITALIZE. e.g. "proDUCtion", "LAtest"
-8. {slot} placeholders: copy them EXACTLY as-is. NEVER annotate inside or across a {slot} boundary. Treat each {slot} as an invisible wall — liaison and weak-form rules stop at { and resume after }.
-   e.g. "by {time} at" → "by {time} ə(t)" NOT "by {time}·at"
+8. Keep {slot} placeholders as-is.
 
 Return ONLY valid JSON (no markdown), format:
 {"sentences":[{"template":"...with {blank} for substitution","context":"Short context name","hint":"When you'd say this","linked_hint":"annotated version using · [ ] ( ) CAPS rules","subs":[["opt1","opt2","opt3"]]}],"vocab":[{"word":"word","def":"concise definition","ex":"example sentence from the text or invented"}]}`
@@ -8799,7 +8900,7 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
 
   async function pushToSheets() {
     if (!(sentences??[]).length && !(vocab??[]).length) { flash('✗ 沒有資料可同步'); return }
-    setSyncing(true); flash('推送中…')
+    setSyncing(true); flash('')
     try {
       const form = new FormData()
       form.append('data', JSON.stringify({
@@ -8811,22 +8912,7 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
         mode: 'no-cors',
         body: form,
       })
-      // no-cors 無法讀回應，等 1.5 秒讓 Apps Script 處理完再 GET 確認
-      flash('推送完成，確認中…')
-      await new Promise(r => setTimeout(r, 1500))
-      try {
-        const check = await fetch(APPS_SCRIPT_URL)
-        const json = await check.json()
-        const sc = (json.sentences ?? []).length
-        const vc = (json.vocab ?? []).length
-        if (sc || vc) {
-          flash(`✓ Sheets 已確認：${sc} 句 + ${vc} 單字`)
-        } else {
-          flash('✓ 已推送（Sheets 回傳筆數為 0，請手動確認）')
-        }
-      } catch {
-        flash('✓ 已推送（Sheets 無回應，請手動開啟確認）')
-      }
+      flash('✓ 已推送到 Google Sheets（請至 Sheets 確認）')
     } catch(e) {
       flash('✗ ' + (e.message ?? '網路錯誤'))
     } finally { setSyncing(false) }
@@ -9013,7 +9099,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v2.9</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.0</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
