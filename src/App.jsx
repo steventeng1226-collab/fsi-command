@@ -6924,7 +6924,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.0</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.1</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -6980,84 +6980,59 @@ function SectionLabel({ children, color = '#8a95a0' }) {
 
 // ═══════════════════════════════════════════════════════════════
 // STRESS WORD RENDERER
-// Converts IPA stress marker ˈ into a mixed-case display
-// e.g. word="execution transparency", ipa="/ˌɛksʌkjˈuʃʌn trænspˈɛrʌnsi/"
-// → renders "ExeCUtion TransPArenCy" style with amber stressed syllables
-// Fallback: Title Case if no IPA available
+// Natural mixed case display. Stressed syllable shown in amber color (not caps).
+// Heuristic stress rules based on common English suffixes.
+// e.g. "execution" → exe·CU·tion  (CU in amber, rest normal)
+//      "transparency" → trans·PA·ren·cy  (PA in amber)
 // ═══════════════════════════════════════════════════════════════
-function renderStressWord(word, ipa) {
-  // Simple approach: Title Case display (not all-caps)
-  // with amber highlight on the first stressed syllable per word-token
+function renderStressWord(word) {
   if (!word) return null
+  const tokens = word.trim().split(/\s+/)
 
-  // Split multi-word vocab (e.g. "execution transparency")
-  const tokens = word.split(/(\s+)/)
+  function stressToken(tok) {
+    if (!tok) return null
+    const low = tok.toLowerCase()
+    // Split into syllables: consonant cluster + vowel group + optional coda
+    const sylRe = /[^aeiou]*[aeiou]+(?:[^aeiou]+(?=[aeiou])|[^aeiou]*$)/gi
+    const syllables = low.match(sylRe) || [low]
 
-  // If we have IPA with stress markers, extract stressed syllable positions
-  // IPA format: /ˌɛksʌkjˈuʃʌn trænspˈɛrʌnsi/
-  // ˈ = primary stress, ˌ = secondary stress
-  // We map stressed IPA syllables back to approximate word positions
-  // Simple heuristic: capitalize the syllable AFTER ˈ in the display word
+    // Title-case the whole token (first char uppercase, rest lowercase)
+    const titleTok = tok.charAt(0).toUpperCase() + tok.slice(1).toLowerCase()
 
-  function stressify(tok) {
-    if (!tok || !tok.trim()) return tok
-    const lower = tok.toLowerCase()
-    // Find IPA segment for this token if multi-word
-    // Simple: just Title Case + try to bold the main stressed vowel group
-    // Heuristic stress rules for English:
-    //   -tion/-sion → stress on preceding syllable
-    //   -ity/-ify → stress 2 syllables before suffix
-    //   -ate (verb) → stress on -ate
-    //   default → stress on first syllable
-    const titleCase = lower.charAt(0).toUpperCase() + lower.slice(1)
-
-    // Find stressed syllable index using simple rules
-    // Split into syllable-like chunks (vowel groups)
-    const syllables = lower.match(/[^aeiou]*[aeiou]+(?:[^aeiou]*(?=[^aeiou][aeiou]|$))?/g) || [lower]
     if (syllables.length <= 1) {
-      // Single syllable: whole word is stressed
-      return <span key={tok} style={{ color:T.amber, fontWeight:700, letterSpacing:'0.04em' }}>{titleCase}</span>
+      // Monosyllable: display normally (no stress highlight needed)
+      return <span style={{ color:T.txt }}>{titleTok}</span>
     }
 
-    // Multi-syllable: find stress position
-    let stressIdx = 0
-    if (/tion$|sion$|cion$/i.test(lower)) {
-      stressIdx = syllables.length - 2  // pre-suffix
-    } else if (/ity$|ify$|ical$|ible$/i.test(lower)) {
-      stressIdx = Math.max(0, syllables.length - 3)
-    } else if (/ment$|ness$/i.test(lower)) {
-      stressIdx = 0
-    } else {
-      stressIdx = 0  // default: first syllable
-    }
+    // Determine stressed syllable index
+    let si = 0
+    if      (/tion$|sion$|cion$/i.test(low))         si = syllables.length - 2
+    else if (/ity$|ify$/i.test(low))                  si = Math.max(0, syllables.length - 3)
+    else if (/ical$|ible$|ative$|ative$/i.test(low))  si = Math.max(0, syllables.length - 3)
+    else if (/ment$|ness$|less$|ful$/i.test(low))     si = 0
+    else if (/ate$|ize$|ise$/i.test(low) && syllables.length >= 3) si = syllables.length - 3
+    else                                               si = 0
 
-    // Rebuild word with stressed syllable in amber/bold, rest normal
-    // Simple visual: capitalize stressed syllable letters
+    // Reconstruct from syllables, coloring stressed one amber
     let pos = 0
-    const parts = []
-    syllables.forEach((syl, si) => {
-      const displaySyl = si === 0
-        ? syl.charAt(0).toUpperCase() + syl.slice(1)
-        : syl
-      if (si === stressIdx) {
-        parts.push(
-          <span key={si} style={{ color:T.amber, fontWeight:700 }}>{displaySyl.toUpperCase()}</span>
-        )
-      } else {
-        parts.push(<span key={si} style={{ color:T.txt, fontWeight:400 }}>{displaySyl}</span>)
-      }
-      pos += syl.length
-    })
-    return <>{parts}</>
+    return (
+      <>
+        {syllables.map((syl, i) => {
+          // Get the matching slice from the title-cased token
+          const slice = titleTok.slice(pos, pos + syl.length)
+          pos += syl.length
+          return i === si
+            ? <span key={i} style={{ color:T.amber, fontWeight:600 }}>{slice}</span>
+            : <span key={i} style={{ color:T.txt }}>{slice}</span>
+        })}
+      </>
+    )
   }
 
   return (
-    <div style={{ display:'flex', flexWrap:'wrap', justifyContent:'center', gap:'0.3em', lineHeight:1.6 }}>
-      {tokens.map((tok, i) => {
-        if (/^\s+$/.test(tok)) return <span key={i}> </span>
-        return <span key={i}>{stressify(tok)}</span>
-      })}
-    </div>
+    <span style={{ display:'inline-flex', flexWrap:'wrap', justifyContent:'center', gap:'0.35em' }}>
+      {tokens.map((tok, i) => <span key={i}>{stressToken(tok)}</span>)}
+    </span>
   )
 }
 
@@ -7260,8 +7235,15 @@ function DrillTab({ sentences, vocab, settings }) {
     const card = allCards[idx % allCards.length]
     const type = detectCardType(card)
     const qs = qMap[card.id] || Q_TEMPLATES[type] || Q_TEMPLATES.default
-    const question = qs[0]
-    const answer = card.template.replace(/\{[^}]+\}/g, w => w.slice(1,-1))
+    // Rotate through 3 questions per card across cycles
+    const question = qs[idx % 3] || qs[0]
+    // Fill answer with first substitution option per slot
+    let slotIdx = 0
+    const answer = card.template.replace(/\{[^}]+\}/g, () => {
+      const opt = (card.subs ?? [])[slotIdx]?.[0]
+      slotIdx++
+      return opt ?? ''
+    })
 
     setRideCurrent({ text: question, label: 'QUESTION' })
     speakRide(question, 'en-US', rideSpeed, () => {
@@ -7273,7 +7255,14 @@ function DrillTab({ sentences, vocab, settings }) {
           setRideCurrent({ text: answer, label: 'SHADOW' })
           speakRide(answer, 'en-US', rideSpeed, () => {
             rideTimer.current = setTimeout(() => {
-              startFSIRide(allCards, qMap, idx + 1)
+              const nextIdx = idx + 1
+              // Re-shuffle every cycle
+              if (nextIdx >= allCards.length) {
+                const reshuffled = [...allCards].sort(() => Math.random() - 0.5)
+                startFSIRide(reshuffled, qMap, 0)
+              } else {
+                startFSIRide(allCards, qMap, nextIdx)
+              }
             }, 1000)
           })
         })
@@ -7283,7 +7272,9 @@ function DrillTab({ sentences, vocab, settings }) {
 
   function startVocabRide(words, idx) {
     if (rideStop.current || words.length === 0) return
-    const w = words[idx % words.length]
+    // Re-shuffle at the start of each new cycle
+    const list = idx === 0 ? [...words].sort(() => Math.random() - 0.5) : words
+    const w = list[idx % list.length]
     setRideCurrent({ text: w.word, label: 'WORD', ipa: w.ipa_us || '' })
     speakRide(w.word, 'en-US', 0.6, () => {
       rideTimer.current = setTimeout(() => {
@@ -7293,7 +7284,13 @@ function DrillTab({ sentences, vocab, settings }) {
         setRideCurrent({ text: def, label: 'DEFINITION' })
         speakRide(def, lang, 0.6, () => {
           rideTimer.current = setTimeout(() => {
-            startVocabRide(words, idx + 1)
+            const nextIdx = idx + 1
+            // Re-shuffle every cycle
+            if (nextIdx >= list.length) {
+              startVocabRide([...words].sort(() => Math.random() - 0.5), 0)
+            } else {
+              startVocabRide(list, nextIdx)
+            }
           }, 1000)
         })
       }, 1000)
@@ -7469,14 +7466,22 @@ function DrillTab({ sentences, vocab, settings }) {
         </div>
 
         {/* Current text */}
-        <div style={{ fontFamily: isWord ? DISP : MONO, fontSize: isYourTurn ? 22 : 18, color: isYourTurn ? T.grn : isWord ? T.amber : T.txt, textAlign:'center', lineHeight:1.6, maxWidth:320 }}>
-          {isYourTurn
-            ? '開口說 ···'
-            : isWord
-            ? renderStressWord(rideCurrent.text, rideCurrent.ipa)
-            : (rideCurrent.text || '···')
-          }
-        </div>
+        {isWord ? (
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:8 }}>
+            <div style={{ fontFamily:SERIF, fontSize:28, fontWeight:400, color:T.amber, textAlign:'center', lineHeight:1.4, maxWidth:320, letterSpacing:'0.02em' }}>
+              {renderStressWord(rideCurrent.text)}
+            </div>
+            {rideCurrent.ipa && (
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, letterSpacing:'0.05em' }}>
+                {rideCurrent.ipa}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div style={{ fontFamily:MONO, fontSize: isYourTurn ? 22 : 18, color: isYourTurn ? T.grn : T.txt, textAlign:'center', lineHeight:1.6, maxWidth:320 }}>
+            {isYourTurn ? '開口說 ···' : (rideCurrent.text || '···')}
+          </div>
+        )}
 
         {/* Waveform animation */}
         <div style={{ display:'flex', alignItems:'center', gap:4, height:32 }}>
@@ -9099,7 +9104,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.0</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.1</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
