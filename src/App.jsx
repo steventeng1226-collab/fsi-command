@@ -126,6 +126,68 @@ function speak(text, rate = 0.6) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// ELEVENLABS TTS  (高品質語音，用於 chunk 按鈕 + 單字騎車)
+// Voice: Rachel (en-US, 美式英語，清晰自然)
+// 快取：每個文字只呼叫一次 API，存 base64 在 localStorage
+// ═══════════════════════════════════════════════════════════════
+const ELEVEN_VOICE_ID = '21m00Tcm4TlvDq8ikWAM' // Rachel
+const ELEVEN_MODEL    = 'eleven_turbo_v2_5'      // 最快，品質好
+
+async function speakElevenLabs(text, elevenKey, onEnd) {
+  if (!elevenKey || !text.trim()) {
+    // fallback to browser TTS
+    speak(text); onEnd?.(); return
+  }
+  const clean = cleanForTTS(text)
+  const cacheKey = 'fsi:tts:' + btoa(encodeURIComponent(clean)).slice(0, 60)
+
+  // Check cache
+  try {
+    const cached = localStorage.getItem(cacheKey)
+    if (cached) {
+      const audio = new Audio('data:audio/mpeg;base64,' + cached)
+      audio.onended = () => onEnd?.()
+      audio.onerror = () => { speak(text); onEnd?.() }
+      audio.play()
+      return
+    }
+  } catch {}
+
+  // Call ElevenLabs API
+  try {
+    const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${ELEVEN_VOICE_ID}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'xi-api-key': elevenKey,
+      },
+      body: JSON.stringify({
+        text: clean,
+        model_id: ELEVEN_MODEL,
+        voice_settings: { stability: 0.5, similarity_boost: 0.75, speed: 0.85 }
+      })
+    })
+    if (!r.ok) throw new Error('ElevenLabs ' + r.status)
+    const blob = await r.blob()
+    const base64 = await new Promise((res, rej) => {
+      const reader = new FileReader()
+      reader.onload = () => res(reader.result.split(',')[1])
+      reader.onerror = rej
+      reader.readAsDataURL(blob)
+    })
+    // Cache it
+    try { localStorage.setItem(cacheKey, base64) } catch {}
+    const audio = new Audio('data:audio/mpeg;base64,' + base64)
+    audio.onended = () => onEnd?.()
+    audio.onerror = () => { speak(text); onEnd?.() }
+    audio.play()
+  } catch(e) {
+    // fallback
+    speak(text); onEnd?.()
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
 // LINKED HINT RENDERER
 // Format spec:
 //   [t'·word]  weak form + liaison  → t' gray, · amber, word normal
@@ -6924,7 +6986,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.2</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.3</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -7221,8 +7283,13 @@ function DrillTab({ sentences, vocab, settings }) {
     window.speechSynthesis?.cancel()
   }
 
-  function speakRide(text, lang, rate, onEnd) {
+  function speakRide(text, lang, rate, onEnd, useEleven = false) {
     if (rideStop.current) return
+    const eKey = settings?.elevenKey || (() => { try { return JSON.parse(localStorage.getItem('fsi:se')||'{}')?.elevenKey??'' } catch { return '' } })()
+    if (useEleven && eKey && lang === 'en-US') {
+      speakElevenLabs(text, eKey, () => { if (!rideStop.current) onEnd?.() })
+      return
+    }
     window.speechSynthesis?.cancel()
     const u = new SpeechSynthesisUtterance(text)
     u.lang = lang; u.rate = rate
@@ -7294,8 +7361,8 @@ function DrillTab({ sentences, vocab, settings }) {
             }
           }, 1000)
         })
-      }, 1000)
-    })
+      }, 1200)  // slightly longer pause after ElevenLabs word
+    }, true)  // useEleven=true for word pronunciation
   }
 
   function beginRide(mode) {
@@ -7879,7 +7946,9 @@ function PracticeTab({ sentences, vocab, stats, settings, updateSentences, updat
   const [showRoundComplete, setShowRoundComplete] = useState(false)
   const [editingHint, setEditingHint] = useState(false)
   const [hintDraft, setHintDraft] = useState('')
-  const [activeChunk, setActiveChunk] = useState(null) // { ci, label }
+  const [activeChunk, setActiveChunk] = useState(null)
+  const [filledHint, setFilledHint] = useState(null)      // linked_hint for filled sentence
+  const [generatingFilledHint, setGeneratingFilledHint] = useState(false)
   const [dailyCount, setDailyCount] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('fsi:daily') || 'null')
@@ -7973,7 +8042,7 @@ function PracticeTab({ sentences, vocab, stats, settings, updateSentences, updat
     } else {
       setIdx(nextIdx)
     }
-    setSels({}); setRevealed(false)
+    setSels({}); setRevealed(false); setFilledHint(null)
     showToast(q === 5 ? '✓ Easy +5 XP' : q === 3 ? '◎ Hard +3 XP' : '↺ Again +1 XP')
   }
 
@@ -8211,21 +8280,27 @@ Return ONLY the linked_hint string, no explanation, no quotes, no markdown.`
                       const isActive = activeChunk === ci
                       return (
                         <div key={ci} style={{ display:'flex', flexDirection:'column', gap:3 }}>
-                          <div onClick={() => {
+                          <div onClick={async () => {
                             setActiveChunk(ci)
-                            // 方案C：先0.5x慢速，再0.82x正常速
-                            window.speechSynthesis?.cancel()
-                            const u1 = new SpeechSynthesisUtterance(c.tts)
-                            u1.lang = 'en-US'; u1.rate = 0.5
-                            u1.onend = () => {
-                              setTimeout(() => {
-                                const u2 = new SpeechSynthesisUtterance(c.tts)
-                                u2.lang = 'en-US'; u2.rate = 0.82
-                                u2.onend = () => setActiveChunk(null)
-                                window.speechSynthesis?.speak(u2)
-                              }, 600)
+                            const eKey = settings?.elevenKey || (() => { try { return JSON.parse(localStorage.getItem('fsi:se')||'{}')?.elevenKey??'' } catch { return '' } })()
+                            if (eKey) {
+                              // ElevenLabs: 直接唸原始連音詞組，自然發音
+                              await speakElevenLabs(c.tts, eKey, () => setActiveChunk(null))
+                            } else {
+                              // fallback: 瀏覽器 TTS 慢→正常
+                              window.speechSynthesis?.cancel()
+                              const u1 = new SpeechSynthesisUtterance(c.tts)
+                              u1.lang = 'en-US'; u1.rate = 0.5
+                              u1.onend = () => {
+                                setTimeout(() => {
+                                  const u2 = new SpeechSynthesisUtterance(c.tts)
+                                  u2.lang = 'en-US'; u2.rate = 0.82
+                                  u2.onend = () => setActiveChunk(null)
+                                  window.speechSynthesis?.speak(u2)
+                                }, 600)
+                              }
+                              window.speechSynthesis?.speak(u1)
                             }
-                            window.speechSynthesis?.speak(u1)
                           }}
                             style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer',
                               background: isActive ? T.amber+'40' : T.amberD,
@@ -8235,7 +8310,7 @@ Return ONLY the linked_hint string, no explanation, no quotes, no markdown.`
                             onMouseOut={e=>e.currentTarget.style.background= isActive ? T.amber+'40' : T.amberD}>
                             <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>{c.label}</span>
                             <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style={{color:T.amber}}><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.4" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
-                            <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>慢→正常</span>
+                            <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>{settings?.elevenKey ? '🎙 AI' : '慢→正常'}</span>
                           </div>
                           {/* 方案B：近似音顯示 */}
                           {isActive && c.zh && (
@@ -8934,7 +9009,9 @@ function AchieveTab({ stats, earned, sentences, vocab }) {
 // ═══════════════════════════════════════════════════════════════
 function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings, updateSettings }) {
   const [key, setKey] = useState(settings?.apiKey ?? '')
+  const [elevenKey, setElevenKey] = useState(settings?.elevenKey ?? '')
   const [showKey, setShowKey] = useState(false)
+  const [showElevenKey, setShowElevenKey] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [msg, setMsg] = useState('')
 
@@ -8973,7 +9050,7 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
   }
 
   function save() {
-    updateSettings(() => ({ apiKey: key.trim() }))
+    updateSettings(() => ({ apiKey: key.trim(), elevenKey: elevenKey.trim() }))
     flash('✓ Settings saved.')
   }
 
@@ -9009,6 +9086,21 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
           </button>
         </div>
         <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>Required for AI Analysis tab and auto-generated context hints.</span>
+      </div>
+
+      {/* ElevenLabs Key */}
+      <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
+        <label style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>ELEVENLABS API KEY <span style={{ color:T.amber }}>★ 高品質語音</span></label>
+        <div style={{ display:'flex', gap:8 }}>
+          <input type={showElevenKey ? 'text' : 'password'} value={elevenKey} onChange={e=>setElevenKey(e.target.value)} placeholder="sk_xxxxxxxxxxxxxxxx…" style={{ flex:1 }}/>
+          <button className="btn" onClick={()=>setShowElevenKey(s=>!s)} style={{ background:T.bdr, color:T.txt2, padding:'10px 13px', fontSize:13 }}>
+            {showElevenKey ? '🙈' : '👁'}
+          </button>
+        </div>
+        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.7 }}>
+          用於 chunk 連音按鈕 + 單字騎車模式（自然真人語音）<br/>
+          未設定時自動使用瀏覽器 TTS。免費版 10,000 字元/月。
+        </div>
       </div>
 
       {/* Sheets Sync */}
@@ -9153,7 +9245,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.2</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.3</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
