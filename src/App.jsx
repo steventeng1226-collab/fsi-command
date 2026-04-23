@@ -1072,7 +1072,7 @@ const SEED_V = [
     "word": "inventory counting",
     "ipa_us": "/ˌɪnvʌntˈɔri kˈaʊntɪŋ/",
     "def": "盤點",
-    "ex": "Failure to execute full or high?percentage inventory counts.",
+    "ex": "Failure to execute full or high-percentage inventory counts.",
     "reps": 0,
     "ease": 2.5,
     "interval": 1,
@@ -1177,10 +1177,10 @@ const SEED_V = [
   },
   {
     "id": "sv17",
-    "word": "real?time data",
+    "word": "real-time data",
     "ipa_us": "/rˈil tˈaɪm dˈeɪtʌ/",
     "def": "即時數據",
-    "ex": "Real?time data management is essential for execution.",
+    "ex": "Real-time data management is essential for execution.",
     "reps": 0,
     "ease": 2.5,
     "interval": 1,
@@ -1300,7 +1300,7 @@ const SEED_V = [
     "word": "AI inspection",
     "ipa_us": "/ˈeɪ ˈaɪ ˌɪnspˈɛkʃʌn/",
     "def": "AI 檢測",
-    "ex": "Implement AI?based appearance inspection after winding.",
+    "ex": "Implement AI-based appearance inspection after winding.",
     "reps": 0,
     "ease": 2.5,
     "interval": 1,
@@ -1312,7 +1312,7 @@ const SEED_V = [
     "word": "AOI",
     "ipa_us": "/ˈeɪ ˈoʊ ˈaɪ/",
     "def": "自動光學檢測",
-    "ex": "We propose the purchase of six?sided AOI equipment.",
+    "ex": "We propose the purchase of six-sided AOI equipment.",
     "reps": 0,
     "ease": 2.5,
     "interval": 1,
@@ -1645,10 +1645,10 @@ const SEED_V = [
   },
   {
     "id": "sv57",
-    "word": "follow?up action",
+    "word": "follow-up action",
     "ipa_us": "/fˈɑloʊ ˈʌp ˈækʃʌn/",
     "def": "後續改善行動",
-    "ex": "The issue is included in the follow?up improvement action.",
+    "ex": "The issue is included in the follow-up improvement action.",
     "reps": 0,
     "ease": 2.5,
     "interval": 1,
@@ -1825,10 +1825,10 @@ const SEED_V = [
   },
   {
     "id": "sv72",
-    "word": "on?site audit",
+    "word": "on-site audit",
     "ipa_us": "/ˈɑn sˈaɪt ˈɔdɪt/",
     "def": "現場稽核",
-    "ex": "The on?site audit was conducted smoothly.",
+    "ex": "The on-site audit was conducted smoothly.",
     "reps": 0,
     "ease": 2.5,
     "interval": 1,
@@ -6924,7 +6924,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.1</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.2</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -7211,6 +7211,7 @@ function DrillTab({ sentences, vocab, settings }) {
   const [rideStatus, setRideStatus] = useState('idle') // idle | playing | paused
   const [rideCurrent, setRideCurrent] = useState({ text:'', label:'' })
   const [rideSpeed, setRideSpeed] = useState(0.6) // 0.82 | 0.6
+  const [ridePaused, setRidePaused] = useState(false)
   const rideTimer = useRef(null)
   const rideStop = useRef(false)
 
@@ -7322,6 +7323,34 @@ function DrillTab({ sentences, vocab, settings }) {
     setRideMode(null)
     setRideStatus('idle')
     setRideCurrent({ text:'', label:'' })
+    setRidePaused(false)
+  }
+
+  function pauseRide() {
+    rideStop.current = true      // stop the chain
+    clearRideTimers()
+    window.speechSynthesis?.cancel()
+    setRidePaused(true)
+    setRideStatus('paused')
+  }
+
+  function resumeRide() {
+    rideStop.current = false
+    setRidePaused(false)
+    setRideStatus('playing')
+    // Resume: re-enter at current word/card
+    if (rideMode === 'vocab') {
+      const words = [...(vocab ?? [])].filter(v => !v.archived).sort(() => Math.random() - 0.5)
+      startVocabRide(words, 0)
+    } else if (rideMode === 'fsi') {
+      const allCards = (sentences ?? []).filter(s => s.mode === 'simple')
+      const shuffled = [...allCards].sort(() => Math.random() - 0.5)
+      const qMap = {}
+      shuffled.forEach(c => {
+        try { const v = localStorage.getItem('fsi:dq:' + c.id); if (v) qMap[c.id] = JSON.parse(v) } catch {}
+      })
+      startFSIRide(shuffled, qMap, 0)
+    }
   }
 
   // Cleanup on unmount
@@ -7478,8 +7507,15 @@ function DrillTab({ sentences, vocab, settings }) {
             )}
           </div>
         ) : (
-          <div style={{ fontFamily:MONO, fontSize: isYourTurn ? 22 : 18, color: isYourTurn ? T.grn : T.txt, textAlign:'center', lineHeight:1.6, maxWidth:320 }}>
+          <div style={{ fontFamily:MONO, fontSize: isYourTurn ? 22 : 18, color: isYourTurn ? T.grn : ridePaused ? T.txt2 : T.txt, textAlign:'center', lineHeight:1.6, maxWidth:320 }}>
             {isYourTurn ? '開口說 ···' : (rideCurrent.text || '···')}
+          </div>
+        )}
+
+        {/* Paused indicator */}
+        {ridePaused && (
+          <div style={{ fontFamily:MONO, fontSize:11, color:T.amber, letterSpacing:'0.14em', animation:'pulse 1.5s infinite' }}>
+            ⏸ 已暫停
           </div>
         )}
 
@@ -7502,13 +7538,26 @@ function DrillTab({ sentences, vocab, settings }) {
           {rideMode === 'fsi' ? '🚴 FSI 騎車模式' : '🎧 單字騎車模式'}
         </div>
 
-        {/* STOP button */}
-        <button className="btn" onClick={stopRide}
-          style={{ marginTop:20, background:T.redD, border:`2px solid ${T.red}80`, color:T.red, padding:'18px 48px', fontSize:14, letterSpacing:'0.12em', borderRadius:14, width:'100%', maxWidth:280 }}>
-          ■ 停止
-        </button>
+        {/* Pause / Resume / Stop buttons */}
+        <div style={{ display:'flex', flexDirection:'column', gap:12, width:'100%', maxWidth:280, marginTop:20 }}>
+          {ridePaused ? (
+            <button className="btn" onClick={resumeRide}
+              style={{ background:`${T.grn}20`, border:`2px solid ${T.grn}80`, color:T.grn, padding:'16px 0', fontSize:14, letterSpacing:'0.12em', borderRadius:14, width:'100%' }}>
+              ▶ 繼續
+            </button>
+          ) : (
+            <button className="btn" onClick={pauseRide}
+              style={{ background:`${T.amber}15`, border:`2px solid ${T.amber}60`, color:T.amber, padding:'16px 0', fontSize:14, letterSpacing:'0.12em', borderRadius:14, width:'100%' }}>
+              ⏸ 暫停
+            </button>
+          )}
+          <button className="btn" onClick={stopRide}
+            style={{ background:T.redD, border:`2px solid ${T.red}80`, color:T.red, padding:'14px 0', fontSize:13, letterSpacing:'0.12em', borderRadius:14, width:'100%' }}>
+            ■ 停止
+          </button>
+        </div>
         <div style={{ fontFamily:SERIF, fontStyle:'italic', fontSize:11, color:T.txt3 }}>
-          到達目的地後按停止
+          {ridePaused ? '看清楚後按繼續，或按停止結束' : '到達目的地後按停止'}
         </div>
       </div>
     )
@@ -9104,7 +9153,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.1</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.2</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
