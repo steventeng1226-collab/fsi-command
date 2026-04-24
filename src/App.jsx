@@ -7035,7 +7035,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.5</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.6</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -8133,6 +8133,40 @@ Return ONLY the linked_hint string, no explanation, no quotes, no markdown.`
     } finally { setGeneratingHint(false) }
   }
 
+  // ── 用填完 slot 的完整句產生連音（暫存在 filledHint，不覆蓋原始 linked_hint）──
+  async function generateFilledHint() {
+    const apiKey = settings?.apiKey || (() => {
+      try { return JSON.parse(localStorage.getItem('fsi:se') || '{}')?.apiKey ?? '' } catch { return '' }
+    })()
+    if (!apiKey) { showToast('請先在 Setup 設定 API Key'); return }
+    if (!card) return
+    const filled = buildFilled()
+    if (!filled.trim()) return
+    setGeneratingFilledHint(true)
+    try {
+      const system = `You are an English connected speech expert. Given a complete English sentence (no placeholders), produce a "linked_hint" showing how native speakers actually say it.
+
+RULES (apply ALL that apply):
+1. Consonant+Vowel liaison (MOST IMPORTANT): word ending consonant + next word starting vowel → merge with ·
+   e.g. "need it" → "nee·dit", "pick it up" → "pi·ki·tup", "not at all" → "no·ta·tall"
+2. Weak "of" → ə merged: "end of" → "endə", "kind of" → "kində"
+3. Weak "and" → ən merged: "black and white" → "blackən white"
+4. Weak "to" → tə: "need to go" → "need tə go"
+5. Weak "a/the" → ə: "at the" → "ət ðə"
+6. Elision: "last night" → "las(t) night", "need by" → "nee(d) by"
+7. Stressed syllables: CAPITALIZE. e.g. "proDUCtion", "LAtest"
+
+This is a COMPLETE sentence with no placeholders. Apply all rules fully.
+Return ONLY the linked_hint string, no explanation, no quotes, no markdown.`
+      const raw = await callClaude(apiKey, [{ role:'user', content: filled }], system)
+      const hint = raw.trim().replace(/^["']|["']$/g,'')
+      setFilledHint(hint)
+      showToast('✓ 已用選項更新連音')
+    } catch(e) {
+      showToast('✗ 產生失敗，請檢查 API Key')
+    } finally { setGeneratingFilledHint(false) }
+  }
+
   function ModeBtn({ id, label }) {
     return (
       <div onClick={() => { setMode(id); setIdx(0); setSels({}); setRevealed(false) }}
@@ -8288,24 +8322,78 @@ Return ONLY the linked_hint string, no explanation, no quotes, no markdown.`
 
           {/* ── LIAISON section ─────────────────────────── */}
           {card.linked_hint && (() => {
-            const chunks = extractLiaisonChunks(card.linked_hint)
+            // 優先顯示 filledHint（填完 slot 後產生），否則顯示原始 linked_hint
+            const displayHint = filledHint ?? card.linked_hint
+            const isFilledMode = !!filledHint
+            const chunks = extractLiaisonChunks(displayHint)
+            // 判斷是否有選任何 slot（可以產生 filledHint）
+            const hasAnySel = Object.keys(sels).length > 0
+            const totalSlots = (card.subs ?? []).length
+
             return (
-              <div style={{ background:T.surf, border:`1px solid ${T.amber}22`, borderRadius:12, padding:'13px 15px' }}>
+              <div style={{ background:T.surf, border:`1px solid ${isFilledMode ? T.grn+'40' : T.amber+'22'}`, borderRadius:12, padding:'13px 15px', transition:'border-color 0.3s' }}>
+                {/* Header row */}
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
                   <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                    <div style={{ fontFamily:MONO, fontSize:8.5, color:T.amber, letterSpacing:'0.1em' }}>LIAISON</div>
-                    <div style={{ display:'flex', gap:10 }}>
-                      <span style={{ fontFamily:MONO, fontSize:8, color:T.amber }}>· 連音</span>
-                      <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>ə 弱化</span>
-                      <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>( ) 省略</span>
-                      <span style={{ fontFamily:MONO, fontSize:8, color:T.txt, fontWeight:700 }}>大寫 重音</span>
+                    <div style={{ fontFamily:MONO, fontSize:8.5, color: isFilledMode ? T.grn : T.amber, letterSpacing:'0.1em' }}>
+                      {isFilledMode ? 'LIAISON · 已填入選項' : 'LIAISON'}
                     </div>
+                    {!isFilledMode && (
+                      <div style={{ display:'flex', gap:10 }}>
+                        <span style={{ fontFamily:MONO, fontSize:8, color:T.amber }}>· 連音</span>
+                        <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>ə 弱化</span>
+                        <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>( ) 省略</span>
+                        <span style={{ fontFamily:MONO, fontSize:8, color:T.txt, fontWeight:700 }}>大寫 重音</span>
+                      </div>
+                    )}
                   </div>
-                  <div onClick={() => { setEditingHint(e => !e); setHintDraft(card.linked_hint) }}
-                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:8, color: editingHint ? T.amber : T.txt3, padding:'3px 7px', background:T.surf2, borderRadius:5 }}>
-                    {editingHint ? '取消' : '✏ 編輯'}
+                  <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                    {/* 🔄 產生填入版連音按鈕 */}
+                    {totalSlots > 0 && !editingHint && (
+                      <div onClick={() => { if (!generatingFilledHint) generateFilledHint() }}
+                        title={hasAnySel ? '用目前選項產生連音' : '先選 SLOT 再產生'}
+                        style={{
+                          cursor: generatingFilledHint ? 'not-allowed' : 'pointer',
+                          color: isFilledMode ? T.grn : hasAnySel ? T.amber : T.txt3,
+                          padding:'3px 8px', background: isFilledMode ? T.grnD : hasAnySel ? T.amberD : T.surf2,
+                          borderRadius:6, fontFamily:MONO, fontSize:9,
+                          display:'flex', alignItems:'center', gap:4,
+                          border:`1px solid ${isFilledMode ? T.grn+'50' : hasAnySel ? T.amber+'50' : T.bdr}`,
+                          opacity: generatingFilledHint ? 0.6 : 1, transition:'all 0.14s'
+                        }}>
+                        {generatingFilledHint
+                          ? <span style={{ display:'inline-block', width:8, height:8, border:'1.5px solid transparent', borderTopColor: T.amber, borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>
+                          : isFilledMode ? '✓' : '🔄'}
+                        <span style={{ fontSize:8 }}>
+                          {generatingFilledHint ? '產生中' : isFilledMode ? '已更新' : '用選項更新'}
+                        </span>
+                      </div>
+                    )}
+                    {/* 還原模板連音 */}
+                    {isFilledMode && (
+                      <div onClick={() => setFilledHint(null)}
+                        style={{ cursor:'pointer', color:T.txt3, padding:'3px 7px', background:T.surf2, borderRadius:5, fontFamily:MONO, fontSize:8, border:`1px solid ${T.bdr}` }}>
+                        還原
+                      </div>
+                    )}
+                    {/* 編輯按鈕 */}
+                    {!isFilledMode && (
+                      <div onClick={() => { setEditingHint(e => !e); setHintDraft(card.linked_hint) }}
+                        style={{ cursor:'pointer', fontFamily:MONO, fontSize:8, color: editingHint ? T.amber : T.txt3, padding:'3px 7px', background:T.surf2, borderRadius:5 }}>
+                        {editingHint ? '取消' : '✏ 編輯'}
+                      </div>
+                    )}
                   </div>
                 </div>
+
+                {/* 提示文字：slot 未選時 */}
+                {totalSlots > 0 && !hasAnySel && !isFilledMode && !editingHint && (
+                  <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, marginBottom:8, padding:'5px 8px', background:T.surf2, borderRadius:6 }}>
+                    💡 先在下方選擇 SLOT 選項，再點「🔄 用選項更新」產生完整連音
+                  </div>
+                )}
+
+                {/* Linked hint 顯示 */}
                 {editingHint ? (
                   <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
                     <textarea value={hintDraft} onChange={e => setHintDraft(e.target.value)}
@@ -8319,10 +8407,12 @@ Return ONLY the linked_hint string, no explanation, no quotes, no markdown.`
                     </button>
                   </div>
                 ) : (
-                  <div style={{ fontFamily:SERIF, fontSize:15, lineHeight:2, letterSpacing:'0.02em', color:T.txt2, marginBottom: chunks.length ? 12 : 0 }}>
-                    {renderLinkedHint(card.linked_hint)}
+                  <div style={{ fontFamily:SERIF, fontSize:15, lineHeight:2, letterSpacing:'0.02em', color: isFilledMode ? T.txt : T.txt2, marginBottom: chunks.length ? 12 : 0 }}>
+                    {renderLinkedHint(displayHint)}
                   </div>
                 )}
+
+                {/* Chunk buttons */}
                 {!editingHint && chunks.length > 0 && (
                   <div style={{ display:'flex', flexWrap:'wrap', gap:7 }}>
                     {chunks.map((c, ci) => {
@@ -8333,10 +8423,8 @@ Return ONLY the linked_hint string, no explanation, no quotes, no markdown.`
                             setActiveChunk(ci)
                             const eKey = settings?.elevenKey || (() => { try { return JSON.parse(localStorage.getItem('fsi:se')||'{}')?.elevenKey??'' } catch { return '' } })()
                             if (eKey) {
-                              // ElevenLabs: 直接唸原始連音詞組，自然發音
                               await speakElevenLabs(c.tts, eKey, () => setActiveChunk(null))
                             } else {
-                              // fallback: 瀏覽器 TTS 慢→正常
                               window.speechSynthesis?.cancel()
                               const u1 = new SpeechSynthesisUtterance(c.tts)
                               u1.lang = 'en-US'; u1.rate = 0.5
@@ -8352,24 +8440,23 @@ Return ONLY the linked_hint string, no explanation, no quotes, no markdown.`
                             }
                           }}
                             style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer',
-                              background: isActive ? T.amber+'40' : T.amberD,
-                              border:`1px solid ${isActive ? T.amber : T.amber+'40'}`,
-                              borderRadius:8, padding:'5px 10px', transition:'all 0.14s' }}
-                            onMouseOver={e=>e.currentTarget.style.background=T.amber+'33'}
-                            onMouseOut={e=>e.currentTarget.style.background= isActive ? T.amber+'40' : T.amberD}>
-                            <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>{c.label}</span>
-                            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style={{color:T.amber}}><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.4" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
+                              background: isActive ? (isFilledMode ? T.grn+'40' : T.amber+'40') : (isFilledMode ? T.grnD : T.amberD),
+                              border:`1px solid ${isActive ? (isFilledMode ? T.grn : T.amber) : (isFilledMode ? T.grn+'40' : T.amber+'40')}`,
+                              borderRadius:8, padding:'5px 10px', transition:'all 0.14s' }}>
+                            <span style={{ fontFamily:MONO, fontSize:11, color: isFilledMode ? T.grn : T.amber }}>{c.label}</span>
+                            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style={{color: isFilledMode ? T.grn : T.amber}}><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.4" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
                             <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>{settings?.elevenKey ? '🎙 AI' : '慢→正常'}</span>
                           </div>
-                          {/* 方案B：近似音顯示 */}
-                          {isActive && c.zh && (
-                            <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, textAlign:'center', animation:'fadeUp 0.2s ease' }}>
-                              {c.zh}
-                            </div>
-                          )}
                         </div>
                       )
                     })}
+                  </div>
+                )}
+
+                {/* filledMode 說明 */}
+                {isFilledMode && (
+                  <div style={{ fontFamily:MONO, fontSize:8, color:T.grn, marginTop:8, opacity:0.8 }}>
+                    ✓ 連音已根據選項「{Object.values(sels).join(' / ')}」更新 · 按「還原」回到模板版
                   </div>
                 )}
               </div>
@@ -9351,7 +9438,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.5</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.6</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
