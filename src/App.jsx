@@ -254,27 +254,76 @@ function renderLinkedHint(hint) {
 
 // Extract playable chunks from linked_hint for individual 🔊 buttons
 // Returns array of { label, tts }
+// Filters out:
+//   1. Chunks containing {slot} placeholders (slot boundary)
+//   2. Weak-form-only chunks (ə, tə, ðə, ən etc.) — too short / meaningless alone
+//   3. Chunks whose cleaned tts is a single common function word
 function extractLiaisonChunks(hint) {
   if (!hint) return []
+
+  // Function words that are meaningless as standalone chunks
+  const SKIP_TTS = new Set(['a','the','to','and','of','for','in','on','at','it','is','be','or','an'])
+
+  function isUseful(tts) {
+    if (!tts) return false
+    // Full clean: remove IPA chars, dots, apostrophes, then check
+    const cleaned = tts
+      .replace(/·/g, ' ').replace(/'/g, '').replace(/ə/g, 'a')
+      .replace(/ð/g, 'th').replace(/\s+/g, ' ').trim()
+    if (cleaned.length < 3) return false                        // too short after cleaning
+    if (SKIP_TTS.has(cleaned.toLowerCase())) return false       // pure function word
+    if (/^[a-z]$/i.test(cleaned)) return false                  // single letter
+    // Must contain at least one vowel (real syllable)
+    if (!/[aeiou]/i.test(cleaned)) return false
+    return true
+  }
+
+  function hasSlot(str) {
+    return /\{[^}]+\}/.test(str)
+  }
+
   const chunks = []
   const bracketRe = /\[([^\]]+)\]/g
   const dotRe = /(\S+·\S+)/g
   let m
   const seen = new Set()
+
+  // Weak-form prefixes before · — skip if the part after · is also trivial
+  // Exception: ən (and) + meaningful word IS worth keeping (e.g. ən·white)
+  const ALWAYS_SKIP_WEAK = new Set(['t','t\'','tə','f','f\'','fər','ə','ðə','ð','wəz','wə','həz','həv','bɪn'])
+
   while ((m = bracketRe.exec(hint)) !== null) {
     const inner = m[1]
+    if (hasSlot(inner)) continue
     const dot = inner.indexOf('·')
-    const raw = dot !== -1 ? inner.slice(0, dot).replace(/'/g,'') + ' ' + inner.slice(dot+1) : inner
+    const beforeDot = dot !== -1 ? inner.slice(0, dot).replace(/'/g,'').trim().toLowerCase() : ''
+    // Skip always-weak prefixes
+    if (dot !== -1 && ALWAYS_SKIP_WEAK.has(beforeDot)) continue
+    // Skip ən (and) only if the word after · is a trivial function word
+    const afterDot = dot !== -1 ? inner.slice(dot + 1) : inner
+    const afterClean = cleanForTTS(afterDot).trim()
+    if (dot !== -1 && beforeDot === 'ən' && afterClean.length < 4) continue
+    const raw = dot !== -1 ? inner.slice(0, dot).replace(/'/g, '') + ' ' + afterDot : inner
     const label = m[0]
-    if (!seen.has(label)) { seen.add(label); chunks.push({ label, tts: cleanForTTS(raw.trim()) }) }
+    const tts = cleanForTTS(raw.trim())
+    if (!seen.has(label) && isUseful(tts)) {
+      seen.add(label)
+      chunks.push({ label, tts })
+    }
   }
+
   // also pick up word·word patterns outside brackets
   const noBrackets = hint.replace(/\[[^\]]*\]/g, '')
   while ((m = dotRe.exec(noBrackets)) !== null) {
-    const parts = m[1].split('·')
-    const raw = parts.join(' ')
-    if (!seen.has(m[1])) { seen.add(m[1]); chunks.push({ label: m[1], tts: cleanForTTS(raw) }) }
+    const raw = m[1]
+    if (hasSlot(raw)) continue                        // skip slot-boundary chunks
+    const tts = cleanForTTS(m[1].split('·').join(' '))
+    if (!seen.has(m[1]) && isUseful(tts)) {
+      seen.add(m[1])
+      chunks.push({ label: m[1], tts })
+    }
   }
+
   return chunks
 }
 
@@ -6986,7 +7035,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.3</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.5</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -9031,7 +9080,7 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
 
   async function pushToSheets() {
     if (!(sentences??[]).length && !(vocab??[]).length) { flash('✗ 沒有資料可同步'); return }
-    setSyncing(true); flash('')
+    setSyncing(true); flash('推送中…')
     try {
       const form = new FormData()
       form.append('data', JSON.stringify({
@@ -9043,7 +9092,17 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
         mode: 'no-cors',
         body: form,
       })
-      flash('✓ 已推送到 Google Sheets（請至 Sheets 確認）')
+      // no-cors 無法讀回應，等 2 秒後 GET 確認
+      await new Promise(r => setTimeout(r, 2000))
+      try {
+        const check = await fetch(APPS_SCRIPT_URL)
+        const json = await check.json()
+        const sc = (json.sentences ?? []).length
+        const vc = (json.vocab ?? []).length
+        flash(sc || vc ? `✓ Sheets 已確認：${sc} 句 + ${vc} 單字` : '✓ 已推送（請至 Sheets 手動確認）')
+      } catch {
+        flash('✓ 已推送（網路限制，請至 Sheets 確認）')
+      }
     } catch(e) {
       flash('✗ ' + (e.message ?? '網路錯誤'))
     } finally { setSyncing(false) }
@@ -9062,13 +9121,60 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
       if (!json.ok) throw new Error(json.error ?? 'Sync failed')
       const cards = json.sentences ?? []
       const words = json.vocab ?? []
-      if (!cards.length && !words.length) throw new Error('No valid data found.')
-      if (cards.length) updateSentences(prev => [...(prev??[]).filter(s=>!s.id.startsWith('sh')), ...cards])
-      if (words.length) updateVocab(prev => {
-        const existing = new Set((prev??[]).map(v => v.word))
-        return [...(prev??[]), ...words.filter(w => !existing.has(w.word))]
-      })
-      flash(`✓ 讀入 ${cards.length} 句 + ${words.length} 單字`)
+      if (!cards.length && !words.length) throw new Error('Sheets 沒有資料，請先推送。')
+
+      // ── 以 Sheets 為主：完全覆蓋 localStorage ──
+      // 句子：Sheets 資料完全取代，保留本地的 SRS 進度（用 id 或 template 比對）
+      if (cards.length) {
+        updateSentences(prev => {
+          // 建立本地 SRS 進度查表（以 id 和 template 兩種 key）
+          const srsById = {}
+          const srsByTemplate = {}
+          ;(prev ?? []).forEach(s => {
+            const srs = { reps: s.reps, ease: s.ease, interval: s.interval, dueDate: s.dueDate, lastSeen: s.lastSeen }
+            srsById[s.id] = srs
+            srsByTemplate[s.template] = srs
+          })
+          // 用 Sheets 資料，補回 SRS 進度
+          return cards.map(c => {
+            const srs = srsById[c.id] ?? srsByTemplate[c.template] ?? {}
+            return {
+              ...c,
+              reps:      srs.reps      ?? 0,
+              ease:      srs.ease      ?? 2.5,
+              interval:  srs.interval  ?? 1,
+              dueDate:   srs.dueDate   ?? 0,
+              lastSeen:  srs.lastSeen  ?? 0,
+            }
+          })
+        })
+      }
+
+      // 單字：Sheets 資料完全取代，保留本地的 SRS 進度
+      if (words.length) {
+        updateVocab(prev => {
+          const srsById = {}
+          const srsByWord = {}
+          ;(prev ?? []).forEach(v => {
+            const srs = { reps: v.reps, ease: v.ease, interval: v.interval, dueDate: v.dueDate, lastSeen: v.lastSeen }
+            srsById[v.id] = srs
+            srsByWord[v.word] = srs
+          })
+          return words.map(w => {
+            const srs = srsById[w.id] ?? srsByWord[w.word] ?? {}
+            return {
+              ...w,
+              reps:      srs.reps      ?? 0,
+              ease:      srs.ease      ?? 2.5,
+              interval:  srs.interval  ?? 1,
+              dueDate:   srs.dueDate   ?? 0,
+              lastSeen:  srs.lastSeen  ?? 0,
+            }
+          })
+        })
+      }
+
+      flash(`✓ 已從 Sheets 覆蓋：${cards.length} 句 + ${words.length} 單字（SRS 進度保留）`)
     } catch(e) {
       flash('✗ ' + (e.message ?? 'Sync failed.'))
     } finally { setSyncing(false) }
@@ -9109,8 +9215,8 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
         <div style={{ background:T.surf2, borderRadius:9, padding:13, display:'flex', flexDirection:'column', gap:5 }}>
           <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, letterSpacing:'0.08em' }}>FSI Practice Sentences + FSI Vocab</div>
           <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.7 }}>
-            推送：句子 + 單字 → Sheets（覆蓋舊資料）<br/>
-            讀入：Sheets → App（句子合併，單字補新）
+            推送：App → Sheets（覆蓋 Sheets 舊資料）<br/>
+            讀入：Sheets → App（<span style={{color:T.amber}}>完全覆蓋</span> localStorage，SRS 進度保留）
           </div>
         </div>
         <div style={{ display:'flex', gap:8 }}>
@@ -9245,7 +9351,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.3</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.5</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
