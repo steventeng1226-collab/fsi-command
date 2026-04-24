@@ -7035,7 +7035,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.8</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.9</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -8399,21 +8399,33 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
             const templateSlotCount = (card.template?.match(/\{[^}]+\}/g) ?? []).length
             const subsCount = (card.subs ?? []).length
             const missingSlots = Math.max(0, templateSlotCount - subsCount)
+            const extraSlots  = Math.max(0, subsCount - templateSlotCount)
             return (
               <>
-                {(card.subs ?? []).map((group, gi) => (
-                  <div key={gi}>
-                    <div style={{ fontFamily:MONO, fontSize:8.5, color:'#9aa5b0', letterSpacing:'0.1em', marginBottom:6 }}>SLOT {gi + 1}</div>
-                    <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
-                      {group.map((opt, oi) => (
-                        <div key={oi} className={`chip${sels[gi] === opt ? ' sel' : ''}`}
-                          onClick={() => setSels(prev => prev[gi] === opt ? (({ [gi]:_, ...rest }) => rest)(prev) : { ...prev, [gi]: opt })}>
-                          {opt}
-                        </div>
-                      ))}
+                {(card.subs ?? []).map((group, gi) => {
+                  const isExtra = gi >= templateSlotCount
+                  return (
+                    <div key={gi}>
+                      <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:6 }}>
+                        <div style={{ fontFamily:MONO, fontSize:8.5, color: isExtra ? T.amber : '#9aa5b0', letterSpacing:'0.1em' }}>SLOT {gi + 1}</div>
+                        {isExtra && <span style={{ fontFamily:MONO, fontSize:8, color:T.amber, background:T.amberD, padding:'1px 6px', borderRadius:4 }}>⚠ 多餘 slot（template 無對應）</span>}
+                      </div>
+                      <div style={{ display:'flex', flexWrap:'wrap', gap:6, opacity: isExtra ? 0.5 : 1 }}>
+                        {group.map((opt, oi) => (
+                          <div key={oi} className={`chip${sels[gi] === opt ? ' sel' : ''}`}
+                            onClick={() => !isExtra && setSels(prev => prev[gi] === opt ? (({ [gi]:_, ...rest }) => rest)(prev) : { ...prev, [gi]: opt })}>
+                            {opt}
+                          </div>
+                        ))}
+                      </div>
                     </div>
+                  )
+                })}
+                {extraSlots > 0 && (
+                  <div style={{ background:T.amberD, border:`1px solid ${T.amber}40`, borderRadius:8, padding:'8px 12px', display:'flex', alignItems:'center', gap:6 }}>
+                    <span style={{ fontFamily:MONO, fontSize:9, color:T.amber }}>⚠ 此卡有 {extraSlots} 個多餘 SLOT，選項分配可能錯誤 — 建議重新編輯</span>
                   </div>
-                ))}
+                )}
                 {missingSlots > 0 && Array.from({ length: missingSlots }).map((_, mi) => (
                   <div key={`missing-${mi}`} style={{ background: T.redD, border:`1px solid ${T.red}50`, borderRadius:8, padding:'8px 12px', display:'flex', alignItems:'center', gap:8 }}>
                     <span style={{ fontFamily:MONO, fontSize:8.5, color:T.red, letterSpacing:'0.1em' }}>SLOT {subsCount + mi + 1}</span>
@@ -9515,7 +9527,9 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
         const seedCards = all.filter(c => SEED_IDS.has(c.id))
         const realCards = all.filter(c => !SEED_IDS.has(c.id))
         const countTplSlots = t => (t?.match(/\{[^}]+\}/g) ?? []).length
-        const incompleteCards = realCards.filter(c => countTplSlots(c.template) !== (c.subs ?? []).length)
+        const missingSubsCards = realCards.filter(c => countTplSlots(c.template) > (c.subs ?? []).length)
+        const extraSubsCards   = realCards.filter(c => countTplSlots(c.template) < (c.subs ?? []).length)
+        const incompleteCards  = [...new Set([...missingSubsCards, ...extraSubsCards])]
         const LIFE_CTX = ['Daily Life','Greeting','Travel','Shopping','Food','Health','Family','Hobby','Lifestyle','生活']
         const isLife = s => LIFE_CTX.some(k => (s.context??'').toLowerCase().includes(k.toLowerCase()))
         const workSimple = realCards.filter(s => s.mode==='simple' && !isLife(s)).length
@@ -9530,7 +9544,8 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
                 ['總計（含 SEED）', all.length, T.amber],
                 ['真實資料（Sheets）', realCards.length, T.grn],
                 ['SEED 預設卡', seedCards.length, seedCards.length > 0 ? T.red : T.txt3],
-                ['⚠ 不完整卡片', incompleteCards.length, incompleteCards.length > 0 ? T.red : T.txt3],
+                ['⚠ Slot 缺少（需補）', missingSubsCards.length, missingSubsCards.length > 0 ? T.red : T.txt3],
+                ['⚠ Slot 多餘（需修）', extraSubsCards.length,   extraSubsCards.length  > 0 ? T.amber : T.txt3],
                 ['', '', ''],
                 ['💼 WORK Simple', workSimple, T.txt],
                 ['💼 WORK Hard', workHard, T.txt],
@@ -9550,6 +9565,56 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
               }} style={{ background:T.redD, border:`1px solid ${T.red}50`, color:T.red, fontSize:10, marginTop:2 }}>
                 🗑 立即清除 {seedCards.length} 張 SEED 預設卡
               </button>
+            )}
+          </div>
+        )
+      })()}
+
+      {/* ── 卡片完整性掃描 ── */}
+      {(() => {
+        const SEED_IDS = new Set(SEED_S.map(c => c.id))
+        const countTplSlots = t => (t?.match(/\{[^}]+\}/g) ?? []).length
+        const realCards = (sentences ?? []).filter(c => !SEED_IDS.has(c.id))
+        const missingCards = realCards.filter(c => countTplSlots(c.template) > (c.subs ?? []).length)
+        const extraCards   = realCards.filter(c => countTplSlots(c.template) < (c.subs ?? []).length)
+        const allBadCards  = [...new Set([...missingCards, ...extraCards])]
+        const [showScan, setShowScan] = React.useState(false)
+        if (allBadCards.length === 0) return (
+          <div style={{ background:T.surf2, border:`1px solid ${T.grn}30`, borderRadius:10, padding:'10px 14px', display:'flex', alignItems:'center', gap:8 }}>
+            <span style={{ fontFamily:MONO, fontSize:9, color:T.grn }}>✓ 所有卡片 slot 結構正常</span>
+          </div>
+        )
+        return (
+          <div style={{ background:T.surf2, border:`1px solid ${T.red}40`, borderRadius:10, padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>🔍 卡片完整性掃描</div>
+              <button className="btn" onClick={() => setShowScan(v => !v)}
+                style={{ fontSize:9, padding:'3px 10px', background: showScan ? T.surf : T.amberD, border:`1px solid ${T.amber}50`, color:T.amber }}>
+                {showScan ? '收起' : `查看 ${allBadCards.length} 張問題卡`}
+              </button>
+            </div>
+            {showScan && (
+              <div style={{ display:'flex', flexDirection:'column', gap:6, maxHeight:320, overflowY:'auto' }}>
+                {allBadCards.map(c => {
+                  const tplCount = countTplSlots(c.template)
+                  const subsCount = (c.subs ?? []).length
+                  const isMissing = tplCount > subsCount
+                  return (
+                    <div key={c.id} style={{ background:T.surf, border:`1px solid ${isMissing ? T.red : T.amber}40`, borderRadius:8, padding:'8px 10px', display:'flex', flexDirection:'column', gap:4 }}>
+                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                        <span style={{ fontFamily:MONO, fontSize:8.5, color: isMissing ? T.red : T.amber }}>
+                          {isMissing ? '⚠ Slot 缺少' : '⚠ Slot 多餘'}
+                        </span>
+                        <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
+                          template {tplCount} slot vs subs {subsCount} 組
+                        </span>
+                      </div>
+                      <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2 }}>{c.context}</div>
+                      <div style={{ fontFamily:SERIF, fontSize:11, color:T.txt3, fontStyle:'italic', lineHeight:1.4 }}>{c.template}</div>
+                    </div>
+                  )
+                })}
+              </div>
             )}
           </div>
         )
@@ -9818,7 +9883,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.8</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.9</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
