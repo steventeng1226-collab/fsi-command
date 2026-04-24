@@ -7035,7 +7035,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.7</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.8</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -8356,9 +8356,10 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
               {tplParts.map((p, i) => {
                 if (p.t === 'txt') return <span key={i}>{p.text}</span>
                 const sel = sels[p.bi]
+                const hasOpts = ((card?.subs ?? [])[p.bi]?.length ?? 0) > 0
                 return (
-                  <span key={i} style={{ display:'inline-block', minWidth:70, borderBottom:`2px solid ${sel ? T.amber : T.bdr2}`, color: sel ? T.amber : T.txt3, padding:'0 5px', transition:'all 0.15s', fontWeight: sel ? 500 : 300 }}>
-                    {sel || '___'}
+                  <span key={i} style={{ display:'inline-block', minWidth:70, borderBottom:`2px solid ${sel ? T.amber : hasOpts ? T.bdr2 : T.red}`, color: sel ? T.amber : hasOpts ? T.txt3 : T.red, padding:'0 5px', transition:'all 0.15s', fontWeight: sel ? 500 : 300 }}>
+                    {sel || (hasOpts ? '___' : '⚠')}
                   </span>
                 )
               })}
@@ -8394,19 +8395,34 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
           </div>
 
           {/* Substitution chips */}
-          {!revealed && (card.subs ?? []).map((group, gi) => (
-            <div key={gi}>
-              <div style={{ fontFamily:MONO, fontSize:8.5, color:'#9aa5b0', letterSpacing:'0.1em', marginBottom:6 }}>SLOT {gi + 1}</div>
-              <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
-                {group.map((opt, oi) => (
-                  <div key={oi} className={`chip${sels[gi] === opt ? ' sel' : ''}`}
-                    onClick={() => setSels(prev => prev[gi] === opt ? (({ [gi]:_, ...rest }) => rest)(prev) : { ...prev, [gi]: opt })}>
-                    {opt}
+          {!revealed && (() => {
+            const templateSlotCount = (card.template?.match(/\{[^}]+\}/g) ?? []).length
+            const subsCount = (card.subs ?? []).length
+            const missingSlots = Math.max(0, templateSlotCount - subsCount)
+            return (
+              <>
+                {(card.subs ?? []).map((group, gi) => (
+                  <div key={gi}>
+                    <div style={{ fontFamily:MONO, fontSize:8.5, color:'#9aa5b0', letterSpacing:'0.1em', marginBottom:6 }}>SLOT {gi + 1}</div>
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                      {group.map((opt, oi) => (
+                        <div key={oi} className={`chip${sels[gi] === opt ? ' sel' : ''}`}
+                          onClick={() => setSels(prev => prev[gi] === opt ? (({ [gi]:_, ...rest }) => rest)(prev) : { ...prev, [gi]: opt })}>
+                          {opt}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ))}
-              </div>
-            </div>
-          ))}
+                {missingSlots > 0 && Array.from({ length: missingSlots }).map((_, mi) => (
+                  <div key={`missing-${mi}`} style={{ background: T.redD, border:`1px solid ${T.red}50`, borderRadius:8, padding:'8px 12px', display:'flex', alignItems:'center', gap:8 }}>
+                    <span style={{ fontFamily:MONO, fontSize:8.5, color:T.red, letterSpacing:'0.1em' }}>SLOT {subsCount + mi + 1}</span>
+                    <span style={{ fontFamily:MONO, fontSize:9, color:T.red }}>⚠ 未設定選項 — 請點「編輯」補上</span>
+                  </div>
+                ))}
+              </>
+            )
+          })()}
 
           {/* ── 連音區塊（slot 下方）─────────────────────── */}
           {card.linked_hint && (() => {
@@ -9498,6 +9514,8 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
         const all = sentences ?? []
         const seedCards = all.filter(c => SEED_IDS.has(c.id))
         const realCards = all.filter(c => !SEED_IDS.has(c.id))
+        const countTplSlots = t => (t?.match(/\{[^}]+\}/g) ?? []).length
+        const incompleteCards = realCards.filter(c => countTplSlots(c.template) !== (c.subs ?? []).length)
         const LIFE_CTX = ['Daily Life','Greeting','Travel','Shopping','Food','Health','Family','Hobby','Lifestyle','生活']
         const isLife = s => LIFE_CTX.some(k => (s.context??'').toLowerCase().includes(k.toLowerCase()))
         const workSimple = realCards.filter(s => s.mode==='simple' && !isLife(s)).length
@@ -9512,6 +9530,7 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
                 ['總計（含 SEED）', all.length, T.amber],
                 ['真實資料（Sheets）', realCards.length, T.grn],
                 ['SEED 預設卡', seedCards.length, seedCards.length > 0 ? T.red : T.txt3],
+                ['⚠ 不完整卡片', incompleteCards.length, incompleteCards.length > 0 ? T.red : T.txt3],
                 ['', '', ''],
                 ['💼 WORK Simple', workSimple, T.txt],
                 ['💼 WORK Hard', workHard, T.txt],
@@ -9799,7 +9818,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.7</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.8</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
