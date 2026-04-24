@@ -7323,6 +7323,7 @@ function DrillTab({ sentences, vocab, settings }) {
   const [rideCurrent, setRideCurrent] = useState({ text:'', label:'' })
   const [rideSpeed, setRideSpeed] = useState(0.6) // 0.82 | 0.6
   const [ridePaused, setRidePaused] = useState(false)
+  const [activeChunk, setActiveChunk] = useState(null)
   const rideTimer = useRef(null)
   const rideStop = useRef(false)
 
@@ -7354,22 +7355,27 @@ function DrillTab({ sentences, vocab, settings }) {
     const qs = qMap[card.id] || Q_TEMPLATES[type] || Q_TEMPLATES.default
     // Rotate through 3 questions per card across cycles
     const question = qs[idx % 3] || qs[0]
-    // Fill answer with first substitution option per slot
+    // Fill answer — pick a random option from each slot for variety
     let slotIdx = 0
     const answer = card.template.replace(/\{[^}]+\}/g, () => {
-      const opt = (card.subs ?? [])[slotIdx]?.[0]
+      const opts = (card.subs ?? [])[slotIdx] ?? []
       slotIdx++
-      return opt ?? ''
+      if (!opts.length) return ''
+      return opts[Math.floor(Math.random() * Math.min(opts.length, 3))]
     })
+    // Collect alt options for display (exclude chosen answer)
+    const altsBySlot = (card.subs ?? []).map(opts =>
+      opts.filter(o => !answer.includes(o)).slice(0, 2)
+    ).flat()
 
     setRideCurrent({ text: question, label: 'QUESTION' })
     speakRide(question, 'en-US', rideSpeed, () => {
       setRideCurrent({ text: '...', label: 'YOUR TURN — 3 SEC' })
       rideTimer.current = setTimeout(() => {
         if (rideStop.current) return
-        setRideCurrent({ text: answer, label: 'ANSWER' })
+        setRideCurrent({ text: answer, label: 'ANSWER', alts: altsBySlot })
         speakRide(answer, 'en-US', rideSpeed, () => {
-          setRideCurrent({ text: answer, label: 'SHADOW' })
+          setRideCurrent({ text: answer, label: 'SHADOW', alts: altsBySlot })
           speakRide(answer, 'en-US', rideSpeed, () => {
             rideTimer.current = setTimeout(() => {
               const nextIdx = idx + 1
@@ -7623,8 +7629,19 @@ function DrillTab({ sentences, vocab, settings }) {
             )}
           </div>
         ) : (
-          <div style={{ fontFamily:MONO, fontSize: isYourTurn ? 22 : 18, color: isYourTurn ? T.grn : ridePaused ? T.txt2 : T.txt, textAlign:'center', lineHeight:1.6, maxWidth:320 }}>
-            {isYourTurn ? '開口說 ···' : (rideCurrent.text || '···')}
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:10 }}>
+            <div style={{ fontFamily:MONO, fontSize: isYourTurn ? 22 : 18, color: isYourTurn ? T.grn : ridePaused ? T.txt2 : T.txt, textAlign:'center', lineHeight:1.6, maxWidth:320 }}>
+              {isYourTurn ? '開口說 ···' : (rideCurrent.text || '···')}
+            </div>
+            {isAnswer && rideCurrent.alts && rideCurrent.alts.length > 0 && (
+              <div style={{ display:'flex', flexWrap:'wrap', gap:6, justifyContent:'center', maxWidth:300 }}>
+                {rideCurrent.alts.map((alt, ai) => (
+                  <span key={ai} style={{ fontFamily:MONO, fontSize:9, color:T.txt3, background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:5, padding:'3px 8px' }}>
+                    {alt}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -7775,29 +7792,41 @@ function DrillTab({ sentences, vocab, settings }) {
                   {chunks.length > 0 && (
                     <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
                       <div style={{ width:'100%', fontFamily:MONO, fontSize:8, color:T.txt3, marginBottom:3 }}>
-                        點擊連音片段 → 先慢速，再正常速
+                        點擊連音片段 → {settings?.elevenKey ? '🎙 AI 高品質語音' : '先慢速，再正常速'}
                       </div>
-                      {chunks.map((c, ci) => (
-                        <div key={ci} onClick={() => {
-                          window.speechSynthesis?.cancel()
-                          const u1 = new SpeechSynthesisUtterance(c.tts)
-                          u1.lang = 'en-US'; u1.rate = 0.5
-                          u1.onend = () => {
-                            setTimeout(() => {
-                              const u2 = new SpeechSynthesisUtterance(c.tts)
-                              u2.lang = 'en-US'; u2.rate = 0.82
-                              window.speechSynthesis?.speak(u2)
-                            }, 600)
-                          }
-                          window.speechSynthesis?.speak(u1)
-                        }}
-                          style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', background:T.amberD, border:`1px solid ${T.amber}40`, borderRadius:7, padding:'4px 9px' }}
-                          onMouseOver={e=>e.currentTarget.style.opacity='0.8'} onMouseOut={e=>e.currentTarget.style.opacity='1'}>
-                          <span style={{ fontFamily:MONO, fontSize:10, color:T.amber }}>{c.label}</span>
-                          <svg width="10" height="10" viewBox="0 0 16 16" fill="none" style={{color:T.amber}}><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.4" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
-                          <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>慢→正常</span>
-                        </div>
-                      ))}
+                      {chunks.map((c, ci) => {
+                        const isActive = activeChunk === ci
+                        return (
+                          <div key={ci} onClick={async () => {
+                            setActiveChunk(ci)
+                            const eKey = settings?.elevenKey || (() => { try { return JSON.parse(localStorage.getItem('fsi:se')||'{}')?.elevenKey??'' } catch { return '' } })()
+                            if (eKey) {
+                              await speakElevenLabs(c.tts, eKey, () => setActiveChunk(null))
+                            } else {
+                              window.speechSynthesis?.cancel()
+                              const u1 = new SpeechSynthesisUtterance(c.tts)
+                              u1.lang = 'en-US'; u1.rate = 0.5
+                              u1.onend = () => {
+                                setTimeout(() => {
+                                  const u2 = new SpeechSynthesisUtterance(c.tts)
+                                  u2.lang = 'en-US'; u2.rate = 0.82
+                                  u2.onend = () => setActiveChunk(null)
+                                  window.speechSynthesis?.speak(u2)
+                                }, 600)
+                              }
+                              window.speechSynthesis?.speak(u1)
+                            }
+                          }}
+                            style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer',
+                              background: isActive ? T.amber+'40' : T.amberD,
+                              border:`1px solid ${isActive ? T.amber : T.amber+'40'}`,
+                              borderRadius:7, padding:'4px 9px', transition:'all 0.14s' }}>
+                            <span style={{ fontFamily:MONO, fontSize:10, color:T.amber }}>{c.label}</span>
+                            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" style={{color:T.amber}}><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.4" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
+                            <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>{settings?.elevenKey ? '🎙 AI' : '慢→正常'}</span>
+                          </div>
+                        )
+                      })}
                     </div>
                   )}
                 </div>
@@ -7998,6 +8027,7 @@ function PracticeTab({ sentences, vocab, stats, settings, updateSentences, updat
   const [activeChunk, setActiveChunk] = useState(null)
   const [filledHint, setFilledHint] = useState(null)      // linked_hint for filled sentence
   const [generatingFilledHint, setGeneratingFilledHint] = useState(false)
+  const [generatingChunkZh, setGeneratingChunkZh] = useState(false)
   const [dailyCount, setDailyCount] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('fsi:daily') || 'null')
@@ -8117,7 +8147,9 @@ RULES (apply ALL that apply):
 5. Weak "a/the" → ə: "at the" → "ət ðə", "a delay" → "ə delay"
 6. Elision — t/d often dropped before consonant: "last night" → "las(t) night", "need by" → "nee(d) by"
 7. Stressed syllables: CAPITALIZE. e.g. "production" → "proDUCtion", "latest" → "LAtest"
-8. Keep {slot} placeholders exactly as-is.
+8. {slot} is an INVISIBLE WALL — NEVER merge · across it. Treat the word before and after {slot} as isolated.
+   WRONG: "by{time}·at" or "nee·d{time}" — never do this.
+   RIGHT: "by {time} ə(t)" — liaison stops at the wall, restarts after it.
 
 EXAMPLE:
 Input:  I need it by {time} at the absolute latest.
@@ -8165,6 +8197,37 @@ Return ONLY the linked_hint string, no explanation, no quotes, no markdown.`
     } catch(e) {
       showToast('✗ 產生失敗，請檢查 API Key')
     } finally { setGeneratingFilledHint(false) }
+  }
+
+  // ── 產生 chunk 中文近似音（存入 card.chunk_zh，下次直接顯示）──
+  async function generateChunkZh(chunks) {
+    const apiKey = settings?.apiKey || (() => {
+      try { return JSON.parse(localStorage.getItem('fsi:se') || '{}')?.apiKey ?? '' } catch { return '' }
+    })()
+    if (!apiKey) { showToast('請先在 Setup 設定 API Key'); return }
+    if (!card || !chunks.length) return
+    setGeneratingChunkZh(true)
+    try {
+      const labels = chunks.map(c => c.label)
+      const system = `You are a Taiwanese English pronunciation coach. For each English connected speech chunk, provide a Chinese phonetic approximation (近似音) that helps Taiwanese learners sound it out.
+
+Rules:
+- Use natural Mandarin Chinese characters that approximate the English sounds
+- Keep it short (2–5 Chinese characters per chunk)
+- Prioritize sounds a Taiwanese speaker would recognize
+- Examples: "nee·dit" → "你迪特", "pi·ki·tup" → "批克搭", "tur·ni·ton" → "特你頓", "nə·ðər" → "那勒"
+
+Return ONLY a JSON object with chunk labels as keys. No markdown, no explanation.
+Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
+      const raw = await callClaude(apiKey, [{ role:'user', content: JSON.stringify(labels) }], system)
+      const parsed = JSON.parse(raw.replace(/```json|```/g,'').trim())
+      updateSentences(prev => prev.map(s =>
+        s.id === card.id ? { ...s, chunk_zh: { ...(s.chunk_zh ?? {}), ...parsed } } : s
+      ))
+      showToast('✓ 近似音已產生')
+    } catch {
+      showToast('✗ 產生失敗，請檢查 API Key')
+    } finally { setGeneratingChunkZh(false) }
   }
 
   function ModeBtn({ id, label }) {
@@ -8414,42 +8477,55 @@ Return ONLY the linked_hint string, no explanation, no quotes, no markdown.`
 
                 {/* Chunk buttons */}
                 {!editingHint && chunks.length > 0 && (
-                  <div style={{ display:'flex', flexWrap:'wrap', gap:7 }}>
-                    {chunks.map((c, ci) => {
-                      const isActive = activeChunk === ci
-                      return (
-                        <div key={ci} style={{ display:'flex', flexDirection:'column', gap:3 }}>
-                          <div onClick={async () => {
-                            setActiveChunk(ci)
-                            const eKey = settings?.elevenKey || (() => { try { return JSON.parse(localStorage.getItem('fsi:se')||'{}')?.elevenKey??'' } catch { return '' } })()
-                            if (eKey) {
-                              await speakElevenLabs(c.tts, eKey, () => setActiveChunk(null))
-                            } else {
-                              window.speechSynthesis?.cancel()
-                              const u1 = new SpeechSynthesisUtterance(c.tts)
-                              u1.lang = 'en-US'; u1.rate = 0.5
-                              u1.onend = () => {
-                                setTimeout(() => {
-                                  const u2 = new SpeechSynthesisUtterance(c.tts)
-                                  u2.lang = 'en-US'; u2.rate = 0.82
-                                  u2.onend = () => setActiveChunk(null)
-                                  window.speechSynthesis?.speak(u2)
-                                }, 600)
+                  <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:7 }}>
+                      {chunks.map((c, ci) => {
+                        const isActive = activeChunk === ci
+                        const zh = card.chunk_zh?.[c.label]
+                        return (
+                          <div key={ci} style={{ display:'flex', flexDirection:'column', gap:3, alignItems:'center' }}>
+                            <div onClick={async () => {
+                              setActiveChunk(ci)
+                              const eKey = settings?.elevenKey || (() => { try { return JSON.parse(localStorage.getItem('fsi:se')||'{}')?.elevenKey??'' } catch { return '' } })()
+                              if (eKey) {
+                                await speakElevenLabs(c.tts, eKey, () => setActiveChunk(null))
+                              } else {
+                                window.speechSynthesis?.cancel()
+                                const u1 = new SpeechSynthesisUtterance(c.tts)
+                                u1.lang = 'en-US'; u1.rate = 0.5
+                                u1.onend = () => {
+                                  setTimeout(() => {
+                                    const u2 = new SpeechSynthesisUtterance(c.tts)
+                                    u2.lang = 'en-US'; u2.rate = 0.82
+                                    u2.onend = () => setActiveChunk(null)
+                                    window.speechSynthesis?.speak(u2)
+                                  }, 600)
+                                }
+                                window.speechSynthesis?.speak(u1)
                               }
-                              window.speechSynthesis?.speak(u1)
-                            }
-                          }}
-                            style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer',
-                              background: isActive ? (isFilledMode ? T.grn+'40' : T.amber+'40') : (isFilledMode ? T.grnD : T.amberD),
-                              border:`1px solid ${isActive ? (isFilledMode ? T.grn : T.amber) : (isFilledMode ? T.grn+'40' : T.amber+'40')}`,
-                              borderRadius:8, padding:'5px 10px', transition:'all 0.14s' }}>
-                            <span style={{ fontFamily:MONO, fontSize:11, color: isFilledMode ? T.grn : T.amber }}>{c.label}</span>
-                            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style={{color: isFilledMode ? T.grn : T.amber}}><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.4" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
-                            <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>{settings?.elevenKey ? '🎙 AI' : '慢→正常'}</span>
+                            }}
+                              style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer',
+                                background: isActive ? (isFilledMode ? T.grn+'40' : T.amber+'40') : (isFilledMode ? T.grnD : T.amberD),
+                                border:`1px solid ${isActive ? (isFilledMode ? T.grn : T.amber) : (isFilledMode ? T.grn+'40' : T.amber+'40')}`,
+                                borderRadius:8, padding:'5px 10px', transition:'all 0.14s' }}>
+                              <span style={{ fontFamily:MONO, fontSize:11, color: isFilledMode ? T.grn : T.amber }}>{c.label}</span>
+                              <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style={{color: isFilledMode ? T.grn : T.amber}}><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.4" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
+                              <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>{settings?.elevenKey ? '🎙 AI' : '慢→正常'}</span>
+                            </div>
+                            {zh && (
+                              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, letterSpacing:'0.04em' }}>{zh}</div>
+                            )}
                           </div>
-                        </div>
-                      )
-                    })}
+                        )
+                      })}
+                    </div>
+                    {/* 產生近似音按鈕 */}
+                    <div onClick={() => !generatingChunkZh && generateChunkZh(chunks)}
+                      style={{ display:'inline-flex', alignItems:'center', gap:5, cursor: generatingChunkZh ? 'not-allowed' : 'pointer', opacity: generatingChunkZh ? 0.5 : 1, alignSelf:'flex-start', padding:'4px 10px', borderRadius:6, background:T.surf2, border:`1px solid ${T.bdr2}` }}>
+                      <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                        {generatingChunkZh ? '產生中…' : (card.chunk_zh ? '🈶 重新產生近似音' : '🈶 產生中文近似音')}
+                      </span>
+                    </div>
                   </div>
                 )}
 
@@ -8960,7 +9036,9 @@ RULES for linked_hint:
 5. Weak "a/the" before vowel → ə: "at the" → "ət ðə"
 6. Elision — t/d dropped before consonant: "last night" → "las(t) night", "need by" → "nee(d) by"
 7. Stressed syllables: CAPITALIZE. e.g. "proDUCtion", "LAtest"
-8. Keep {slot} placeholders as-is.
+8. {slot} is an INVISIBLE WALL — NEVER merge · across it. Words adjacent to {slot} are isolated.
+   WRONG: "need·{time}" or "{time}·at" — never cross the wall.
+   RIGHT: "need {time} ə(t)" — liaison stops and restarts around {slot}.
 
 Return ONLY valid JSON (no markdown), format:
 {"sentences":[{"template":"...with {blank} for substitution","context":"Short context name","hint":"When you'd say this","linked_hint":"annotated version using · [ ] ( ) CAPS rules","subs":[["opt1","opt2","opt3"]]}],"vocab":[{"word":"word","def":"concise definition","ex":"example sentence from the text or invented"}]}`
@@ -9150,8 +9228,103 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
   const [showElevenKey, setShowElevenKey] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [msg, setMsg] = useState('')
+  const [elevenUsage, setElevenUsage] = useState(null) // { used, limit } | 'loading' | 'error'
+  const [importPreview, setImportPreview] = useState(null)
+  const fileInputRef = useRef(null)
+  const [batchProgress, setBatchProgress] = useState(null)
+  const batchStop = useRef(false)
 
   function flash(m) { setMsg(m); setTimeout(() => setMsg(''), 3000) }
+
+  async function checkElevenUsage() {
+    const k = elevenKey.trim() || settings?.elevenKey
+    if (!k) { flash('✗ 請先輸入 ElevenLabs Key'); return }
+    setElevenUsage('loading')
+    try {
+      const r = await fetch('https://api.elevenlabs.io/v1/user', {
+        headers: { 'xi-api-key': k }
+      })
+      if (!r.ok) throw new Error('status ' + r.status)
+      const d = await r.json()
+      const used = d.subscription?.character_count ?? 0
+      const limit = d.subscription?.character_limit ?? 10000
+      setElevenUsage({ used, limit })
+    } catch {
+      setElevenUsage('error')
+    }
+  }
+
+  const LINKED_HINT_SYSTEM = `You are an English connected speech expert. Given a sentence template, produce a "linked_hint" showing how native speakers actually say it.\n\nRULES (apply ALL that apply):\n1. Consonant+Vowel liaison (MOST IMPORTANT): when a word ends in consonant and next word starts with vowel (A E I O U), merge with ·\n   e.g. "need it" -> "nee·dit", "pick it up" -> "pi·ki·tup"\n2. Weak "of" -> ə merged: "end of" -> "endə"\n3. Weak "and" -> ən merged: "black and white" -> "blackən white"\n4. Weak "to" -> tə: "need to go" -> "need tə go"\n5. Weak "a/the" -> ə: "at the" -> "ət ðə"\n6. Elision — t/d dropped before consonant: "last night" -> "las(t) night"\n7. Stressed syllables: CAPITALIZE. e.g. "production" -> "proDUCtion"\n8. {slot} is an INVISIBLE WALL — NEVER merge · across it. Words adjacent to {slot} are fully isolated.\n   WRONG: "need·{time}" or "{time}·at" — never cross the wall.\n   RIGHT: "need {time} ə(t)" — liaison stops and restarts around {slot}.\n\nEXAMPLE:\nInput:  I need it by {time} at the absolute latest.\nOutput: I nee·dit by {time} ə(t) ðə·ABsolute LAtest\n\nReturn ONLY the linked_hint string, no explanation, no quotes, no markdown.`
+
+  async function batchGenLinkedHint(mode) {
+    const apiKey = settings?.apiKey || (() => {
+      try { return JSON.parse(localStorage.getItem('fsi:se') || '{}')?.apiKey ?? '' } catch { return '' }
+    })()
+    if (!apiKey) { flash('✗ 請先設定 Anthropic API Key'); return }
+    const targets = (sentences ?? []).filter(s => mode === 'all' || !s.linked_hint)
+    if (!targets.length) { flash(mode === 'missing' ? '✓ 所有卡片已有連音標注' : '✗ 沒有句子可處理'); return }
+    batchStop.current = false
+    setBatchProgress({ current: 0, total: targets.length, label: '', done: 0, errors: 0, stopped: false })
+    let done = 0, errors = 0
+    for (let i = 0; i < targets.length; i++) {
+      if (batchStop.current) { setBatchProgress(p => ({ ...p, stopped: true })); break }
+      const card = targets[i]
+      setBatchProgress(p => ({ ...p, current: i + 1, label: card.template.slice(0, 42) + (card.template.length > 42 ? '…' : '') }))
+      try {
+        const raw = await callClaude(apiKey, [{ role:'user', content: card.template }], LINKED_HINT_SYSTEM)
+        const hint = raw.trim().replace(/^["']|["']$/g, '')
+        updateSentences(prev => prev.map(s => s.id === card.id ? { ...s, linked_hint: hint } : s))
+        done++
+      } catch { errors++ }
+      setBatchProgress(p => ({ ...p, done, errors }))
+      if (i < targets.length - 1) await new Promise(r => setTimeout(r, 400))
+    }
+    setBatchProgress(p => ({ ...p, current: p.stopped ? p.current : targets.length, done, errors }))
+  }
+
+  function handleImportFile(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result)
+        if (!data.sentences && !data.vocab) { flash('✗ 格式錯誤：找不到 sentences 或 vocab'); return }
+        setImportPreview({
+          sentences: data.sentences ?? [],
+          vocab: data.vocab ?? [],
+          exportedAt: data.exportedAt ?? '未知'
+        })
+      } catch {
+        flash('✗ 無法解析 JSON，請確認檔案格式')
+      }
+    }
+    reader.readAsText(file)
+  }
+
+  function confirmImport() {
+    if (!importPreview) return
+    // 保留現有 SRS 進度（用 id 比對）
+    const srsMapS = {}
+    ;(sentences ?? []).forEach(c => {
+      if (c.id) srsMapS[c.id] = { reps:c.reps, ease:c.ease, interval:c.interval, dueDate:c.dueDate, lastSeen:c.lastSeen }
+    })
+    const srsMapV = {}
+    ;(vocab ?? []).forEach(v => {
+      if (v.id) srsMapV[v.id] = { reps:v.reps, ease:v.ease, interval:v.interval, dueDate:v.dueDate, lastSeen:v.lastSeen }
+    })
+    const newSentences = importPreview.sentences.map(c => ({
+      ...c, ...(srsMapS[c.id] ?? {})
+    }))
+    const newVocab = importPreview.vocab.map(v => ({
+      ...v, ...(srsMapV[v.id] ?? {})
+    }))
+    updateSentences(() => newSentences)
+    updateVocab(() => newVocab)
+    setImportPreview(null)
+    flash(`✓ 匯入完成：${newSentences.length} 句 + ${newVocab.length} 單字（SRS 進度已保留）`)
+  }
 
   function exportJSON() {
     const data = { version:'2.1', exportedAt:new Date().toISOString(), sentences: sentences??[], vocab: vocab??[] }
@@ -9285,11 +9458,39 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
       <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
         <label style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>ELEVENLABS API KEY <span style={{ color:T.amber }}>★ 高品質語音</span></label>
         <div style={{ display:'flex', gap:8 }}>
-          <input type={showElevenKey ? 'text' : 'password'} value={elevenKey} onChange={e=>setElevenKey(e.target.value)} placeholder="sk_xxxxxxxxxxxxxxxx…" style={{ flex:1 }}/>
+          <input type={showElevenKey ? 'text' : 'password'} value={elevenKey} onChange={e=>{ setElevenKey(e.target.value); setElevenUsage(null) }} placeholder="sk_xxxxxxxxxxxxxxxx…" style={{ flex:1 }}/>
           <button className="btn" onClick={()=>setShowElevenKey(s=>!s)} style={{ background:T.bdr, color:T.txt2, padding:'10px 13px', fontSize:13 }}>
             {showElevenKey ? '🙈' : '👁'}
           </button>
         </div>
+        <button className="btn" onClick={checkElevenUsage} disabled={elevenUsage === 'loading'}
+          style={{ background:T.surf2, border:`1px solid ${T.bdr2}`, color:T.txt2, fontSize:10 }}>
+          {elevenUsage === 'loading' ? '查詢中…' : '📊 查詢剩餘用量'}
+        </button>
+        {elevenUsage && elevenUsage !== 'loading' && elevenUsage !== 'error' && (() => {
+          const pct = Math.round((elevenUsage.used / elevenUsage.limit) * 100)
+          const remaining = elevenUsage.limit - elevenUsage.used
+          const color = pct > 85 ? T.red : pct > 60 ? T.amber : T.grn
+          return (
+            <div style={{ background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:9, padding:'11px 13px', display:'flex', flexDirection:'column', gap:7 }}>
+              <div style={{ display:'flex', justifyContent:'space-between' }}>
+                <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2 }}>本月用量</span>
+                <span style={{ fontFamily:MONO, fontSize:10, color }}>
+                  {elevenUsage.used.toLocaleString()} / {elevenUsage.limit.toLocaleString()} 字元
+                </span>
+              </div>
+              <div style={{ background:T.bdr, borderRadius:4, height:5, overflow:'hidden' }}>
+                <div style={{ height:'100%', borderRadius:4, background:color, width:`${pct}%`, transition:'width 0.4s' }}/>
+              </div>
+              <div style={{ fontFamily:MONO, fontSize:9, color }}>
+                剩餘 {remaining.toLocaleString()} 字元（{100 - pct}%）
+              </div>
+            </div>
+          )
+        })()}
+        {elevenUsage === 'error' && (
+          <div style={{ fontFamily:MONO, fontSize:9, color:T.red }}>✗ 查詢失敗，請確認 Key 正確</div>
+        )}
         <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.7 }}>
           用於 chunk 連音按鈕 + 單字騎車模式（自然真人語音）<br/>
           未設定時自動使用瀏覽器 TTS。免費版 10,000 字元/月。
@@ -9322,6 +9523,68 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
         SAVE SETTINGS
       </button>
 
+      {/* ── LINKED HINT BATCH ── */}
+      <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
+        <label style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>LINKED HINT 批次產生</label>
+        {(() => {
+          const total = (sentences ?? []).length
+          const missing = (sentences ?? []).filter(s => !s.linked_hint).length
+          const isRunning = batchProgress && batchProgress.current < batchProgress.total && !batchProgress.stopped
+          return (
+            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.7 }}>
+                目前：<span style={{color:T.txt}}>{total - missing}</span> / {total} 張有連音標注
+                {missing > 0 && <span style={{color:T.amber}}>（{missing} 張空白）</span>}
+              </div>
+              {!isRunning ? (
+                <div style={{ display:'flex', gap:8 }}>
+                  <button className="btn"
+                    onClick={() => batchGenLinkedHint('missing')}
+                    disabled={missing === 0}
+                    style={{ flex:1, background:T.blueD, border:`1px solid ${T.blue}50`, color:T.blue, fontSize:10 }}>
+                    ✨ 補空白 ({missing})
+                  </button>
+                  <button className="btn"
+                    onClick={() => batchGenLinkedHint('all')}
+                    disabled={total === 0}
+                    style={{ flex:1, background:T.amberD, border:`1px solid ${T.amber}50`, color:T.amber, fontSize:10 }}>
+                    🔄 全部重新產生
+                  </button>
+                </div>
+              ) : (
+                <button className="btn" onClick={() => { batchStop.current = true }}
+                  style={{ background:T.redD, border:`1px solid ${T.red}50`, color:T.red, fontSize:10 }}>
+                  ■ 停止
+                </button>
+              )}
+              {batchProgress && (
+                <div style={{ background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:9, padding:'11px 13px', display:'flex', flexDirection:'column', gap:6 }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                    <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2 }}>
+                      {batchProgress.stopped ? '已停止' : batchProgress.current >= batchProgress.total ? '完成' : '處理中…'}
+                    </span>
+                    <span style={{ fontFamily:MONO, fontSize:10, color:T.amber }}>
+                      {batchProgress.current} / {batchProgress.total}
+                    </span>
+                  </div>
+                  {/* progress bar */}
+                  <div style={{ background:T.bdr, borderRadius:4, height:4, overflow:'hidden' }}>
+                    <div style={{ height:'100%', borderRadius:4, background: batchProgress.stopped ? T.red : T.amber, width:`${(batchProgress.current/batchProgress.total)*100}%`, transition:'width 0.3s' }}/>
+                  </div>
+                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                    {batchProgress.label}
+                  </div>
+                  <div style={{ fontFamily:MONO, fontSize:9, display:'flex', gap:14 }}>
+                    <span style={{color:T.grn}}>✓ {batchProgress.done}</span>
+                    {batchProgress.errors > 0 && <span style={{color:T.red}}>✗ {batchProgress.errors}</span>}
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })()}
+      </div>
+
       {/* ── BACKUP / EXPORT ── */}
       <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
         <label style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>DATA BACKUP</label>
@@ -9329,10 +9592,45 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
           style={{ background:T.grnD, border:`1px solid ${T.grn}50`, color:T.grn, fontSize:10 }}>
           ⬇ 備份 JSON（完整還原用）
         </button>
+        <button className="btn" onClick={() => fileInputRef.current?.click()}
+          style={{ background:T.blueD, border:`1px solid ${T.blue}50`, color:T.blue, fontSize:10 }}>
+          ⬆ 從 JSON 匯入還原
+        </button>
+        <input ref={fileInputRef} type="file" accept=".json,application/json"
+          onChange={handleImportFile} style={{ display:'none' }}/>
         <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
-          JSON 備份包含所有資料與 SRS 進度，可完整還原。
+          JSON 備份包含所有資料與 SRS 進度，可完整還原。<br/>
+          匯入時 SRS 進度自動保留，資料完全覆蓋。
         </div>
       </div>
+
+      {/* ── 匯入確認 Modal ── */}
+      {importPreview && (
+        <div style={{ position:'fixed', inset:0, background:'#00000090', zIndex:999, display:'flex', alignItems:'center', justifyContent:'center', padding:24 }}>
+          <div style={{ background:T.surf, border:`1px solid ${T.amber}50`, borderRadius:16, padding:24, width:'100%', maxWidth:400, display:'flex', flexDirection:'column', gap:16 }}>
+            <div style={{ fontFamily:DISP, fontSize:13, color:T.amber, letterSpacing:'0.1em' }}>確認匯入？</div>
+            <div style={{ fontFamily:MONO, fontSize:10, color:T.txt2, lineHeight:1.8 }}>
+              <div>📅 備份時間：<span style={{color:T.txt}}>{importPreview.exportedAt.slice(0,10)}</span></div>
+              <div>📝 句子：<span style={{color:T.txt}}>{importPreview.sentences.length} 筆</span></div>
+              <div>📖 單字：<span style={{color:T.txt}}>{importPreview.vocab.length} 筆</span></div>
+            </div>
+            <div style={{ fontFamily:MONO, fontSize:9, color:T.red, lineHeight:1.7, background:T.redD, border:`1px solid ${T.red}30`, borderRadius:8, padding:'10px 12px' }}>
+              ⚠ 目前資料將被完全覆蓋（{(sentences??[]).length} 句 + {(vocab??[]).length} 單字）<br/>
+              SRS 進度（已有 id 的卡片）會自動保留。
+            </div>
+            <div style={{ display:'flex', gap:10 }}>
+              <button className="btn" onClick={() => setImportPreview(null)}
+                style={{ flex:1, background:T.bdr, color:T.txt2, fontSize:11 }}>
+                取消
+              </button>
+              <button className="btn" onClick={confirmImport}
+                style={{ flex:2, background:T.blue, color:'#fff', fontSize:11, fontWeight:600 }}>
+                確認匯入
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {msg && (
         <div style={{ fontFamily:MONO, fontSize:11, color: msg.startsWith('✓') ? T.grn : msg.startsWith('✗') ? T.red : T.txt2, textAlign:'center', padding:6, animation:'fadeUp 0.2s ease' }}>
@@ -9438,7 +9736,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.6</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.7</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
