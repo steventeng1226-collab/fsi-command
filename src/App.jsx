@@ -8364,8 +8364,8 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
               })}
             </div>
 
-            {/* Speed buttons */}
-            <div style={{ display:'flex', gap:8, marginTop:10 }}>
+            {/* Speed buttons + SPEAK & REVEAL */}
+            <div style={{ display:'flex', gap:8, marginTop:10, alignItems:'center' }}>
               <div onClick={() => speak(buildFilled(), 0.82)}
                 style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', color:T.txt3, padding:'5px 10px', background:T.surf2, borderRadius:7, transition:'color 0.14s' }}
                 onMouseOver={e=>e.currentTarget.style.color=T.amber} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
@@ -8378,6 +8378,17 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
                 <span style={{ fontFamily:MONO, fontSize:11 }}>🐢</span>
                 <span style={{ fontFamily:MONO, fontSize:9 }}>0.6x</span>
               </div>
+              {!revealed && (
+                <div onClick={allFilled ? handleReveal : undefined}
+                  style={{ display:'flex', alignItems:'center', gap:5, cursor: allFilled ? 'pointer' : 'not-allowed',
+                    padding:'5px 13px', borderRadius:7, fontFamily:MONO, fontSize:10, letterSpacing:'0.08em',
+                    background: allFilled ? T.amber : T.surf2,
+                    color: allFilled ? T.bg : T.txt3,
+                    border: `1px solid ${allFilled ? T.amber : T.bdr}`,
+                    transition:'all 0.14s', opacity: allFilled ? 1 : 0.5 }}>
+                  ▶ REVEAL
+                </div>
+              )}
             </div>
 
           </div>
@@ -8539,13 +8550,8 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
             )
           })()}
 
-          {/* Action */}
-          {!revealed ? (
-            <button className="btn" onClick={handleReveal} disabled={!allFilled}
-              style={{ background: allFilled ? T.amber : T.bdr, color: allFilled ? T.bg : T.txt3, width:'100%', marginBottom:4, fontSize:11, letterSpacing:'0.1em' }}>
-              ▶&nbsp;&nbsp;SPEAK &amp; REVEAL
-            </button>
-          ) : (
+          {/* Rating buttons (shown after reveal) */}
+          {revealed && (
             <div style={{ display:'flex', gap:8, marginBottom:4 }}>
               {[{l:'Again',q:0,c:T.red},{l:'Hard',q:3,c:T.blue},{l:'Easy',q:5,c:T.grn}].map(({ l, q, c }) => (
                 <button key={l} className="btn" onClick={() => handleRate(q)}
@@ -9661,11 +9667,19 @@ export default function App() {
       stor.get('fsi:s'), stor.get('fsi:v'), stor.get('fsi:st'),
       stor.get('fsi:se'), stor.get('fsi:ea')
     ]).then(([s, v, st, se, ea]) => {
-      // Merge SEED_S: only add seed cards if user has NOT configured Sheets sync
+      // SEED 管理：有 Sheets URL → 清除所有 sv* seed 卡片；沒有 → 補入新 seed
       let sentences = s ?? SEED_S
       if (s && s.length > 0) {
         const hasSheets = !!(se?.sheetUrl)
-        if (!hasSheets) {
+        if (hasSheets) {
+          // 有 Sheets：把 sv* id 的 SEED 卡從 localStorage 清掉
+          const cleaned = s.filter(c => !c.id?.startsWith('sv'))
+          if (cleaned.length !== s.length) {
+            sentences = cleaned
+            stor.set('fsi:s', cleaned)
+          }
+        } else {
+          // 沒有 Sheets：補入尚未存在的 SEED 卡
           const existingIds = new Set(s.map(c => c.id))
           const newCards = SEED_S.filter(c => !existingIds.has(c.id))
           if (newCards.length > 0) {
