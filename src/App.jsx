@@ -7780,7 +7780,6 @@ function DrillTab({ sentences, vocab, settings }) {
               return (
                 <div style={{ marginBottom:14, padding:'11px 13px', background:T.surf2, borderRadius:10, border:`1px solid ${T.amber}22` }}>
                   <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
-                    <div style={{ fontFamily:MONO, fontSize:8, color:T.amber, letterSpacing:'0.1em' }}>LIAISON</div>
                     <span style={{ fontFamily:MONO, fontSize:8, color:T.amber }}>· 連音</span>
                     <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>[ ] 弱化</span>
                     <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>( ) 省略</span>
@@ -8383,25 +8382,35 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
 
           </div>
 
-          {/* ── LIAISON section ─────────────────────────── */}
+          {/* Substitution chips */}
+          {!revealed && (card.subs ?? []).map((group, gi) => (
+            <div key={gi}>
+              <div style={{ fontFamily:MONO, fontSize:8.5, color:'#9aa5b0', letterSpacing:'0.1em', marginBottom:6 }}>SLOT {gi + 1}</div>
+              <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                {group.map((opt, oi) => (
+                  <div key={oi} className={`chip${sels[gi] === opt ? ' sel' : ''}`}
+                    onClick={() => setSels(prev => prev[gi] === opt ? (({ [gi]:_, ...rest }) => rest)(prev) : { ...prev, [gi]: opt })}>
+                    {opt}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+
+          {/* ── 連音區塊（slot 下方）─────────────────────── */}
           {card.linked_hint && (() => {
-            // 優先顯示 filledHint（填完 slot 後產生），否則顯示原始 linked_hint
             const displayHint = filledHint ?? card.linked_hint
             const isFilledMode = !!filledHint
             const chunks = extractLiaisonChunks(displayHint)
-            // 判斷是否有選任何 slot（可以產生 filledHint）
             const hasAnySel = Object.keys(sels).length > 0
             const totalSlots = (card.subs ?? []).length
 
             return (
               <div style={{ background:T.surf, border:`1px solid ${isFilledMode ? T.grn+'40' : T.amber+'22'}`, borderRadius:12, padding:'13px 15px', transition:'border-color 0.3s' }}>
-                {/* Header row */}
+                {/* Header row — legend + action buttons, no LIAISON label */}
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
                   <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                    <div style={{ fontFamily:MONO, fontSize:8.5, color: isFilledMode ? T.grn : T.amber, letterSpacing:'0.1em' }}>
-                      {isFilledMode ? 'LIAISON · 已填入選項' : 'LIAISON'}
-                    </div>
-                    {!isFilledMode && (
+                    {!isFilledMode && !editingHint && (
                       <div style={{ display:'flex', gap:10 }}>
                         <span style={{ fontFamily:MONO, fontSize:8, color:T.amber }}>· 連音</span>
                         <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>ə 弱化</span>
@@ -8409,9 +8418,11 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
                         <span style={{ fontFamily:MONO, fontSize:8, color:T.txt, fontWeight:700 }}>大寫 重音</span>
                       </div>
                     )}
+                    {isFilledMode && (
+                      <span style={{ fontFamily:MONO, fontSize:8, color:T.grn }}>✓ 已填入選項</span>
+                    )}
                   </div>
                   <div style={{ display:'flex', gap:6, alignItems:'center' }}>
-                    {/* 🔄 產生填入版連音按鈕 */}
                     {totalSlots > 0 && !editingHint && (
                       <div onClick={() => { if (!generatingFilledHint) generateFilledHint() }}
                         title={hasAnySel ? '用目前選項產生連音' : '先選 SLOT 再產生'}
@@ -8432,14 +8443,12 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
                         </span>
                       </div>
                     )}
-                    {/* 還原模板連音 */}
                     {isFilledMode && (
                       <div onClick={() => setFilledHint(null)}
                         style={{ cursor:'pointer', color:T.txt3, padding:'3px 7px', background:T.surf2, borderRadius:5, fontFamily:MONO, fontSize:8, border:`1px solid ${T.bdr}` }}>
                         還原
                       </div>
                     )}
-                    {/* 編輯按鈕 */}
                     {!isFilledMode && (
                       <div onClick={() => { setEditingHint(e => !e); setHintDraft(card.linked_hint) }}
                         style={{ cursor:'pointer', fontFamily:MONO, fontSize:8, color: editingHint ? T.amber : T.txt3, padding:'3px 7px', background:T.surf2, borderRadius:5 }}>
@@ -8448,13 +8457,6 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
                     )}
                   </div>
                 </div>
-
-                {/* 提示文字：slot 未選時 */}
-                {totalSlots > 0 && !hasAnySel && !isFilledMode && !editingHint && (
-                  <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, marginBottom:8, padding:'5px 8px', background:T.surf2, borderRadius:6 }}>
-                    💡 先在下方選擇 SLOT 選項，再點「🔄 用選項更新」產生完整連音
-                  </div>
-                )}
 
                 {/* Linked hint 顯示 */}
                 {editingHint ? (
@@ -8519,7 +8521,6 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
                         )
                       })}
                     </div>
-                    {/* 產生近似音按鈕 */}
                     <div onClick={() => !generatingChunkZh && generateChunkZh(chunks)}
                       style={{ display:'inline-flex', alignItems:'center', gap:5, cursor: generatingChunkZh ? 'not-allowed' : 'pointer', opacity: generatingChunkZh ? 0.5 : 1, alignSelf:'flex-start', padding:'4px 10px', borderRadius:6, background:T.surf2, border:`1px solid ${T.bdr2}` }}>
                       <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
@@ -8529,7 +8530,6 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
                   </div>
                 )}
 
-                {/* filledMode 說明 */}
                 {isFilledMode && (
                   <div style={{ fontFamily:MONO, fontSize:8, color:T.grn, marginTop:8, opacity:0.8 }}>
                     ✓ 連音已根據選項「{Object.values(sels).join(' / ')}」更新 · 按「還原」回到模板版
@@ -8538,21 +8538,6 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
               </div>
             )
           })()}
-
-          {/* Substitution chips */}
-          {!revealed && (card.subs ?? []).map((group, gi) => (
-            <div key={gi}>
-              <div style={{ fontFamily:MONO, fontSize:8.5, color:'#9aa5b0', letterSpacing:'0.1em', marginBottom:6 }}>SLOT {gi + 1}</div>
-              <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
-                {group.map((opt, oi) => (
-                  <div key={oi} className={`chip${sels[gi] === opt ? ' sel' : ''}`}
-                    onClick={() => setSels(prev => prev[gi] === opt ? (({ [gi]:_, ...rest }) => rest)(prev) : { ...prev, [gi]: opt })}>
-                    {opt}
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
 
           {/* Action */}
           {!revealed ? (
@@ -9676,14 +9661,17 @@ export default function App() {
       stor.get('fsi:s'), stor.get('fsi:v'), stor.get('fsi:st'),
       stor.get('fsi:se'), stor.get('fsi:ea')
     ]).then(([s, v, st, se, ea]) => {
-      // Merge SEED_S: add any new seed cards not already in storage
+      // Merge SEED_S: only add seed cards if user has NOT configured Sheets sync
       let sentences = s ?? SEED_S
       if (s && s.length > 0) {
-        const existingIds = new Set(s.map(c => c.id))
-        const newCards = SEED_S.filter(c => !existingIds.has(c.id))
-        if (newCards.length > 0) {
-          sentences = [...s, ...newCards]
-          stor.set('fsi:s', sentences)
+        const hasSheets = !!(se?.sheetUrl)
+        if (!hasSheets) {
+          const existingIds = new Set(s.map(c => c.id))
+          const newCards = SEED_S.filter(c => !existingIds.has(c.id))
+          if (newCards.length > 0) {
+            sentences = [...s, ...newCards]
+            stor.set('fsi:s', sentences)
+          }
         }
       }
       setSentences(sentences)
