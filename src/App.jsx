@@ -9579,6 +9579,18 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
       {/* ── BACKUP / EXPORT ── */}
       <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
         <label style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>DATA BACKUP</label>
+        {(() => {
+          const SEED_IDS = new Set(SEED_S.map(c => c.id))
+          const seedCount = (sentences ?? []).filter(c => SEED_IDS.has(c.id)).length
+          return seedCount > 0 ? (
+            <button className="btn" onClick={() => {
+              updateSentences(prev => prev.filter(c => !SEED_IDS.has(c.id)))
+              flash(`✓ 已清除 ${seedCount} 張 SEED 預設卡`)
+            }} style={{ background:T.redD, border:`1px solid ${T.red}50`, color:T.red, fontSize:10 }}>
+              🗑 清除 {seedCount} 張 SEED 預設卡（保留 Sheets 資料）
+            </button>
+          ) : null
+        })()}
         <button className="btn" onClick={exportJSON}
           style={{ background:T.grnD, border:`1px solid ${T.grn}50`, color:T.grn, fontSize:10 }}>
           ⬇ 備份 JSON（完整還原用）
@@ -9667,19 +9679,20 @@ export default function App() {
       stor.get('fsi:s'), stor.get('fsi:v'), stor.get('fsi:st'),
       stor.get('fsi:se'), stor.get('fsi:ea')
     ]).then(([s, v, st, se, ea]) => {
-      // SEED 管理：有 Sheets URL → 清除所有 sv* seed 卡片；沒有 → 補入新 seed
+      // SEED 管理：有真實資料（非 sv* 卡）時，自動清除所有 SEED 卡
       let sentences = s ?? SEED_S
       if (s && s.length > 0) {
-        const hasSheets = !!(se?.sheetUrl)
-        if (hasSheets) {
-          // 有 Sheets：把 sv* id 的 SEED 卡從 localStorage 清掉
-          const cleaned = s.filter(c => !c.id?.startsWith('sv'))
+        const seedIds = new Set(SEED_S.map(c => c.id))
+        const hasRealCards = s.some(c => !seedIds.has(c.id))
+        if (hasRealCards) {
+          // 有真實 Sheets 資料 → 清掉所有 SEED 卡片
+          const cleaned = s.filter(c => !seedIds.has(c.id))
           if (cleaned.length !== s.length) {
             sentences = cleaned
             stor.set('fsi:s', cleaned)
           }
         } else {
-          // 沒有 Sheets：補入尚未存在的 SEED 卡
+          // 全是 SEED → 補入尚未存在的新 SEED 卡
           const existingIds = new Set(s.map(c => c.id))
           const newCards = SEED_S.filter(c => !existingIds.has(c.id))
           if (newCards.length > 0) {
