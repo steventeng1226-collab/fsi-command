@@ -9252,6 +9252,7 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
   const fileInputRef = useRef(null)
   const [batchProgress, setBatchProgress] = useState(null)
   const batchStop = useRef(false)
+  const [showScan, setShowScan] = useState(false)
 
   function flash(m) { setMsg(m); setTimeout(() => setMsg(''), 3000) }
 
@@ -9578,7 +9579,6 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
         const missingCards = realCards.filter(c => countTplSlots(c.template) > (c.subs ?? []).length)
         const extraCards   = realCards.filter(c => countTplSlots(c.template) < (c.subs ?? []).length)
         const allBadCards  = [...new Set([...missingCards, ...extraCards])]
-        const [showScan, setShowScan] = React.useState(false)
         if (allBadCards.length === 0) return (
           <div style={{ background:T.surf2, border:`1px solid ${T.grn}30`, borderRadius:10, padding:'10px 14px', display:'flex', alignItems:'center', gap:8 }}>
             <span style={{ fontFamily:MONO, fontSize:9, color:T.grn }}>✓ 所有卡片 slot 結構正常</span>
