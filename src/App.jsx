@@ -9374,9 +9374,10 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
       const words = json.vocab ?? []
       if (!cards.length && !words.length) throw new Error('Sheets 沒有資料，請先推送。')
 
-      // ── 以 Sheets 為主：完全覆蓋 localStorage ──
+      // ── 以 Sheets 為主：完全覆蓋 localStorage，並清除 SEED 卡 ──
       // 句子：Sheets 資料完全取代，保留本地的 SRS 進度（用 id 或 template 比對）
       if (cards.length) {
+        const SEED_IDS = new Set(SEED_S.map(c => c.id))
         updateSentences(prev => {
           // 建立本地 SRS 進度查表（以 id 和 template 兩種 key）
           const srsById = {}
@@ -9386,18 +9387,21 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
             srsById[s.id] = srs
             srsByTemplate[s.template] = srs
           })
-          // 用 Sheets 資料，補回 SRS 進度
-          return cards.map(c => {
-            const srs = srsById[c.id] ?? srsByTemplate[c.template] ?? {}
-            return {
-              ...c,
-              reps:      srs.reps      ?? 0,
-              ease:      srs.ease      ?? 2.5,
-              interval:  srs.interval  ?? 1,
-              dueDate:   srs.dueDate   ?? 0,
-              lastSeen:  srs.lastSeen  ?? 0,
-            }
-          })
+          // 用 Sheets 資料，補回 SRS 進度，過濾掉 SEED id 避免污染
+          const sheetsCards = cards
+            .filter(c => !SEED_IDS.has(c.id))  // 防止 Sheets 裡混入 SEED id
+            .map(c => {
+              const srs = srsById[c.id] ?? srsByTemplate[c.template] ?? {}
+              return {
+                ...c,
+                reps:      srs.reps      ?? 0,
+                ease:      srs.ease      ?? 2.5,
+                interval:  srs.interval  ?? 1,
+                dueDate:   srs.dueDate   ?? 0,
+                lastSeen:  srs.lastSeen  ?? 0,
+              }
+            })
+          return sheetsCards
         })
       }
 
@@ -9487,6 +9491,50 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
           未設定時自動使用瀏覽器 TTS。免費版 10,000 字元/月。
         </div>
       </div>
+
+      {/* ── 資料統計診斷 ── */}
+      {(() => {
+        const SEED_IDS = new Set(SEED_S.map(c => c.id))
+        const all = sentences ?? []
+        const seedCards = all.filter(c => SEED_IDS.has(c.id))
+        const realCards = all.filter(c => !SEED_IDS.has(c.id))
+        const LIFE_CTX = ['Daily Life','Greeting','Travel','Shopping','Food','Health','Family','Hobby','Lifestyle','生活']
+        const isLife = s => LIFE_CTX.some(k => (s.context??'').toLowerCase().includes(k.toLowerCase()))
+        const workSimple = realCards.filter(s => s.mode==='simple' && !isLife(s)).length
+        const lifeSimple = realCards.filter(s => s.mode==='simple' && isLife(s)).length
+        const workHard   = realCards.filter(s => s.mode==='hard'   && !isLife(s)).length
+        const lifeHard   = realCards.filter(s => s.mode==='hard'   && isLife(s)).length
+        return (
+          <div style={{ background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:10, padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }}>
+            <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>📊 資料統計</div>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:4 }}>
+              {[
+                ['總計（含 SEED）', all.length, T.amber],
+                ['真實資料（Sheets）', realCards.length, T.grn],
+                ['SEED 預設卡', seedCards.length, seedCards.length > 0 ? T.red : T.txt3],
+                ['', '', ''],
+                ['💼 WORK Simple', workSimple, T.txt],
+                ['💼 WORK Hard', workHard, T.txt],
+                ['🏠 LIFE Simple', lifeSimple, T.txt],
+                ['🏠 LIFE Hard', lifeHard, T.txt],
+              ].map(([label, val, color], i) => label ? (
+                <div key={i} style={{ fontFamily:MONO, fontSize:9, color:T.txt3, display:'flex', justifyContent:'space-between', paddingRight:8 }}>
+                  <span>{label}</span>
+                  <span style={{ color, fontWeight: val > 0 ? 600 : 400 }}>{val}</span>
+                </div>
+              ) : <div key={i}/>)}
+            </div>
+            {seedCards.length > 0 && (
+              <button className="btn" onClick={() => {
+                updateSentences(prev => prev.filter(c => !SEED_IDS.has(c.id)))
+                flash(`✓ 已清除 ${seedCards.length} 張 SEED 預設卡`)
+              }} style={{ background:T.redD, border:`1px solid ${T.red}50`, color:T.red, fontSize:10, marginTop:2 }}>
+                🗑 立即清除 {seedCards.length} 張 SEED 預設卡
+              </button>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Sheets Sync */}
       <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
