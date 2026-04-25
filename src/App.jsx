@@ -7035,7 +7035,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.12</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.13</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -7052,6 +7052,7 @@ function Header({ stats }) {
 // BOTTOM NAV
 // ═══════════════════════════════════════════════════════════════
 const NAV = [
+  { id:'phrase',   label:'Phrase',  svg: <svg width="17" height="17" viewBox="0 0 20 20" fill="none"><path d="M3 5h14M3 9h10M3 13h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><circle cx="16" cy="13" r="2.5" stroke="currentColor" strokeWidth="1.4"/><path d="M18 15l1.5 1.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg> },
   { id:'practice', label:'Build',   svg: <svg width="17" height="17" viewBox="0 0 20 20" fill="none"><path d="M10 3L3 10h3v7h8v-7h3L10 3z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/><path d="M8 14v-3h4v3" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/></svg> },
   { id:'drill',    label:'Drill',   svg: <svg width="17" height="17" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.5"/><path d="M7 10l2 2 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg> },
   { id:'vocab',    label:'Vocab',   svg: <svg width="17" height="17" viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M7 7h6M7 10.5h6M7 14h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg> },
@@ -9170,31 +9171,324 @@ function VocabTab({ vocab, updateVocab, updateStats, awardBadge }) {
 // ═══════════════════════════════════════════════════════════════
 // EMAIL / AI TAB
 // ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// PHRASE DATA — 副廠長會議常用 50 句
+// ═══════════════════════════════════════════════════════════════
+const PHRASE_CATS = [
+  { id:'all',      label:'全部' },
+  { id:'opening',  label:'開場/進度' },
+  { id:'capacity', label:'產能/稼動' },
+  { id:'quality',  label:'良率/品質' },
+  { id:'cost',     label:'成本/毛利' },
+  { id:'action',   label:'行動/決策' },
+]
+const PHRASE_DATA = [
+  // 一、會議開場 / 進度更新
+  { id:'ph01', cat:'opening', en:'Let me give a quick update on the current status.', zh:'讓我快速更新一下目前狀況。' },
+  { id:'ph02', cat:'opening', en:"Let's start with the production update.", zh:'我們先從生產狀況開始。' },
+  { id:'ph03', cat:'opening', en:'The overall performance is stable.', zh:'整體績效目前穩定。' },
+  { id:'ph04', cat:'opening', en:'Production is running normally today.', zh:'今天生產運作正常。' },
+  { id:'ph05', cat:'opening', en:'The current status is under control.', zh:'目前狀況在控制之中。' },
+  { id:'ph06', cat:'opening', en:'We are making steady progress.', zh:'我們正在穩定推進。' },
+  { id:'ph07', cat:'opening', en:'Let me summarize the key points.', zh:'我來總結一下重點。' },
+  { id:'ph08', cat:'opening', en:'We will review the details later.', zh:'細節我們稍後再檢視。' },
+  { id:'ph09', cat:'opening', en:'I will walk you through the main issues.', zh:'我來說明主要問題。' },
+  { id:'ph10', cat:'opening', en:"Let's move on to the next topic.", zh:'我們進入下一個議題。' },
+  // 二、生產 / 產能 / 稼動率
+  { id:'ph11', cat:'capacity', en:'We need to review the utilization of the SMD lines.', zh:'我們需要檢視 SMD 線的稼動率。' },
+  { id:'ph12', cat:'capacity', en:'The current utilization rate is below target.', zh:'目前稼動率低於目標。' },
+  { id:'ph13', cat:'capacity', en:'Production output is slightly below expectation.', zh:'產出略低於預期。' },
+  { id:'ph14', cat:'capacity', en:'We need to increase production capacity.', zh:'我們需要提升產能。' },
+  { id:'ph15', cat:'capacity', en:'The production line is running at full capacity.', zh:'產線目前滿載運作。' },
+  { id:'ph16', cat:'capacity', en:'We are facing some bottlenecks in this process.', zh:'這個製程目前有瓶頸。' },
+  { id:'ph17', cat:'capacity', en:'We are working on balancing the production lines.', zh:'我們正在進行產線平衡。' },
+  { id:'ph18', cat:'capacity', en:'The equipment utilization needs improvement.', zh:'設備利用率需要改善。' },
+  { id:'ph19', cat:'capacity', en:'We are monitoring the production output closely.', zh:'我們正在密切監控產出。' },
+  { id:'ph20', cat:'capacity', en:'The production plan remains unchanged.', zh:'生產計畫維持不變。' },
+  // 三、良率 / 品質 / 問題分析
+  { id:'ph21', cat:'quality', en:'The yield has improved compared to last month.', zh:'良率比上月有所改善。' },
+  { id:'ph22', cat:'quality', en:'The yield is still below our target.', zh:'良率仍低於目標。' },
+  { id:'ph23', cat:'quality', en:'We are investigating the root cause.', zh:'我們正在調查根本原因。' },
+  { id:'ph24', cat:'quality', en:'We identified the main issue in the process.', zh:'我們已找到製程的主要問題。' },
+  { id:'ph25', cat:'quality', en:'Corrective actions are being implemented.', zh:'正在執行矯正措施。' },
+  { id:'ph26', cat:'quality', en:'We need to prevent this issue from happening again.', zh:'我們需要防止問題再次發生。' },
+  { id:'ph27', cat:'quality', en:'The defect rate has decreased significantly.', zh:'不良率明顯下降。' },
+  { id:'ph28', cat:'quality', en:'Quality performance is improving steadily.', zh:'品質表現正在穩定改善。' },
+  { id:'ph29', cat:'quality', en:'The issue has been contained.', zh:'問題已經被控制。' },
+  { id:'ph30', cat:'quality', en:'We will continue to monitor the situation.', zh:'我們會持續監控狀況。' },
+  // 四、成本 / 毛利 / 策略
+  { id:'ph31', cat:'cost', en:'We need to mitigate the cost impact.', zh:'我們需要減輕成本衝擊。' },
+  { id:'ph32', cat:'cost', en:'Several cost reduction projects are underway.', zh:'多個降成本專案正在進行。' },
+  { id:'ph33', cat:'cost', en:'The gross margin needs improvement.', zh:'毛利需要改善。' },
+  { id:'ph34', cat:'cost', en:'We need to review the pricing strategy.', zh:'我們需要檢討定價策略。' },
+  { id:'ph35', cat:'cost', en:'The current cost structure needs adjustment.', zh:'目前成本結構需要調整。' },
+  { id:'ph36', cat:'cost', en:'This product currently has a negative margin.', zh:'這個產品目前毛利為負。' },
+  { id:'ph37', cat:'cost', en:'We need to optimize the product portfolio.', zh:'我們需要優化產品組合。' },
+  { id:'ph38', cat:'cost', en:'The price gap with competitors is still large.', zh:'與競爭對手仍有價格差距。' },
+  { id:'ph39', cat:'cost', en:'We need to close the gap as soon as possible.', zh:'我們需要盡快縮小差距。' },
+  { id:'ph40', cat:'cost', en:'This will have a significant impact on our margin.', zh:'這會對毛利產生明顯影響。' },
+  // 五、行動 / 決策 / 管理
+  { id:'ph41', cat:'action', en:'This issue should be our top priority.', zh:'這個問題應該是我們的首要優先事項。' },
+  { id:'ph42', cat:'action', en:'We need to take action immediately.', zh:'我們需要立即採取行動。' },
+  { id:'ph43', cat:'action', en:'Please coordinate with the engineering team.', zh:'請與工程團隊協調。' },
+  { id:'ph44', cat:'action', en:"Let's follow up on this next week.", zh:'我們下週再追蹤。' },
+  { id:'ph45', cat:'action', en:'We need a clear action plan.', zh:'我們需要一個清楚的行動計畫。' },
+  { id:'ph46', cat:'action', en:'Please provide justification for this request.', zh:'請提供這項需求的理由。' },
+  { id:'ph47', cat:'action', en:'We will evaluate this proposal.', zh:'我們會評估這個提案。' },
+  { id:'ph48', cat:'action', en:"Let's align with the team before making a decision.", zh:'我們先與團隊對齊再做決定。' },
+  { id:'ph49', cat:'action', en:'We need to monitor this closely.', zh:'我們需要密切監控。' },
+  { id:'ph50', cat:'action', en:"Let's keep this as a key focus.", zh:'這件事我們持續重點關注。' },
+]
+
+// ═══════════════════════════════════════════════════════════════
+// PHRASE TAB
+// ═══════════════════════════════════════════════════════════════
+function PhraseTab({ settings }) {
+  const [cat, setCat]           = useState('all')
+  const [idx, setIdx]           = useState(0)
+  const [phase, setPhase]       = useState('listen')
+  const [doneIds, setDoneIds]   = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('fsi:ph:done') ?? '[]')) } catch { return new Set() }
+  })
+  const [autoPlayed, setAutoPlayed] = useState(false)
+  const [extraPhrases, setExtraPhrases] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('fsi:ph:extra') ?? '[]') } catch { return [] }
+  })
+
+  // Reload extra phrases when tab becomes visible
+  useEffect(() => {
+    const all = [...PHRASE_DATA, ...extraPhrases]
+    // no-op, just ensures re-render when extra changes
+  }, [extraPhrases])
+
+  const allPhrases = [...PHRASE_DATA, ...extraPhrases]
+  const queue = cat === 'all' ? allPhrases : allPhrases.filter(p => p.cat === cat)
+  const card   = queue[idx] ?? queue[0]
+  const total  = queue.length
+  const doneCount = queue.filter(p => doneIds.has(p.id)).length
+
+  // Auto-play on card change
+  useEffect(() => {
+    if (!card) return
+    setPhase('listen')
+    setAutoPlayed(false)
+  }, [idx, cat])
+
+  useEffect(() => {
+    if (phase === 'listen' && !autoPlayed && card) {
+      const t = setTimeout(() => {
+        speakCard(0.85)
+        setAutoPlayed(true)
+      }, 400)
+      return () => clearTimeout(t)
+    }
+  }, [phase, autoPlayed, card])
+
+  function speakCard(rate = 1) {
+    if (!card) return
+    const u = new SpeechSynthesisUtterance(card.en)
+    u.lang = 'en-US'; u.rate = rate
+    window.speechSynthesis.cancel()
+    window.speechSynthesis.speak(u)
+  }
+
+  function markDone() {
+    const next = new Set(doneIds)
+    next.add(card.id)
+    setDoneIds(next)
+    localStorage.setItem('fsi:ph:done', JSON.stringify([...next]))
+    goNext()
+  }
+
+  function goNext() {
+    setIdx(i => (i + 1) % total)
+  }
+
+  function goAgain() {
+    setPhase('listen')
+    setAutoPlayed(false)
+  }
+
+  const catColors = { opening:'#58a6ff', capacity:'#f5a623', quality:'#3fb950', cost:'#f85149', action:'#a371f7' }
+  const cc = catColors[card?.cat] ?? T.amber
+
+  return (
+    <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:12, minHeight:'80vh' }} className="fadeUp">
+
+      {/* Category filter */}
+      <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+        {PHRASE_CATS.map(c => (
+          <div key={c.id} onClick={() => { setCat(c.id); setIdx(0) }}
+            style={{ padding:'4px 11px', borderRadius:12, fontFamily:MONO, fontSize:9, cursor:'pointer', letterSpacing:'0.06em',
+              background: cat===c.id ? T.amber : T.surf2,
+              border: '1px solid ' + (cat===c.id ? T.amber : T.bdr),
+              color: cat===c.id ? T.bg : T.txt3, fontWeight: cat===c.id ? 700 : 400,
+              transition:'all 0.14s' }}>
+            {c.label}
+          </div>
+        ))}
+      </div>
+
+      {/* Progress bar */}
+      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+        <div style={{ flex:1, height:4, background:T.surf2, borderRadius:4, overflow:'hidden' }}>
+          <div style={{ height:'100%', width: (doneCount/total*100)+'%', background:T.grn, borderRadius:4, transition:'width 0.4s' }}/>
+        </div>
+        <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3, flexShrink:0 }}>{doneCount}/{total}</span>
+      </div>
+
+      {/* Card number */}
+      <div style={{ fontFamily:MONO, fontSize:8.5, color:T.txt3, textAlign:'center', letterSpacing:'0.08em' }}>
+        {idx+1} / {total}
+      </div>
+
+      {/* Main card */}
+      {card && (
+        <div style={{ flex:1, display:'flex', flexDirection:'column', gap:0 }}>
+
+          {/* Category badge */}
+          <div style={{ display:'flex', justifyContent:'center', marginBottom:12 }}>
+            <span style={{ fontFamily:MONO, fontSize:8, color:cc, background:cc+'18', border:'1px solid '+cc+'40', padding:'3px 12px', borderRadius:10, letterSpacing:'0.08em' }}>
+              {PHRASE_CATS.find(c => c.id === card.cat)?.label ?? card.cat}
+            </span>
+          </div>
+
+          {/* LISTEN phase */}
+          {phase === 'listen' && (
+            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:24 }}>
+
+              {/* Speaker + speed buttons in one row */}
+              <div style={{ display:'flex', alignItems:'center', gap:16 }}>
+                <div onClick={() => speakCard(1)}
+                  style={{ width:72, height:72, borderRadius:'50%', background:cc+'15', border:'1px solid '+cc+'50', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0, gap:4 }}>
+                  <span style={{ fontSize:20 }}>🔊</span>
+                  <span style={{ fontFamily:MONO, fontSize:8, color:cc }}>1.0x</span>
+                </div>
+
+                <div style={{ width:72, height:72, borderRadius:'50%', background:cc+'18', border:'2px solid '+cc+'40', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+                    <path d="M3 9h4l5-5v16l-5-5H3z" stroke={cc} strokeWidth="1.5" fill={cc+'30'}/>
+                    <path d="M16 6.5a5.5 5.5 0 010 11" stroke={cc} strokeWidth="1.5" strokeLinecap="round"/>
+                    <path d="M13.5 9a2.5 2.5 0 010 5" stroke={cc} strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
+                </div>
+
+                <div onClick={() => speakCard(0.7)}
+                  style={{ width:72, height:72, borderRadius:'50%', background:cc+'15', border:'1px solid '+cc+'50', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0, gap:4 }}>
+                  <span style={{ fontSize:20 }}>🐢</span>
+                  <span style={{ fontFamily:MONO, fontSize:8, color:cc }}>0.7x</span>
+                </div>
+              </div>
+
+              <div style={{ fontFamily:SERIF, fontSize:13, color:T.txt2, fontStyle:'italic', textAlign:'center', lineHeight:1.6, padding:'0 8px' }}>
+                仔細聽，然後在紙上寫下英文句子
+              </div>
+
+              {/* Next step button */}
+              <button className="btn" onClick={() => setPhase('reveal')}
+                style={{ background:T.amber, color:T.bg, width:'100%', padding:'15px', fontSize:13, fontWeight:700, letterSpacing:'0.1em' }}>
+                ✏️ 我寫好了 → 對答案
+              </button>
+            </div>
+          )}
+
+          {/* REVEAL phase */}
+          {phase === 'reveal' && (
+            <div style={{ display:'flex', flexDirection:'column', gap:14 }} className="fadeUp">
+
+              {/* English answer — big */}
+              <div style={{ background:T.surf, border:'1px solid '+cc+'50', borderRadius:14, padding:'20px 18px', display:'flex', flexDirection:'column', gap:12 }}>
+                <div style={{ fontFamily:MONO, fontSize:15, color:T.txt, lineHeight:1.7, letterSpacing:'0.01em' }}>
+                  {card.en}
+                </div>
+                <div style={{ height:1, background:T.bdr }}/>
+                <div style={{ fontFamily:SERIF, fontSize:13, color:T.txt2, fontStyle:'italic', lineHeight:1.6 }}>
+                  {card.zh}
+                </div>
+              </div>
+
+              {/* TTS buttons */}
+              <div style={{ display:'flex', gap:8 }}>
+                <button className="btn" onClick={() => speakCard(0.75)}
+                  style={{ flex:1, background:cc+'15', border:'1px solid '+cc+'50', color:cc, padding:'11px 0', fontSize:11 }}>
+                  🐢 跟我念（慢）
+                </button>
+                <button className="btn" onClick={() => speakCard(1)}
+                  style={{ flex:1, background:cc+'15', border:'1px solid '+cc+'50', color:cc, padding:'11px 0', fontSize:11 }}>
+                  🔊 跟我念（正常）
+                </button>
+              </div>
+
+              {/* Rating */}
+              <div style={{ display:'flex', gap:8, marginTop:4 }}>
+                <button className="btn" onClick={goAgain}
+                  style={{ flex:1, background:T.redD, border:'1px solid '+T.red+'55', color:T.red, padding:'13px 0', fontSize:13, letterSpacing:'0.06em' }}>
+                  ↺ 再來一次
+                </button>
+                <button className="btn" onClick={markDone}
+                  style={{ flex:2, background:T.grnD, border:'1px solid '+T.grn+'55', color:T.grn, padding:'13px 0', fontSize:13, fontWeight:700, letterSpacing:'0.06em' }}>
+                  ✓ 我會了 →
+                </button>
+              </div>
+
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function EmailTab({ settings, updateSentences, updateVocab, updateStats, awardBadge }) {
-  const [text, setText] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [res, setRes] = useState(null)
-  const [err, setErr] = useState('')
-  const [addedS, setAddedS] = useState([])
-  const [addedV, setAddedV] = useState([])
-  const [sentenceCats, setSentenceCats] = useState({})
+  const [text, setText]           = useState('')
+  const [busy, setBusy]           = useState(false)
+  const [res,  setRes]            = useState(null)   // { phrases, fsi, vocab }
+  const [err,  setErr]            = useState('')
+  const [addedP, setAddedP]       = useState([])     // phrase en strings added
+  const [addedS, setAddedS]       = useState([])     // fsi template strings added
+  const [addedV, setAddedV]       = useState([])     // vocab word strings added
+  const [phraseCats, setPhraseCats] = useState({})   // index -> PHRASE_CATS id
+  const [fsiCats,    setFsiCats]    = useState({})   // index -> 'work'|'life'
   const [isDesktop, setIsDesktop] = useState(window.innerWidth > 640)
 
   useEffect(() => {
-    const handler = () => setIsDesktop(window.innerWidth > 640)
-    window.addEventListener('resize', handler)
-    return () => window.removeEventListener('resize', handler)
+    const h = () => setIsDesktop(window.innerWidth > 640)
+    window.addEventListener('resize', h)
+    return () => window.removeEventListener('resize', h)
   }, [])
 
+  // ── AI prompt ──────────────────────────────────────────────
   async function analyze() {
     if (!settings?.apiKey) { setErr('請先在 Setup 設定 Anthropic API Key'); return }
-    if (!text.trim()) { setErr('請先貼上英文文字'); return }
-    setBusy(true); setErr(''); setRes(null); setAddedS([]); setAddedV([])
+    if (!text.trim())       { setErr('請先貼上英文文字'); return }
+    setBusy(true); setErr(''); setRes(null)
+    setAddedP([]); setAddedS([]); setAddedV([])
     try {
-      const system = 'You are an FSI English teaching assistant for a Taiwanese electronics manufacturing professional (SMD/inductor division, financial analysis role).\nAnalyze the text and extract:\n- 3-5 FSI substitution drill sentences using manufacturing/business vocabulary\n- 3-5 vocabulary words worth learning\n\nFor each sentence, generate a linked_hint showing how native speakers actually say it:\nRULES for linked_hint:\n1. Consonant+Vowel liaison: word ending in consonant + word starting with vowel → merge with · e.g. "need it" → "nee·dit"\n2. Weak "of" → ə merged: "end of" → "endə"\n3. Weak "and" → ən merged: "black and white" → "blackən white"\n4. Weak "to" → tə: "need to go" → "need tə go"\n5. Elision: t/d dropped before consonant: "last night" → "las(t) night"\n6. Stressed syllables: CAPITALIZE. e.g. "proDUCtion"\n7. {slot} is an INVISIBLE WALL — NEVER merge across it.\n\nReturn ONLY valid JSON (no markdown), format:\n{"sentences":[{"template":"...with {blank} for substitution","context":"Short context name","hint":"When you say this","linked_hint":"annotated version","subs":[["opt1","opt2","opt3"]]}],"vocab":[{"word":"word","def":"concise definition","ex":"example sentence"}]}'
+      const system = [
+        'You are an English teaching assistant for a Taiwanese electronics manufacturing professional.',
+        'Analyze the text and classify extracted content into THREE categories:\n',
+        '1. PHRASES: Complete, fixed sentences that are commonly used as-is in meetings.',
+        '   - No substitution needed, short and direct.',
+        '   - Must include a zh (Traditional Chinese) translation.',
+        '   - Assign a cat from: opening | capacity | quality | cost | action',
+        '   - Extract 2-4 phrases.\n',
+        '2. FSI: Sentences with variable slots suitable for substitution drilling.',
+        '   - Use {slot_name} placeholders. Include linked_hint and subs arrays.',
+        '   - linked_hint rules: consonant+vowel liaison with ·, weak words ə/ən/tə, elision (t), CAPS stress.',
+        '   - {slot} is INVISIBLE WALL — never merge · across it.',
+        '   - Extract 2-4 FSI sentences.\n',
+        '3. VOCAB: Key words worth memorizing.',
+        '   - Include def (concise) and ex (example sentence).',
+        '   - Extract 2-4 words.\n',
+        'Return ONLY valid JSON, no markdown:',
+        '{"phrases":[{"en":"...","zh":"...","cat":"opening"}],',
+        '"fsi":[{"template":"...{slot}...","context":"Short name","hint":"When to say this","linked_hint":"annotated","subs":[["opt1","opt2","opt3"]]}],',
+        '"vocab":[{"word":"...","def":"...","ex":"..."}]}'
+      ].join('\n')
+
       const raw = await callClaude(settings.apiKey, [{ role:'user', content: text }], system)
       const parsed = JSON.parse(raw.replace(/```json|```/g,'').trim())
-      setRes(parsed); setSentenceCats({})
+      setRes(parsed)
       awardBadge('email_done')
       updateStats(s => ({ ...s, xp: (s.xp??0) + 15 }))
     } catch(e) {
@@ -9202,159 +9496,270 @@ function EmailTab({ settings, updateSentences, updateVocab, updateStats, awardBa
     } finally { setBusy(false) }
   }
 
-  function addSentence(s, cat) {
+  // ── Add functions ───────────────────────────────────────────
+  function addPhrase(p, catId) {
+    const existing = JSON.parse(localStorage.getItem('fsi:ph:extra') ?? '[]')
+    const id = 'ph_ai_' + Date.now()
+    const cat = catId || p.cat || 'action'
+    const newPhrase = { id, cat, en: p.en, zh: p.zh }
+    localStorage.setItem('fsi:ph:extra', JSON.stringify([...existing, newPhrase]))
+    setAddedP(a => [...a, p.en])
+    updateStats(st => ({ ...st, xp: (st.xp??0) + 3 }))
+  }
+
+  function addFsi(s, cat) {
     const id = 'ai_' + Date.now()
-    const context = cat === 'life' ? (s.context || 'Daily Life') + ' (Life)' : s.context || 'AI'
-    updateSentences(prev => [...(prev??[]), { id, mode:'simple', context, hint:s.hint||'', template:s.template, linked_hint:s.linked_hint||'', subs:s.subs||[], reps:0,ease:2.5,interval:1,dueDate:0,lastSeen:0 }])
+    const context = cat === 'life' ? (s.context||'Daily Life') + ' (Life)' : s.context || 'AI'
+    updateSentences(prev => [...(prev??[]), {
+      id, mode:'simple', context, hint:s.hint||'', template:s.template,
+      linked_hint:s.linked_hint||'', subs:s.subs||[],
+      reps:0, ease:2.5, interval:1, dueDate:0, lastSeen:0
+    }])
     setAddedS(a => [...a, s.template])
     updateStats(st => ({ ...st, xp: (st.xp??0) + 5 }))
   }
 
   function addVocab(v) {
     const id = 'av_' + Date.now()
-    updateVocab(prev => [...(prev??[]), { id, word:v.word, ipa_us:'', def:v.def, ex:v.ex, reps:0,ease:2.5,interval:1,dueDate:0,lastSeen:0 }])
+    updateVocab(prev => [...(prev??[]), {
+      id, word:v.word, ipa_us:'', def:v.def, ex:v.ex,
+      reps:0, ease:2.5, interval:1, dueDate:0, lastSeen:0
+    }])
     setAddedV(a => [...a, v.word])
     updateStats(st => ({ ...st, xp: (st.xp??0) + 3 }))
   }
 
   function addAll() {
-    ;(res?.sentences ?? []).forEach((s,i) => { if (!addedS.includes(s.template)) addSentence(s, sentenceCats[i] ?? 'work') })
-    ;(res?.vocab ?? []).forEach(v => { if (!addedV.includes(v.word)) addVocab(v) })
+    ;(res?.phrases ?? []).forEach((p,i) => { if (!addedP.includes(p.en)) addPhrase(p, phraseCats[i]) })
+    ;(res?.fsi     ?? []).forEach((s,i) => { if (!addedS.includes(s.template)) addFsi(s, fsiCats[i] ?? 'work') })
+    ;(res?.vocab   ?? []).forEach(v => { if (!addedV.includes(v.word)) addVocab(v) })
   }
 
+  const totalAdded  = addedP.length + addedS.length + addedV.length
+  const totalItems  = (res?.phrases?.length??0) + (res?.fsi?.length??0) + (res?.vocab?.length??0)
+
+  // ── Section header chip ─────────────────────────────────────
+  function SecHead({ label, color, count, added }) {
+    return (
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:4 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <div style={{ width:3, height:14, background:color, borderRadius:2 }}/>
+          <span style={{ fontFamily:MONO, fontSize:9, color, letterSpacing:'0.1em' }}>{label}</span>
+        </div>
+        <span style={{ fontFamily:MONO, fontSize:8.5, color:T.grn }}>{added}/{count} 已加入</span>
+      </div>
+    )
+  }
+
+  // ── Cat badge select (for phrase) ──────────────────────────
+  function PhraseCatSelect({ idx, done }) {
+    const cur = phraseCats[idx] ?? 'action'
+    const opts = [
+      { id:'opening',  label:'開場' },
+      { id:'capacity', label:'產能' },
+      { id:'quality',  label:'良率' },
+      { id:'cost',     label:'成本' },
+      { id:'action',   label:'行動' },
+    ]
+    return (
+      <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
+        {opts.map(o => (
+          <div key={o.id} onClick={() => !done && setPhraseCats(p => ({ ...p, [idx]: o.id }))}
+            style={{ padding:'2px 8px', borderRadius:8, fontFamily:MONO, fontSize:8, cursor: done ? 'default' : 'pointer',
+              background: cur===o.id ? T.blue+'20' : T.surf2,
+              border: '1px solid ' + (cur===o.id ? T.blue+'60' : T.bdr),
+              color: cur===o.id ? T.blue : T.txt3, opacity: done ? 0.5 : 1 }}>
+            {o.label}
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  // ── Work/Life select (for FSI) ──────────────────────────────
+  function WLSelect({ idx, done }) {
+    const cur = fsiCats[idx] ?? 'work'
+    return (
+      <div style={{ display:'flex', gap:5 }}>
+        {['work','life'].map(c => (
+          <div key={c} onClick={() => !done && setFsiCats(p => ({ ...p, [idx]: c }))}
+            style={{ padding:'3px 10px', borderRadius:10, fontFamily:MONO, fontSize:8.5, cursor: done ? 'default' : 'pointer',
+              background: cur===c ? (c==='work' ? T.amberD : T.blueD) : T.surf2,
+              border: '1px solid ' + (cur===c ? (c==='work' ? T.amber+'60' : T.blue+'60') : T.bdr),
+              color: cur===c ? (c==='work' ? T.amber : T.blue) : T.txt3,
+              opacity: done ? 0.5 : 1 }}>
+            {c==='work' ? '💼 WORK' : '🏠 LIFE'}
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  // ── Card renderers ──────────────────────────────────────────
+  function PhraseCard({ p, i, desktop }) {
+    const done = addedP.includes(p.en)
+    return (
+      <div style={{ background:T.surf, border:'1px solid '+(done ? T.grn+'50' : T.bdr), borderRadius:10, padding:12, display:'flex', flexDirection:'column', gap:7, transition:'border-color 0.3s' }}>
+        <div style={{ fontFamily:SERIF, fontSize: desktop?12:13, color:T.txt, lineHeight:1.6 }}>{p.en}</div>
+        <div style={{ fontFamily:SERIF, fontStyle:'italic', fontSize: desktop?11:12, color:T.txt2 }}>{p.zh}</div>
+        <PhraseCatSelect idx={i} done={done}/>
+        <button className="btn" onClick={() => addPhrase(p, phraseCats[i])} disabled={done}
+          style={{ background: done ? T.grnD : T.blueD, border:'1px solid '+(done ? T.grn+'50' : T.blue+'50'), color: done ? T.grn : T.blue, fontSize:9, padding:'5px 0', marginTop:2 }}>
+          {done ? '✓ 已加入 PHRASE' : '+ 加入 PHRASE 練習'}
+        </button>
+      </div>
+    )
+  }
+
+  function FsiCard({ s, i, desktop }) {
+    const done = addedS.includes(s.template)
+    return (
+      <div style={{ background:T.surf, border:'1px solid '+(done ? T.grn+'50' : T.bdr), borderRadius:10, padding:12, display:'flex', flexDirection:'column', gap:7, transition:'border-color 0.3s' }}>
+        <div style={{ fontFamily:MONO, fontSize: desktop?11:12, color:T.txt, lineHeight:1.6 }}>{s.template}</div>
+        <div style={{ fontFamily:SERIF, fontStyle:'italic', fontSize:11, color:T.txt3 }}>{s.context} — {s.hint}</div>
+        {s.linked_hint && <div style={{ fontFamily:MONO, fontSize:10, color:T.amber, background:T.amberD, borderRadius:6, padding:'4px 8px' }}>{s.linked_hint}</div>}
+        {(s.subs??[]).map((g,gi) => (
+          <div key={gi} style={{ display:'flex', flexWrap:'wrap', gap:4 }}>
+            {g.map((o,oi) => <span key={oi} style={{ fontFamily:MONO, fontSize:9, background:T.surf2, border:'1px solid '+T.bdr, borderRadius:10, padding:'2px 7px', color:T.txt3 }}>{o}</span>)}
+          </div>
+        ))}
+        <WLSelect idx={i} done={done}/>
+        <button className="btn" onClick={() => addFsi(s, fsiCats[i]??'work')} disabled={done}
+          style={{ background: done ? T.grnD : T.amberD, border:'1px solid '+(done ? T.grn+'50' : T.amber+'50'), color: done ? T.grn : T.amber, fontSize:9, padding:'5px 0', marginTop:2 }}>
+          {done ? '✓ 已加入 FSI' : '+ 加入 FSI 練習'}
+        </button>
+      </div>
+    )
+  }
+
+  function VocabCard({ v }) {
+    const done = addedV.includes(v.word)
+    return (
+      <div style={{ background:T.surf, border:'1px solid '+(done ? T.grn+'50' : T.bdr), borderRadius:10, padding:12, display:'flex', flexDirection:'column', gap:6 }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <span style={{ fontFamily:MONO, fontSize:13, color:T.blue, fontWeight:500 }}>{v.word}</span>
+          <div onClick={() => speak(v.word)} style={{ cursor:'pointer', color:T.txt3 }}
+            onMouseOver={e=>e.currentTarget.style.color=T.blue} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+          </div>
+        </div>
+        <div style={{ fontFamily:SERIF, fontSize:12, color:T.txt2, lineHeight:1.4 }}>{v.def}</div>
+        {v.ex && <div style={{ fontFamily:SERIF, fontStyle:'italic', fontSize:11, color:T.txt3 }}>"{v.ex}"</div>}
+        <button className="btn" onClick={() => addVocab(v)} disabled={done}
+          style={{ background: done ? T.grnD : T.blueD, border:'1px solid '+(done ? T.grn+'50' : T.blue+'50'), color: done ? T.grn : T.blue, fontSize:9, padding:'5px 0', marginTop:2 }}>
+          {done ? '✓ 已加入 VOCAB' : '+ 加入 VOCAB'}
+        </button>
+      </div>
+    )
+  }
+
+  // ── Shared analyze button + input ───────────────────────────
+  function InputArea() {
+    return (
+      <>
+        <textarea value={text} onChange={e => setText(e.target.value)}
+          onKeyDown={e => { if (e.key==='Enter' && (e.ctrlKey||e.metaKey)) analyze() }}
+          placeholder={'貼上 Email、會議記錄、報告…\n\nAI 會自動分成三類：\n📌 PHRASE — 固定常用句 → PHRASE 練習\n🔄 FSI    — 替換句型  → BUILD/DRILL\n📖 VOCAB  — 關鍵單字  → VOCAB\n\n(Ctrl+Enter 快速分析)'}
+          style={{ flex:1, resize:'none', lineHeight:1.7, fontSize:13, minHeight:180,
+            background:T.surf2, border:'1px solid '+T.bdr2, borderRadius:10,
+            padding:'14px 16px', color:T.txt, fontFamily:MONO, outline:'none' }}/>
+        {err && <div style={{ background:T.redD, border:'1px solid '+T.red+'50', borderRadius:8, padding:11, fontFamily:MONO, fontSize:11, color:T.red }}>{err}</div>}
+        <button className="btn" onClick={analyze} disabled={busy || !text.trim()}
+          style={{ background: busy ? T.bdr : T.amber, color: busy ? T.txt2 : T.bg,
+            width:'100%', letterSpacing:'0.1em', padding:'13px', fontSize:12, fontWeight:700 }}>
+          {busy
+            ? <span style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+                <span style={{ display:'inline-block', width:10, height:10, border:'2px solid transparent', borderTopColor:T.txt2, borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>
+                AI 分析中…
+              </span>
+            : '⚡ AI 三分類分析（Ctrl+Enter）'
+          }
+        </button>
+      </>
+    )
+  }
+
+  // ── DESKTOP layout ──────────────────────────────────────────
   if (isDesktop) {
     return (
       <div style={{ position:'fixed', top:0, left:0, right:0, bottom:0, background:T.bg, display:'flex', flexDirection:'column', zIndex:5 }}>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 24px', borderBottom:'1px solid ' + T.bdr, background:T.surf, flexShrink:0 }}>
+        {/* Header */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 24px', borderBottom:'1px solid '+T.bdr, background:T.surf, flexShrink:0 }}>
           <div style={{ display:'flex', alignItems:'center', gap:12 }}>
             <AppIcon size={28}/>
-            <span style={{ fontFamily:DISP, fontSize:13, color:T.amber, letterSpacing:'0.12em' }}>FSI COMMAND — AI ANALYSIS</span>
+            <span style={{ fontFamily:DISP, fontSize:13, color:T.amber, letterSpacing:'0.12em' }}>FSI COMMAND — AI 三分類分析</span>
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:10 }}>
             {res && (
               <button className="btn" onClick={addAll}
-                style={{ background:T.grnD, border:'1px solid ' + T.grn + '50', color:T.grn, fontSize:10, padding:'5px 14px', letterSpacing:'0.06em' }}>
-                ✓ 全部加入練習
+                style={{ background:T.grnD, border:'1px solid '+T.grn+'50', color:T.grn, fontSize:10, padding:'5px 14px' }}>
+                ✓ 全部加入（{totalAdded}/{totalItems}）
               </button>
             )}
-            <button className="btn" onClick={() => { setText(''); setRes(null); setErr(''); setAddedS([]); setAddedV([]) }}
-              style={{ background:T.surf2, border:'1px solid ' + T.bdr, color:T.txt3, fontSize:10, padding:'5px 12px' }}>
+            <button className="btn" onClick={() => { setText(''); setRes(null); setErr('') }}
+              style={{ background:T.surf2, border:'1px solid '+T.bdr, color:T.txt3, fontSize:10, padding:'5px 12px' }}>
               清除
             </button>
           </div>
         </div>
+
+        {/* Body */}
         <div style={{ display:'flex', flex:1, overflow:'hidden' }}>
-          <div style={{ width:'42%', minWidth:320, display:'flex', flexDirection:'column', borderRight:'1px solid ' + T.bdr, padding:'20px 24px', gap:14, flexShrink:0 }}>
-            <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, letterSpacing:'0.1em' }}>貼上英文文字（Email、會議記錄、報告…）</div>
-            <textarea
-              value={text}
-              onChange={e => setText(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) analyze() }}
-              placeholder={'Paste email, meeting notes, or any business English text here…\n\n(Ctrl+Enter to analyze)'}
-              style={{ flex:1, resize:'none', lineHeight:1.7, fontSize:13, minHeight:0, background:T.surf2, border:'1px solid ' + T.bdr2, borderRadius:10, padding:'14px 16px', color:T.txt, fontFamily:MONO, outline:'none' }}
-            />
-            {err && <div style={{ background:T.redD, border:'1px solid ' + T.red + '50', borderRadius:8, padding:11, fontFamily:MONO, fontSize:11, color:T.red }}>{err}</div>}
-            <button className="btn" onClick={analyze} disabled={busy || !text.trim()}
-              style={{ background: busy ? T.bdr : T.amber, color: busy ? T.txt2 : T.bg, width:'100%', letterSpacing:'0.1em', padding:'13px', fontSize:12, fontWeight:700, flexShrink:0 }}>
-              {busy
-                ? React.createElement('span', { style:{ display:'flex', alignItems:'center', justifyContent:'center', gap:8 } },
-                    React.createElement('span', { style:{ display:'inline-block', width:10, height:10, border:'2px solid transparent', borderTopColor:T.txt2, borderRadius:'50%', animation:'spin 0.7s linear infinite' } }),
-                    'ANALYZING…')
-                : '⚡ AI ANALYSIS（Ctrl+Enter）'
-              }
-            </button>
-            <div style={{ fontFamily:MONO, fontSize:8.5, color:T.txt3, textAlign:'center', lineHeight:1.7 }}>
-              產生後右側逐一加入，或「全部加入練習」一次完成
-              {'\n'}完成後 SETUP → 推送 Sheets → 手機讀入
+          {/* LEFT */}
+          <div style={{ width:'38%', minWidth:300, display:'flex', flexDirection:'column', borderRight:'1px solid '+T.bdr, padding:'20px 24px', gap:12, flexShrink:0 }}>
+            <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, letterSpacing:'0.1em' }}>貼上英文文字</div>
+            <InputArea/>
+            <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.8, textAlign:'center' }}>
+              {'📌 PHRASE → PHRASE 頁練習\n🔄 FSI → BUILD/DRILL\n📖 VOCAB → 單字庫'}
             </div>
           </div>
+
+          {/* RIGHT */}
           <div style={{ flex:1, overflowY:'auto', padding:'20px 24px', display:'flex', flexDirection:'column', gap:16 }}>
             {!res && !busy && (
-              <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:12, opacity:0.35 }}>
-                <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-                  <rect x="6" y="8" width="36" height="5" rx="2" fill={T.txt3}/>
-                  <rect x="6" y="18" width="28" height="4" rx="2" fill={T.txt3}/>
-                  <rect x="6" y="27" width="32" height="4" rx="2" fill={T.txt3}/>
-                  <rect x="6" y="36" width="20" height="4" rx="2" fill={T.txt3}/>
-                </svg>
-                <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>貼上文字後按分析，結果顯示在這裡</span>
+              <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:16, opacity:0.35 }}>
+                <div style={{ display:'flex', flexDirection:'column', gap:10, fontFamily:MONO, fontSize:10, color:T.txt3, lineHeight:2 }}>
+                  <div>📌 PHRASE — 固定常用句 → PHRASE 頁</div>
+                  <div>🔄 FSI &nbsp;&nbsp;&nbsp;— 替換句型 &nbsp;&nbsp;→ BUILD/DRILL</div>
+                  <div>📖 VOCAB — 關鍵單字 &nbsp;&nbsp;→ VOCAB</div>
+                </div>
               </div>
             )}
             {busy && (
               <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:12 }}>
                 <span style={{ display:'inline-block', width:32, height:32, border:'3px solid transparent', borderTopColor:T.amber, borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>
-                <span style={{ fontFamily:MONO, fontSize:10, color:T.amber, letterSpacing:'0.1em' }}>AI 分析中…</span>
+                <span style={{ fontFamily:MONO, fontSize:10, color:T.amber, letterSpacing:'0.1em' }}>AI 分析中，自動分三類…</span>
               </div>
             )}
             {res && (
               <div style={{ display:'flex', flexDirection:'column', gap:18 }} className="fadeUp">
-                {(res.sentences ?? []).length > 0 && (
-                  <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                      <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, letterSpacing:'0.1em' }}>FSI DRILL SENTENCES ({res.sentences.length})</div>
-                      <span style={{ fontFamily:MONO, fontSize:8.5, color:T.grn }}>{addedS.length}/{res.sentences.length} 已加入</span>
-                    </div>
-                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-                      {res.sentences.map((s, i) => {
-                        const done = addedS.includes(s.template)
-                        const cat = sentenceCats[i] ?? 'work'
-                        return (
-                          <div key={i} style={{ background:T.surf, border:'1px solid ' + (done ? T.grn + '50' : T.bdr), borderRadius:11, padding:14, display:'flex', flexDirection:'column', gap:8, transition:'border-color 0.3s' }}>
-                            <div style={{ fontFamily:MONO, fontSize:11, color:T.txt, lineHeight:1.6 }}>{s.template}</div>
-                            <div style={{ fontFamily:SERIF, fontStyle:'italic', fontSize:11, color:T.txt3 }}>{s.context} — {s.hint}</div>
-                            {s.linked_hint && <div style={{ fontFamily:MONO, fontSize:10, color:T.amber, background:T.amberD, borderRadius:6, padding:'4px 8px' }}>{s.linked_hint}</div>}
-                            {(s.subs ?? []).map((group, gi) => (
-                              <div key={gi} style={{ display:'flex', flexWrap:'wrap', gap:4 }}>
-                                {group.map((opt, oi) => (
-                                  <span key={oi} style={{ fontFamily:MONO, fontSize:9, background:T.surf2, border:'1px solid ' + T.bdr, borderRadius:10, padding:'2px 8px', color:T.txt3 }}>{opt}</span>
-                                ))}
-                              </div>
-                            ))}
-                            <div style={{ display:'flex', gap:6, marginTop:'auto', alignItems:'center' }}>
-                              {['work','life'].map(c => (
-                                <div key={c} onClick={() => !done && setSentenceCats(p => ({ ...p, [i]: c }))}
-                                  style={{ padding:'3px 10px', borderRadius:10, fontFamily:MONO, fontSize:8.5, cursor: done ? 'default' : 'pointer',
-                                    background: cat===c ? (c==='work' ? T.amberD : T.blueD) : T.surf2,
-                                    border: '1px solid ' + (cat===c ? (c==='work' ? T.amber+'60' : T.blue+'60') : T.bdr),
-                                    color: cat===c ? (c==='work' ? T.amber : T.blue) : T.txt3, opacity: done ? 0.5 : 1 }}>
-                                  {c === 'work' ? '💼 WORK' : '🏠 LIFE'}
-                                </div>
-                              ))}
-                              <button className="btn" onClick={() => addSentence(s, cat)} disabled={done}
-                                style={{ marginLeft:'auto', background: done ? T.grnD : T.amberD, border:'1px solid ' + (done ? T.grn+'50' : T.amber+'50'), color: done ? T.grn : T.amber, fontSize:9, padding:'4px 10px' }}>
-                                {done ? '✓ 已加入' : '+ 加入'}
-                              </button>
-                            </div>
-                          </div>
-                        )
-                      })}
+
+                {/* PHRASE section */}
+                {(res.phrases??[]).length > 0 && (
+                  <div>
+                    <SecHead label="📌 PHRASE — 固定常用句" color={T.blue} count={res.phrases.length} added={addedP.length}/>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginTop:8 }}>
+                      {res.phrases.map((p,i) => <PhraseCard key={i} p={p} i={i} desktop/>)}
                     </div>
                   </div>
                 )}
-                {(res.vocab ?? []).length > 0 && (
-                  <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-                    <div style={{ fontFamily:MONO, fontSize:9, color:T.blue, letterSpacing:'0.1em' }}>VOCABULARY ({res.vocab.length})</div>
-                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10 }}>
-                      {res.vocab.map((v, i) => {
-                        const done = addedV.includes(v.word)
-                        return (
-                          <div key={i} style={{ background:T.surf, border:'1px solid ' + (done ? T.grn+'50' : T.bdr), borderRadius:10, padding:12, display:'flex', flexDirection:'column', gap:6 }}>
-                            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                              <span style={{ fontFamily:MONO, fontSize:13, color:T.blue, fontWeight:500 }}>{v.word}</span>
-                              <div onClick={() => speak(v.word)} style={{ cursor:'pointer', color:T.txt3, padding:3 }}
-                                onMouseOver={e=>e.currentTarget.style.color=T.blue} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
-                                <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
-                              </div>
-                            </div>
-                            <div style={{ fontFamily:SERIF, fontSize:12, color:T.txt2, lineHeight:1.4 }}>{v.def}</div>
-                            {v.ex && <div style={{ fontFamily:SERIF, fontStyle:'italic', fontSize:11, color:T.txt3 }}>"{v.ex}"</div>}
-                            <button className="btn" onClick={() => addVocab(v)} disabled={done}
-                              style={{ background: done ? T.grnD : T.blueD, border:'1px solid ' + (done ? T.grn+'50' : T.blue+'50'), color: done ? T.grn : T.blue, fontSize:9, padding:'4px 8px', marginTop:'auto' }}>
-                              {done ? '✓ 已加入' : '+ 加入'}
-                            </button>
-                          </div>
-                        )
-                      })}
+
+                {/* FSI section */}
+                {(res.fsi??[]).length > 0 && (
+                  <div>
+                    <SecHead label="🔄 FSI — 替換句型練習" color={T.amber} count={res.fsi.length} added={addedS.length}/>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginTop:8 }}>
+                      {res.fsi.map((s,i) => <FsiCard key={i} s={s} i={i} desktop/>)}
+                    </div>
+                  </div>
+                )}
+
+                {/* VOCAB section */}
+                {(res.vocab??[]).length > 0 && (
+                  <div>
+                    <SecHead label="📖 VOCAB — 關鍵單字" color={T.blue} count={res.vocab.length} added={addedV.length}/>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginTop:8 }}>
+                      {res.vocab.map((v,i) => <VocabCard key={i} v={v}/>)}
                     </div>
                   </div>
                 )}
@@ -9366,63 +9771,56 @@ function EmailTab({ settings, updateSentences, updateVocab, updateStats, awardBa
     )
   }
 
+  // ── MOBILE layout ───────────────────────────────────────────
   return (
     <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:14 }} className="fadeUp">
-      <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, letterSpacing:'0.1em' }}>PASTE EMAIL OR BUSINESS TEXT</div>
-      <textarea value={text} onChange={e=>setText(e.target.value)} placeholder="Paste an email, meeting notes, or any business English text here…" style={{ minHeight:240, lineHeight:1.6, fontSize:13 }}/>
-      {err && <div style={{ background:T.redD, border:'1px solid ' + T.red + '50', borderRadius:8, padding:11, fontFamily:MONO, fontSize:11, color:T.red, lineHeight:1.5 }}>{err}</div>}
-      <button className="btn" onClick={analyze} disabled={busy || !text.trim()} style={{ background: busy ? T.bdr : T.amber, color: busy ? T.txt2 : T.bg, width:'100%', letterSpacing:'0.08em' }}>
-        {busy ? 'ANALYZING…' : '⚡ AI ANALYSIS'}
-      </button>
+      <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, letterSpacing:'0.1em' }}>AI 三分類分析</div>
+      <InputArea/>
+
       {res && (
-        <div style={{ display:'flex', flexDirection:'column', gap:14 }} className="fadeUp">
-          {(res.sentences ?? []).length > 0 && (
-            <>{res.sentences.map((s, i) => {
-              const done = addedS.includes(s.template)
-              const cat = sentenceCats[i] ?? 'work'
-              return (
-                <div key={i} style={{ background:T.surf, border:'1px solid ' + (done ? T.grn+'50' : T.bdr), borderRadius:11, padding:15 }}>
-                  <div style={{ fontFamily:MONO, fontSize:11.5, color:T.txt, marginBottom:4, lineHeight:1.6 }}>{s.template}</div>
-                  <div style={{ fontFamily:SERIF, fontStyle:'italic', fontSize:12, color:T.txt3, marginBottom:10 }}>{s.context} — {s.hint}</div>
-                  <div style={{ display:'flex', gap:6, marginBottom:10 }}>
-                    {['work','life'].map(c => (
-                      <div key={c} onClick={() => !done && setSentenceCats(p => ({ ...p, [i]: c }))}
-                        style={{ padding:'4px 12px', borderRadius:12, fontFamily:MONO, fontSize:9, cursor: done ? 'default' : 'pointer',
-                          background: cat===c ? (c==='work' ? T.amberD : T.blueD) : T.surf2,
-                          border: '1px solid ' + (cat===c ? (c==='work' ? T.amber+'60' : T.blue+'60') : T.bdr),
-                          color: cat===c ? (c==='work' ? T.amber : T.blue) : T.txt3, opacity: done ? 0.5 : 1 }}>
-                        {c === 'work' ? '💼 WORK' : '🏠 LIFE'}
-                      </div>
-                    ))}
-                  </div>
-                  <button className="btn" onClick={() => addSentence(s, cat)} disabled={done}
-                    style={{ background: done ? T.grnD : T.amberD, border:'1px solid ' + (done ? T.grn+'50' : T.amber+'50'), color: done ? T.grn : T.amber, fontSize:11 }}>
-                    {done ? '✓ Added' : '+ Add to Practice'}
-                  </button>
-                </div>
-              )
-            })}</>
+        <div style={{ display:'flex', flexDirection:'column', gap:16 }} className="fadeUp">
+
+          {/* Summary bar */}
+          <div style={{ background:T.surf2, border:'1px solid '+T.bdr, borderRadius:10, padding:'10px 14px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+            <div style={{ display:'flex', gap:12 }}>
+              <span style={{ fontFamily:MONO, fontSize:9, color:T.blue }}>📌 {res.phrases?.length??0}</span>
+              <span style={{ fontFamily:MONO, fontSize:9, color:T.amber }}>🔄 {res.fsi?.length??0}</span>
+              <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2 }}>📖 {res.vocab?.length??0}</span>
+            </div>
+            <button className="btn" onClick={addAll}
+              style={{ background:T.grnD, border:'1px solid '+T.grn+'50', color:T.grn, fontSize:9, padding:'4px 12px' }}>
+              全部加入 ({totalAdded}/{totalItems})
+            </button>
+          </div>
+
+          {/* PHRASE */}
+          {(res.phrases??[]).length > 0 && (
+            <div>
+              <SecHead label="📌 PHRASE — 固定常用句" color={T.blue} count={res.phrases.length} added={addedP.length}/>
+              <div style={{ display:'flex', flexDirection:'column', gap:10, marginTop:8 }}>
+                {res.phrases.map((p,i) => <PhraseCard key={i} p={p} i={i}/>)}
+              </div>
+            </div>
           )}
-          {(res.vocab ?? []).length > 0 && (
-            <>{res.vocab.map((v, i) => {
-              const done = addedV.includes(v.word)
-              return (
-                <div key={i} style={{ background:T.surf, border:'1px solid ' + (done ? T.grn+'50' : T.bdr), borderRadius:11, padding:15 }}>
-                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:5 }}>
-                    <span style={{ fontFamily:MONO, fontSize:14, color:T.blue, fontWeight:500 }}>{v.word}</span>
-                    <div onClick={()=>speak(v.word)} style={{ cursor:'pointer', color:T.txt3, padding:4 }}>
-                      <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
-                    </div>
-                  </div>
-                  <div style={{ fontFamily:SERIF, fontSize:13, color:T.txt2, marginBottom:v.ex?5:12, lineHeight:1.5 }}>{v.def}</div>
-                  {v.ex && <div style={{ fontFamily:SERIF, fontStyle:'italic', fontSize:12, color:T.txt3, marginBottom:12 }}>"{v.ex}"</div>}
-                  <button className="btn" onClick={() => addVocab(v)} disabled={done}
-                    style={{ background: done ? T.grnD : T.blueD, border:'1px solid ' + (done ? T.grn+'50' : T.blue+'50'), color: done ? T.grn : T.blue, fontSize:11 }}>
-                    {done ? '✓ Added' : '+ Add to Vocab'}
-                  </button>
-                </div>
-              )
-            })}</>
+
+          {/* FSI */}
+          {(res.fsi??[]).length > 0 && (
+            <div>
+              <SecHead label="🔄 FSI — 替換句型練習" color={T.amber} count={res.fsi.length} added={addedS.length}/>
+              <div style={{ display:'flex', flexDirection:'column', gap:10, marginTop:8 }}>
+                {res.fsi.map((s,i) => <FsiCard key={i} s={s} i={i}/>)}
+              </div>
+            </div>
+          )}
+
+          {/* VOCAB */}
+          {(res.vocab??[]).length > 0 && (
+            <div>
+              <SecHead label="📖 VOCAB — 關鍵單字" color={T.blue} count={res.vocab.length} added={addedV.length}/>
+              <div style={{ display:'flex', flexDirection:'column', gap:10, marginTop:8 }}>
+                {res.vocab.map((v,i) => <VocabCard key={i} v={v}/>)}
+              </div>
+            </div>
           )}
         </div>
       )}
@@ -9633,24 +10031,29 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
     if (!(sentences??[]).length && !(vocab??[]).length) { flash('✗ 沒有資料可同步'); return }
     setSyncing(true); flash('推送中…')
     try {
+      // 合併內建 + AI 新增的 phrases
+      const extraPhrases = (() => { try { return JSON.parse(localStorage.getItem('fsi:ph:extra') ?? '[]') } catch { return [] } })()
+      const allPhrases = [...PHRASE_DATA, ...extraPhrases]
+
       const form = new FormData()
       form.append('data', JSON.stringify({
         sentences: sentences ?? [],
-        vocab: vocab ?? []
+        vocab:     vocab     ?? [],
+        phrases:   allPhrases,
       }))
       await fetch(APPS_SCRIPT_URL, {
         method: 'POST',
         mode: 'no-cors',
         body: form,
       })
-      // no-cors 無法讀回應，等 2 秒後 GET 確認
       await new Promise(r => setTimeout(r, 2000))
       try {
         const check = await fetch(APPS_SCRIPT_URL)
-        const json = await check.json()
+        const json  = await check.json()
         const sc = (json.sentences ?? []).length
-        const vc = (json.vocab ?? []).length
-        flash(sc || vc ? `✓ Sheets 已確認：${sc} 句 + ${vc} 單字` : '✓ 已推送（請至 Sheets 手動確認）')
+        const vc = (json.vocab     ?? []).length
+        const pc = (json.phrases   ?? []).length
+        flash(sc || vc ? `✓ Sheets 已確認：${sc} 句 + ${vc} 單字 + ${pc} Phrases` : '✓ 已推送（請至 Sheets 手動確認）')
       } catch {
         flash('✓ 已推送（網路限制，請至 Sheets 確認）')
       }
@@ -9732,6 +10135,15 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
       }
 
       flash(`✓ 已從 Sheets 覆蓋：${cards.length} 句 + ${words.length} 單字（SRS 進度保留）`)
+
+      // ── Phrases：只存 AI 新增的（非內建 PHRASE_DATA 的）到 fsi:ph:extra ──
+      const builtinIds = new Set(PHRASE_DATA.map(p => p.id))
+      const sheetPhrases = json.phrases ?? []
+      const extraFromSheet = sheetPhrases.filter(p => !builtinIds.has(p.id))
+      if (extraFromSheet.length) {
+        localStorage.setItem('fsi:ph:extra', JSON.stringify(extraFromSheet))
+        flash(`✓ 已從 Sheets 覆蓋：${cards.length} 句 + ${words.length} 單字 + ${extraFromSheet.length} AI Phrases`)
+      }
     } catch(e) {
       flash('✗ ' + (e.message ?? 'Sync failed.'))
     } finally { setSyncing(false) }
@@ -10306,7 +10718,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.12</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.13</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
@@ -10318,6 +10730,7 @@ export default function App() {
       <style>{G}</style>
       <Header stats={stats}/>
       <div style={{ flex:1, overflowY:'auto', paddingBottom:'calc(110px + env(safe-area-inset-bottom, 20px))' }}>
+        {tab==='phrase'   && <PhraseTab   settings={settings}/>}
         {tab==='practice' && <PracticeTab {...P}/>}
         {tab==='drill'    && <DrillTab    {...P}/>}
         {tab==='vocab'    && <VocabTab    {...P}/>}
