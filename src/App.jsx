@@ -8579,6 +8579,18 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
             )
           })()}
 
+          {/* Rating buttons (shown after reveal) — 放在連音上方方便按 */}
+          {revealed && (
+            <div style={{ display:'flex', gap:8, marginBottom:4 }}>
+              {[{l:'Again',q:0,c:T.red},{l:'Hard',q:3,c:T.blue},{l:'Easy',q:5,c:T.grn}].map(({ l, q, c }) => (
+                <button key={l} className="btn" onClick={() => handleRate(q)}
+                  style={{ flex:1, background:`${c}18`, border:`1px solid ${c}55`, color:c, padding:'10px 0', fontSize:12, letterSpacing:'0.06em' }}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* ── 連音區塊（slot 下方）─────────────────────── */}
           {card.linked_hint && (() => {
             const displayHint = filledHint ?? card.linked_hint
@@ -8721,17 +8733,6 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
             )
           })()}
 
-          {/* Rating buttons (shown after reveal) */}
-          {revealed && (
-            <div style={{ display:'flex', gap:8, marginBottom:4 }}>
-              {[{l:'Again',q:0,c:T.red},{l:'Hard',q:3,c:T.blue},{l:'Easy',q:5,c:T.grn}].map(({ l, q, c }) => (
-                <button key={l} className="btn" onClick={() => handleRate(q)}
-                  style={{ flex:1, background:`${c}18`, border:`1px solid ${c}55`, color:c }}>
-                  {l}
-                </button>
-              ))}
-            </div>
-          )}
         </>
       )}
     </div>
