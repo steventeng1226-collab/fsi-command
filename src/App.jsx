@@ -7035,7 +7035,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.10</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.11</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -7684,8 +7684,18 @@ function DrillTab({ sentences, vocab, settings }) {
               ⏸ 暫停
             </button>
           )}
+
+          {/* Spacer + divider to prevent accidental stop tap */}
+          <div style={{ display:'flex', alignItems:'center', gap:8, padding:'0 4px' }}>
+            <div style={{ flex:1, height:1, background:T.bdr }}/>
+            <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3, letterSpacing:'0.08em' }}>
+              {ridePaused ? '確認結束？' : '結束練習'}
+            </span>
+            <div style={{ flex:1, height:1, background:T.bdr }}/>
+          </div>
+
           <button className="btn" onClick={stopRide}
-            style={{ background:T.redD, border:`2px solid ${T.red}80`, color:T.red, padding:'14px 0', fontSize:13, letterSpacing:'0.12em', borderRadius:14, width:'100%' }}>
+            style={{ background:T.redD, border:`1px solid ${T.red}50`, color:T.red, padding:'11px 0', fontSize:12, letterSpacing:'0.12em', borderRadius:14, width:'100%', opacity:0.85 }}>
             ■ 停止
           </button>
         </div>
@@ -8024,9 +8034,13 @@ function PracticeTab({ sentences, vocab, stats, settings, updateSentences, updat
   const [editingHint, setEditingHint] = useState(false)
   const [hintDraft, setHintDraft] = useState('')
   const [activeChunk, setActiveChunk] = useState(null)
-  const [filledHint, setFilledHint] = useState(null)      // linked_hint for filled sentence
+  const [filledHint, setFilledHint] = useState(null)
   const [generatingFilledHint, setGeneratingFilledHint] = useState(false)
   const [generatingChunkZh, setGeneratingChunkZh] = useState(false)
+  // Slot inline editing
+  const [slotEditMode, setSlotEditMode] = useState(false)   // show edit controls
+  const [addingSlot, setAddingSlot]     = useState(null)    // gi index being added to
+  const [newOptText, setNewOptText]     = useState('')
   const [dailyCount, setDailyCount] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('fsi:daily') || 'null')
@@ -8400,36 +8414,114 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
             const subsCount = (card.subs ?? []).length
             const missingSlots = Math.max(0, templateSlotCount - subsCount)
             const extraSlots  = Math.max(0, subsCount - templateSlotCount)
+
+            const deleteOpt = (gi, oi) => {
+              updateSentences(prev => prev.map(s => {
+                if (s.id !== card.id) return s
+                const newSubs = (s.subs ?? []).map((g, gIdx) =>
+                  gIdx === gi ? g.filter((_, oIdx) => oIdx !== oi) : g
+                )
+                return { ...s, subs: newSubs }
+              }))
+              if (sels[gi] === (card.subs ?? [])[gi]?.[oi]) {
+                setSels(prev => { const r = { ...prev }; delete r[gi]; return r })
+              }
+            }
+
+            const confirmAddOpt = (gi) => {
+              const txt = newOptText.trim()
+              if (!txt) { setAddingSlot(null); return }
+              updateSentences(prev => prev.map(s => {
+                if (s.id !== card.id) return s
+                const newSubs = (s.subs ?? []).map((g, gIdx) =>
+                  gIdx === gi ? [...g, txt] : g
+                )
+                return { ...s, subs: newSubs }
+              }))
+              setNewOptText('')
+              setAddingSlot(null)
+            }
+
             return (
               <>
+                {/* Edit toggle */}
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'flex-end', marginBottom:2 }}>
+                  <div onClick={() => { setSlotEditMode(v => !v); setAddingSlot(null); setNewOptText('') }}
+                    style={{ fontFamily:MONO, fontSize:8.5, color: slotEditMode ? T.amber : T.txt3, cursor:'pointer', padding:'3px 8px', borderRadius:5,
+                      background: slotEditMode ? T.amberD : 'transparent', border: `1px solid ${slotEditMode ? T.amber+'50' : 'transparent'}`,
+                      transition:'all 0.15s', userSelect:'none' }}>
+                    {slotEditMode ? '✓ 完成編輯' : '✏ 編輯選項'}
+                  </div>
+                </div>
+
                 {(card.subs ?? []).map((group, gi) => {
                   const isExtra = gi >= templateSlotCount
                   return (
                     <div key={gi}>
                       <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:6 }}>
                         <div style={{ fontFamily:MONO, fontSize:8.5, color: isExtra ? T.amber : '#9aa5b0', letterSpacing:'0.1em' }}>SLOT {gi + 1}</div>
-                        {isExtra && <span style={{ fontFamily:MONO, fontSize:8, color:T.amber, background:T.amberD, padding:'1px 6px', borderRadius:4 }}>⚠ 多餘 slot（template 無對應）</span>}
+                        {isExtra && <span style={{ fontFamily:MONO, fontSize:8, color:T.amber, background:T.amberD, padding:'1px 6px', borderRadius:4 }}>⚠ 多餘</span>}
                       </div>
-                      <div style={{ display:'flex', flexWrap:'wrap', gap:6, opacity: isExtra ? 0.5 : 1 }}>
+                      <div style={{ display:'flex', flexWrap:'wrap', gap:6, opacity: isExtra ? 0.5 : 1, alignItems:'center' }}>
                         {group.map((opt, oi) => (
-                          <div key={oi} className={`chip${sels[gi] === opt ? ' sel' : ''}`}
-                            onClick={() => !isExtra && setSels(prev => prev[gi] === opt ? (({ [gi]:_, ...rest }) => rest)(prev) : { ...prev, [gi]: opt })}>
-                            {opt}
+                          <div key={oi} style={{ display:'flex', alignItems:'center', gap:0 }}>
+                            <div className={`chip${sels[gi] === opt ? ' sel' : ''}`}
+                              style={{ borderRadius: slotEditMode ? '20px 0 0 20px' : '20px', paddingRight: slotEditMode ? 8 : 14 }}
+                              onClick={() => !isExtra && !slotEditMode && setSels(prev => prev[gi] === opt ? (({ [gi]:_, ...rest }) => rest)(prev) : { ...prev, [gi]: opt })}>
+                              {opt}
+                            </div>
+                            {slotEditMode && (
+                              <div onClick={() => deleteOpt(gi, oi)}
+                                style={{ display:'flex', alignItems:'center', justifyContent:'center', width:22, height:34, background:'#f8514925', border:'1px solid #f8514950', borderLeft:'none', borderRadius:'0 20px 20px 0', cursor:'pointer', color:T.red, fontSize:11, flexShrink:0 }}>
+                                ✕
+                              </div>
+                            )}
                           </div>
                         ))}
+
+                        {/* Add button */}
+                        {slotEditMode && addingSlot !== gi && (
+                          <div onClick={() => { setAddingSlot(gi); setNewOptText('') }}
+                            style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:'50%', background:T.grnD, border:`1px solid ${T.grn}50`, cursor:'pointer', color:T.grn, fontSize:16, flexShrink:0 }}>
+                            +
+                          </div>
+                        )}
+
+                        {/* Inline input for new option */}
+                        {slotEditMode && addingSlot === gi && (
+                          <div style={{ display:'flex', alignItems:'center', gap:5 }}>
+                            <input
+                              autoFocus
+                              value={newOptText}
+                              onChange={e => setNewOptText(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter') confirmAddOpt(gi); if (e.key === 'Escape') { setAddingSlot(null); setNewOptText('') } }}
+                              placeholder="新選項…"
+                              style={{ width:130, background:T.surf2, border:`1px solid ${T.grn}60`, borderRadius:8, padding:'5px 8px', fontFamily:MONO, fontSize:11, color:T.txt, outline:'none' }}
+                            />
+                            <div onClick={() => confirmAddOpt(gi)}
+                              style={{ cursor:'pointer', background:T.grn, color:T.bg, borderRadius:6, padding:'4px 8px', fontFamily:MONO, fontSize:10, fontWeight:600 }}>
+                              確認
+                            </div>
+                            <div onClick={() => { setAddingSlot(null); setNewOptText('') }}
+                              style={{ cursor:'pointer', color:T.txt3, fontFamily:MONO, fontSize:10 }}>
+                              取消
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )
                 })}
+
                 {extraSlots > 0 && (
-                  <div style={{ background:T.amberD, border:`1px solid ${T.amber}40`, borderRadius:8, padding:'8px 12px', display:'flex', alignItems:'center', gap:6 }}>
-                    <span style={{ fontFamily:MONO, fontSize:9, color:T.amber }}>⚠ 此卡有 {extraSlots} 個多餘 SLOT，選項分配可能錯誤 — 建議重新編輯</span>
+                  <div style={{ background:T.amberD, border:`1px solid ${T.amber}40`, borderRadius:8, padding:'8px 12px' }}>
+                    <span style={{ fontFamily:MONO, fontSize:9, color:T.amber }}>⚠ 此卡有 {extraSlots} 個多餘 SLOT — 建議到 SETUP 修正</span>
                   </div>
                 )}
                 {missingSlots > 0 && Array.from({ length: missingSlots }).map((_, mi) => (
                   <div key={`missing-${mi}`} style={{ background: T.redD, border:`1px solid ${T.red}50`, borderRadius:8, padding:'8px 12px', display:'flex', alignItems:'center', gap:8 }}>
                     <span style={{ fontFamily:MONO, fontSize:8.5, color:T.red, letterSpacing:'0.1em' }}>SLOT {subsCount + mi + 1}</span>
-                    <span style={{ fontFamily:MONO, fontSize:9, color:T.red }}>⚠ 未設定選項 — 請點「編輯」補上</span>
+                    <span style={{ fontFamily:MONO, fontSize:9, color:T.red }}>⚠ 未設定選項</span>
                   </div>
                 ))}
               </>
@@ -9243,6 +9335,11 @@ function AchieveTab({ stats, earned, sentences, vocab }) {
 function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings, updateSettings }) {
   const [key, setKey] = useState(settings?.apiKey ?? '')
   const [elevenKey, setElevenKey] = useState(settings?.elevenKey ?? '')
+  // Sync when settings prop changes (e.g. after Sheets read-in)
+  useEffect(() => {
+    if (settings?.apiKey    !== undefined) setKey(settings.apiKey ?? '')
+    if (settings?.elevenKey !== undefined) setElevenKey(settings.elevenKey ?? '')
+  }, [settings?.apiKey, settings?.elevenKey])
   const [showKey, setShowKey] = useState(false)
   const [showElevenKey, setShowElevenKey] = useState(false)
   const [syncing, setSyncing] = useState(false)
@@ -9392,8 +9489,10 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
   }
 
   function save() {
-    updateSettings(() => ({ apiKey: key.trim(), elevenKey: elevenKey.trim() }))
-    flash('✓ Settings saved.')
+    const newSettings = { apiKey: key.trim(), elevenKey: elevenKey.trim() }
+    updateSettings(() => newSettings)
+    try { localStorage.setItem('fsi:se', JSON.stringify(newSettings)) } catch(e) {}
+    flash('✓ API Keys 已儲存')
   }
 
   async function syncSheets() {
@@ -9523,6 +9622,12 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
           未設定時自動使用瀏覽器 TTS。免費版 10,000 字元/月。
         </div>
       </div>
+
+      {/* ── Quick Save API Keys ── */}
+      <button className="btn" onClick={save}
+        style={{ background:T.amber, color:T.bg, width:'100%', letterSpacing:'0.08em', fontWeight:600 }}>
+        💾 SAVE API KEYS
+      </button>
 
       {/* ── 資料統計診斷 ── */}
       {(() => {
@@ -10009,7 +10114,11 @@ export default function App() {
   const updateSentences = useCallback((fn) => setSentences(prev => { const n=fn(prev); stor.set('fsi:s',n); return n }), [])
   const updateVocab     = useCallback((fn) => setVocab(prev     => { const n=fn(prev); stor.set('fsi:v',n); return n }), [])
   const updateStats     = useCallback((fn) => setStats(prev     => { const n=fn(prev); stor.set('fsi:st',n); return n }), [])
-  const updateSettings  = useCallback((fn) => setSettings(prev  => { const n=fn(prev); stor.set('fsi:se',n); return n }), [])
+  const updateSettings  = useCallback((fn) => setSettings(prev => {
+    const n = fn(prev)
+    try { localStorage.setItem('fsi:se', JSON.stringify(n)) } catch(e) { console.warn('settings save failed', e) }
+    return n
+  }), [])
 
   const awardBadge = useCallback((id) => {
     setEarned(prev => {
@@ -10026,7 +10135,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.10</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.11</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
