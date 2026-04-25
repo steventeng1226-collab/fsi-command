@@ -7035,7 +7035,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.9</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.10</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -9253,6 +9253,9 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
   const [batchProgress, setBatchProgress] = useState(null)
   const batchStop = useRef(false)
   const [showScan, setShowScan] = useState(false)
+  const [editingCardId, setEditingCardId] = useState(null)
+  const [editDraftSubs, setEditDraftSubs] = useState([]) // string[][]
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null)
 
   function flash(m) { setMsg(m); setTimeout(() => setMsg(''), 3000) }
 
@@ -9579,38 +9582,178 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
         const missingCards = realCards.filter(c => countTplSlots(c.template) > (c.subs ?? []).length)
         const extraCards   = realCards.filter(c => countTplSlots(c.template) < (c.subs ?? []).length)
         const allBadCards  = [...new Set([...missingCards, ...extraCards])]
+
+        const startEdit = (c) => {
+          const tplCount = countTplSlots(c.template)
+          const existing = c.subs ?? []
+          // Pad missing slots as empty arrays, trim extra slots
+          const draft = Array.from({ length: tplCount }, (_, i) => existing[i] ?? [])
+          setEditDraftSubs(draft)
+          setEditingCardId(c.id)
+          setDeleteConfirmId(null)
+        }
+
+        const saveEdit = () => {
+          updateSentences(prev => prev.map(c =>
+            c.id === editingCardId ? { ...c, subs: editDraftSubs } : c
+          ))
+          setEditingCardId(null)
+          flash('✓ 卡片已更新')
+        }
+
+        const deleteCard = (id) => {
+          updateSentences(prev => prev.filter(c => c.id !== id))
+          setDeleteConfirmId(null)
+          setEditingCardId(null)
+          flash('🗑 已刪除')
+        }
+
+        const updateSlotOpt = (slotIdx, optIdx, val) => {
+          setEditDraftSubs(prev => prev.map((group, gi) =>
+            gi === slotIdx ? group.map((o, oi) => oi === optIdx ? val : o) : group
+          ))
+        }
+        const addOpt = (slotIdx) => {
+          setEditDraftSubs(prev => prev.map((group, gi) =>
+            gi === slotIdx ? [...group, ''] : group
+          ))
+        }
+        const removeOpt = (slotIdx, optIdx) => {
+          setEditDraftSubs(prev => prev.map((group, gi) =>
+            gi === slotIdx ? group.filter((_, oi) => oi !== optIdx) : group
+          ))
+        }
+        const removeSlot = (slotIdx) => {
+          setEditDraftSubs(prev => prev.filter((_, gi) => gi !== slotIdx))
+        }
+
         if (allBadCards.length === 0) return (
           <div style={{ background:T.surf2, border:`1px solid ${T.grn}30`, borderRadius:10, padding:'10px 14px', display:'flex', alignItems:'center', gap:8 }}>
             <span style={{ fontFamily:MONO, fontSize:9, color:T.grn }}>✓ 所有卡片 slot 結構正常</span>
           </div>
         )
+
         return (
           <div style={{ background:T.surf2, border:`1px solid ${T.red}40`, borderRadius:10, padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }}>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
               <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>🔍 卡片完整性掃描</div>
-              <button className="btn" onClick={() => setShowScan(v => !v)}
+              <button className="btn" onClick={() => { setShowScan(v => !v); setEditingCardId(null); setDeleteConfirmId(null) }}
                 style={{ fontSize:9, padding:'3px 10px', background: showScan ? T.surf : T.amberD, border:`1px solid ${T.amber}50`, color:T.amber }}>
                 {showScan ? '收起' : `查看 ${allBadCards.length} 張問題卡`}
               </button>
             </div>
+
             {showScan && (
-              <div style={{ display:'flex', flexDirection:'column', gap:6, maxHeight:320, overflowY:'auto' }}>
+              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
                 {allBadCards.map(c => {
                   const tplCount = countTplSlots(c.template)
                   const subsCount = (c.subs ?? []).length
                   const isMissing = tplCount > subsCount
+                  const isEditing = editingCardId === c.id
+                  const isDeleting = deleteConfirmId === c.id
+
                   return (
-                    <div key={c.id} style={{ background:T.surf, border:`1px solid ${isMissing ? T.red : T.amber}40`, borderRadius:8, padding:'8px 10px', display:'flex', flexDirection:'column', gap:4 }}>
-                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                        <span style={{ fontFamily:MONO, fontSize:8.5, color: isMissing ? T.red : T.amber }}>
-                          {isMissing ? '⚠ Slot 缺少' : '⚠ Slot 多餘'}
-                        </span>
-                        <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
-                          template {tplCount} slot vs subs {subsCount} 組
-                        </span>
+                    <div key={c.id} style={{ background:T.surf, border:`1px solid ${isEditing ? T.blue : isMissing ? T.red : T.amber}40`, borderRadius:10, padding:'10px 12px', display:'flex', flexDirection:'column', gap:8 }}>
+
+                      {/* Card header */}
+                      <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:8 }}>
+                        <div style={{ display:'flex', flexDirection:'column', gap:3, flex:1 }}>
+                          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                            <span style={{ fontFamily:MONO, fontSize:8, color: isMissing ? T.red : T.amber }}>
+                              {isMissing ? '⚠ Slot 缺少' : '⚠ Slot 多餘'}
+                            </span>
+                            <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>tpl {tplCount} / subs {subsCount}</span>
+                          </div>
+                          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2 }}>{c.context}</div>
+                          <div style={{ fontFamily:SERIF, fontSize:11, color:T.txt3, fontStyle:'italic', lineHeight:1.4 }}>{c.template}</div>
+                        </div>
+                        {/* Action buttons */}
+                        {!isEditing && !isDeleting && (
+                          <div style={{ display:'flex', gap:5, flexShrink:0 }}>
+                            <button className="btn" onClick={() => startEdit(c)}
+                              style={{ fontSize:9, padding:'3px 9px', background:T.blueD, border:`1px solid ${T.blue}50`, color:T.blue }}>
+                              ✏ 編輯
+                            </button>
+                            <button className="btn" onClick={() => { setDeleteConfirmId(c.id); setEditingCardId(null) }}
+                              style={{ fontSize:9, padding:'3px 9px', background:T.redD, border:`1px solid ${T.red}50`, color:T.red }}>
+                              🗑
+                            </button>
+                          </div>
+                        )}
                       </div>
-                      <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2 }}>{c.context}</div>
-                      <div style={{ fontFamily:SERIF, fontSize:11, color:T.txt3, fontStyle:'italic', lineHeight:1.4 }}>{c.template}</div>
+
+                      {/* Delete confirm */}
+                      {isDeleting && (
+                        <div style={{ background:T.redD, border:`1px solid ${T.red}50`, borderRadius:7, padding:'8px 10px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}>
+                          <span style={{ fontFamily:MONO, fontSize:9, color:T.red }}>確定刪除這張卡？</span>
+                          <div style={{ display:'flex', gap:6 }}>
+                            <button className="btn" onClick={() => deleteCard(c.id)}
+                              style={{ fontSize:9, padding:'3px 10px', background:T.red, color:T.bg, border:'none' }}>確定刪除</button>
+                            <button className="btn" onClick={() => setDeleteConfirmId(null)}
+                              style={{ fontSize:9, padding:'3px 10px', background:T.surf2, border:`1px solid ${T.bdr}`, color:T.txt3 }}>取消</button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Inline editor */}
+                      {isEditing && (
+                        <div style={{ display:'flex', flexDirection:'column', gap:10, borderTop:`1px solid ${T.bdr}`, paddingTop:10 }}>
+                          {editDraftSubs.map((group, gi) => {
+                            const isExtra = gi >= tplCount
+                            return (
+                              <div key={gi} style={{ display:'flex', flexDirection:'column', gap:5 }}>
+                                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                                  <span style={{ fontFamily:MONO, fontSize:8.5, color: isExtra ? T.amber : T.txt2, letterSpacing:'0.1em' }}>
+                                    SLOT {gi + 1}{isExtra ? ' ⚠ 多餘' : ''}
+                                  </span>
+                                  {isExtra && (
+                                    <button className="btn" onClick={() => removeSlot(gi)}
+                                      style={{ fontSize:8, padding:'1px 7px', background:T.amberD, border:`1px solid ${T.amber}40`, color:T.amber }}>
+                                      刪除此 Slot
+                                    </button>
+                                  )}
+                                </div>
+                                <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+                                  {group.map((opt, oi) => (
+                                    <div key={oi} style={{ display:'flex', gap:5, alignItems:'center' }}>
+                                      <input
+                                        value={opt}
+                                        onChange={e => updateSlotOpt(gi, oi, e.target.value)}
+                                        placeholder={`選項 ${oi + 1}`}
+                                        style={{ flex:1, background:T.surf2, border:`1px solid ${T.bdr2}`, borderRadius:6, padding:'5px 8px', fontFamily:MONO, fontSize:11, color:T.txt, outline:'none' }}
+                                      />
+                                      <div onClick={() => removeOpt(gi, oi)}
+                                        style={{ cursor:'pointer', color:T.txt3, padding:'4px 6px', borderRadius:5, background:T.surf2, fontFamily:MONO, fontSize:10, flexShrink:0 }}
+                                        onMouseOver={e=>e.currentTarget.style.color=T.red}
+                                        onMouseOut={e=>e.currentTarget.style.color=T.txt3}>✕</div>
+                                    </div>
+                                  ))}
+                                  <button className="btn" onClick={() => addOpt(gi)}
+                                    style={{ alignSelf:'flex-start', fontSize:9, padding:'3px 10px', background:T.surf2, border:`1px solid ${T.bdr}`, color:T.txt3 }}>
+                                    + 新增選項
+                                  </button>
+                                </div>
+                              </div>
+                            )
+                          })}
+
+                          {/* Save / Cancel */}
+                          <div style={{ display:'flex', gap:6, paddingTop:4 }}>
+                            <button className="btn" onClick={saveEdit}
+                              style={{ flex:1, background:T.grn, border:'none', color:T.bg, fontSize:10, fontWeight:600 }}>
+                              ✓ 儲存
+                            </button>
+                            <button className="btn" onClick={() => { setEditingCardId(null); setDeleteConfirmId(null) }}
+                              style={{ flex:1, background:T.surf2, border:`1px solid ${T.bdr}`, color:T.txt3, fontSize:10 }}>
+                              取消
+                            </button>
+                            <button className="btn" onClick={() => { setDeleteConfirmId(c.id); setEditingCardId(null) }}
+                              style={{ background:T.redD, border:`1px solid ${T.red}50`, color:T.red, fontSize:10, padding:'5px 12px' }}>
+                              🗑 刪除
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )
                 })}
@@ -9883,7 +10026,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.9</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.10</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
