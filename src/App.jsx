@@ -7035,7 +7035,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.11</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.12</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -8037,6 +8037,9 @@ function PracticeTab({ sentences, vocab, stats, settings, updateSentences, updat
   const [filledHint, setFilledHint] = useState(null)
   const [generatingFilledHint, setGeneratingFilledHint] = useState(false)
   const [generatingChunkZh, setGeneratingChunkZh] = useState(false)
+  // Chinese translation
+  const [zhTranslation, setZhTranslation]   = useState(null)   // string | null
+  const [generatingZh, setGeneratingZh]     = useState(false)
   // Slot inline editing
   const [slotEditMode, setSlotEditMode] = useState(false)   // show edit controls
   const [addingSlot, setAddingSlot]     = useState(null)    // gi index being added to
@@ -8134,7 +8137,7 @@ function PracticeTab({ sentences, vocab, stats, settings, updateSentences, updat
     } else {
       setIdx(nextIdx)
     }
-    setSels({}); setRevealed(false); setFilledHint(null)
+    setSels({}); setRevealed(false); setFilledHint(null); setZhTranslation(null)
     showToast(q === 5 ? '✓ Easy +5 XP' : q === 3 ? '◎ Hard +3 XP' : '↺ Again +1 XP')
   }
 
@@ -8241,6 +8244,23 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
     } catch {
       showToast('✗ 產生失敗，請檢查 API Key')
     } finally { setGeneratingChunkZh(false) }
+  }
+
+  async function generateZhTranslation() {
+    const apiKey = settings?.apiKey || (() => {
+      try { return JSON.parse(localStorage.getItem('fsi:se') || '{}')?.apiKey ?? '' } catch { return '' }
+    })()
+    if (!apiKey) { showToast('請先在 Setup 設定 API Key'); return }
+    if (!card) return
+    setGeneratingZh(true)
+    try {
+      const sentence = buildFilled()
+      const sys = '你是英語教學助理，幫助台灣製造業工作者學習英語。請將英語句子翻譯成繁體中文，並說明使用情境。格式如下（只輸出這兩行）：\n翻譯：[中文翻譯]\n情境：[一句話說明何時使用]'
+      const raw = await callClaude(apiKey, [{ role:'user', content: sentence }], sys)
+      setZhTranslation(raw.trim())
+    } catch(e) {
+      showToast('翻譯失敗，請檢查 API Key')
+    } finally { setGeneratingZh(false) }
   }
 
   function ModeBtn({ id, label }) {
@@ -8402,6 +8422,37 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
                     border: `1px solid ${allFilled ? T.amber : T.bdr}`,
                     transition:'all 0.14s', opacity: allFilled ? 1 : 0.5 }}>
                   ▶ REVEAL
+                </div>
+              )}
+            </div>
+
+            {/* ── 中文翻譯區塊 ── */}
+            <div style={{ marginTop:8 }}>
+              {!zhTranslation && (
+                <div onClick={generatingZh ? undefined : generateZhTranslation}
+                  style={{ display:'inline-flex', alignItems:'center', gap:5, cursor: generatingZh ? 'default' : 'pointer',
+                    fontFamily:MONO, fontSize:9, color: generatingZh ? T.txt3 : T.blue,
+                    padding:'4px 10px', borderRadius:6, background:T.blueD,
+                    border:`1px solid ${T.blue}30`, opacity: generatingZh ? 0.6 : 1,
+                    transition:'all 0.15s', userSelect:'none' }}>
+                  {generatingZh ? '⏳ 翻譯中…' : '🀄 中文翻譯'}
+                </div>
+              )}
+              {zhTranslation && (
+                <div style={{ background:T.blueD, border:`1px solid ${T.blue}25`, borderRadius:9, padding:'10px 13px', display:'flex', flexDirection:'column', gap:5 }}>
+                  {zhTranslation.split('\n').map((line, i) => {
+                    const isFirst = i === 0
+                    return (
+                      <div key={i} style={{ fontFamily:MONO, fontSize: isFirst ? 12 : 10,
+                        color: isFirst ? T.txt : T.txt2, lineHeight:1.6 }}>
+                        {line}
+                      </div>
+                    )
+                  })}
+                  <div onClick={() => setZhTranslation(null)}
+                    style={{ alignSelf:'flex-end', fontFamily:MONO, fontSize:8.5, color:T.txt3, cursor:'pointer', marginTop:2 }}>
+                    ✕ 關閉
+                  </div>
                 </div>
               )}
             </div>
@@ -9125,48 +9176,33 @@ function EmailTab({ settings, updateSentences, updateVocab, updateStats, awardBa
   const [err, setErr] = useState('')
   const [addedS, setAddedS] = useState([])
   const [addedV, setAddedV] = useState([])
-  const [sentenceCats, setSentenceCats] = useState({}) // index -> 'work' | 'life'
+  const [sentenceCats, setSentenceCats] = useState({})
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth > 640)
+
+  useEffect(() => {
+    const handler = () => setIsDesktop(window.innerWidth > 640)
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
+  }, [])
 
   async function analyze() {
-    if (!settings?.apiKey) { setErr('Please add your Anthropic API key in Settings first.'); return }
-    if (!text.trim()) { setErr('Please paste some text to analyze.'); return }
-    setBusy(true); setErr(''); setRes(null)
+    if (!settings?.apiKey) { setErr('請先在 Setup 設定 Anthropic API Key'); return }
+    if (!text.trim()) { setErr('請先貼上英文文字'); return }
+    setBusy(true); setErr(''); setRes(null); setAddedS([]); setAddedV([])
     try {
-      const system = `You are an FSI English teaching assistant for a Taiwanese electronics manufacturing professional (SMD/inductor division, financial analysis role).
-Analyze the text and extract:
-- 3-5 FSI substitution drill sentences using manufacturing/business vocabulary
-- 3-5 vocabulary words worth learning
-
-For each sentence, generate a "linked_hint" showing how native speakers actually say it:
-RULES for linked_hint:
-1. Consonant+Vowel liaison (MOST IMPORTANT): word ending in consonant + word starting with vowel (A E I O U) → merge with ·
-   e.g. "need it" → "nee·dit", "pick it up" → "pi·ki·tup", "not at all" → "no·ta·tall", "turn it on" → "tur·ni·ton"
-2. Weak "of" → ə merged: "end of" → "endə", "kind of" → "kində", "out of" → "outə"
-3. Weak "and" → ən merged: "black and white" → "blackən white"
-4. Weak "to" → tə: "need to go" → "need tə go"
-5. Weak "a/the" before vowel → ə: "at the" → "ət ðə"
-6. Elision — t/d dropped before consonant: "last night" → "las(t) night", "need by" → "nee(d) by"
-7. Stressed syllables: CAPITALIZE. e.g. "proDUCtion", "LAtest"
-8. {slot} is an INVISIBLE WALL — NEVER merge · across it. Words adjacent to {slot} are isolated.
-   WRONG: "need·{time}" or "{time}·at" — never cross the wall.
-   RIGHT: "need {time} ə(t)" — liaison stops and restarts around {slot}.
-
-Return ONLY valid JSON (no markdown), format:
-{"sentences":[{"template":"...with {blank} for substitution","context":"Short context name","hint":"When you'd say this","linked_hint":"annotated version using · [ ] ( ) CAPS rules","subs":[["opt1","opt2","opt3"]]}],"vocab":[{"word":"word","def":"concise definition","ex":"example sentence from the text or invented"}]}`
+      const system = 'You are an FSI English teaching assistant for a Taiwanese electronics manufacturing professional (SMD/inductor division, financial analysis role).\nAnalyze the text and extract:\n- 3-5 FSI substitution drill sentences using manufacturing/business vocabulary\n- 3-5 vocabulary words worth learning\n\nFor each sentence, generate a linked_hint showing how native speakers actually say it:\nRULES for linked_hint:\n1. Consonant+Vowel liaison: word ending in consonant + word starting with vowel → merge with · e.g. "need it" → "nee·dit"\n2. Weak "of" → ə merged: "end of" → "endə"\n3. Weak "and" → ən merged: "black and white" → "blackən white"\n4. Weak "to" → tə: "need to go" → "need tə go"\n5. Elision: t/d dropped before consonant: "last night" → "las(t) night"\n6. Stressed syllables: CAPITALIZE. e.g. "proDUCtion"\n7. {slot} is an INVISIBLE WALL — NEVER merge across it.\n\nReturn ONLY valid JSON (no markdown), format:\n{"sentences":[{"template":"...with {blank} for substitution","context":"Short context name","hint":"When you say this","linked_hint":"annotated version","subs":[["opt1","opt2","opt3"]]}],"vocab":[{"word":"word","def":"concise definition","ex":"example sentence"}]}'
       const raw = await callClaude(settings.apiKey, [{ role:'user', content: text }], system)
       const parsed = JSON.parse(raw.replace(/```json|```/g,'').trim())
-      setRes(parsed)
-      setSentenceCats({})
+      setRes(parsed); setSentenceCats({})
       awardBadge('email_done')
       updateStats(s => ({ ...s, xp: (s.xp??0) + 15 }))
     } catch(e) {
-      setErr(e.message?.includes('API') ? e.message : 'Analysis failed. Please check your API key and try again.')
+      setErr(e.message?.includes('API') ? e.message : '分析失敗，請確認 API Key 正確')
     } finally { setBusy(false) }
   }
 
   function addSentence(s, cat) {
-    const id = `ai_${Date.now()}`
-    // If user picked LIFE, override context to trigger LIFE filter
+    const id = 'ai_' + Date.now()
     const context = cat === 'life' ? (s.context || 'Daily Life') + ' (Life)' : s.context || 'AI'
     updateSentences(prev => [...(prev??[]), { id, mode:'simple', context, hint:s.hint||'', template:s.template, linked_hint:s.linked_hint||'', subs:s.subs||[], reps:0,ease:2.5,interval:1,dueDate:0,lastSeen:0 }])
     setAddedS(a => [...a, s.template])
@@ -9174,84 +9210,218 @@ Return ONLY valid JSON (no markdown), format:
   }
 
   function addVocab(v) {
-    const id = `av_${Date.now()}`
+    const id = 'av_' + Date.now()
     updateVocab(prev => [...(prev??[]), { id, word:v.word, ipa_us:'', def:v.def, ex:v.ex, reps:0,ease:2.5,interval:1,dueDate:0,lastSeen:0 }])
     setAddedV(a => [...a, v.word])
     updateStats(st => ({ ...st, xp: (st.xp??0) + 3 }))
+  }
+
+  function addAll() {
+    ;(res?.sentences ?? []).forEach((s,i) => { if (!addedS.includes(s.template)) addSentence(s, sentenceCats[i] ?? 'work') })
+    ;(res?.vocab ?? []).forEach(v => { if (!addedV.includes(v.word)) addVocab(v) })
+  }
+
+  if (isDesktop) {
+    return (
+      <div style={{ position:'fixed', top:0, left:0, right:0, bottom:0, background:T.bg, display:'flex', flexDirection:'column', zIndex:5 }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 24px', borderBottom:'1px solid ' + T.bdr, background:T.surf, flexShrink:0 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+            <AppIcon size={28}/>
+            <span style={{ fontFamily:DISP, fontSize:13, color:T.amber, letterSpacing:'0.12em' }}>FSI COMMAND — AI ANALYSIS</span>
+          </div>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            {res && (
+              <button className="btn" onClick={addAll}
+                style={{ background:T.grnD, border:'1px solid ' + T.grn + '50', color:T.grn, fontSize:10, padding:'5px 14px', letterSpacing:'0.06em' }}>
+                ✓ 全部加入練習
+              </button>
+            )}
+            <button className="btn" onClick={() => { setText(''); setRes(null); setErr(''); setAddedS([]); setAddedV([]) }}
+              style={{ background:T.surf2, border:'1px solid ' + T.bdr, color:T.txt3, fontSize:10, padding:'5px 12px' }}>
+              清除
+            </button>
+          </div>
+        </div>
+        <div style={{ display:'flex', flex:1, overflow:'hidden' }}>
+          <div style={{ width:'42%', minWidth:320, display:'flex', flexDirection:'column', borderRight:'1px solid ' + T.bdr, padding:'20px 24px', gap:14, flexShrink:0 }}>
+            <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, letterSpacing:'0.1em' }}>貼上英文文字（Email、會議記錄、報告…）</div>
+            <textarea
+              value={text}
+              onChange={e => setText(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) analyze() }}
+              placeholder={'Paste email, meeting notes, or any business English text here…\n\n(Ctrl+Enter to analyze)'}
+              style={{ flex:1, resize:'none', lineHeight:1.7, fontSize:13, minHeight:0, background:T.surf2, border:'1px solid ' + T.bdr2, borderRadius:10, padding:'14px 16px', color:T.txt, fontFamily:MONO, outline:'none' }}
+            />
+            {err && <div style={{ background:T.redD, border:'1px solid ' + T.red + '50', borderRadius:8, padding:11, fontFamily:MONO, fontSize:11, color:T.red }}>{err}</div>}
+            <button className="btn" onClick={analyze} disabled={busy || !text.trim()}
+              style={{ background: busy ? T.bdr : T.amber, color: busy ? T.txt2 : T.bg, width:'100%', letterSpacing:'0.1em', padding:'13px', fontSize:12, fontWeight:700, flexShrink:0 }}>
+              {busy
+                ? React.createElement('span', { style:{ display:'flex', alignItems:'center', justifyContent:'center', gap:8 } },
+                    React.createElement('span', { style:{ display:'inline-block', width:10, height:10, border:'2px solid transparent', borderTopColor:T.txt2, borderRadius:'50%', animation:'spin 0.7s linear infinite' } }),
+                    'ANALYZING…')
+                : '⚡ AI ANALYSIS（Ctrl+Enter）'
+              }
+            </button>
+            <div style={{ fontFamily:MONO, fontSize:8.5, color:T.txt3, textAlign:'center', lineHeight:1.7 }}>
+              產生後右側逐一加入，或「全部加入練習」一次完成
+              {'\n'}完成後 SETUP → 推送 Sheets → 手機讀入
+            </div>
+          </div>
+          <div style={{ flex:1, overflowY:'auto', padding:'20px 24px', display:'flex', flexDirection:'column', gap:16 }}>
+            {!res && !busy && (
+              <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:12, opacity:0.35 }}>
+                <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                  <rect x="6" y="8" width="36" height="5" rx="2" fill={T.txt3}/>
+                  <rect x="6" y="18" width="28" height="4" rx="2" fill={T.txt3}/>
+                  <rect x="6" y="27" width="32" height="4" rx="2" fill={T.txt3}/>
+                  <rect x="6" y="36" width="20" height="4" rx="2" fill={T.txt3}/>
+                </svg>
+                <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>貼上文字後按分析，結果顯示在這裡</span>
+              </div>
+            )}
+            {busy && (
+              <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:12 }}>
+                <span style={{ display:'inline-block', width:32, height:32, border:'3px solid transparent', borderTopColor:T.amber, borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>
+                <span style={{ fontFamily:MONO, fontSize:10, color:T.amber, letterSpacing:'0.1em' }}>AI 分析中…</span>
+              </div>
+            )}
+            {res && (
+              <div style={{ display:'flex', flexDirection:'column', gap:18 }} className="fadeUp">
+                {(res.sentences ?? []).length > 0 && (
+                  <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                      <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, letterSpacing:'0.1em' }}>FSI DRILL SENTENCES ({res.sentences.length})</div>
+                      <span style={{ fontFamily:MONO, fontSize:8.5, color:T.grn }}>{addedS.length}/{res.sentences.length} 已加入</span>
+                    </div>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                      {res.sentences.map((s, i) => {
+                        const done = addedS.includes(s.template)
+                        const cat = sentenceCats[i] ?? 'work'
+                        return (
+                          <div key={i} style={{ background:T.surf, border:'1px solid ' + (done ? T.grn + '50' : T.bdr), borderRadius:11, padding:14, display:'flex', flexDirection:'column', gap:8, transition:'border-color 0.3s' }}>
+                            <div style={{ fontFamily:MONO, fontSize:11, color:T.txt, lineHeight:1.6 }}>{s.template}</div>
+                            <div style={{ fontFamily:SERIF, fontStyle:'italic', fontSize:11, color:T.txt3 }}>{s.context} — {s.hint}</div>
+                            {s.linked_hint && <div style={{ fontFamily:MONO, fontSize:10, color:T.amber, background:T.amberD, borderRadius:6, padding:'4px 8px' }}>{s.linked_hint}</div>}
+                            {(s.subs ?? []).map((group, gi) => (
+                              <div key={gi} style={{ display:'flex', flexWrap:'wrap', gap:4 }}>
+                                {group.map((opt, oi) => (
+                                  <span key={oi} style={{ fontFamily:MONO, fontSize:9, background:T.surf2, border:'1px solid ' + T.bdr, borderRadius:10, padding:'2px 8px', color:T.txt3 }}>{opt}</span>
+                                ))}
+                              </div>
+                            ))}
+                            <div style={{ display:'flex', gap:6, marginTop:'auto', alignItems:'center' }}>
+                              {['work','life'].map(c => (
+                                <div key={c} onClick={() => !done && setSentenceCats(p => ({ ...p, [i]: c }))}
+                                  style={{ padding:'3px 10px', borderRadius:10, fontFamily:MONO, fontSize:8.5, cursor: done ? 'default' : 'pointer',
+                                    background: cat===c ? (c==='work' ? T.amberD : T.blueD) : T.surf2,
+                                    border: '1px solid ' + (cat===c ? (c==='work' ? T.amber+'60' : T.blue+'60') : T.bdr),
+                                    color: cat===c ? (c==='work' ? T.amber : T.blue) : T.txt3, opacity: done ? 0.5 : 1 }}>
+                                  {c === 'work' ? '💼 WORK' : '🏠 LIFE'}
+                                </div>
+                              ))}
+                              <button className="btn" onClick={() => addSentence(s, cat)} disabled={done}
+                                style={{ marginLeft:'auto', background: done ? T.grnD : T.amberD, border:'1px solid ' + (done ? T.grn+'50' : T.amber+'50'), color: done ? T.grn : T.amber, fontSize:9, padding:'4px 10px' }}>
+                                {done ? '✓ 已加入' : '+ 加入'}
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+                {(res.vocab ?? []).length > 0 && (
+                  <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                    <div style={{ fontFamily:MONO, fontSize:9, color:T.blue, letterSpacing:'0.1em' }}>VOCABULARY ({res.vocab.length})</div>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10 }}>
+                      {res.vocab.map((v, i) => {
+                        const done = addedV.includes(v.word)
+                        return (
+                          <div key={i} style={{ background:T.surf, border:'1px solid ' + (done ? T.grn+'50' : T.bdr), borderRadius:10, padding:12, display:'flex', flexDirection:'column', gap:6 }}>
+                            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                              <span style={{ fontFamily:MONO, fontSize:13, color:T.blue, fontWeight:500 }}>{v.word}</span>
+                              <div onClick={() => speak(v.word)} style={{ cursor:'pointer', color:T.txt3, padding:3 }}
+                                onMouseOver={e=>e.currentTarget.style.color=T.blue} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
+                                <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+                              </div>
+                            </div>
+                            <div style={{ fontFamily:SERIF, fontSize:12, color:T.txt2, lineHeight:1.4 }}>{v.def}</div>
+                            {v.ex && <div style={{ fontFamily:SERIF, fontStyle:'italic', fontSize:11, color:T.txt3 }}>"{v.ex}"</div>}
+                            <button className="btn" onClick={() => addVocab(v)} disabled={done}
+                              style={{ background: done ? T.grnD : T.blueD, border:'1px solid ' + (done ? T.grn+'50' : T.blue+'50'), color: done ? T.grn : T.blue, fontSize:9, padding:'4px 8px', marginTop:'auto' }}>
+                              {done ? '✓ 已加入' : '+ 加入'}
+                            </button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
     <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:14 }} className="fadeUp">
       <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, letterSpacing:'0.1em' }}>PASTE EMAIL OR BUSINESS TEXT</div>
       <textarea value={text} onChange={e=>setText(e.target.value)} placeholder="Paste an email, meeting notes, or any business English text here…" style={{ minHeight:240, lineHeight:1.6, fontSize:13 }}/>
-      {err && (
-        <div style={{ background:T.redD, border:`1px solid ${T.red}50`, borderRadius:8, padding:11, fontFamily:MONO, fontSize:11, color:T.red, lineHeight:1.5 }}>{err}</div>
-      )}
+      {err && <div style={{ background:T.redD, border:'1px solid ' + T.red + '50', borderRadius:8, padding:11, fontFamily:MONO, fontSize:11, color:T.red, lineHeight:1.5 }}>{err}</div>}
       <button className="btn" onClick={analyze} disabled={busy || !text.trim()} style={{ background: busy ? T.bdr : T.amber, color: busy ? T.txt2 : T.bg, width:'100%', letterSpacing:'0.08em' }}>
-        {busy
-          ? <span style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}><span style={{ display:'inline-block', width:10, height:10, border:'2px solid transparent', borderTopColor:T.txt2, borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/> ANALYZING…</span>
-          : '⚡ AI ANALYSIS'
-        }
+        {busy ? 'ANALYZING…' : '⚡ AI ANALYSIS'}
       </button>
-
       {res && (
         <div style={{ display:'flex', flexDirection:'column', gap:14 }} className="fadeUp">
           {(res.sentences ?? []).length > 0 && (
-            <>
-              <SectionLabel color={T.amber}>FSI DRILL SENTENCES</SectionLabel>
-              {res.sentences.map((s, i) => {
-                const done = addedS.includes(s.template)
-                const cat = sentenceCats[i] ?? 'work'
-                return (
-                  <div key={i} style={{ background:T.surf, border:`1px solid ${done ? T.grn+'50' : T.bdr}`, borderRadius:11, padding:15, transition:'border-color 0.3s' }}>
-                    <div style={{ fontFamily:MONO, fontSize:11.5, color:T.txt, marginBottom:4, lineHeight:1.6 }}>{s.template}</div>
-                    <div style={{ fontFamily:SERIF, fontStyle:'italic', fontSize:12, color:T.txt3, marginBottom:10 }}>{s.context} — {s.hint}</div>
-                    {/* WORK / LIFE toggle */}
-                    <div style={{ display:'flex', gap:6, marginBottom:10 }}>
-                      {['work','life'].map(c => (
-                        <div key={c} onClick={() => !done && setSentenceCats(p => ({ ...p, [i]: c }))}
-                          style={{ padding:'4px 12px', borderRadius:12, fontFamily:MONO, fontSize:9, cursor: done ? 'default' : 'pointer', letterSpacing:'0.06em',
-                            background: cat === c ? (c==='work' ? T.amberD : T.blueD) : T.surf2,
-                            border: `1px solid ${cat === c ? (c==='work' ? T.amber+'60' : T.blue+'60') : T.bdr}`,
-                            color: cat === c ? (c==='work' ? T.amber : T.blue) : T.txt3,
-                            opacity: done ? 0.5 : 1 }}>
-                          {c === 'work' ? '💼 WORK' : '🏠 LIFE'}
-                        </div>
-                      ))}
-                    </div>
-                    <button className="btn" onClick={() => addSentence(s, cat)} disabled={done}
-                      style={{ background: done ? T.grnD : T.amberD, border:`1px solid ${done ? T.grn+'50' : T.amber+'50'}`, color: done ? T.grn : T.amber, fontSize:11 }}>
-                      {done ? '✓ Added to Practice' : '+ Add to Practice'}
-                    </button>
+            <>{res.sentences.map((s, i) => {
+              const done = addedS.includes(s.template)
+              const cat = sentenceCats[i] ?? 'work'
+              return (
+                <div key={i} style={{ background:T.surf, border:'1px solid ' + (done ? T.grn+'50' : T.bdr), borderRadius:11, padding:15 }}>
+                  <div style={{ fontFamily:MONO, fontSize:11.5, color:T.txt, marginBottom:4, lineHeight:1.6 }}>{s.template}</div>
+                  <div style={{ fontFamily:SERIF, fontStyle:'italic', fontSize:12, color:T.txt3, marginBottom:10 }}>{s.context} — {s.hint}</div>
+                  <div style={{ display:'flex', gap:6, marginBottom:10 }}>
+                    {['work','life'].map(c => (
+                      <div key={c} onClick={() => !done && setSentenceCats(p => ({ ...p, [i]: c }))}
+                        style={{ padding:'4px 12px', borderRadius:12, fontFamily:MONO, fontSize:9, cursor: done ? 'default' : 'pointer',
+                          background: cat===c ? (c==='work' ? T.amberD : T.blueD) : T.surf2,
+                          border: '1px solid ' + (cat===c ? (c==='work' ? T.amber+'60' : T.blue+'60') : T.bdr),
+                          color: cat===c ? (c==='work' ? T.amber : T.blue) : T.txt3, opacity: done ? 0.5 : 1 }}>
+                        {c === 'work' ? '💼 WORK' : '🏠 LIFE'}
+                      </div>
+                    ))}
                   </div>
-                )
-              })}
-            </>
+                  <button className="btn" onClick={() => addSentence(s, cat)} disabled={done}
+                    style={{ background: done ? T.grnD : T.amberD, border:'1px solid ' + (done ? T.grn+'50' : T.amber+'50'), color: done ? T.grn : T.amber, fontSize:11 }}>
+                    {done ? '✓ Added' : '+ Add to Practice'}
+                  </button>
+                </div>
+              )
+            })}</>
           )}
           {(res.vocab ?? []).length > 0 && (
-            <>
-              <SectionLabel color={T.blue}>VOCABULARY SUGGESTIONS</SectionLabel>
-              {res.vocab.map((v, i) => {
-                const done = addedV.includes(v.word)
-                return (
-                  <div key={i} style={{ background:T.surf, border:`1px solid ${done ? T.grn+'50' : T.bdr}`, borderRadius:11, padding:15, transition:'border-color 0.3s' }}>
-                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:5 }}>
-                      <span style={{ fontFamily:MONO, fontSize:14, color:T.blue, fontWeight:500 }}>{v.word}</span>
-                      <div onClick={()=>speak(v.word)} style={{ cursor:'pointer', color:T.txt3, padding:4 }}
-                        onMouseOver={e=>e.currentTarget.style.color=T.blue} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
-                        <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
-                      </div>
+            <>{res.vocab.map((v, i) => {
+              const done = addedV.includes(v.word)
+              return (
+                <div key={i} style={{ background:T.surf, border:'1px solid ' + (done ? T.grn+'50' : T.bdr), borderRadius:11, padding:15 }}>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:5 }}>
+                    <span style={{ fontFamily:MONO, fontSize:14, color:T.blue, fontWeight:500 }}>{v.word}</span>
+                    <div onClick={()=>speak(v.word)} style={{ cursor:'pointer', color:T.txt3, padding:4 }}>
+                      <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
                     </div>
-                    <div style={{ fontFamily:SERIF, fontSize:13, color:T.txt2, marginBottom:v.ex?5:12, lineHeight:1.5 }}>{v.def}</div>
-                    {v.ex && <div style={{ fontFamily:SERIF, fontStyle:'italic', fontSize:12, color:T.txt3, marginBottom:12, lineHeight:1.45 }}>"{v.ex}"</div>}
-                    <button className="btn" onClick={() => addVocab(v)} disabled={done}
-                      style={{ background: done ? T.grnD : T.blueD, border:`1px solid ${done ? T.grn+'50' : T.blue+'50'}`, color: done ? T.grn : T.blue, fontSize:11 }}>
-                      {done ? '✓ Added to Vocab' : '+ Add to Vocab'}
-                    </button>
                   </div>
-                )
-              })}
-            </>
+                  <div style={{ fontFamily:SERIF, fontSize:13, color:T.txt2, marginBottom:v.ex?5:12, lineHeight:1.5 }}>{v.def}</div>
+                  {v.ex && <div style={{ fontFamily:SERIF, fontStyle:'italic', fontSize:12, color:T.txt3, marginBottom:12 }}>"{v.ex}"</div>}
+                  <button className="btn" onClick={() => addVocab(v)} disabled={done}
+                    style={{ background: done ? T.grnD : T.blueD, border:'1px solid ' + (done ? T.grn+'50' : T.blue+'50'), color: done ? T.grn : T.blue, fontSize:11 }}>
+                    {done ? '✓ Added' : '+ Add to Vocab'}
+                  </button>
+                </div>
+              )
+            })}</>
           )}
         </div>
       )}
@@ -10135,7 +10305,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.11</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.12</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
