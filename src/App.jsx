@@ -9400,7 +9400,7 @@ function PhraseTab({ settings }) {
   const [phase,      setPhase]      = useState('listen')
   const [autoPlayed, setAutoPlayed] = useState(false)
   const [autoListen, setAutoListen] = useState(false)  // 連續自動播放模式
-  const autoListenRef = React.useRef(false)
+  const autoListenRef = useRef(false)
   const [doneIds,    setDoneIds]    = useState(() => {
     try { return new Set(JSON.parse(localStorage.getItem('fsi:ph:done') ?? '[]')) } catch { return new Set() }
   })
@@ -9466,18 +9466,20 @@ function PhraseTab({ settings }) {
       const t = setTimeout(() => {
         speakEn(card.en, 0.6)
         setAutoPlayed(true)
-        // 自動播放模式：播完後 2.5 秒自動跳下一句
-        if (autoListenRef.current && queue.length > 1) {
-          const dur = Math.max(2500, card.en.split(' ').length * 600 + 1500)
-          const next = setTimeout(() => {
-            if (autoListenRef.current) setIdx(i => (i + 1) % queue.length)
-          }, dur)
-          return () => clearTimeout(next)
-        }
       }, 400)
       return () => clearTimeout(t)
     }
-  }, [phase, autoPlayed, card, pMode, autoListen])
+  }, [phase, autoPlayed, card, pMode])
+
+  // 自動播放模式：播完後自動跳下一句
+  useEffect(() => {
+    if (!autoListen || !autoPlayed || phase !== 'listen' || !card) return
+    const dur = Math.max(2800, card.en.split(' ').length * 650 + 1500)
+    const t = setTimeout(() => {
+      setIdx(i => (i + 1) % queue.length)
+    }, dur)
+    return () => clearTimeout(t)
+  }, [autoListen, autoPlayed, card, phase])
 
   useEffect(() => { autoListenRef.current = autoListen }, [autoListen])
 
