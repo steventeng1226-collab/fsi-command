@@ -7035,7 +7035,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.13</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.14</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -9331,6 +9331,7 @@ function LinkedText({ text, type }) {
 // PHRASE TAB
 
 const SCENARIOS = [
+  { id:'mystyle', label:'我的風格', en:'Free conversation from my collection', icon:'⭐', cat:'my' },
   { id:'greet',   label:'打招呼',   en:'Greeting friends',      icon:'👋', cat:'life'  },
   { id:'cafe',    label:'咖啡廳',   en:'Coffee shop',            icon:'☕', cat:'life'  },
   { id:'shop',    label:'買衣服',   en:'Clothing store',         icon:'👗', cat:'life'  },
@@ -9405,7 +9406,7 @@ function PhraseTab({ settings }) {
   useEffect(() => { setPhase('listen'); setAutoPlayed(false) }, [idx, cat])
   useEffect(() => {
     if (pMode === 'sentence' && phase === 'listen' && !autoPlayed && card) {
-      const t = setTimeout(() => { speakEn(card.en, 0.85); setAutoPlayed(true) }, 400)
+      const t = setTimeout(() => { speakEn(card.en, 0.6); setAutoPlayed(true) }, 400)
       return () => clearTimeout(t)
     }
   }, [phase, autoPlayed, card, pMode])
@@ -9414,12 +9415,12 @@ function PhraseTab({ settings }) {
   useEffect(() => { setQaPhase('question'); setQaAutoPlayed(false) }, [qaIdx])
   useEffect(() => {
     if (pMode === 'qa' && qaPhase === 'question' && !qaAutoPlayed && qa) {
-      const t = setTimeout(() => { speakEn(qa.q, 0.9); setQaAutoPlayed(true) }, 400)
+      const t = setTimeout(() => { speakEn(qa.q, 0.6); setQaAutoPlayed(true) }, 400)
       return () => clearTimeout(t)
     }
   }, [qaPhase, qaAutoPlayed, qa, pMode])
 
-  function speakEn(text, rate = 1) {
+  function speakEn(text, rate = 0.6) {
     const u = new SpeechSynthesisUtterance(text)
     u.lang = 'en-US'; u.rate = rate
     window.speechSynthesis.cancel()
@@ -9477,9 +9478,27 @@ function PhraseTab({ settings }) {
     setConvErr('')
     setConvLoading(true)
 
-    const myPhrases = allPhrases.map(p => p.en).join(' / ')
-    const sys = 'You are an English conversation partner helping a Taiwanese manufacturing professional practice spoken English. Generate a short realistic conversation for the given scenario. The learner\'s collected phrases are provided — for each learner turn, suggest 2-3 of their phrases that naturally fit. Return ONLY valid JSON, no markdown.'
-    const prompt = 'Scenario: ' + sc.en + ' (' + sc.label + ')\n\nLearner phrases collection:\n' + myPhrases + '\n\nGenerate a realistic 5-6 exchange conversation. The "other" person speaks first. For each "user" turn, include hints array with 2-3 phrases from the collection that fit naturally.\n\nReturn JSON:\n{"exchanges":[{"who":"other","text":"..."},{"who":"user","hints":["phrase1","phrase2"]},{"who":"other","text":"..."},{"who":"user","hints":["phrase1","phrase2"]}]}'
+    // 智慧過濾：依場景類別選相關收藏句
+    let filteredPhrases = allPhrases
+    if (sc.id === 'mystyle') {
+      // 我的風格：只用用戶手動收藏的句子
+      filteredPhrases = allPhrases.filter(p => p.cat === 'my')
+      if (filteredPhrases.length === 0) filteredPhrases = allPhrases // fallback
+    } else if (sc.cat === 'work') {
+      filteredPhrases = allPhrases.filter(p => p.cat !== 'life')
+    } else if (sc.cat === 'life') {
+      filteredPhrases = allPhrases.filter(p => p.cat === 'life' || p.cat === 'my')
+    }
+
+    const myPhrases = filteredPhrases.map(p => p.en).join(' / ')
+    let sys, prompt
+    if (sc.id === 'mystyle') {
+      sys = 'You are an English conversation partner helping a Taiwanese manufacturing professional practice spoken English. Based on the learner\'s collected phrases, design the most natural scenario that fits them best, then generate a conversation. For each learner turn, suggest 2-3 of their exact phrases as hints. Return ONLY valid JSON, no markdown.'
+      prompt = 'Learner\'s collected phrases:\n' + myPhrases + '\n\nDesign the most natural and useful scenario for these phrases. Generate a realistic 5-6 exchange conversation. The "other" person speaks first. For each "user" turn, include hints array with 2-3 phrases from the collection that fit naturally.\n\nReturn JSON:\n{"scenario":"(brief scenario description)","exchanges":[{"who":"other","text":"..."},{"who":"user","hints":["phrase1","phrase2"]},{"who":"other","text":"..."},{"who":"user","hints":["phrase1","phrase2"]}]}'
+    } else {
+      sys = 'You are an English conversation partner helping a Taiwanese manufacturing professional practice spoken English. Generate a short realistic conversation for the given scenario. The learner\'s collected phrases are provided — for each learner turn, suggest 2-3 of their phrases that naturally fit. Return ONLY valid JSON, no markdown.'
+      prompt = 'Scenario: ' + sc.en + ' (' + sc.label + ')\n\nLearner phrases collection:\n' + myPhrases + '\n\nGenerate a realistic 5-6 exchange conversation. The "other" person speaks first. For each "user" turn, include hints array with 2-3 phrases from the collection that fit naturally.\n\nReturn JSON:\n{"exchanges":[{"who":"other","text":"..."},{"who":"user","hints":["phrase1","phrase2"]},{"who":"other","text":"..."},{"who":"user","hints":["phrase1","phrase2"]}]}'
+    }
 
     try {
       const raw = await callClaude(apiKey, [{ role:'user', content: prompt }], sys)
@@ -9503,11 +9522,11 @@ function PhraseTab({ settings }) {
       <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:12 }}>
         {/* 慢速：左邊方框，比較好按 */}
         <div onClick={() => speakEn(text, 0.6)}
-          style={{ minWidth:72, height:52, borderRadius:10, background:color+'18', border:'2px solid '+color+'60',
+          style={{ minWidth:108, height:78, borderRadius:10, background:color+'18', border:'2px solid '+color+'60',
             display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
-            cursor:'pointer', gap:2, padding:'0 12px' }}>
-          <span style={{ fontSize:18 }}>🐢</span>
-          <span style={{ fontFamily:MONO, fontSize:9, color, fontWeight:600 }}>0.6x</span>
+            cursor:'pointer', gap:2, padding:'0 16px' }}>
+          <span style={{ fontSize:26 }}>🐢</span>
+          <span style={{ fontFamily:MONO, fontSize:13, color, fontWeight:600 }}>0.6x</span>
         </div>
         {/* 喇叭圖示中間（裝飾） */}
         <div style={{ width:64, height:64, borderRadius:'50%', background:color+'18', border:'2px solid '+color+'40',
@@ -9520,11 +9539,11 @@ function PhraseTab({ settings }) {
         </div>
         {/* 正常速：右邊圓形 */}
         <div onClick={() => speakEn(text, 1)}
-          style={{ minWidth:72, height:52, borderRadius:10, background:color+'15', border:'1px solid '+color+'50',
+          style={{ minWidth:108, height:78, borderRadius:10, background:color+'15', border:'1px solid '+color+'50',
             display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
-            cursor:'pointer', gap:2, padding:'0 12px' }}>
-          <span style={{ fontSize:18 }}>🔊</span>
-          <span style={{ fontFamily:MONO, fontSize:9, color }}>1.0x</span>
+            cursor:'pointer', gap:2, padding:'0 16px' }}>
+          <span style={{ fontSize:26 }}>🔊</span>
+          <span style={{ fontFamily:MONO, fontSize:13, color }}>1.0x</span>
         </div>
       </div>
     )
@@ -9774,7 +9793,7 @@ function PhraseTab({ settings }) {
             <div style={{ display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
               {/* 工作/生活篩選 */}
               <div style={{ display:'flex', gap:6 }}>
-                {[{id:'all',l:'全部'},{id:'life',l:'🏠 生活'},{id:'work',l:'💼 工作'}].map(f => (
+                {[{id:'all',l:'全部'},{id:'life',l:'🏠 生活'},{id:'work',l:'💼 工作'},{id:'my',l:'⭐ 我的'}].map(f => (
                   <div key={f.id} onClick={() => setSceneFilter(f.id)}
                     style={{ padding:'5px 12px', borderRadius:10, fontFamily:MONO, fontSize:9, cursor:'pointer',
                       background: sceneFilter===f.id ? '#f5a623' : '#161b22',
@@ -9793,27 +9812,32 @@ function PhraseTab({ settings }) {
               {/* 場景格 */}
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:6 }}>
                 {SCENARIOS.filter(s => sceneFilter === 'all' || s.cat === sceneFilter).map(sc => {
-                  // 計算這個場景相關的句子數（用場景類別 + 生活/工作對應）
-                  const relatedCount = allPhrases.filter(p =>
-                    sc.cat === 'life' ? (p.cat === 'life' || p.cat === 'my') : (p.cat !== 'life')
-                  ).length
+                  // 我的風格：計算收藏句數；其他：依 cat 對應
+                  const myCount = allPhrases.filter(p => p.cat === 'my').length
+                  const relatedCount = sc.id === 'mystyle' ? myCount
+                    : sc.cat === 'life' ? allPhrases.filter(p => p.cat === 'life' || p.cat === 'my').length
+                    : allPhrases.filter(p => p.cat !== 'life').length
+                  const isMystyle = sc.id === 'mystyle'
                   return (
                     <div key={sc.id} onClick={() => startScenario(sc)}
-                      style={{ background:'#0d1117', border:'1px solid #21262d', borderRadius:10,
+                      style={{ background: isMystyle ? '#f5a62310' : '#0d1117',
+                        border:'1px solid '+(isMystyle ? '#f5a62355' : '#21262d'), borderRadius:10,
                         padding:'10px 8px', cursor:'pointer', display:'flex', flexDirection:'column', gap:4,
                         transition:'border-color 0.15s', alignItems:'flex-start' }}
-                      onMouseOver={e => e.currentTarget.style.borderColor='#f5a62360'}
-                      onMouseOut={e => e.currentTarget.style.borderColor='#21262d'}>
+                      onMouseOver={e => e.currentTarget.style.borderColor='#f5a62380'}
+                      onMouseOut={e => e.currentTarget.style.borderColor=isMystyle ? '#f5a62355' : '#21262d'}>
                       <span style={{ fontSize:18 }}>{sc.icon}</span>
-                      <div style={{ fontFamily:MONO, fontSize:11, color:'#e6edf3', fontWeight:500 }}>{sc.label}</div>
+                      <div style={{ fontFamily:MONO, fontSize:11, color: isMystyle ? '#f5a623' : '#e6edf3', fontWeight: isMystyle ? 700 : 500 }}>{sc.label}</div>
                       <div style={{ display:'flex', alignItems:'center', gap:4, marginTop:2 }}>
-                        <div style={{ fontFamily:MONO, fontSize:8, color: sc.cat==='work' ? '#f5a623' : '#58a6ff',
-                          background: sc.cat==='work' ? '#f5a62315' : '#58a6ff15',
-                          border:'1px solid '+(sc.cat==='work' ? '#f5a62340' : '#58a6ff40'),
-                          padding:'1px 5px', borderRadius:5 }}>
-                          {sc.cat==='work' ? '💼' : '🏠'}
-                        </div>
-                        <span style={{ fontFamily:MONO, fontSize:8, color:'#7a8390' }}>{relatedCount} 句</span>
+                        {!isMystyle && (
+                          <div style={{ fontFamily:MONO, fontSize:8, color: sc.cat==='work' ? '#f5a623' : '#58a6ff',
+                            background: sc.cat==='work' ? '#f5a62315' : '#58a6ff15',
+                            border:'1px solid '+(sc.cat==='work' ? '#f5a62340' : '#58a6ff40'),
+                            padding:'1px 5px', borderRadius:5 }}>
+                            {sc.cat==='work' ? '💼' : '🏠'}
+                          </div>
+                        )}
+                        <span style={{ fontFamily:MONO, fontSize:8, color: isMystyle ? '#f5a623' : '#7a8390' }}>{relatedCount} 句</span>
                       </div>
                     </div>
                   )
@@ -11288,7 +11312,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.13</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.14</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
