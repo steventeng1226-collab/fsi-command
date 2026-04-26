@@ -9707,8 +9707,33 @@ function PhraseTab({ settings }) {
           {/* ── 我的收藏清單（showMyList 模式）──────────────────────── */}
           {showMyList && cat === 'my' ? (
             <div style={{ display:'flex', flexDirection:'column', gap:8 }} className="fadeUp">
-              <div style={{ fontFamily:MONO, fontSize:9, color:'#58a6ff', letterSpacing:'0.1em', marginBottom:2 }}>
-                📋 我的收藏 — 共 {extraPhrases.length} 句
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                <div style={{ fontFamily:MONO, fontSize:9, color:'#58a6ff', letterSpacing:'0.1em' }}>
+                  📋 我的收藏 — 共 {extraPhrases.length} 句
+                </div>
+                {extraPhrases.some(p => !p.zh) && (
+                  <button className="btn" onClick={async () => {
+                    const apiKey = settings?.apiKey || (() => { try { return JSON.parse(localStorage.getItem('fsi:se')||'{}')?.apiKey??'' } catch { return '' } })()
+                    if (!apiKey) return
+                    const sys = 'Translate the English phrase/sentence to Traditional Chinese. Reply with ONLY the translation, nothing else.'
+                    let updated = [...extraPhrases]
+                    for (let i = 0; i < updated.length; i++) {
+                      if (!updated[i].zh) {
+                        try {
+                          const zh = (await callClaude(apiKey, [{ role:'user', content: updated[i].en }], sys)).trim()
+                          updated[i] = { ...updated[i], zh }
+                          setExtraPhrases([...updated])
+                        } catch(e) {}
+                      }
+                    }
+                    localStorage.setItem('fsi:ph:extra', JSON.stringify(updated))
+                    setExtraPhrases(updated)
+                  }}
+                    style={{ fontFamily:MONO, fontSize:9, padding:'4px 10px', background:'#58a6ff18',
+                      border:'1px solid #58a6ff50', color:'#58a6ff', borderRadius:8 }}>
+                    🌐 全部翻譯
+                  </button>
+                )}
               </div>
               {extraPhrases.length === 0 && (
                 <div style={{ fontFamily:MONO, fontSize:11, color:'#7a8390', textAlign:'center', padding:'24px 0' }}>
@@ -9722,7 +9747,24 @@ function PhraseTab({ settings }) {
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:8 }}>
                     <div style={{ flex:1 }}>
                       <div style={{ fontFamily:MONO, fontSize:13, color:'#e6edf3', lineHeight:1.5 }}>{p.en}</div>
-                      {p.zh && <div style={{ fontFamily:"'Crimson Pro',Georgia,serif", fontSize:12, color:'#7a8390', fontStyle:'italic', marginTop:3 }}>{p.zh}</div>}
+                      {p.zh
+                        ? <div style={{ fontFamily:"'Crimson Pro',Georgia,serif", fontSize:13, color:'#aab3be', fontStyle:'italic', marginTop:4 }}>{p.zh}</div>
+                        : <button className="btn" onClick={async () => {
+                            const apiKey = settings?.apiKey || (() => { try { return JSON.parse(localStorage.getItem('fsi:se')||'{}')?.apiKey??'' } catch { return '' } })()
+                            if (!apiKey) return
+                            const sys = 'Translate the English phrase/sentence to Traditional Chinese. Reply with ONLY the translation, nothing else.'
+                            try {
+                              const zh = (await callClaude(apiKey, [{ role:'user', content: p.en }], sys)).trim()
+                              const updated = extraPhrases.map(x => x.id===p.id ? {...x, zh} : x)
+                              localStorage.setItem('fsi:ph:extra', JSON.stringify(updated))
+                              setExtraPhrases(updated)
+                            } catch(e) {}
+                          }}
+                            style={{ fontFamily:MONO, fontSize:9, padding:'3px 8px', marginTop:4, background:'#f5a62315',
+                              border:'1px solid #f5a62340', color:'#f5a623', borderRadius:6, alignSelf:'flex-start' }}>
+                            🌐 翻譯
+                          </button>
+                      }
                     </div>
                     {deleteConfirm === p.id ? (
                       <div style={{ display:'flex', gap:5, flexShrink:0 }}>
