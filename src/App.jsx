@@ -7035,7 +7035,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.14</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.15</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -9360,42 +9360,37 @@ function MySubcatPanel({ counts, selected, onSelect, onReclassify, reclassifyLoa
   }
   const subcats = Object.keys(counts).filter(k => k !== 'all').sort()
   const getLabel = s => RECLASSIFY_LABELS[s] || s
+  const chipStyle = (active) => ({
+    padding:'5px 11px', borderRadius:10, cursor:'pointer', fontFamily:MONO, fontSize:10,
+    background: active ? '#f5a623' : '#161b22',
+    border:'1px solid '+(active ? '#f5a623' : '#30363d'),
+    color: active ? '#050810' : '#ffffff',
+    fontWeight: active ? 700 : 400,
+  })
   return (
     <div style={{ width:'100%', background:'#0d1117', border:'1px solid #21262d',
-      borderRadius:14, padding:'14px 14px 12px', display:'flex', flexDirection:'column', gap:10 }}>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-        <div style={{ fontFamily:MONO, fontSize:8, color:'#8b949e', letterSpacing:'0.1em' }}>
-          ⭐ 我的收藏 — 切換分類
+      borderRadius:14, padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }}>
+      <div style={{ fontFamily:MONO, fontSize:8, color:'#8b949e', letterSpacing:'0.1em' }}>
+        ⭐ 我的收藏 — 切換分類
+      </div>
+      <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+        <div onClick={() => onSelect('all')} style={chipStyle(selected==='all')}>
+          全部 <span style={{ opacity:0.6 }}>({counts.all})</span>
         </div>
         {onReclassify && (
           <button className="btn" onClick={onReclassify} disabled={reclassifyLoading}
-            style={{ fontFamily:MONO, fontSize:8, padding:'4px 10px',
+            style={{ fontFamily:MONO, fontSize:9, padding:'4px 10px',
               background: reclassifyLoading ? '#21262d' : '#a371f718',
               border:'1px solid '+(reclassifyLoading ? '#30363d' : '#a371f750'),
               color: reclassifyLoading ? '#7a8390' : '#a371f7', borderRadius:8 }}>
             {reclassifyLoading
               ? (reclassifyProgress ? '🤖 ' + reclassifyProgress.current + '/' + reclassifyProgress.total : '🤖 分類中…')
-              : '🤖 AI 重新分類'}
+              : '🤖 AI 重分類'}
           </button>
         )}
-      </div>
-      <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
-        <div onClick={() => onSelect('all')}
-          style={{ padding:'5px 11px', borderRadius:10, cursor:'pointer', fontFamily:MONO, fontSize:10,
-            background: selected==='all' ? '#f5a623' : '#161b22',
-            border:'1px solid '+(selected==='all' ? '#f5a623' : '#30363d'),
-            color: selected==='all' ? '#050810' : '#c9d1d9',
-            fontWeight: selected==='all' ? 700 : 400 }}>
-          全部 <span style={{ opacity:0.7 }}>({counts.all})</span>
-        </div>
         {subcats.map(s => (
-          <div key={s} onClick={() => onSelect(s)}
-            style={{ padding:'5px 11px', borderRadius:10, cursor:'pointer', fontFamily:MONO, fontSize:10,
-              background: selected===s ? '#f5a623' : '#161b22',
-              border:'1px solid '+(selected===s ? '#f5a623' : '#30363d'),
-              color: selected===s ? '#050810' : '#c9d1d9',
-              fontWeight: selected===s ? 700 : 400 }}>
-            {getLabel(s)} <span style={{ opacity:0.7 }}>({counts[s]})</span>
+          <div key={s} onClick={() => onSelect(s)} style={chipStyle(selected===s)}>
+            {getLabel(s)} <span style={{ opacity:0.6 }}>({counts[s]})</span>
           </div>
         ))}
       </div>
@@ -9766,24 +9761,20 @@ function PhraseTab({ settings }) {
                 fontWeight:700, flexShrink:0, transition:'all 0.15s' }}>
               {showAdd ? '×' : '+'}
             </div>
-            {/* 匯出按鈕 — 給 AI 分類用 */}
+            {/* 自動播放按鈕 */}
             <div onClick={() => {
-                const data = (() => { try { return JSON.parse(localStorage.getItem('fsi:ph:extra')||'[]') } catch { return [] } })()
-                if (!data.length) { alert('尚無收藏句子'); return }
-                const lines = data.map((p,i) => (i+1)+'. '+p.en+(p.zh ? '　（'+p.zh+'）' : '')+(p.subcat ? '　['+p.subcat+']' : '')).join('\n')
-                const text = '共 '+data.length+' 句\n\n'+lines
-                navigator.clipboard.writeText(text).then(() => alert('✓ 已複製 '+data.length+' 句！\n請貼到 Claude 對話框讓 AI 幫你分類')).catch(() => {
-                  const el = document.createElement('textarea')
-                  el.value = text; document.body.appendChild(el); el.select()
-                  document.execCommand('copy'); document.body.removeChild(el)
-                  alert('✓ 已複製！請貼到 Claude 對話框')
-                })
+                const next = !autoListen
+                setAutoListen(next)
+                autoListenRef.current = next
+                if (next) setAutoPlayed(false)
               }}
-              title="複製全部句子給 AI 分類"
-              style={{ width:30, height:30, borderRadius:'50%', background:'#3fb95020', border:'1px solid #3fb95050',
+              title={autoListen ? '暫停自動播放' : '自動播放 0.6x'}
+              style={{ width:30, height:30, borderRadius:'50%',
+                background: autoListen ? '#f5a623' : '#f5a62320',
+                border:'1px solid '+(autoListen ? '#f5a623' : '#f5a62350'),
                 display:'flex', alignItems:'center', justifyContent:'center',
-                cursor:'pointer', fontSize:14, color:'#3fb950', flexShrink:0 }}>
-              📤
+                cursor:'pointer', fontSize:15, flexShrink:0 }}>
+              {autoListen ? '⏸' : '▶'}
             </div>
           </div>
 
@@ -9975,16 +9966,8 @@ function PhraseTab({ settings }) {
             </div>
             <span style={{ fontFamily:MONO, fontSize:9, color:'#8b949e' }}>{doneCount}/{queue.length}</span>
           </div>
-          <div style={{ fontFamily:MONO, fontSize:9, color:'#8b949e', textAlign:'center' }}>{idx+1} / {queue.length}</div>
           {card && (
             <>
-              <div style={{ display:'flex', justifyContent:'center', gap:6 }}>
-                <span style={{ fontFamily:MONO, fontSize:9, color:cc, background:cc+'22', border:'1px solid '+cc+'55', padding:'3px 12px', borderRadius:10 }}>
-                  {card.cat === 'my' ? '⭐ 我的收藏' : (PHRASE_CATS.find(c => c.id === card.cat)?.label ?? card.cat)}
-                </span>
-                {card.subcat && <span style={{ fontFamily:MONO, fontSize:9, color:'#c9d1d9', background:'#21262d', border:'1px solid #30363d', padding:'3px 10px', borderRadius:10 }}>{card.subcat}</span>}
-                {card.sub    && <span style={{ fontFamily:MONO, fontSize:9, color:'#c9d1d9', background:'#21262d', border:'1px solid #30363d', padding:'3px 10px', borderRadius:10 }}>{card.sub}</span>}
-              </div>
               {phase === 'listen' && (
                 <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:16 }}>
                   {/* 句子卡片 */}
@@ -10000,24 +9983,12 @@ function PhraseTab({ settings }) {
                     )}
                   </div>
                   <SpeakRow text={card.en} color={cc}/>
-                  {/* 自動播放 + 下一句 */}
+                  {/* 下一句 */}
                   <div style={{ display:'flex', gap:8, width:'100%' }}>
-                    <button className="btn" onClick={() => {
-                        const next = !autoListen
-                        setAutoListen(next)
-                        autoListenRef.current = next
-                        if (next) { setAutoPlayed(false) }
-                      }}
-                      style={{ flex:1, padding:'12px 0', fontSize:12, fontWeight:700, letterSpacing:'0.06em',
-                        background: autoListen ? '#f5a623' : '#f5a62320',
-                        border:'1px solid '+(autoListen ? '#f5a623' : '#f5a62350'),
-                        color: autoListen ? '#050810' : '#f5a623' }}>
-                      {autoListen ? '⏸ 暫停自動播' : '▶ 自動播放'}
-                    </button>
                     <button className="btn" onClick={() => setIdx(i => (i+1) % queue.length)}
-                      style={{ padding:'12px 18px', fontSize:13, background:'#161b22',
+                      style={{ flex:1, padding:'12px 0', fontSize:13, background:'#161b22',
                         border:'1px solid #30363d', color:'#c9d1d9' }}>
-                      ▷
+                      ▷ 下一句
                     </button>
                   </div>
                   <button className="btn" onClick={() => setPhase('reveal')}
@@ -11663,7 +11634,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.14</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.15</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
