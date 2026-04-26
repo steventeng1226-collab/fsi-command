@@ -9185,6 +9185,7 @@ const PHRASE_CATS = [
   { id:'cost',     label:'成本/毛利' },
   { id:'action',   label:'行動/決策' },
   { id:'life',     label:'🗣 生活口說' },
+  { id:'my',       label:'⭐ 我的收藏' },   // 手動新增的句子
 ]
 const PHRASE_DATA = [
   { id:'ph01', cat:'opening',  en:'Let me give a quick update on the current status.', zh:'讓我快速更新一下目前狀況。' },
@@ -9439,7 +9440,7 @@ function PhraseTab({ settings }) {
       }
     } catch(e) { zh = '' }
     const id = 'ph_my_' + Date.now()
-    const newPhrase = { id, cat: catId, en: en.trim(), zh }
+    const newPhrase = { id, cat: 'my', subcat: catId, en: en.trim(), zh }
     const existing = (() => { try { return JSON.parse(localStorage.getItem('fsi:ph:extra') ?? '[]') } catch { return [] } })()
     const updated = [...existing, newPhrase]
     localStorage.setItem('fsi:ph:extra', JSON.stringify(updated))
@@ -9499,26 +9500,31 @@ function PhraseTab({ settings }) {
   // ── 共用：大喇叭按鈕組 ───────────────────────────────────────
   function SpeakRow({ text, color }) {
     return (
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:16 }}>
-        <div onClick={() => speakEn(text, 1)}
-          style={{ width:68, height:68, borderRadius:'50%', background:color+'15', border:'1px solid '+color+'50',
-            display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', cursor:'pointer', gap:3 }}>
-          <span style={{ fontSize:20 }}>🔊</span>
-          <span style={{ fontFamily:MONO, fontSize:8, color }}>1.0x</span>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:12 }}>
+        {/* 慢速：左邊方框，比較好按 */}
+        <div onClick={() => speakEn(text, 0.6)}
+          style={{ minWidth:72, height:52, borderRadius:10, background:color+'18', border:'2px solid '+color+'60',
+            display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+            cursor:'pointer', gap:2, padding:'0 12px' }}>
+          <span style={{ fontSize:18 }}>🐢</span>
+          <span style={{ fontFamily:MONO, fontSize:9, color, fontWeight:600 }}>0.6x</span>
         </div>
-        <div style={{ width:68, height:68, borderRadius:'50%', background:color+'18', border:'2px solid '+color+'40',
-          display:'flex', alignItems:'center', justifyContent:'center' }}>
-          <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+        {/* 喇叭圖示中間（裝飾） */}
+        <div style={{ width:64, height:64, borderRadius:'50%', background:color+'18', border:'2px solid '+color+'40',
+          display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
             <path d="M3 9h4l5-5v16l-5-5H3z" stroke={color} strokeWidth="1.5" fill={color+'30'}/>
             <path d="M16 6.5a5.5 5.5 0 010 11" stroke={color} strokeWidth="1.5" strokeLinecap="round"/>
             <path d="M13.5 9a2.5 2.5 0 010 5" stroke={color} strokeWidth="1.5" strokeLinecap="round"/>
           </svg>
         </div>
-        <div onClick={() => speakEn(text, 0.7)}
-          style={{ width:68, height:68, borderRadius:'50%', background:color+'15', border:'1px solid '+color+'50',
-            display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', cursor:'pointer', gap:3 }}>
-          <span style={{ fontSize:20 }}>🐢</span>
-          <span style={{ fontFamily:MONO, fontSize:8, color }}>0.7x</span>
+        {/* 正常速：右邊圓形 */}
+        <div onClick={() => speakEn(text, 1)}
+          style={{ minWidth:72, height:52, borderRadius:10, background:color+'15', border:'1px solid '+color+'50',
+            display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+            cursor:'pointer', gap:2, padding:'0 12px' }}>
+          <span style={{ fontSize:18 }}>🔊</span>
+          <span style={{ fontFamily:MONO, fontSize:9, color }}>1.0x</span>
         </div>
       </div>
     )
@@ -9654,9 +9660,10 @@ function PhraseTab({ settings }) {
             <>
               <div style={{ display:'flex', justifyContent:'center', gap:6 }}>
                 <span style={{ fontFamily:MONO, fontSize:8, color:cc, background:cc+'18', border:'1px solid '+cc+'40', padding:'3px 12px', borderRadius:10 }}>
-                  {PHRASE_CATS.find(c => c.id === card.cat)?.label ?? card.cat}
+                  {card.cat === 'my' ? '⭐ 我的收藏' : (PHRASE_CATS.find(c => c.id === card.cat)?.label ?? card.cat)}
                 </span>
-                {card.sub && <span style={{ fontFamily:MONO, fontSize:8, color:'#7a8390', background:'#161b22', border:'1px solid #21262d', padding:'3px 10px', borderRadius:10 }}>{card.sub}</span>}
+                {card.subcat && <span style={{ fontFamily:MONO, fontSize:8, color:'#7a8390', background:'#161b22', border:'1px solid #21262d', padding:'3px 10px', borderRadius:10 }}>{card.subcat}</span>}
+                {card.sub    && <span style={{ fontFamily:MONO, fontSize:8, color:'#7a8390', background:'#161b22', border:'1px solid #21262d', padding:'3px 10px', borderRadius:10 }}>{card.sub}</span>}
               </div>
               {phase === 'listen' && (
                 <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:20 }}>
@@ -9785,23 +9792,32 @@ function PhraseTab({ settings }) {
 
               {/* 場景格 */}
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:6 }}>
-                {SCENARIOS.filter(s => sceneFilter === 'all' || s.cat === sceneFilter).map(sc => (
-                  <div key={sc.id} onClick={() => startScenario(sc)}
-                    style={{ background:'#0d1117', border:'1px solid #21262d', borderRadius:10,
-                      padding:'10px 8px', cursor:'pointer', display:'flex', flexDirection:'column', gap:4,
-                      transition:'border-color 0.15s', alignItems:'flex-start' }}
-                    onMouseOver={e => e.currentTarget.style.borderColor='#f5a62360'}
-                    onMouseOut={e => e.currentTarget.style.borderColor='#21262d'}>
-                    <span style={{ fontSize:18 }}>{sc.icon}</span>
-                    <div style={{ fontFamily:MONO, fontSize:11, color:'#e6edf3', fontWeight:500 }}>{sc.label}</div>
-                    <div style={{ fontFamily:MONO, fontSize:8, color: sc.cat==='work' ? '#f5a623' : '#58a6ff',
-                      background: sc.cat==='work' ? '#f5a62315' : '#58a6ff15',
-                      border:'1px solid '+(sc.cat==='work' ? '#f5a62340' : '#58a6ff40'),
-                      padding:'1px 5px', borderRadius:5 }}>
-                      {sc.cat==='work' ? '💼' : '🏠'}
+                {SCENARIOS.filter(s => sceneFilter === 'all' || s.cat === sceneFilter).map(sc => {
+                  // 計算這個場景相關的句子數（用場景類別 + 生活/工作對應）
+                  const relatedCount = allPhrases.filter(p =>
+                    sc.cat === 'life' ? (p.cat === 'life' || p.cat === 'my') : (p.cat !== 'life')
+                  ).length
+                  return (
+                    <div key={sc.id} onClick={() => startScenario(sc)}
+                      style={{ background:'#0d1117', border:'1px solid #21262d', borderRadius:10,
+                        padding:'10px 8px', cursor:'pointer', display:'flex', flexDirection:'column', gap:4,
+                        transition:'border-color 0.15s', alignItems:'flex-start' }}
+                      onMouseOver={e => e.currentTarget.style.borderColor='#f5a62360'}
+                      onMouseOut={e => e.currentTarget.style.borderColor='#21262d'}>
+                      <span style={{ fontSize:18 }}>{sc.icon}</span>
+                      <div style={{ fontFamily:MONO, fontSize:11, color:'#e6edf3', fontWeight:500 }}>{sc.label}</div>
+                      <div style={{ display:'flex', alignItems:'center', gap:4, marginTop:2 }}>
+                        <div style={{ fontFamily:MONO, fontSize:8, color: sc.cat==='work' ? '#f5a623' : '#58a6ff',
+                          background: sc.cat==='work' ? '#f5a62315' : '#58a6ff15',
+                          border:'1px solid '+(sc.cat==='work' ? '#f5a62340' : '#58a6ff40'),
+                          padding:'1px 5px', borderRadius:5 }}>
+                          {sc.cat==='work' ? '💼' : '🏠'}
+                        </div>
+                        <span style={{ fontFamily:MONO, fontSize:8, color:'#7a8390' }}>{relatedCount} 句</span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
               {convErr && (
                 <div style={{ background:'#f8514918', border:'1px solid #f8514950', borderRadius:8, padding:'10px 12px', fontFamily:MONO, fontSize:11, color:'#f85149' }}>{convErr}</div>
