@@ -9365,6 +9365,12 @@ function PhraseTab({ settings }) {
   const [extraPhrases, setExtraPhrases] = useState(() => {
     try { return JSON.parse(localStorage.getItem('fsi:ph:extra') ?? '[]') } catch { return [] }
   })
+  // ── 手動新增收藏 ──────────────────────────────────────────────
+  const [showAdd,   setShowAdd]   = useState(false)
+  const [addText,   setAddText]   = useState('')
+  const [addCat,    setAddCat]    = useState('life')
+  const [addLoading, setAddLoading] = useState(false)
+  const [addDone,   setAddDone]   = useState(null)  // {en, zh, cat}
 
   // ── Q&A 練習 ─────────────────────────────────────────────────
   const [qaIdx,       setQaIdx]       = useState(0)
@@ -9417,6 +9423,29 @@ function PhraseTab({ settings }) {
     u.lang = 'en-US'; u.rate = rate
     window.speechSynthesis.cancel()
     window.speechSynthesis.speak(u)
+  }
+
+  async function savePhrase(en, catId) {
+    const apiKey = settings?.apiKey || (() => {
+      try { return JSON.parse(localStorage.getItem('fsi:se') || '{}')?.apiKey ?? '' } catch { return '' }
+    })()
+    setAddLoading(true)
+    let zh = ''
+    try {
+      if (apiKey) {
+        const sys = 'Translate the English phrase/sentence to Traditional Chinese (繁體中文). Reply with ONLY the translation, nothing else.'
+        zh = await callClaude(apiKey, [{ role:'user', content: en }], sys)
+        zh = zh.trim()
+      }
+    } catch(e) { zh = '' }
+    const id = 'ph_my_' + Date.now()
+    const newPhrase = { id, cat: catId, en: en.trim(), zh }
+    const existing = (() => { try { return JSON.parse(localStorage.getItem('fsi:ph:extra') ?? '[]') } catch { return [] } })()
+    const updated = [...existing, newPhrase]
+    localStorage.setItem('fsi:ph:extra', JSON.stringify(updated))
+    setExtraPhrases(updated)
+    setAddDone(newPhrase)
+    setAddLoading(false)
   }
 
   // ── 句型 helpers ──────────────────────────────────────────────
@@ -9529,7 +9558,8 @@ function PhraseTab({ settings }) {
       {/* ══════════════════ 句型練習 ══════════════════ */}
       {pMode === 'sentence' && (
         <>
-          <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
+          {/* 分類篩選 + 新增按鈕 */}
+          <div style={{ display:'flex', alignItems:'center', gap:5, flexWrap:'wrap' }}>
             {PHRASE_CATS.map(c => (
               <div key={c.id} onClick={() => { setCat(c.id); setIdx(0) }}
                 style={{ padding:'4px 10px', borderRadius:12, fontFamily:MONO, fontSize:9, cursor:'pointer',
@@ -9539,7 +9569,80 @@ function PhraseTab({ settings }) {
                 {c.label}
               </div>
             ))}
+            <div onClick={() => { setShowAdd(v => !v); setAddDone(null); setAddText('') }}
+              style={{ marginLeft:'auto', width:30, height:30, borderRadius:'50%',
+                background: showAdd ? '#f5a623' : '#f5a62320', border:'1px solid #f5a62360',
+                display:'flex', alignItems:'center', justifyContent:'center',
+                cursor:'pointer', fontSize:18, color: showAdd ? '#050810' : '#f5a623',
+                fontWeight:700, flexShrink:0, transition:'all 0.15s' }}>
+              {showAdd ? '×' : '+'}
+            </div>
           </div>
+
+          {/* 新增收藏 Modal */}
+          {showAdd && (
+            <div style={{ background:'#0d1117', border:'1px solid #f5a62340', borderRadius:14, padding:'14px 16px', display:'flex', flexDirection:'column', gap:10 }} className="fadeUp">
+              {!addDone ? (
+                <>
+                  <div style={{ fontFamily:MONO, fontSize:9, color:'#f5a623', letterSpacing:'0.1em' }}>＋ 新增到我的收藏</div>
+                  <textarea value={addText} onChange={e => setAddText(e.target.value)}
+                    placeholder={"輸入英文句子\nI'm snowed under.\nTake your time."}
+                    style={{ minHeight:72, resize:'none', background:'#161b22', border:'1px solid #2d333b',
+                      borderRadius:8, padding:'10px 12px', fontFamily:MONO, fontSize:13, color:'#e6edf3',
+                      outline:'none', lineHeight:1.6 }}/>
+                  <div>
+                    <div style={{ fontFamily:MONO, fontSize:8.5, color:'#7a8390', marginBottom:6 }}>分類</div>
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
+                      {[
+                        {id:'life',     l:'🏠 生活'},
+                        {id:'opening',  l:'📢 開場'},
+                        {id:'quality',  l:'✅ 品質'},
+                        {id:'cost',     l:'💰 成本'},
+                        {id:'action',   l:'🎯 行動'},
+                        {id:'capacity', l:'🏭 產能'},
+                      ].map(o => (
+                        <div key={o.id} onClick={() => setAddCat(o.id)}
+                          style={{ padding:'4px 10px', borderRadius:10, fontFamily:MONO, fontSize:9, cursor:'pointer',
+                            background: addCat===o.id ? '#f5a62325' : '#161b22',
+                            border:'1px solid '+(addCat===o.id ? '#f5a62360' : '#21262d'),
+                            color: addCat===o.id ? '#f5a623' : '#7a8390' }}>
+                          {o.l}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <button className="btn" onClick={() => addText.trim() && savePhrase(addText, addCat)}
+                    disabled={addLoading || !addText.trim()}
+                    style={{ background: addLoading ? '#21262d' : '#f5a623', color: addLoading ? '#7a8390' : '#050810',
+                      padding:'12px', fontSize:12, fontWeight:700, letterSpacing:'0.08em',
+                      display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+                    {addLoading
+                      ? <><span style={{ display:'inline-block', width:10, height:10, border:'2px solid transparent', borderTopColor:'#7a8390', borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/> AI 翻譯中…</>
+                      : '✨ AI 新增（自動翻譯）'
+                    }
+                  </button>
+                </>
+              ) : (
+                <div style={{ display:'flex', flexDirection:'column', gap:10 }} className="fadeUp">
+                  <div style={{ fontFamily:MONO, fontSize:9, color:'#3fb950', letterSpacing:'0.08em' }}>✓ 已加入收藏</div>
+                  <div style={{ background:'#161b22', borderRadius:10, padding:'12px' }}>
+                    <div style={{ fontFamily:MONO, fontSize:14, color:'#e6edf3', marginBottom:6 }}>{addDone.en}</div>
+                    {addDone.zh && <div style={{ fontFamily:"'Crimson Pro',Georgia,serif", fontSize:13, color:'#aab3be', fontStyle:'italic' }}>{addDone.zh}</div>}
+                  </div>
+                  <div style={{ display:'flex', gap:8 }}>
+                    <button className="btn" onClick={() => { setAddText(''); setAddDone(null) }}
+                      style={{ flex:1, background:'#161b22', border:'1px solid #21262d', color:'#aab3be', padding:'10px 0', fontSize:11 }}>
+                      再加一句
+                    </button>
+                    <button className="btn" onClick={() => { setShowAdd(false); setAddDone(null); setCat('all') }}
+                      style={{ flex:1, background:'#3fb95018', border:'1px solid #3fb95050', color:'#3fb950', padding:'10px 0', fontSize:11, fontWeight:700 }}>
+                      完成 ✓
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
             <div style={{ flex:1, height:4, background:'#161b22', borderRadius:4, overflow:'hidden' }}>
               <div style={{ height:'100%', width:(doneCount/queue.length*100)+'%', background:'#3fb950', borderRadius:4, transition:'width 0.4s' }}/>
@@ -9681,22 +9784,21 @@ function PhraseTab({ settings }) {
               </div>
 
               {/* 場景格 */}
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:6 }}>
                 {SCENARIOS.filter(s => sceneFilter === 'all' || s.cat === sceneFilter).map(sc => (
                   <div key={sc.id} onClick={() => startScenario(sc)}
-                    style={{ background:'#0d1117', border:'1px solid #21262d', borderRadius:12,
-                      padding:'14px 12px', cursor:'pointer', display:'flex', flexDirection:'column', gap:6,
-                      transition:'border-color 0.15s' }}
+                    style={{ background:'#0d1117', border:'1px solid #21262d', borderRadius:10,
+                      padding:'10px 8px', cursor:'pointer', display:'flex', flexDirection:'column', gap:4,
+                      transition:'border-color 0.15s', alignItems:'flex-start' }}
                     onMouseOver={e => e.currentTarget.style.borderColor='#f5a62360'}
                     onMouseOut={e => e.currentTarget.style.borderColor='#21262d'}>
-                    <span style={{ fontSize:22 }}>{sc.icon}</span>
-                    <div style={{ fontFamily:MONO, fontSize:12, color:'#e6edf3', fontWeight:500 }}>{sc.label}</div>
-                    <div style={{ fontFamily:MONO, fontSize:9, color:'#7a8390' }}>{sc.en}</div>
+                    <span style={{ fontSize:18 }}>{sc.icon}</span>
+                    <div style={{ fontFamily:MONO, fontSize:11, color:'#e6edf3', fontWeight:500 }}>{sc.label}</div>
                     <div style={{ fontFamily:MONO, fontSize:8, color: sc.cat==='work' ? '#f5a623' : '#58a6ff',
                       background: sc.cat==='work' ? '#f5a62315' : '#58a6ff15',
                       border:'1px solid '+(sc.cat==='work' ? '#f5a62340' : '#58a6ff40'),
-                      padding:'2px 7px', borderRadius:6, alignSelf:'flex-start' }}>
-                      {sc.cat==='work' ? '💼 工作' : '🏠 生活'}
+                      padding:'1px 5px', borderRadius:5 }}>
+                      {sc.cat==='work' ? '💼' : '🏠'}
                     </div>
                   </div>
                 ))}
