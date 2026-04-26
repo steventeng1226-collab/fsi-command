@@ -10625,12 +10625,17 @@ function AchieveTab({ stats, earned, sentences, vocab }) {
 // SETTINGS TAB
 // ═══════════════════════════════════════════════════════════════
 function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings, updateSettings }) {
-  const [key, setKey] = useState(settings?.apiKey ?? '')
-  const [elevenKey, setElevenKey] = useState(settings?.elevenKey ?? '')
-  // Sync when settings prop changes (e.g. after Sheets read-in)
+  // 直接從 localStorage 讀取，避免 settings prop 非同步初始化問題
+  const [key, setKey] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('fsi:se') || '{}')?.apiKey ?? '' } catch { return '' }
+  })
+  const [elevenKey, setElevenKey] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('fsi:se') || '{}')?.elevenKey ?? '' } catch { return '' }
+  })
+  // 仍保留 prop sync（例如 Sheets 同步後更新）
   useEffect(() => {
-    if (settings?.apiKey    !== undefined) setKey(settings.apiKey ?? '')
-    if (settings?.elevenKey !== undefined) setElevenKey(settings.elevenKey ?? '')
+    if (settings?.apiKey)    setKey(settings.apiKey)
+    if (settings?.elevenKey) setElevenKey(settings.elevenKey)
   }, [settings?.apiKey, settings?.elevenKey])
   const [showKey, setShowKey] = useState(false)
   const [showElevenKey, setShowElevenKey] = useState(false)
@@ -10787,8 +10792,9 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
 
   function save() {
     const newSettings = { apiKey: key.trim(), elevenKey: elevenKey.trim() }
-    updateSettings(() => newSettings)
+    // 先同步寫入 localStorage，再更新 React state
     try { localStorage.setItem('fsi:se', JSON.stringify(newSettings)) } catch(e) {}
+    updateSettings(() => newSettings)
     flash('✓ API Keys 已儲存')
   }
 
@@ -11352,7 +11358,7 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
 // ROOT APP
 // ═══════════════════════════════════════════════════════════════
 export default function App() {
-  const [tab, setTab]         = useState('practice')
+  const [tab, setTab]         = useState('phrase')
   const [sentences, setSentences] = useState(null)
   const [vocab, setVocab]     = useState(null)
   const [stats, setStats]     = useState(null)
