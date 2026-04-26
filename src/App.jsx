@@ -9350,7 +9350,7 @@ const SCENARIOS = [
 
 // ── Linked / Rhythm 渲染器 ────────────────────────────────────
 // ── 我的收藏子分類導覽面板 ─────────────────────────────────────
-function MySubcatPanel({ counts, selected, onSelect, onReclassify, reclassifyLoading, reclassifyProgress }) {
+function MySubcatPanel({ counts, selected, onSelect, onReclassify, reclassifyLoading, reclassifyProgress, autoListen, onToggleAuto }) {
   const MONO = "'JetBrains Mono',monospace"
   const RECLASSIFY_LABELS = {
     restaurant:'🍽️ 餐廳咖啡', shopping:'🛍️ 購物', travel:'✈️ 交通旅遊',
@@ -9370,24 +9370,42 @@ function MySubcatPanel({ counts, selected, onSelect, onReclassify, reclassifyLoa
   return (
     <div style={{ width:'100%', background:'#0d1117', border:'1px solid #21262d',
       borderRadius:14, padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }}>
-      <div style={{ fontFamily:MONO, fontSize:8, color:'#8b949e', letterSpacing:'0.1em' }}>
-        ⭐ 我的收藏 — 切換分類
+      {/* 標題列：文字 + 自動播放長方形 + AI圖示 */}
+      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+        <div style={{ fontFamily:MONO, fontSize:8, color:'#8b949e', letterSpacing:'0.1em', flex:1 }}>
+          ⭐ 我的收藏 — 切換分類
+        </div>
+        {/* 自動播放長方形按鈕 */}
+        {onToggleAuto && (
+          <div onClick={onToggleAuto}
+            style={{ padding:'4px 14px', borderRadius:8, cursor:'pointer', fontFamily:MONO, fontSize:10,
+              background: autoListen ? '#f5a623' : '#58a6ff20',
+              border:'1px solid '+(autoListen ? '#f5a623' : '#58a6ff60'),
+              color: autoListen ? '#050810' : '#58a6ff',
+              fontWeight: autoListen ? 700 : 500, flexShrink:0 }}>
+            {autoListen ? '⏸ 暫停' : '▶ 自動播'}
+          </div>
+        )}
+        {/* AI 重分類圖示按鈕 */}
+        {onReclassify && (
+          <div onClick={reclassifyLoading ? undefined : onReclassify}
+            title="AI 自動重新分類"
+            style={{ padding:'4px 10px', borderRadius:8, cursor: reclassifyLoading ? 'default' : 'pointer',
+              fontFamily:MONO, fontSize:10,
+              background: reclassifyLoading ? '#21262d' : '#a371f715',
+              border:'1px solid '+(reclassifyLoading ? '#30363d' : '#a371f750'),
+              color: reclassifyLoading ? '#7a8390' : '#a371f7', flexShrink:0 }}>
+            {reclassifyLoading
+              ? (reclassifyProgress ? reclassifyProgress.current+'/'+reclassifyProgress.total : '⏳')
+              : '🤖'}
+          </div>
+        )}
       </div>
+      {/* 分類 chips */}
       <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
         <div onClick={() => onSelect('all')} style={chipStyle(selected==='all')}>
           全部 <span style={{ opacity:0.6 }}>({counts.all})</span>
         </div>
-        {onReclassify && (
-          <button className="btn" onClick={onReclassify} disabled={reclassifyLoading}
-            style={{ fontFamily:MONO, fontSize:9, padding:'4px 10px',
-              background: reclassifyLoading ? '#21262d' : '#a371f718',
-              border:'1px solid '+(reclassifyLoading ? '#30363d' : '#a371f750'),
-              color: reclassifyLoading ? '#7a8390' : '#a371f7', borderRadius:8 }}>
-            {reclassifyLoading
-              ? (reclassifyProgress ? '🤖 ' + reclassifyProgress.current + '/' + reclassifyProgress.total : '🤖 分類中…')
-              : '🤖 AI 重分類'}
-          </button>
-        )}
         {subcats.map(s => (
           <div key={s} onClick={() => onSelect(s)} style={chipStyle(selected===s)}>
             {getLabel(s)} <span style={{ opacity:0.6 }}>({counts[s]})</span>
@@ -9761,21 +9779,6 @@ function PhraseTab({ settings }) {
                 fontWeight:700, flexShrink:0, transition:'all 0.15s' }}>
               {showAdd ? '×' : '+'}
             </div>
-            {/* 自動播放按鈕 */}
-            <div onClick={() => {
-                const next = !autoListen
-                setAutoListen(next)
-                autoListenRef.current = next
-                if (next) setAutoPlayed(false)
-              }}
-              title={autoListen ? '暫停自動播放' : '自動播放 0.6x'}
-              style={{ width:30, height:30, borderRadius:'50%',
-                background: autoListen ? '#f5a623' : '#f5a62320',
-                border:'1px solid '+(autoListen ? '#f5a623' : '#f5a62350'),
-                display:'flex', alignItems:'center', justifyContent:'center',
-                cursor:'pointer', fontSize:15, flexShrink:0 }}>
-              {autoListen ? '⏸' : '▶'}
-            </div>
           </div>
 
           {/* 新增收藏 Modal */}
@@ -9983,23 +9986,24 @@ function PhraseTab({ settings }) {
                     )}
                   </div>
                   <SpeakRow text={card.en} color={cc}/>
-                  {/* 下一句 */}
+                  {/* 下一句 + 對答案 同一行 */}
                   <div style={{ display:'flex', gap:8, width:'100%' }}>
                     <button className="btn" onClick={() => setIdx(i => (i+1) % queue.length)}
-                      style={{ flex:1, padding:'12px 0', fontSize:13, background:'#161b22',
+                      style={{ flex:1, padding:'12px 0', fontSize:12, background:'#161b22',
                         border:'1px solid #30363d', color:'#c9d1d9' }}>
                       ▷ 下一句
                     </button>
+                    <button className="btn" onClick={() => setPhase('reveal')}
+                      style={{ flex:1, padding:'12px 0', fontSize:12, background:'#f5a62318',
+                        border:'1px solid #f5a62350', color:'#f5a623', letterSpacing:'0.05em' }}>
+                      ✏️ 對答案
+                    </button>
                   </div>
-                  <button className="btn" onClick={() => setPhase('reveal')}
-                    style={{ background:'#21262d', border:'1px solid #30363d', color:'#c9d1d9',
-                      width:'100%', padding:'12px', fontSize:12, letterSpacing:'0.08em' }}>
-                    ✏️ 對答案
-                  </button>
                   {cat === 'my' && extraPhrases.length > 0 && (
                     <MySubcatPanel counts={mySubcatCounts} selected={mySubcat}
                       onSelect={s => { setMySubcat(s); setIdx(0); setAutoPlayed(false) }}
-                      onReclassify={aiReclassify} reclassifyLoading={reclassifyLoading} reclassifyProgress={reclassifyProgress}/>
+                      onReclassify={aiReclassify} reclassifyLoading={reclassifyLoading} reclassifyProgress={reclassifyProgress}
+                      autoListen={autoListen} onToggleAuto={() => { const n=!autoListen; setAutoListen(n); autoListenRef.current=n; if(n) setAutoPlayed(false) }}/>
                   )}
                 </div>
               )}
@@ -10021,11 +10025,11 @@ function PhraseTab({ settings }) {
                       ✓ 我會了 →
                     </button>
                   </div>
-                  {/* ── 我的收藏子分類面板（紅框區）── */}
                   {cat === 'my' && extraPhrases.length > 0 && (
                     <MySubcatPanel counts={mySubcatCounts} selected={mySubcat}
                       onSelect={s => { setMySubcat(s); setIdx(0); setPhase('listen'); setAutoPlayed(false) }}
-                      onReclassify={aiReclassify} reclassifyLoading={reclassifyLoading} reclassifyProgress={reclassifyProgress}/>
+                      onReclassify={aiReclassify} reclassifyLoading={reclassifyLoading} reclassifyProgress={reclassifyProgress}
+                      autoListen={autoListen} onToggleAuto={() => { const n=!autoListen; setAutoListen(n); autoListenRef.current=n; if(n) setAutoPlayed(false) }}/>
                   )}
                 </div>
               )}
