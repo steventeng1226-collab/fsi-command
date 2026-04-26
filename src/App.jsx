@@ -9349,6 +9349,44 @@ const SCENARIOS = [
 ]
 
 // ── Linked / Rhythm 渲染器 ────────────────────────────────────
+// ── 我的收藏子分類導覽面板 ─────────────────────────────────────
+function MySubcatPanel({ counts, selected, onSelect }) {
+  const MONO = "'JetBrains Mono',monospace"
+  const subcats = Object.keys(counts).filter(k => k !== 'all').sort()
+  return (
+    <div style={{ width:'100%', background:'#0d1117', border:'1px solid #21262d',
+      borderRadius:14, padding:'14px 14px 12px', display:'flex', flexDirection:'column', gap:10 }}>
+      <div style={{ fontFamily:MONO, fontSize:8, color:'#7a8390', letterSpacing:'0.1em' }}>
+        ⭐ 我的收藏 — 切換子分類
+      </div>
+      <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+        {/* 全部 */}
+        <div onClick={() => onSelect('all')}
+          style={{ padding:'6px 12px', borderRadius:10, cursor:'pointer', fontFamily:MONO, fontSize:10,
+            background: selected==='all' ? '#f5a623' : '#161b22',
+            border:'1px solid '+(selected==='all' ? '#f5a623' : '#30363d'),
+            color: selected==='all' ? '#050810' : '#aab3be',
+            fontWeight: selected==='all' ? 700 : 400, transition:'all 0.14s' }}>
+          全部 <span style={{ opacity:0.7 }}>({counts.all})</span>
+        </div>
+        {subcats.map(s => (
+          <div key={s} onClick={() => onSelect(s)}
+            style={{ padding:'6px 12px', borderRadius:10, cursor:'pointer', fontFamily:MONO, fontSize:10,
+              background: selected===s ? '#f5a623' : '#161b22',
+              border:'1px solid '+(selected===s ? '#f5a623' : '#30363d'),
+              color: selected===s ? '#050810' : '#aab3be',
+              fontWeight: selected===s ? 700 : 400, transition:'all 0.14s' }}>
+            {s} <span style={{ opacity:0.7 }}>({counts[s]})</span>
+          </div>
+        ))}
+      </div>
+      <div style={{ fontFamily:MONO, fontSize:8, color:'#484f58', textAlign:'right' }}>
+        句子全部輸入後，可用 AI 自動重新分類
+      </div>
+    </div>
+  )
+}
+
 function PhraseTab({ settings }) {
   const MONO  = "'JetBrains Mono',monospace"
   const SERIF = "'Crimson Pro',Georgia,serif"
@@ -9361,6 +9399,8 @@ function PhraseTab({ settings }) {
   const [idx,        setIdx]        = useState(0)
   const [phase,      setPhase]      = useState('listen')
   const [autoPlayed, setAutoPlayed] = useState(false)
+  const [autoListen, setAutoListen] = useState(false)  // 連續自動播放模式
+  const autoListenRef = React.useRef(false)
   const [doneIds,    setDoneIds]    = useState(() => {
     try { return new Set(JSON.parse(localStorage.getItem('fsi:ph:done') ?? '[]')) } catch { return new Set() }
   })
@@ -9376,6 +9416,7 @@ function PhraseTab({ settings }) {
   const [addProgress, setAddProgress] = useState(null) // {current, total}
   const [showMyList, setShowMyList] = useState(false) // 我的收藏清單模式
   const [deleteConfirm, setDeleteConfirm] = useState(null) // phrase id 待確認刪除
+  const [mySubcat, setMySubcat] = useState('all') // 我的收藏子分類篩選
 
   // ── Q&A 練習 ─────────────────────────────────────────────────
   const [qaIdx,       setQaIdx]       = useState(0)
@@ -9397,9 +9438,22 @@ function PhraseTab({ settings }) {
 
   // ── 句型資料 ──────────────────────────────────────────────────
   const allPhrases = [...PHRASE_DATA, ...extraPhrases]
-  const queue      = cat === 'all' ? allPhrases : allPhrases.filter(p => p.cat === cat)
+  const baseQueue  = cat === 'all' ? allPhrases : allPhrases.filter(p => p.cat === cat)
+  const queue      = (cat === 'my' && mySubcat !== 'all')
+    ? baseQueue.filter(p => (p.subcat ?? '') === mySubcat)
+    : baseQueue
   const card       = queue[idx] ?? queue[0]
   const doneCount  = queue.filter(p => doneIds.has(p.id)).length
+
+  // 我的收藏：計算各 subcat 筆數（動態）
+  const mySubcatCounts = useMemo(() => {
+    const counts = { all: extraPhrases.length }
+    extraPhrases.forEach(p => {
+      const k = p.subcat ?? '未分類'
+      counts[k] = (counts[k] ?? 0) + 1
+    })
+    return counts
+  }, [extraPhrases])
 
   // ── Q&A 資料 ─────────────────────────────────────────────────
   const qa          = QA_DATA[qaIdx]
@@ -9409,10 +9463,23 @@ function PhraseTab({ settings }) {
   useEffect(() => { setPhase('listen'); setAutoPlayed(false) }, [idx, cat])
   useEffect(() => {
     if (pMode === 'sentence' && phase === 'listen' && !autoPlayed && card) {
-      const t = setTimeout(() => { speakEn(card.en, 0.6); setAutoPlayed(true) }, 400)
+      const t = setTimeout(() => {
+        speakEn(card.en, 0.6)
+        setAutoPlayed(true)
+        // 自動播放模式：播完後 2.5 秒自動跳下一句
+        if (autoListenRef.current && queue.length > 1) {
+          const dur = Math.max(2500, card.en.split(' ').length * 600 + 1500)
+          const next = setTimeout(() => {
+            if (autoListenRef.current) setIdx(i => (i + 1) % queue.length)
+          }, dur)
+          return () => clearTimeout(next)
+        }
+      }, 400)
       return () => clearTimeout(t)
     }
-  }, [phase, autoPlayed, card, pMode])
+  }, [phase, autoPlayed, card, pMode, autoListen])
+
+  useEffect(() => { autoListenRef.current = autoListen }, [autoListen])
 
   // ── Q&A：自動播放 ────────────────────────────────────────────
   useEffect(() => { setQaPhase('question'); setQaAutoPlayed(false) }, [qaIdx])
@@ -9603,7 +9670,7 @@ function PhraseTab({ settings }) {
           {/* 分類篩選 + 新增按鈕 */}
           <div style={{ display:'flex', alignItems:'center', gap:5, flexWrap:'wrap' }}>
             {PHRASE_CATS.map(c => (
-              <div key={c.id} onClick={() => { setCat(c.id); setIdx(0) }}
+              <div key={c.id} onClick={() => { setCat(c.id); setIdx(0); setMySubcat('all') }}
                 style={{ padding:'4px 10px', borderRadius:12, fontFamily:MONO, fontSize:9, cursor:'pointer',
                   background: cat===c.id ? '#f5a623' : '#161b22',
                   border: '1px solid '+(cat===c.id ? '#f5a623' : '#21262d'),
@@ -9629,6 +9696,25 @@ function PhraseTab({ settings }) {
                 cursor:'pointer', fontSize:18, color: showAdd ? '#050810' : '#f5a623',
                 fontWeight:700, flexShrink:0, transition:'all 0.15s' }}>
               {showAdd ? '×' : '+'}
+            </div>
+            {/* 匯出按鈕 — 給 AI 分類用 */}
+            <div onClick={() => {
+                const data = (() => { try { return JSON.parse(localStorage.getItem('fsi:ph:extra')||'[]') } catch { return [] } })()
+                if (!data.length) { alert('尚無收藏句子'); return }
+                const lines = data.map((p,i) => (i+1)+'. '+p.en+(p.zh ? '　（'+p.zh+'）' : '')+(p.subcat ? '　['+p.subcat+']' : '')).join('\n')
+                const text = '共 '+data.length+' 句\n\n'+lines
+                navigator.clipboard.writeText(text).then(() => alert('✓ 已複製 '+data.length+' 句！\n請貼到 Claude 對話框讓 AI 幫你分類')).catch(() => {
+                  const el = document.createElement('textarea')
+                  el.value = text; document.body.appendChild(el); el.select()
+                  document.execCommand('copy'); document.body.removeChild(el)
+                  alert('✓ 已複製！請貼到 Claude 對話框')
+                })
+              }}
+              title="複製全部句子給 AI 分類"
+              style={{ width:30, height:30, borderRadius:'50%', background:'#3fb95020', border:'1px solid #3fb95050',
+                display:'flex', alignItems:'center', justifyContent:'center',
+                cursor:'pointer', fontSize:14, color:'#3fb950', flexShrink:0 }}>
+              📤
             </div>
           </div>
 
@@ -9740,7 +9826,25 @@ function PhraseTab({ settings }) {
                   尚無收藏句子，點 ＋ 新增
                 </div>
               )}
-              {extraPhrases.map(p => (
+              {/* 子分類篩選列（清單模式）*/}
+              {extraPhrases.length > 0 && (() => {
+                const subcatList = ['all', ...Object.keys(mySubcatCounts).filter(k => k !== 'all').sort()]
+                return (
+                  <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
+                    {subcatList.map(s => (
+                      <div key={s} onClick={() => setMySubcat(s)}
+                        style={{ padding:'4px 10px', borderRadius:9, cursor:'pointer', fontFamily:MONO, fontSize:9,
+                          background: mySubcat===s ? '#f5a623' : '#161b22',
+                          border:'1px solid '+(mySubcat===s ? '#f5a623' : '#30363d'),
+                          color: mySubcat===s ? '#050810' : '#7a8390',
+                          fontWeight: mySubcat===s ? 700 : 400 }}>
+                        {s === 'all' ? '全部' : s} ({mySubcatCounts[s] ?? 0})
+                      </div>
+                    ))}
+                  </div>
+                )
+              })()}
+              {(mySubcat === 'all' ? extraPhrases : extraPhrases.filter(p => (p.subcat ?? '未分類') === mySubcat)).map(p => (
                 <div key={p.id} style={{ background:'#0d1117', border:'1px solid '+(deleteConfirm===p.id ? '#f85149aa' : '#21262d'),
                   borderRadius:10, padding:'12px 14px', display:'flex', flexDirection:'column', gap:6,
                   transition:'border-color 0.15s' }}>
@@ -9800,34 +9904,70 @@ function PhraseTab({ settings }) {
             <div style={{ flex:1, height:4, background:'#161b22', borderRadius:4, overflow:'hidden' }}>
               <div style={{ height:'100%', width:(doneCount/queue.length*100)+'%', background:'#3fb950', borderRadius:4, transition:'width 0.4s' }}/>
             </div>
-            <span style={{ fontFamily:MONO, fontSize:9, color:'#7a8390' }}>{doneCount}/{queue.length}</span>
+            <span style={{ fontFamily:MONO, fontSize:9, color:'#8b949e' }}>{doneCount}/{queue.length}</span>
           </div>
-          <div style={{ fontFamily:MONO, fontSize:8.5, color:'#7a8390', textAlign:'center' }}>{idx+1} / {queue.length}</div>
+          <div style={{ fontFamily:MONO, fontSize:9, color:'#8b949e', textAlign:'center' }}>{idx+1} / {queue.length}</div>
           {card && (
             <>
               <div style={{ display:'flex', justifyContent:'center', gap:6 }}>
-                <span style={{ fontFamily:MONO, fontSize:8, color:cc, background:cc+'18', border:'1px solid '+cc+'40', padding:'3px 12px', borderRadius:10 }}>
+                <span style={{ fontFamily:MONO, fontSize:9, color:cc, background:cc+'22', border:'1px solid '+cc+'55', padding:'3px 12px', borderRadius:10 }}>
                   {card.cat === 'my' ? '⭐ 我的收藏' : (PHRASE_CATS.find(c => c.id === card.cat)?.label ?? card.cat)}
                 </span>
-                {card.subcat && <span style={{ fontFamily:MONO, fontSize:8, color:'#7a8390', background:'#161b22', border:'1px solid #21262d', padding:'3px 10px', borderRadius:10 }}>{card.subcat}</span>}
-                {card.sub    && <span style={{ fontFamily:MONO, fontSize:8, color:'#7a8390', background:'#161b22', border:'1px solid #21262d', padding:'3px 10px', borderRadius:10 }}>{card.sub}</span>}
+                {card.subcat && <span style={{ fontFamily:MONO, fontSize:9, color:'#c9d1d9', background:'#21262d', border:'1px solid #30363d', padding:'3px 10px', borderRadius:10 }}>{card.subcat}</span>}
+                {card.sub    && <span style={{ fontFamily:MONO, fontSize:9, color:'#c9d1d9', background:'#21262d', border:'1px solid #30363d', padding:'3px 10px', borderRadius:10 }}>{card.sub}</span>}
               </div>
               {phase === 'listen' && (
-                <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:20 }}>
+                <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:16 }}>
+                  {/* 句子卡片 */}
+                  <div style={{ width:'100%', background:'#0d1117', border:'1px solid '+cc+'40',
+                    borderRadius:14, padding:'20px 18px', textAlign:'center' }}>
+                    <div style={{ fontFamily:MONO, fontSize:16, color:'#ffffff', lineHeight:1.75, letterSpacing:'0.01em' }}>
+                      {card.en}
+                    </div>
+                    {card.zh && (
+                      <div style={{ fontFamily:SERIF, fontSize:13, color:'#c9d1d9', fontStyle:'italic', marginTop:10, lineHeight:1.6 }}>
+                        {card.zh}
+                      </div>
+                    )}
+                  </div>
                   <SpeakRow text={card.en} color={cc}/>
-                  <div style={{ fontFamily:SERIF, fontSize:13, color:'#aab3be', fontStyle:'italic', textAlign:'center', lineHeight:1.6 }}>仔細聽，然後在紙上寫下英文句子</div>
+                  {/* 自動播放 + 下一句 */}
+                  <div style={{ display:'flex', gap:8, width:'100%' }}>
+                    <button className="btn" onClick={() => {
+                        const next = !autoListen
+                        setAutoListen(next)
+                        autoListenRef.current = next
+                        if (next) { setAutoPlayed(false) }
+                      }}
+                      style={{ flex:1, padding:'12px 0', fontSize:12, fontWeight:700, letterSpacing:'0.06em',
+                        background: autoListen ? '#f5a623' : '#f5a62320',
+                        border:'1px solid '+(autoListen ? '#f5a623' : '#f5a62350'),
+                        color: autoListen ? '#050810' : '#f5a623' }}>
+                      {autoListen ? '⏸ 暫停自動播' : '▶ 自動播放'}
+                    </button>
+                    <button className="btn" onClick={() => setIdx(i => (i+1) % queue.length)}
+                      style={{ padding:'12px 18px', fontSize:13, background:'#161b22',
+                        border:'1px solid #30363d', color:'#c9d1d9' }}>
+                      ▷
+                    </button>
+                  </div>
                   <button className="btn" onClick={() => setPhase('reveal')}
-                    style={{ background:'#f5a623', color:'#050810', width:'100%', padding:'15px', fontSize:13, fontWeight:700, letterSpacing:'0.1em' }}>
-                    ✏️ 我寫好了 → 對答案
+                    style={{ background:'#21262d', border:'1px solid #30363d', color:'#c9d1d9',
+                      width:'100%', padding:'12px', fontSize:12, letterSpacing:'0.08em' }}>
+                    ✏️ 對答案
                   </button>
+                  {cat === 'my' && extraPhrases.length > 0 && (
+                    <MySubcatPanel counts={mySubcatCounts} selected={mySubcat}
+                      onSelect={s => { setMySubcat(s); setIdx(0); setAutoPlayed(false) }}/>
+                  )}
                 </div>
               )}
               {phase === 'reveal' && (
                 <div style={{ display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
                   <div style={{ background:'#0d1117', border:'1px solid '+cc+'50', borderRadius:14, padding:'18px 16px', display:'flex', flexDirection:'column', gap:10 }}>
-                    <div style={{ fontFamily:MONO, fontSize:15, color:'#e6edf3', lineHeight:1.7 }}>{card.en}</div>
+                    <div style={{ fontFamily:MONO, fontSize:16, color:'#ffffff', lineHeight:1.75 }}>{card.en}</div>
                     <div style={{ height:1, background:'#21262d' }}/>
-                    <div style={{ fontFamily:SERIF, fontSize:13, color:'#aab3be', fontStyle:'italic' }}>{card.zh}</div>
+                    <div style={{ fontFamily:SERIF, fontSize:14, color:'#c9d1d9', fontStyle:'italic' }}>{card.zh}</div>
                   </div>
                   <SpeakRow text={card.en} color={cc}/>
                   <div style={{ display:'flex', gap:8 }}>
@@ -9840,6 +9980,11 @@ function PhraseTab({ settings }) {
                       ✓ 我會了 →
                     </button>
                   </div>
+                  {/* ── 我的收藏子分類面板（紅框區）── */}
+                  {cat === 'my' && extraPhrases.length > 0 && (
+                    <MySubcatPanel counts={mySubcatCounts} selected={mySubcat}
+                      onSelect={s => { setMySubcat(s); setIdx(0); setPhase('listen'); setAutoPlayed(false) }}/>
+                  )}
                 </div>
               )}
             </>
