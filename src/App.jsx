@@ -9328,10 +9328,6 @@ function LinkedText({ text, type }) {
 
 // ═══════════════════════════════════════════════════════════════
 // PHRASE TAB
-// ═══════════════════════════════════════════════════════════════
-// ═══════════════════════════════════════════════════════════════
-// PHRASE TAB
-// ═══════════════════════════════════════════════════════════════
 
 const SCENARIOS = [
   { id:'greet',   label:'打招呼',   en:'Greeting friends',      icon:'👋', cat:'life'  },
@@ -9351,29 +9347,6 @@ const SCENARIOS = [
 ]
 
 // ── Linked / Rhythm 渲染器 ────────────────────────────────────
-function LinkedText({ text, type }) {
-  const baseColor = type === 'linked' ? '#f5a623' : '#3fb950'
-  const tokens = text.split('-')
-  return (
-    <div style={{ display:'flex', flexWrap:'wrap', alignItems:'baseline', lineHeight:1.8 }}>
-      {tokens.map((tok, i) => {
-        const isLast   = i === tokens.length - 1
-        const isWeak   = /^(thə|tə|ə|ðə)$/i.test(tok)
-        const isStress = tok === tok.toUpperCase() && /[A-Z]{2,}/.test(tok)
-        const color    = isWeak ? '#58a6ff' : isStress ? '#ffffff' : baseColor
-        return (
-          <span key={i} style={{ display:'inline-flex', alignItems:'baseline' }}>
-            <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize: isStress ? 14 : 12, fontWeight: isStress ? 700 : 400, color }}>
-              {tok}
-            </span>
-            {!isLast && <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:11, color:baseColor+'60' }}>·</span>}
-          </span>
-        )
-      })}
-    </div>
-  )
-}
-
 function PhraseTab({ settings }) {
   const MONO  = "'JetBrains Mono',monospace"
   const SERIF = "'Crimson Pro',Georgia,serif"
