@@ -9174,6 +9174,9 @@ function VocabTab({ vocab, updateVocab, updateStats, awardBadge }) {
 // ═══════════════════════════════════════════════════════════════
 // PHRASE DATA — 副廠長會議常用 50 句
 // ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// PHRASE DATA
+// ═══════════════════════════════════════════════════════════════
 const PHRASE_CATS = [
   { id:'all',      label:'全部' },
   { id:'opening',  label:'開場/進度' },
@@ -9181,20 +9184,19 @@ const PHRASE_CATS = [
   { id:'quality',  label:'良率/品質' },
   { id:'cost',     label:'成本/毛利' },
   { id:'action',   label:'行動/決策' },
+  { id:'life',     label:'🗣 生活口說' },
 ]
 const PHRASE_DATA = [
-  // 一、會議開場 / 進度更新
-  { id:'ph01', cat:'opening', en:'Let me give a quick update on the current status.', zh:'讓我快速更新一下目前狀況。' },
-  { id:'ph02', cat:'opening', en:"Let's start with the production update.", zh:'我們先從生產狀況開始。' },
-  { id:'ph03', cat:'opening', en:'The overall performance is stable.', zh:'整體績效目前穩定。' },
-  { id:'ph04', cat:'opening', en:'Production is running normally today.', zh:'今天生產運作正常。' },
-  { id:'ph05', cat:'opening', en:'The current status is under control.', zh:'目前狀況在控制之中。' },
-  { id:'ph06', cat:'opening', en:'We are making steady progress.', zh:'我們正在穩定推進。' },
-  { id:'ph07', cat:'opening', en:'Let me summarize the key points.', zh:'我來總結一下重點。' },
-  { id:'ph08', cat:'opening', en:'We will review the details later.', zh:'細節我們稍後再檢視。' },
-  { id:'ph09', cat:'opening', en:'I will walk you through the main issues.', zh:'我來說明主要問題。' },
-  { id:'ph10', cat:'opening', en:"Let's move on to the next topic.", zh:'我們進入下一個議題。' },
-  // 二、生產 / 產能 / 稼動率
+  { id:'ph01', cat:'opening',  en:'Let me give a quick update on the current status.', zh:'讓我快速更新一下目前狀況。' },
+  { id:'ph02', cat:'opening',  en:"Let's start with the production update.", zh:'我們先從生產狀況開始。' },
+  { id:'ph03', cat:'opening',  en:'The overall performance is stable.', zh:'整體績效目前穩定。' },
+  { id:'ph04', cat:'opening',  en:'Production is running normally today.', zh:'今天生產運作正常。' },
+  { id:'ph05', cat:'opening',  en:'The current status is under control.', zh:'目前狀況在控制之中。' },
+  { id:'ph06', cat:'opening',  en:'We are making steady progress.', zh:'我們正在穩定推進。' },
+  { id:'ph07', cat:'opening',  en:'Let me summarize the key points.', zh:'我來總結一下重點。' },
+  { id:'ph08', cat:'opening',  en:'We will review the details later.', zh:'細節我們稍後再檢視。' },
+  { id:'ph09', cat:'opening',  en:'I will walk you through the main issues.', zh:'我來說明主要問題。' },
+  { id:'ph10', cat:'opening',  en:"Let's move on to the next topic.", zh:'我們進入下一個議題。' },
   { id:'ph11', cat:'capacity', en:'We need to review the utilization of the SMD lines.', zh:'我們需要檢視 SMD 線的稼動率。' },
   { id:'ph12', cat:'capacity', en:'The current utilization rate is below target.', zh:'目前稼動率低於目標。' },
   { id:'ph13', cat:'capacity', en:'Production output is slightly below expectation.', zh:'產出略低於預期。' },
@@ -9205,236 +9207,703 @@ const PHRASE_DATA = [
   { id:'ph18', cat:'capacity', en:'The equipment utilization needs improvement.', zh:'設備利用率需要改善。' },
   { id:'ph19', cat:'capacity', en:'We are monitoring the production output closely.', zh:'我們正在密切監控產出。' },
   { id:'ph20', cat:'capacity', en:'The production plan remains unchanged.', zh:'生產計畫維持不變。' },
-  // 三、良率 / 品質 / 問題分析
-  { id:'ph21', cat:'quality', en:'The yield has improved compared to last month.', zh:'良率比上月有所改善。' },
-  { id:'ph22', cat:'quality', en:'The yield is still below our target.', zh:'良率仍低於目標。' },
-  { id:'ph23', cat:'quality', en:'We are investigating the root cause.', zh:'我們正在調查根本原因。' },
-  { id:'ph24', cat:'quality', en:'We identified the main issue in the process.', zh:'我們已找到製程的主要問題。' },
-  { id:'ph25', cat:'quality', en:'Corrective actions are being implemented.', zh:'正在執行矯正措施。' },
-  { id:'ph26', cat:'quality', en:'We need to prevent this issue from happening again.', zh:'我們需要防止問題再次發生。' },
-  { id:'ph27', cat:'quality', en:'The defect rate has decreased significantly.', zh:'不良率明顯下降。' },
-  { id:'ph28', cat:'quality', en:'Quality performance is improving steadily.', zh:'品質表現正在穩定改善。' },
-  { id:'ph29', cat:'quality', en:'The issue has been contained.', zh:'問題已經被控制。' },
-  { id:'ph30', cat:'quality', en:'We will continue to monitor the situation.', zh:'我們會持續監控狀況。' },
-  // 四、成本 / 毛利 / 策略
-  { id:'ph31', cat:'cost', en:'We need to mitigate the cost impact.', zh:'我們需要減輕成本衝擊。' },
-  { id:'ph32', cat:'cost', en:'Several cost reduction projects are underway.', zh:'多個降成本專案正在進行。' },
-  { id:'ph33', cat:'cost', en:'The gross margin needs improvement.', zh:'毛利需要改善。' },
-  { id:'ph34', cat:'cost', en:'We need to review the pricing strategy.', zh:'我們需要檢討定價策略。' },
-  { id:'ph35', cat:'cost', en:'The current cost structure needs adjustment.', zh:'目前成本結構需要調整。' },
-  { id:'ph36', cat:'cost', en:'This product currently has a negative margin.', zh:'這個產品目前毛利為負。' },
-  { id:'ph37', cat:'cost', en:'We need to optimize the product portfolio.', zh:'我們需要優化產品組合。' },
-  { id:'ph38', cat:'cost', en:'The price gap with competitors is still large.', zh:'與競爭對手仍有價格差距。' },
-  { id:'ph39', cat:'cost', en:'We need to close the gap as soon as possible.', zh:'我們需要盡快縮小差距。' },
-  { id:'ph40', cat:'cost', en:'This will have a significant impact on our margin.', zh:'這會對毛利產生明顯影響。' },
-  // 五、行動 / 決策 / 管理
-  { id:'ph41', cat:'action', en:'This issue should be our top priority.', zh:'這個問題應該是我們的首要優先事項。' },
-  { id:'ph42', cat:'action', en:'We need to take action immediately.', zh:'我們需要立即採取行動。' },
-  { id:'ph43', cat:'action', en:'Please coordinate with the engineering team.', zh:'請與工程團隊協調。' },
-  { id:'ph44', cat:'action', en:"Let's follow up on this next week.", zh:'我們下週再追蹤。' },
-  { id:'ph45', cat:'action', en:'We need a clear action plan.', zh:'我們需要一個清楚的行動計畫。' },
-  { id:'ph46', cat:'action', en:'Please provide justification for this request.', zh:'請提供這項需求的理由。' },
-  { id:'ph47', cat:'action', en:'We will evaluate this proposal.', zh:'我們會評估這個提案。' },
-  { id:'ph48', cat:'action', en:"Let's align with the team before making a decision.", zh:'我們先與團隊對齊再做決定。' },
-  { id:'ph49', cat:'action', en:'We need to monitor this closely.', zh:'我們需要密切監控。' },
-  { id:'ph50', cat:'action', en:"Let's keep this as a key focus.", zh:'這件事我們持續重點關注。' },
+  { id:'ph21', cat:'quality',  en:'The yield has improved compared to last month.', zh:'良率比上月有所改善。' },
+  { id:'ph22', cat:'quality',  en:'The yield is still below our target.', zh:'良率仍低於目標。' },
+  { id:'ph23', cat:'quality',  en:'We are investigating the root cause.', zh:'我們正在調查根本原因。' },
+  { id:'ph24', cat:'quality',  en:'We identified the main issue in the process.', zh:'我們已找到製程的主要問題。' },
+  { id:'ph25', cat:'quality',  en:'Corrective actions are being implemented.', zh:'正在執行矯正措施。' },
+  { id:'ph26', cat:'quality',  en:'We need to prevent this issue from happening again.', zh:'我們需要防止問題再次發生。' },
+  { id:'ph27', cat:'quality',  en:'The defect rate has decreased significantly.', zh:'不良率明顯下降。' },
+  { id:'ph28', cat:'quality',  en:'Quality performance is improving steadily.', zh:'品質表現正在穩定改善。' },
+  { id:'ph29', cat:'quality',  en:'The issue has been contained.', zh:'問題已經被控制。' },
+  { id:'ph30', cat:'quality',  en:'We will continue to monitor the situation.', zh:'我們會持續監控狀況。' },
+  { id:'ph31', cat:'cost',     en:'We need to mitigate the cost impact.', zh:'我們需要減輕成本衝擊。' },
+  { id:'ph32', cat:'cost',     en:'Several cost reduction projects are underway.', zh:'多個降成本專案正在進行。' },
+  { id:'ph33', cat:'cost',     en:'The gross margin needs improvement.', zh:'毛利需要改善。' },
+  { id:'ph34', cat:'cost',     en:'We need to review the pricing strategy.', zh:'我們需要檢討定價策略。' },
+  { id:'ph35', cat:'cost',     en:'The current cost structure needs adjustment.', zh:'目前成本結構需要調整。' },
+  { id:'ph36', cat:'cost',     en:'This product currently has a negative margin.', zh:'這個產品目前毛利為負。' },
+  { id:'ph37', cat:'cost',     en:'We need to optimize the product portfolio.', zh:'我們需要優化產品組合。' },
+  { id:'ph38', cat:'cost',     en:'The price gap with competitors is still large.', zh:'與競爭對手仍有價格差距。' },
+  { id:'ph39', cat:'cost',     en:'We need to close the gap as soon as possible.', zh:'我們需要盡快縮小差距。' },
+  { id:'ph40', cat:'cost',     en:'This will have a significant impact on our margin.', zh:'這會對毛利產生明顯影響。' },
+  { id:'ph41', cat:'action',   en:'This issue should be our top priority.', zh:'這個問題應該是我們的首要優先事項。' },
+  { id:'ph42', cat:'action',   en:'We need to take action immediately.', zh:'我們需要立即採取行動。' },
+  { id:'ph43', cat:'action',   en:'Please coordinate with the engineering team.', zh:'請與工程團隊協調。' },
+  { id:'ph44', cat:'action',   en:"Let's follow up on this next week.", zh:'我們下週再追蹤。' },
+  { id:'ph45', cat:'action',   en:'We need a clear action plan.', zh:'我們需要一個清楚的行動計畫。' },
+  { id:'ph46', cat:'action',   en:'Please provide justification for this request.', zh:'請提供這項需求的理由。' },
+  { id:'ph47', cat:'action',   en:'We will evaluate this proposal.', zh:'我們會評估這個提案。' },
+  { id:'ph48', cat:'action',   en:"Let's align with the team before making a decision.", zh:'我們先與團隊對齊再做決定。' },
+  { id:'ph49', cat:'action',   en:'We need to monitor this closely.', zh:'我們需要密切監控。' },
+  { id:'ph50', cat:'action',   en:"Let's keep this as a key focus.", zh:'這件事我們持續重點關注。' },
+  // 生活口說 — 一、開口
+  { id:'lf01', cat:'life', sub:'開口說', en:'Let me try.', zh:'讓我試試看' },
+  { id:'lf02', cat:'life', sub:'開口說', en:'Give me a second.', zh:'給我一下' },
+  { id:'lf03', cat:'life', sub:'開口說', en:'How can I say…', zh:'我怎麼說…' },
+  { id:'lf04', cat:'life', sub:'開口說', en:"It's hard to explain, but…", zh:'有點難講，但…' },
+  // 生活口說 — 二、聽不懂
+  { id:'lf05', cat:'life', sub:'聽不懂', en:'Sorry, can you repeat?', zh:'可以再說一次嗎' },
+  { id:'lf06', cat:'life', sub:'聽不懂', en:'What do you mean?', zh:'你是什麼意思' },
+  { id:'lf07', cat:'life', sub:'聽不懂', en:'Do you mean…?', zh:'你是指…嗎' },
+  { id:'lf08', cat:'life', sub:'聽不懂', en:'Can you say it in a simpler way?', zh:'可以講簡單一點嗎' },
+  // 生活口說 — 三、簡單回答
+  { id:'lf09', cat:'life', sub:'簡單回答', en:'I think…', zh:'我覺得…' },
+  { id:'lf10', cat:'life', sub:'簡單回答', en:'Maybe because…', zh:'可能是因為…' },
+  { id:'lf11', cat:'life', sub:'簡單回答', en:'Main reason is…', zh:'主要原因是…' },
+  { id:'lf12', cat:'life', sub:'簡單回答', en:'The problem is…', zh:'問題是…' },
+  // 生活口說 — 四、拖時間
+  { id:'lf13', cat:'life', sub:'拖時間', en:'Let me think…', zh:'我想一下' },
+  { id:'lf14', cat:'life', sub:'拖時間', en:"I'm not sure, but…", zh:'我不確定，但…' },
+  { id:'lf15', cat:'life', sub:'拖時間', en:'Something like…', zh:'有點像…' },
+  // 生活口說 — 五、補充
+  { id:'lf16', cat:'life', sub:'補充', en:'Also…', zh:'還有…' },
+  { id:'lf17', cat:'life', sub:'補充', en:'And then…', zh:'然後…' },
+  { id:'lf18', cat:'life', sub:'補充', en:'After that…', zh:'之後…' },
+  // 生活口說 — 六、收尾
+  { id:'lf19', cat:'life', sub:'收尾', en:"That's it.", zh:'就這樣' },
+  { id:'lf20', cat:'life', sub:'收尾', en:"That's my idea.", zh:'這是我的想法' },
 ]
+
+// ── Q&A 問答資料（20句）──────────────────────────────────────
+const QA_DATA = [
+  { id:'qa01', q:'What is the main issue?',        a:'The main issue is yield.',                linked:'Thə-main-issue-is yield',                  rhythm:'thə-MAIN-issue-is-YIELD' },
+  { id:'qa02', q:'Why is the cost high?',           a:'Because material cost is high.',          linked:'Be-cause-ma-terial-cos(t)-is high',          rhythm:'beCAUSE-maTERial-COST-is-HIGH' },
+  { id:'qa03', q:'Where is the problem coming from?',a:"It's coming from the packaging stage.",  linked:"It's-co-ming-from-thə-pa-cka-ging stage",    rhythm:'its-COMing-from-thə-PACKaging-STAGE' },
+  { id:'qa04', q:'What should we do?',              a:'We need to reduce the cost.',             linked:'We-need-tə-re-duce-thə cost',               rhythm:'we-NEED-tə-reDUCE-thə-COST' },
+  { id:'qa05', q:'What is the action?',             a:'We need to improve yield.',               linked:'We-need-tə-im-prove yield',                 rhythm:'we-NEED-tə-imPROVE-YIELD' },
+  { id:'qa06', q:'Are we facing any issues?',       a:'Yes, we are facing a delay.',             linked:'Yes-we-are-fa-cingə-de-lay',                rhythm:'YES-we-are-FAcingə-deLAY' },
+  { id:'qa07', q:'What is the current status?',     a:'We are working on a solution.',           linked:'We-are-wor-king-onə-so-lu-tion',            rhythm:'we-are-WORKing-onə-soLUtion' },
+  { id:'qa08', q:'Do we have a capacity issue?',    a:'Yes, we have a capacity issue.',          linked:'Yes-we-haveə-ca-pa-ci-ty issue',            rhythm:'YES-we-HAVEə-caPAcity-ISSUE' },
+  { id:'qa09', q:'What is the root cause?',         a:'The issue is from process variation.',    linked:'Thə-issue-is-from-pro-cess-va-ri-a-tion',   rhythm:'thə-ISSUE-is-FROM-PROcess-vaRIation' },
+  { id:'qa10', q:'What is happening now?',          a:'Right now, we are fixing this issue.',    linked:'Right-now-we-are-fi-xing-this issue',       rhythm:'RIGHT-now-we-are-FIXing-this-ISSUE' },
+  { id:'qa11', q:'What is the plan?',               a:'We will update you later.',               linked:'We-will-up-date-you-la-ter',                rhythm:'we-will-upDATE-you-LAter' },
+  { id:'qa12', q:'What is your suggestion?',        a:'We need to improve the process.',         linked:'We-need-tə-im-prove-thə-pro-cess',          rhythm:'we-NEED-tə-imPROVE-thə-PROcess' },
+  { id:'qa13', q:'Why is the yield low?',           a:'Because of process issues.',              linked:'Be-cause-of-pro-cess issues',               rhythm:'beCAUSE-of-PROcess-ISSUES' },
+  { id:'qa14', q:'Is the line running well?',       a:'No, it is running below target.',         linked:'No-it-is-run-ning-be-low-tar-get',          rhythm:'NO-it-is-RUNning-beLOW-TARget' },
+  { id:'qa15', q:'What is the impact?',             a:'This will impact delivery.',              linked:'This-will-im-pact-de-li-ve-ry',             rhythm:'this-will-imPACT-deLIvery' },
+  { id:'qa16', q:'Do we need action now?',          a:'Yes, we need to act now.',                linked:'Yes-we-need-tə-act-now',                    rhythm:'YES-we-NEED-tə-ACT-now' },
+  { id:'qa17', q:'What should we check?',           a:'We need to check the data.',              linked:'We-need-tə-check-thə-da-ta',                rhythm:'we-NEED-tə-CHECK-thə-DAta' },
+  { id:'qa18', q:'What is the priority?',           a:'The priority is yield improvement.',      linked:'Thə-pri-or-i-ty-is-yield-im-prove-ment',   rhythm:'thə-priORity-is-YIELD-imPROVEment' },
+  { id:'qa19', q:'What is your update?',            a:"That's my update.",                       linked:"That's-my-up-date",                         rhythm:"THAT's-my-UPdate" },
+  { id:'qa20', q:'Are we on track?',                a:'Yes, we are on track.',                   linked:'Yes-we-are-on track',                       rhythm:'YES-we-are-on-TRACK' },
+]
+
+// ── Linked / Rhythm 文字渲染器 ────────────────────────────────
+function LinkedText({ text, type }) {
+  // type: 'linked' (amber) or 'rhythm' (green)
+  const baseColor = type === 'linked' ? T.amber : T.grn
+  const tokens = text.split('-')
+  return (
+    <div style={{ display:'flex', flexWrap:'wrap', alignItems:'baseline', gap:'1px 0', lineHeight:1.8 }}>
+      {tokens.map((tok, i) => {
+        const isLast   = i === tokens.length - 1
+        // weak forms: thə tə ə ðə
+        const isWeak   = /^(thə|tə|ə|ðə)$/i.test(tok)
+        // stressed: ALL CAPS (length>1, or short like YIELD YES NO)
+        const isStress = tok === tok.toUpperCase() && /[A-Z]{2,}/.test(tok)
+        // elision: contains ()
+        const hasElis  = tok.includes('(')
+        const color    = isWeak ? '#58a6ff' : isStress ? '#ffffff' : baseColor
+        return (
+          <span key={i} style={{ display:'inline-flex', alignItems:'baseline', gap:0 }}>
+            <span style={{
+              fontFamily: MONO,
+              fontSize:   isStress ? 14 : 12,
+              fontWeight: isStress ? 700 : 400,
+              color,
+              letterSpacing: '0.01em',
+            }}>
+              {tok}
+            </span>
+            {!isLast && (
+              <span style={{ fontFamily:MONO, fontSize:11, color:baseColor+'60', margin:'0 0px' }}>·</span>
+            )}
+          </span>
+        )
+      })}
+    </div>
+  )
+}
 
 // ═══════════════════════════════════════════════════════════════
 // PHRASE TAB
 // ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// PHRASE TAB
+// ═══════════════════════════════════════════════════════════════
+
+const SCENARIOS = [
+  { id:'greet',   label:'打招呼',   en:'Greeting friends',      icon:'👋', cat:'life'  },
+  { id:'cafe',    label:'咖啡廳',   en:'Coffee shop',            icon:'☕', cat:'life'  },
+  { id:'shop',    label:'買衣服',   en:'Clothing store',         icon:'👗', cat:'life'  },
+  { id:'dining',  label:'餐廳',     en:'Restaurant',             icon:'🍽', cat:'life'  },
+  { id:'airport', label:'機場',     en:'Airport',                icon:'✈', cat:'life'  },
+  { id:'hotel',   label:'飯店',     en:'Hotel check-in',         icon:'🏨', cat:'life'  },
+  { id:'taxi',    label:'計程車',   en:'Taxi / transport',       icon:'🚕', cat:'life'  },
+  { id:'doctor',  label:'診所',     en:'Clinic / pharmacy',      icon:'💊', cat:'life'  },
+  { id:'super',   label:'超市',     en:'Supermarket',            icon:'🛒', cat:'life'  },
+  { id:'cinema',  label:'電影院',   en:'Cinema',                 icon:'🎬', cat:'life'  },
+  { id:'meeting', label:'晨會',     en:'Morning meeting',        icon:'📊', cat:'work'  },
+  { id:'client',  label:'客戶來訪', en:'Client visit',           icon:'🤝', cat:'work'  },
+  { id:'phone',   label:'電話英文', en:'Phone call',             icon:'📞', cat:'work'  },
+  { id:'factory', label:'工廠現場', en:'Factory floor',          icon:'🏭', cat:'work'  },
+]
+
+// ── Linked / Rhythm 渲染器 ────────────────────────────────────
+function LinkedText({ text, type }) {
+  const baseColor = type === 'linked' ? '#f5a623' : '#3fb950'
+  const tokens = text.split('-')
+  return (
+    <div style={{ display:'flex', flexWrap:'wrap', alignItems:'baseline', lineHeight:1.8 }}>
+      {tokens.map((tok, i) => {
+        const isLast   = i === tokens.length - 1
+        const isWeak   = /^(thə|tə|ə|ðə)$/i.test(tok)
+        const isStress = tok === tok.toUpperCase() && /[A-Z]{2,}/.test(tok)
+        const color    = isWeak ? '#58a6ff' : isStress ? '#ffffff' : baseColor
+        return (
+          <span key={i} style={{ display:'inline-flex', alignItems:'baseline' }}>
+            <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize: isStress ? 14 : 12, fontWeight: isStress ? 700 : 400, color }}>
+              {tok}
+            </span>
+            {!isLast && <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:11, color:baseColor+'60' }}>·</span>}
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
 function PhraseTab({ settings }) {
-  const [cat, setCat]           = useState('all')
-  const [idx, setIdx]           = useState(0)
-  const [phase, setPhase]       = useState('listen')
-  const [doneIds, setDoneIds]   = useState(() => {
+  const MONO  = "'JetBrains Mono',monospace"
+  const SERIF = "'Crimson Pro',Georgia,serif"
+
+  // ── 主模式切換 ────────────────────────────────────────────────
+  const [pMode, setPMode] = useState('sentence') // 'sentence'|'qa'|'scenario'
+
+  // ── 句型練習 ──────────────────────────────────────────────────
+  const [cat,        setCat]        = useState('all')
+  const [idx,        setIdx]        = useState(0)
+  const [phase,      setPhase]      = useState('listen')
+  const [autoPlayed, setAutoPlayed] = useState(false)
+  const [doneIds,    setDoneIds]    = useState(() => {
     try { return new Set(JSON.parse(localStorage.getItem('fsi:ph:done') ?? '[]')) } catch { return new Set() }
   })
-  const [autoPlayed, setAutoPlayed] = useState(false)
   const [extraPhrases, setExtraPhrases] = useState(() => {
     try { return JSON.parse(localStorage.getItem('fsi:ph:extra') ?? '[]') } catch { return [] }
   })
 
-  // Reload extra phrases when tab becomes visible
-  useEffect(() => {
-    const all = [...PHRASE_DATA, ...extraPhrases]
-    // no-op, just ensures re-render when extra changes
-  }, [extraPhrases])
+  // ── Q&A 練習 ─────────────────────────────────────────────────
+  const [qaIdx,       setQaIdx]       = useState(0)
+  const [qaPhase,     setQaPhase]     = useState('question')
+  const [qaAutoPlayed,setQaAutoPlayed]= useState(false)
+  const [qaDoneIds,   setQaDoneIds]   = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('fsi:qa:done') ?? '[]')) } catch { return new Set() }
+  })
 
+  // ── 情境對話 ──────────────────────────────────────────────────
+  const [sceneFilter,  setSceneFilter]  = useState('all')   // 'all'|'life'|'work'
+  const [chosenScene,  setChosenScene]  = useState(null)
+  const [conv,         setConv]         = useState([])      // [{who,text,hints?}]
+  const [convStep,     setConvStep]     = useState(0)
+  const [convLoading,  setConvLoading]  = useState(false)
+  const [convErr,      setConvErr]      = useState('')
+  const [revealHints,  setRevealHints]  = useState(false)
+  const [sessionDone,  setSessionDone]  = useState(false)
+
+  // ── 句型資料 ──────────────────────────────────────────────────
   const allPhrases = [...PHRASE_DATA, ...extraPhrases]
-  const queue = cat === 'all' ? allPhrases : allPhrases.filter(p => p.cat === cat)
-  const card   = queue[idx] ?? queue[0]
-  const total  = queue.length
-  const doneCount = queue.filter(p => doneIds.has(p.id)).length
+  const queue      = cat === 'all' ? allPhrases : allPhrases.filter(p => p.cat === cat)
+  const card       = queue[idx] ?? queue[0]
+  const doneCount  = queue.filter(p => doneIds.has(p.id)).length
 
-  // Auto-play on card change
-  useEffect(() => {
-    if (!card) return
-    setPhase('listen')
-    setAutoPlayed(false)
-  }, [idx, cat])
+  // ── Q&A 資料 ─────────────────────────────────────────────────
+  const qa          = QA_DATA[qaIdx]
+  const qaDoneCount = QA_DATA.filter(q => qaDoneIds.has(q.id)).length
 
+  // ── 句型：自動播放 ────────────────────────────────────────────
+  useEffect(() => { setPhase('listen'); setAutoPlayed(false) }, [idx, cat])
   useEffect(() => {
-    if (phase === 'listen' && !autoPlayed && card) {
-      const t = setTimeout(() => {
-        speakCard(0.85)
-        setAutoPlayed(true)
-      }, 400)
+    if (pMode === 'sentence' && phase === 'listen' && !autoPlayed && card) {
+      const t = setTimeout(() => { speakEn(card.en, 0.85); setAutoPlayed(true) }, 400)
       return () => clearTimeout(t)
     }
-  }, [phase, autoPlayed, card])
+  }, [phase, autoPlayed, card, pMode])
 
-  function speakCard(rate = 1) {
-    if (!card) return
-    const u = new SpeechSynthesisUtterance(card.en)
+  // ── Q&A：自動播放 ────────────────────────────────────────────
+  useEffect(() => { setQaPhase('question'); setQaAutoPlayed(false) }, [qaIdx])
+  useEffect(() => {
+    if (pMode === 'qa' && qaPhase === 'question' && !qaAutoPlayed && qa) {
+      const t = setTimeout(() => { speakEn(qa.q, 0.9); setQaAutoPlayed(true) }, 400)
+      return () => clearTimeout(t)
+    }
+  }, [qaPhase, qaAutoPlayed, qa, pMode])
+
+  function speakEn(text, rate = 1) {
+    const u = new SpeechSynthesisUtterance(text)
     u.lang = 'en-US'; u.rate = rate
     window.speechSynthesis.cancel()
     window.speechSynthesis.speak(u)
   }
 
+  // ── 句型 helpers ──────────────────────────────────────────────
   function markDone() {
-    const next = new Set(doneIds)
-    next.add(card.id)
-    setDoneIds(next)
-    localStorage.setItem('fsi:ph:done', JSON.stringify([...next]))
-    goNext()
+    const n = new Set(doneIds); n.add(card.id)
+    setDoneIds(n); localStorage.setItem('fsi:ph:done', JSON.stringify([...n]))
+    setIdx(i => (i + 1) % queue.length)
   }
 
-  function goNext() {
-    setIdx(i => (i + 1) % total)
+  // ── Q&A helpers ───────────────────────────────────────────────
+  function qaMarkDone() {
+    const n = new Set(qaDoneIds); n.add(qa.id)
+    setQaDoneIds(n); localStorage.setItem('fsi:qa:done', JSON.stringify([...n]))
+    setQaIdx(i => (i + 1) % QA_DATA.length)
   }
 
-  function goAgain() {
-    setPhase('listen')
-    setAutoPlayed(false)
+  // ── 情境對話：呼叫 AI ─────────────────────────────────────────
+  async function startScenario(sc) {
+    const apiKey = settings?.apiKey || (() => {
+      try { return JSON.parse(localStorage.getItem('fsi:se') || '{}')?.apiKey ?? '' } catch { return '' }
+    })()
+    if (!apiKey) { setConvErr('請先在 Setup 設定 API Key'); return }
+    setChosenScene(sc)
+    setConv([])
+    setConvStep(0)
+    setRevealHints(false)
+    setSessionDone(false)
+    setConvErr('')
+    setConvLoading(true)
+
+    const myPhrases = allPhrases.map(p => p.en).join(' / ')
+    const sys = 'You are an English conversation partner helping a Taiwanese manufacturing professional practice spoken English. Generate a short realistic conversation for the given scenario. The learner\'s collected phrases are provided — for each learner turn, suggest 2-3 of their phrases that naturally fit. Return ONLY valid JSON, no markdown.'
+    const prompt = 'Scenario: ' + sc.en + ' (' + sc.label + ')\n\nLearner phrases collection:\n' + myPhrases + '\n\nGenerate a realistic 5-6 exchange conversation. The "other" person speaks first. For each "user" turn, include hints array with 2-3 phrases from the collection that fit naturally.\n\nReturn JSON:\n{"exchanges":[{"who":"other","text":"..."},{"who":"user","hints":["phrase1","phrase2"]},{"who":"other","text":"..."},{"who":"user","hints":["phrase1","phrase2"]}]}'
+
+    try {
+      const raw = await callClaude(apiKey, [{ role:'user', content: prompt }], sys)
+      const parsed = JSON.parse(raw.replace(/```json|```/g,'').trim())
+      setConv(parsed.exchanges ?? [])
+      setConvStep(0)
+    } catch(e) {
+      setConvErr('AI 產生失敗，請重試')
+    } finally { setConvLoading(false) }
   }
 
-  const catColors = { opening:'#58a6ff', capacity:'#f5a623', quality:'#3fb950', cost:'#f85149', action:'#a371f7' }
-  const cc = catColors[card?.cat] ?? T.amber
+  function convNext() {
+    setRevealHints(false)
+    if (convStep < conv.length - 1) { setConvStep(s => s + 1) }
+    else { setSessionDone(true) }
+  }
 
+  // ── 共用：大喇叭按鈕組 ───────────────────────────────────────
+  function SpeakRow({ text, color }) {
+    return (
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:16 }}>
+        <div onClick={() => speakEn(text, 1)}
+          style={{ width:68, height:68, borderRadius:'50%', background:color+'15', border:'1px solid '+color+'50',
+            display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', cursor:'pointer', gap:3 }}>
+          <span style={{ fontSize:20 }}>🔊</span>
+          <span style={{ fontFamily:MONO, fontSize:8, color }}>1.0x</span>
+        </div>
+        <div style={{ width:68, height:68, borderRadius:'50%', background:color+'18', border:'2px solid '+color+'40',
+          display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+            <path d="M3 9h4l5-5v16l-5-5H3z" stroke={color} strokeWidth="1.5" fill={color+'30'}/>
+            <path d="M16 6.5a5.5 5.5 0 010 11" stroke={color} strokeWidth="1.5" strokeLinecap="round"/>
+            <path d="M13.5 9a2.5 2.5 0 010 5" stroke={color} strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+        </div>
+        <div onClick={() => speakEn(text, 0.7)}
+          style={{ width:68, height:68, borderRadius:'50%', background:color+'15', border:'1px solid '+color+'50',
+            display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', cursor:'pointer', gap:3 }}>
+          <span style={{ fontSize:20 }}>🐢</span>
+          <span style={{ fontFamily:MONO, fontSize:8, color }}>0.7x</span>
+        </div>
+      </div>
+    )
+  }
+
+  const CAT_COLORS = { opening:'#58a6ff', capacity:'#f5a623', quality:'#3fb950', cost:'#f85149', action:'#a371f7', life:'#f78166' }
+  const cc = CAT_COLORS[card?.cat] ?? '#f5a623'
+
+  // ════════════════════════════════════════════════════════════════
   return (
-    <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:12, minHeight:'80vh' }} className="fadeUp">
+    <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
 
-      {/* Category filter */}
-      <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
-        {PHRASE_CATS.map(c => (
-          <div key={c.id} onClick={() => { setCat(c.id); setIdx(0) }}
-            style={{ padding:'4px 11px', borderRadius:12, fontFamily:MONO, fontSize:9, cursor:'pointer', letterSpacing:'0.06em',
-              background: cat===c.id ? T.amber : T.surf2,
-              border: '1px solid ' + (cat===c.id ? T.amber : T.bdr),
-              color: cat===c.id ? T.bg : T.txt3, fontWeight: cat===c.id ? 700 : 400,
-              transition:'all 0.14s' }}>
-            {c.label}
+      {/* 主模式切換 */}
+      <div style={{ display:'flex', background:'#161b22', borderRadius:10, padding:3, gap:3, flexShrink:0 }}>
+        {[{id:'sentence',label:'📋 句型'},{id:'qa',label:'💬 問答'},{id:'scenario',label:'🎭 情境'}].map(m => (
+          <div key={m.id} onClick={() => setPMode(m.id)}
+            style={{ flex:1, textAlign:'center', padding:'8px 0', borderRadius:8, cursor:'pointer',
+              fontFamily:MONO, fontSize:10, letterSpacing:'0.05em', fontWeight: pMode===m.id ? 700 : 400,
+              background: pMode===m.id ? '#f5a623' : 'transparent',
+              color:      pMode===m.id ? '#050810' : '#7a8390',
+              transition:'all 0.15s' }}>
+            {m.label}
           </div>
         ))}
       </div>
 
-      {/* Progress bar */}
-      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-        <div style={{ flex:1, height:4, background:T.surf2, borderRadius:4, overflow:'hidden' }}>
-          <div style={{ height:'100%', width: (doneCount/total*100)+'%', background:T.grn, borderRadius:4, transition:'width 0.4s' }}/>
-        </div>
-        <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3, flexShrink:0 }}>{doneCount}/{total}</span>
-      </div>
-
-      {/* Card number */}
-      <div style={{ fontFamily:MONO, fontSize:8.5, color:T.txt3, textAlign:'center', letterSpacing:'0.08em' }}>
-        {idx+1} / {total}
-      </div>
-
-      {/* Main card */}
-      {card && (
-        <div style={{ flex:1, display:'flex', flexDirection:'column', gap:0 }}>
-
-          {/* Category badge */}
-          <div style={{ display:'flex', justifyContent:'center', marginBottom:12 }}>
-            <span style={{ fontFamily:MONO, fontSize:8, color:cc, background:cc+'18', border:'1px solid '+cc+'40', padding:'3px 12px', borderRadius:10, letterSpacing:'0.08em' }}>
-              {PHRASE_CATS.find(c => c.id === card.cat)?.label ?? card.cat}
-            </span>
+      {/* ══════════════════ 句型練習 ══════════════════ */}
+      {pMode === 'sentence' && (
+        <>
+          <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
+            {PHRASE_CATS.map(c => (
+              <div key={c.id} onClick={() => { setCat(c.id); setIdx(0) }}
+                style={{ padding:'4px 10px', borderRadius:12, fontFamily:MONO, fontSize:9, cursor:'pointer',
+                  background: cat===c.id ? '#f5a623' : '#161b22',
+                  border: '1px solid '+(cat===c.id ? '#f5a623' : '#21262d'),
+                  color: cat===c.id ? '#050810' : '#7a8390', fontWeight: cat===c.id ? 700 : 400, transition:'all 0.14s' }}>
+                {c.label}
+              </div>
+            ))}
           </div>
-
-          {/* LISTEN phase */}
-          {phase === 'listen' && (
-            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:24 }}>
-
-              {/* Speaker + speed buttons in one row */}
-              <div style={{ display:'flex', alignItems:'center', gap:16 }}>
-                <div onClick={() => speakCard(1)}
-                  style={{ width:72, height:72, borderRadius:'50%', background:cc+'15', border:'1px solid '+cc+'50', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0, gap:4 }}>
-                  <span style={{ fontSize:20 }}>🔊</span>
-                  <span style={{ fontFamily:MONO, fontSize:8, color:cc }}>1.0x</span>
-                </div>
-
-                <div style={{ width:72, height:72, borderRadius:'50%', background:cc+'18', border:'2px solid '+cc+'40', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-                    <path d="M3 9h4l5-5v16l-5-5H3z" stroke={cc} strokeWidth="1.5" fill={cc+'30'}/>
-                    <path d="M16 6.5a5.5 5.5 0 010 11" stroke={cc} strokeWidth="1.5" strokeLinecap="round"/>
-                    <path d="M13.5 9a2.5 2.5 0 010 5" stroke={cc} strokeWidth="1.5" strokeLinecap="round"/>
-                  </svg>
-                </div>
-
-                <div onClick={() => speakCard(0.7)}
-                  style={{ width:72, height:72, borderRadius:'50%', background:cc+'15', border:'1px solid '+cc+'50', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0, gap:4 }}>
-                  <span style={{ fontSize:20 }}>🐢</span>
-                  <span style={{ fontFamily:MONO, fontSize:8, color:cc }}>0.7x</span>
-                </div>
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <div style={{ flex:1, height:4, background:'#161b22', borderRadius:4, overflow:'hidden' }}>
+              <div style={{ height:'100%', width:(doneCount/queue.length*100)+'%', background:'#3fb950', borderRadius:4, transition:'width 0.4s' }}/>
+            </div>
+            <span style={{ fontFamily:MONO, fontSize:9, color:'#7a8390' }}>{doneCount}/{queue.length}</span>
+          </div>
+          <div style={{ fontFamily:MONO, fontSize:8.5, color:'#7a8390', textAlign:'center' }}>{idx+1} / {queue.length}</div>
+          {card && (
+            <>
+              <div style={{ display:'flex', justifyContent:'center', gap:6 }}>
+                <span style={{ fontFamily:MONO, fontSize:8, color:cc, background:cc+'18', border:'1px solid '+cc+'40', padding:'3px 12px', borderRadius:10 }}>
+                  {PHRASE_CATS.find(c => c.id === card.cat)?.label ?? card.cat}
+                </span>
+                {card.sub && <span style={{ fontFamily:MONO, fontSize:8, color:'#7a8390', background:'#161b22', border:'1px solid #21262d', padding:'3px 10px', borderRadius:10 }}>{card.sub}</span>}
               </div>
+              {phase === 'listen' && (
+                <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:20 }}>
+                  <SpeakRow text={card.en} color={cc}/>
+                  <div style={{ fontFamily:SERIF, fontSize:13, color:'#aab3be', fontStyle:'italic', textAlign:'center', lineHeight:1.6 }}>仔細聽，然後在紙上寫下英文句子</div>
+                  <button className="btn" onClick={() => setPhase('reveal')}
+                    style={{ background:'#f5a623', color:'#050810', width:'100%', padding:'15px', fontSize:13, fontWeight:700, letterSpacing:'0.1em' }}>
+                    ✏️ 我寫好了 → 對答案
+                  </button>
+                </div>
+              )}
+              {phase === 'reveal' && (
+                <div style={{ display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
+                  <div style={{ background:'#0d1117', border:'1px solid '+cc+'50', borderRadius:14, padding:'18px 16px', display:'flex', flexDirection:'column', gap:10 }}>
+                    <div style={{ fontFamily:MONO, fontSize:15, color:'#e6edf3', lineHeight:1.7 }}>{card.en}</div>
+                    <div style={{ height:1, background:'#21262d' }}/>
+                    <div style={{ fontFamily:SERIF, fontSize:13, color:'#aab3be', fontStyle:'italic' }}>{card.zh}</div>
+                  </div>
+                  <SpeakRow text={card.en} color={cc}/>
+                  <div style={{ display:'flex', gap:8 }}>
+                    <button className="btn" onClick={() => { setPhase('listen'); setAutoPlayed(false) }}
+                      style={{ flex:1, background:'#f8514918', border:'1px solid #f8514955', color:'#f85149', padding:'13px 0', fontSize:13 }}>
+                      ↺ 再來一次
+                    </button>
+                    <button className="btn" onClick={markDone}
+                      style={{ flex:2, background:'#3fb95018', border:'1px solid #3fb95055', color:'#3fb950', padding:'13px 0', fontSize:13, fontWeight:700 }}>
+                      ✓ 我會了 →
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </>
+      )}
 
-              <div style={{ fontFamily:SERIF, fontSize:13, color:T.txt2, fontStyle:'italic', textAlign:'center', lineHeight:1.6, padding:'0 8px' }}>
-                仔細聽，然後在紙上寫下英文句子
+      {/* ══════════════════ Q&A 問答 ══════════════════ */}
+      {pMode === 'qa' && qa && (
+        <>
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <div style={{ flex:1, height:4, background:'#161b22', borderRadius:4, overflow:'hidden' }}>
+              <div style={{ height:'100%', width:(qaDoneCount/QA_DATA.length*100)+'%', background:'#3fb950', borderRadius:4, transition:'width 0.4s' }}/>
+            </div>
+            <span style={{ fontFamily:MONO, fontSize:9, color:'#7a8390' }}>{qaDoneCount}/{QA_DATA.length}</span>
+          </div>
+          <div style={{ fontFamily:MONO, fontSize:8.5, color:'#7a8390', textAlign:'center' }}>{qaIdx+1} / {QA_DATA.length}</div>
+
+          {qaPhase === 'question' && (
+            <div style={{ display:'flex', flexDirection:'column', gap:18 }} className="fadeUp">
+              <div style={{ background:'#0d1117', border:'1px solid #58a6ff50', borderRadius:14, padding:'20px 16px' }}>
+                <div style={{ fontFamily:MONO, fontSize:9, color:'#58a6ff', letterSpacing:'0.1em', marginBottom:10 }}>Q</div>
+                <div style={{ fontFamily:MONO, fontSize:17, color:'#e6edf3', lineHeight:1.6 }}>{qa.q}</div>
               </div>
-
-              {/* Next step button */}
-              <button className="btn" onClick={() => setPhase('reveal')}
-                style={{ background:T.amber, color:T.bg, width:'100%', padding:'15px', fontSize:13, fontWeight:700, letterSpacing:'0.1em' }}>
-                ✏️ 我寫好了 → 對答案
+              <SpeakRow text={qa.q} color="#58a6ff"/>
+              <div style={{ fontFamily:SERIF, fontSize:13, color:'#aab3be', fontStyle:'italic', textAlign:'center' }}>先在紙上寫出答案，或在心裡說出來</div>
+              <button className="btn" onClick={() => setQaPhase('answer')}
+                style={{ background:'#f5a623', color:'#050810', width:'100%', padding:'15px', fontSize:13, fontWeight:700, letterSpacing:'0.1em' }}>
+                💬 我說好了 → 看答案
               </button>
             </div>
           )}
-
-          {/* REVEAL phase */}
-          {phase === 'reveal' && (
-            <div style={{ display:'flex', flexDirection:'column', gap:14 }} className="fadeUp">
-
-              {/* English answer — big */}
-              <div style={{ background:T.surf, border:'1px solid '+cc+'50', borderRadius:14, padding:'20px 18px', display:'flex', flexDirection:'column', gap:12 }}>
-                <div style={{ fontFamily:MONO, fontSize:15, color:T.txt, lineHeight:1.7, letterSpacing:'0.01em' }}>
-                  {card.en}
+          {qaPhase === 'answer' && (
+            <div style={{ display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
+              <div style={{ fontFamily:MONO, fontSize:11, color:'#7a8390', background:'#161b22', borderRadius:8, padding:'8px 12px' }}>Q: {qa.q}</div>
+              <div style={{ background:'#0d1117', border:'1px solid #f5a62350', borderRadius:14, padding:'16px' }}>
+                <div style={{ fontFamily:MONO, fontSize:9, color:'#f5a623', letterSpacing:'0.1em', marginBottom:8 }}>A</div>
+                <div style={{ fontFamily:MONO, fontSize:16, color:'#e6edf3', lineHeight:1.7, marginBottom:14 }}>{qa.a}</div>
+                <div style={{ marginBottom:10 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:5 }}>
+                    <span style={{ fontFamily:MONO, fontSize:8, color:'#f5a623', background:'#f5a62318', padding:'2px 8px', borderRadius:6, letterSpacing:'0.08em' }}>LINKED</span>
+                    <span style={{ fontFamily:MONO, fontSize:8, color:'#7a8390' }}>連音方式</span>
+                  </div>
+                  <div style={{ background:'#f5a62318', border:'1px solid #f5a62330', borderRadius:8, padding:'8px 12px' }}>
+                    <LinkedText text={qa.linked} type="linked"/>
+                  </div>
                 </div>
-                <div style={{ height:1, background:T.bdr }}/>
-                <div style={{ fontFamily:SERIF, fontSize:13, color:T.txt2, fontStyle:'italic', lineHeight:1.6 }}>
-                  {card.zh}
+                <div>
+                  <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:5 }}>
+                    <span style={{ fontFamily:MONO, fontSize:8, color:'#3fb950', background:'#3fb95018', padding:'2px 8px', borderRadius:6, letterSpacing:'0.08em' }}>RHYTHM</span>
+                    <span style={{ fontFamily:MONO, fontSize:8, color:'#7a8390' }}>大寫=重音</span>
+                  </div>
+                  <div style={{ background:'#3fb95018', border:'1px solid #3fb95030', borderRadius:8, padding:'8px 12px' }}>
+                    <LinkedText text={qa.rhythm} type="rhythm"/>
+                  </div>
                 </div>
               </div>
-
-              {/* TTS buttons */}
+              <SpeakRow text={qa.a} color="#f5a623"/>
               <div style={{ display:'flex', gap:8 }}>
-                <button className="btn" onClick={() => speakCard(0.75)}
-                  style={{ flex:1, background:cc+'15', border:'1px solid '+cc+'50', color:cc, padding:'11px 0', fontSize:11 }}>
-                  🐢 跟我念（慢）
-                </button>
-                <button className="btn" onClick={() => speakCard(1)}
-                  style={{ flex:1, background:cc+'15', border:'1px solid '+cc+'50', color:cc, padding:'11px 0', fontSize:11 }}>
-                  🔊 跟我念（正常）
-                </button>
-              </div>
-
-              {/* Rating */}
-              <div style={{ display:'flex', gap:8, marginTop:4 }}>
-                <button className="btn" onClick={goAgain}
-                  style={{ flex:1, background:T.redD, border:'1px solid '+T.red+'55', color:T.red, padding:'13px 0', fontSize:13, letterSpacing:'0.06em' }}>
+                <button className="btn" onClick={() => { setQaPhase('question'); setQaAutoPlayed(false) }}
+                  style={{ flex:1, background:'#f8514918', border:'1px solid #f8514955', color:'#f85149', padding:'13px 0', fontSize:13 }}>
                   ↺ 再來一次
                 </button>
-                <button className="btn" onClick={markDone}
-                  style={{ flex:2, background:T.grnD, border:'1px solid '+T.grn+'55', color:T.grn, padding:'13px 0', fontSize:13, fontWeight:700, letterSpacing:'0.06em' }}>
+                <button className="btn" onClick={qaMarkDone}
+                  style={{ flex:2, background:'#3fb95018', border:'1px solid #3fb95055', color:'#3fb950', padding:'13px 0', fontSize:13, fontWeight:700 }}>
                   ✓ 我會了 →
                 </button>
               </div>
-
             </div>
           )}
-        </div>
+        </>
       )}
+
+      {/* ══════════════════ 情境對話 ══════════════════ */}
+      {pMode === 'scenario' && (
+        <>
+          {/* 場景選擇 */}
+          {!chosenScene && !convLoading && (
+            <div style={{ display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
+              {/* 工作/生活篩選 */}
+              <div style={{ display:'flex', gap:6 }}>
+                {[{id:'all',l:'全部'},{id:'life',l:'🏠 生活'},{id:'work',l:'💼 工作'}].map(f => (
+                  <div key={f.id} onClick={() => setSceneFilter(f.id)}
+                    style={{ padding:'5px 12px', borderRadius:10, fontFamily:MONO, fontSize:9, cursor:'pointer',
+                      background: sceneFilter===f.id ? '#f5a623' : '#161b22',
+                      border: '1px solid '+(sceneFilter===f.id ? '#f5a623' : '#21262d'),
+                      color: sceneFilter===f.id ? '#050810' : '#7a8390', fontWeight: sceneFilter===f.id ? 700 : 400 }}>
+                    {f.l}
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ fontFamily:MONO, fontSize:9, color:'#7a8390', lineHeight:1.6,
+                background:'#161b22', border:'1px solid #21262d', borderRadius:8, padding:'10px 12px' }}>
+                AI 會用你的收藏句子模擬真實對話。選場景 → AI 扮演對方 → 你開口回應。
+              </div>
+
+              {/* 場景格 */}
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+                {SCENARIOS.filter(s => sceneFilter === 'all' || s.cat === sceneFilter).map(sc => (
+                  <div key={sc.id} onClick={() => startScenario(sc)}
+                    style={{ background:'#0d1117', border:'1px solid #21262d', borderRadius:12,
+                      padding:'14px 12px', cursor:'pointer', display:'flex', flexDirection:'column', gap:6,
+                      transition:'border-color 0.15s' }}
+                    onMouseOver={e => e.currentTarget.style.borderColor='#f5a62360'}
+                    onMouseOut={e => e.currentTarget.style.borderColor='#21262d'}>
+                    <span style={{ fontSize:22 }}>{sc.icon}</span>
+                    <div style={{ fontFamily:MONO, fontSize:12, color:'#e6edf3', fontWeight:500 }}>{sc.label}</div>
+                    <div style={{ fontFamily:MONO, fontSize:9, color:'#7a8390' }}>{sc.en}</div>
+                    <div style={{ fontFamily:MONO, fontSize:8, color: sc.cat==='work' ? '#f5a623' : '#58a6ff',
+                      background: sc.cat==='work' ? '#f5a62315' : '#58a6ff15',
+                      border:'1px solid '+(sc.cat==='work' ? '#f5a62340' : '#58a6ff40'),
+                      padding:'2px 7px', borderRadius:6, alignSelf:'flex-start' }}>
+                      {sc.cat==='work' ? '💼 工作' : '🏠 生活'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {convErr && (
+                <div style={{ background:'#f8514918', border:'1px solid #f8514950', borderRadius:8, padding:'10px 12px', fontFamily:MONO, fontSize:11, color:'#f85149' }}>{convErr}</div>
+              )}
+            </div>
+          )}
+
+          {/* AI 產生中 */}
+          {convLoading && (
+            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:16, padding:'60px 0' }}>
+              <span style={{ display:'inline-block', width:36, height:36, border:'3px solid transparent', borderTopColor:'#f5a623', borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>
+              <div style={{ fontFamily:MONO, fontSize:10, color:'#f5a623', letterSpacing:'0.1em', textAlign:'center' }}>
+                AI 正在產生<br/>{chosenScene?.label} 情境對話…
+              </div>
+              <div style={{ fontFamily:MONO, fontSize:9, color:'#7a8390', textAlign:'center', lineHeight:1.6 }}>
+                從你的收藏中找合適的句子
+              </div>
+            </div>
+          )}
+
+          {/* 對話進行中 */}
+          {!convLoading && chosenScene && conv.length > 0 && !sessionDone && (
+            <div style={{ display:'flex', flexDirection:'column', gap:10 }} className="fadeUp">
+              {/* 場景標題 */}
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  <span style={{ fontSize:18 }}>{chosenScene.icon}</span>
+                  <span style={{ fontFamily:MONO, fontSize:11, color:'#e6edf3', fontWeight:500 }}>{chosenScene.label}</span>
+                </div>
+                <div onClick={() => { setChosenScene(null); setConv([]) }}
+                  style={{ fontFamily:MONO, fontSize:9, color:'#7a8390', cursor:'pointer', padding:'4px 8px',
+                    background:'#161b22', borderRadius:6, border:'1px solid #21262d' }}>
+                  換場景
+                </div>
+              </div>
+
+              {/* 進度條 */}
+              <div style={{ display:'flex', gap:3 }}>
+                {conv.map((_,i) => (
+                  <div key={i} style={{ flex:1, height:3, borderRadius:2,
+                    background: i <= convStep ? '#f5a623' : '#21262d', transition:'background 0.3s' }}/>
+                ))}
+              </div>
+
+              {/* 對話泡泡（已過的） */}
+              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                {conv.slice(0, convStep).map((msg, i) => {
+                  const isUser = msg.who === 'user'
+                  return (
+                    <div key={i} style={{ display:'flex', justifyContent: isUser ? 'flex-end' : 'flex-start' }}>
+                      <div style={{
+                        maxWidth:'78%', borderRadius: isUser ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
+                        padding:'10px 13px', fontSize:13, lineHeight:1.6,
+                        background: isUser ? '#f5a62325' : '#161b22',
+                        border: '1px solid '+(isUser ? '#f5a62350' : '#21262d'),
+                        color: isUser ? '#f5c875' : '#e6edf3',
+                        fontFamily:"'Crimson Pro',Georgia,serif"
+                      }}>
+                        <div style={{ fontFamily:MONO, fontSize:8, color: isUser ? '#f5a623' : '#7a8390', marginBottom:4 }}>
+                          {isUser ? '你' : chosenScene.label}
+                        </div>
+                        {isUser
+                          ? <span style={{ fontStyle:'italic', color:'#7a8390' }}>(你的回應)</span>
+                          : msg.text
+                        }
+                      </div>
+                    </div>
+                  )
+                })}
+
+                {/* 目前這一步 */}
+                {conv[convStep] && (() => {
+                  const msg = conv[convStep]
+                  const isUser = msg.who === 'user'
+                  return (
+                    <div style={{ display:'flex', justifyContent: isUser ? 'flex-end' : 'flex-start' }}>
+                      <div style={{
+                        maxWidth:'78%', borderRadius: isUser ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
+                        padding:'10px 13px', fontSize:13, lineHeight:1.6,
+                        background: isUser ? '#3fb95015' : '#0d1117',
+                        border: '2px solid '+(isUser ? '#3fb95060' : '#f5a62360'),
+                        color:'#e6edf3',
+                        fontFamily:"'Crimson Pro',Georgia,serif"
+                      }}>
+                        <div style={{ fontFamily:MONO, fontSize:8, color: isUser ? '#3fb950' : '#f5a623', marginBottom:4 }}>
+                          {isUser ? '💬 你的回合' : chosenScene.label}
+                        </div>
+                        {isUser ? (
+                          <span style={{ fontStyle:'italic', color:'#7a8390' }}>思考一下，準備好再繼續…</span>
+                        ) : (
+                          <>
+                            {msg.text}
+                            <div style={{ marginTop:8 }}>
+                              <div onClick={() => speakEn(msg.text, 0.85)}
+                                style={{ display:'inline-flex', alignItems:'center', gap:4, cursor:'pointer',
+                                  fontFamily:MONO, fontSize:8.5, color:'#f5a623', background:'#f5a62315',
+                                  border:'1px solid #f5a62340', padding:'3px 8px', borderRadius:6 }}>
+                                🔊 聽發音
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })()}
+              </div>
+
+              {/* 使用者回合：收藏提示 */}
+              {conv[convStep]?.who === 'user' && (
+                <div>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
+                    <span style={{ fontFamily:MONO, fontSize:8.5, color:'#f5a623', letterSpacing:'0.06em' }}>⭐ 你的收藏可以用</span>
+                    <div onClick={() => setRevealHints(v => !v)}
+                      style={{ fontFamily:MONO, fontSize:8.5, color:'#7a8390', cursor:'pointer',
+                        background:'#161b22', border:'1px solid #21262d', padding:'3px 8px', borderRadius:6 }}>
+                      {revealHints ? '收起' : '顯示提示'}
+                    </div>
+                  </div>
+                  {revealHints && (
+                    <div style={{ background:'#f5a62310', border:'1px solid #f5a62330', borderRadius:10, padding:'10px 12px' }} className="fadeUp">
+                      <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                        {(conv[convStep].hints ?? []).map((h, i) => (
+                          <div key={i} onClick={() => speakEn(h, 0.9)}
+                            style={{ fontFamily:MONO, fontSize:11, color:'#f5a623', background:'#f5a62318',
+                              border:'1px solid #f5a62450', padding:'5px 11px', borderRadius:20, cursor:'pointer' }}>
+                            {h}
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ fontFamily:MONO, fontSize:8.5, color:'#7a8390', marginTop:8 }}>
+                        點句子可以聽發音 · 在紙上或心裡說出來再繼續
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 繼續按鈕 */}
+              <div style={{ display:'flex', gap:8, marginTop:4 }}>
+                {conv[convStep]?.who === 'other' ? (
+                  <button className="btn" onClick={convNext}
+                    style={{ flex:1, background:'#f5a623', color:'#050810', padding:'14px 0', fontSize:13, fontWeight:700, letterSpacing:'0.06em' }}>
+                    聽完了 → 換我說
+                  </button>
+                ) : (
+                  <>
+                    <button className="btn" onClick={() => setRevealHints(true)}
+                      style={{ flex:1, background:'#f5a62318', border:'1px solid #f5a62350', color:'#f5a623', padding:'13px 0', fontSize:12 }}>
+                      ⭐ 看提示
+                    </button>
+                    <button className="btn" onClick={convNext}
+                      style={{ flex:2, background:'#3fb95018', border:'1px solid #3fb95050', color:'#3fb950', padding:'13px 0', fontSize:13, fontWeight:700 }}>
+                      我說好了 → 繼續
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* 對話結束 */}
+          {!convLoading && sessionDone && chosenScene && (
+            <div style={{ display:'flex', flexDirection:'column', gap:14, alignItems:'center', padding:'20px 0' }} className="fadeUp">
+              <div style={{ fontSize:36 }}>🎉</div>
+              <div style={{ fontFamily:MONO, fontSize:13, color:'#e6edf3', fontWeight:600, letterSpacing:'0.06em' }}>
+                {chosenScene.label} 對話完成！
+              </div>
+              <div style={{ fontFamily:MONO, fontSize:10, color:'#7a8390', textAlign:'center', lineHeight:1.8 }}>
+                每次練習都在強化大腦的情境連結<br/>
+                重複練習同一場景，說話會越來越自然
+              </div>
+              <div style={{ display:'flex', flexDirection:'column', gap:8, width:'100%' }}>
+                <button className="btn" onClick={() => startScenario(chosenScene)}
+                  style={{ background:'#f5a623', color:'#050810', padding:'14px 0', fontSize:13, fontWeight:700, letterSpacing:'0.06em', width:'100%' }}>
+                  🔄 再練一次（新對話）
+                </button>
+                <button className="btn" onClick={() => { setChosenScene(null); setConv([]); setSessionDone(false) }}
+                  style={{ background:'#161b22', border:'1px solid #21262d', color:'#aab3be', padding:'12px 0', fontSize:12, width:'100%' }}>
+                  換一個場景
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
     </div>
   )
 }
