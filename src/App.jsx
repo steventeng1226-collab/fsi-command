@@ -7035,7 +7035,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.15</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.16</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -8353,7 +8353,9 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
           {/* Drill card */}
           <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:14, padding:20, position:'relative' }}>
             {card.hint && (
-              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, marginBottom:12, paddingBottom:12, borderBottom:`1px solid ${T.bdr}` }}>
+              <div style={{ marginBottom:12, paddingBottom:12, borderBottom:`1px solid ${T.bdr}` }}>
+                <div style={{ fontFamily:MONO, fontSize:8.5, color:T.amber, letterSpacing:'0.1em', marginBottom:6 }}>提示詞</div>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}>
                 <div style={{ fontFamily:SERIF, fontStyle:'italic', fontSize:15, color:T.txt2, lineHeight:1.3, flex:1 }}>
                   "{card.hint}"
                 </div>
@@ -8372,6 +8374,7 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
                     onMouseOver={e=>e.currentTarget.style.color=T.amber} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
                     <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M12 2.5a6 6 0 010 11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
                   </div>
+                </div>
                 </div>
               </div>
             )}
@@ -9328,7 +9331,628 @@ function LinkedText({ text, type }) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// PHRASE TAB
+// DICTATION MODE — 聽寫模式
+// ═══════════════════════════════════════════════════════════════
+function _lev(a, b) {
+  const m = a.length, n = b.length
+  const dp = Array.from({ length: m+1 }, (_, i) => [i, ...Array(n).fill(0)])
+  for (let j = 0; j <= n; j++) dp[0][j] = j
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1]
+        : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1])
+  return dp[m][n]
+}
+function _norm(w) { return w.toLowerCase().replace(/[.,!?;:'"]/g, '') }
+
+function dictDiff(original, userInput) {
+  const origWords  = original.trim().split(/\s+/)
+  const typedWords = userInput.trim().split(/\s+/).filter(w => w.length > 0)
+  if (typedWords.length === 0) {
+    return { tokens: origWords.map(w => ({ orig:w, typed:null, status:'missing' })), score:0, correct:0, total:origWords.length }
+  }
+  const m = origWords.length, n = typedWords.length
+  const dp = Array.from({ length: m+1 }, () => Array(n+1).fill(0))
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = _norm(origWords[i-1]) === _norm(typedWords[j-1])
+        ? dp[i-1][j-1] + 1 : Math.max(dp[i-1][j], dp[i][j-1])
+  const aligned = []
+  let i = m, j = n
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && _norm(origWords[i-1]) === _norm(typedWords[j-1])) {
+      aligned.unshift({ orig:origWords[i-1], typed:typedWords[j-1], status:'correct' }); i--; j--
+    } else if (j > 0 && (i === 0 || dp[i][j-1] >= dp[i-1][j])) { j-- }
+    else { aligned.unshift({ orig:origWords[i-1], typed:null, status:'missing' }); i-- }
+  }
+  const usedTyped = new Set(aligned.filter(t => t.typed).map(t => t.typed))
+  const unusedTyped = typedWords.filter(w => !usedTyped.has(w))
+  const tokens = aligned.map(t => {
+    if (t.status === 'correct') return t
+    let best = null, bestDist = Infinity
+    for (const tw of unusedTyped) {
+      const d = _lev(_norm(t.orig), _norm(tw))
+      const thresh = Math.max(1, Math.floor(_norm(t.orig).length * 0.35))
+      if (d < bestDist && d <= thresh) { best = tw; bestDist = d }
+    }
+    if (best) { unusedTyped.splice(unusedTyped.indexOf(best), 1); return { orig:t.orig, typed:best, status:'typo' } }
+    return t
+  })
+  const correct = tokens.filter(t => t.status === 'correct').length
+  return { tokens, score: Math.round((correct / tokens.length) * 100), correct, total: tokens.length }
+}
+
+function DiffDisplay({ tokens }) {
+  return (
+    <div style={{ fontFamily:MONO, fontSize:14, lineHeight:2.4, flexWrap:'wrap', display:'flex', gap:'0 7px', alignItems:'baseline' }}>
+      {tokens.map((tok, i) => {
+        if (tok.status === 'correct')
+          return <span key={i} style={{ color:T.grn, fontWeight:500 }}>{tok.orig}</span>
+        if (tok.status === 'typo')
+          return (
+            <span key={i} style={{ display:'inline-flex', flexDirection:'column', alignItems:'center', gap:0 }}>
+              <span style={{ fontFamily:MONO, fontSize:9, color:T.amber, lineHeight:1 }}>{tok.typed}</span>
+              <span style={{ color:T.amber, textDecoration:'underline wavy', textDecorationColor:T.amber+'80' }}>{tok.orig}</span>
+            </span>
+          )
+        return <span key={i} style={{ color:T.red, textDecoration:'underline', textDecorationStyle:'dashed', opacity:0.85 }}>{tok.orig}</span>
+      })}
+    </div>
+  )
+}
+
+function DictationCard({ card, cardNum, total, onNext }) {
+  const [phase, setPhase]         = useState('listen')
+  const [playCount, setPlayCount] = useState(0)
+  const [showHint, setShowHint]   = useState(false)
+  const [input, setInput]         = useState('')
+  const [result, setResult]       = useState(null)
+  const [showZh, setShowZh]       = useState(false)
+  const inputRef = useRef(null)
+
+  useEffect(() => {
+    setPhase('listen'); setPlayCount(0); setShowHint(false)
+    setInput(''); setResult(null); setShowZh(false)
+  }, [card?.en])
+
+  useEffect(() => {
+    if (phase === 'listen' && playCount === 0 && card) {
+      const t = setTimeout(() => { speak(card.en, 0.75); setPlayCount(1) }, 500)
+      return () => clearTimeout(t)
+    }
+  }, [phase, card])
+
+  useEffect(() => {
+    if (phase === 'type') setTimeout(() => inputRef.current?.focus(), 100)
+  }, [phase])
+
+  function handlePlay() { speak(card.en, playCount >= 2 ? 0.6 : 0.75); setPlayCount(p => p+1) }
+  function handleSubmit() {
+    if (!input.trim()) return
+    setResult(dictDiff(card.en, input)); setPhase('result')
+  }
+  function handleNext() {
+    setPhase('listen'); setPlayCount(0); setShowHint(false)
+    setInput(''); setResult(null); setShowZh(false)
+    onNext?.()
+  }
+
+  const wordCount = card.en.trim().split(/\s+/).length
+  const sc = result ? (result.score >= 90 ? T.grn : result.score >= 60 ? T.amber : T.red) : T.amber
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+      <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, textAlign:'right' }}>{cardNum} / {total}</div>
+
+      {/* ── LISTEN ── */}
+      {phase === 'listen' && (
+        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:18 }}>
+          <div style={{ width:'100%', background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:16, padding:'30px 20px', textAlign:'center', display:'flex', flexDirection:'column', alignItems:'center', gap:10 }}>
+            <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, letterSpacing:'0.15em' }}>🎧 DICTATION</div>
+            <div style={{ fontFamily:MONO, fontSize:12, color:T.txt3 }}>仔細聽，寫下你聽到的句子</div>
+            {showHint && <div style={{ fontFamily:MONO, fontSize:10, color:T.amber }}>共 {wordCount} 個字</div>}
+          </div>
+          <div onClick={handlePlay}
+            style={{ width:72, height:72, borderRadius:'50%', background:T.amberD, border:`2px solid ${T.amber}60`, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', transition:'background 0.15s' }}
+            onMouseOver={e=>e.currentTarget.style.background=T.amber+'30'} onMouseOut={e=>e.currentTarget.style.background=T.amberD}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+              <path d="M3 9h4l5-5v16l-5-5H3z" stroke={T.amber} strokeWidth="1.5" fill={T.amber+'30'}/>
+              <path d="M16 6.5a5.5 5.5 0 010 11" stroke={T.amber} strokeWidth="1.5" strokeLinecap="round"/>
+              <path d="M13.5 9a2.5 2.5 0 010 5" stroke={T.amber} strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+          </div>
+          <div style={{ fontFamily:MONO, fontSize:9, color: playCount >= 3 ? T.red : T.txt3 }}>
+            已播 {playCount} 次{playCount >= 3 ? '（建議不超過 3 次）' : ''}
+          </div>
+          <div style={{ display:'flex', gap:8, width:'100%' }}>
+            {!showHint && (
+              <button className="btn" onClick={() => setShowHint(true)}
+                style={{ flex:1, background:'transparent', border:`1px solid ${T.bdr2}`, color:T.txt3, fontSize:11 }}>
+                💡 字數提示
+              </button>
+            )}
+            <button className="btn" onClick={() => setPhase('type')} disabled={playCount === 0}
+              style={{ flex:2, background:T.amberD, border:`1px solid ${T.amber}60`, color:T.amber, fontSize:11, fontWeight:700 }}>
+              ✏️ 我聽好了，開始寫
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── TYPE ── */}
+      {phase === 'type' && (
+        <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, textAlign:'center' }}>
+            寫下你聽到的句子{showHint ? `（共 ${wordCount} 個字）` : ''}
+          </div>
+          <div style={{ display:'flex', justifyContent:'flex-end' }}>
+            <div onClick={handlePlay}
+              style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3, padding:'4px 10px', borderRadius:6, background:T.surf2, border:`1px solid ${T.bdr}` }}>
+              <svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none"/></svg>
+              再聽一次（{playCount}）
+            </div>
+          </div>
+          <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)}
+            onKeyDown={e => { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit() }}}
+            placeholder="Type what you heard…"
+            style={{ minHeight:90, resize:'none', background:T.surf, border:`1px solid ${T.bdr2}`, borderRadius:10, padding:'12px 14px', fontFamily:MONO, fontSize:14, color:T.txt, outline:'none', lineHeight:1.8, transition:'border-color 0.15s' }}
+            onFocus={e=>e.target.style.borderColor=T.amber} onBlur={e=>e.target.style.borderColor=T.bdr2}/>
+          <div style={{ display:'flex', gap:8 }}>
+            <button className="btn" onClick={() => setPhase('listen')}
+              style={{ flex:1, background:'transparent', border:`1px solid ${T.bdr}`, color:T.txt3, fontSize:11 }}>← 再聽</button>
+            <button className="btn" onClick={handleSubmit} disabled={!input.trim()}
+              style={{ flex:2, background:T.blueD, border:`1px solid ${T.blue}60`, color:T.blue, fontSize:11, fontWeight:700 }}>✓ 對答案</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── RESULT ── */}
+      {phase === 'result' && result && (
+        <div style={{ display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
+          {/* 分數卡 */}
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:16, background:T.surf, border:`1px solid ${sc}40`, borderRadius:14, padding:'16px 20px' }}>
+            <div style={{ fontFamily:MONO, fontSize:42, fontWeight:700, color:sc, lineHeight:1 }}>{result.score}</div>
+            <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
+              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>分</div>
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.txt2 }}>{result.correct} / {result.total} 字正確</div>
+              <div style={{ fontFamily:MONO, fontSize:10, color:sc }}>
+                {result.score>=90?'🎉 完美！':result.score>=70?'👍 不錯':result.score>=50?'繼續加油':'再聽一次！'}
+              </div>
+            </div>
+          </div>
+
+          {/* Diff */}
+          <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:12, padding:'14px 16px', display:'flex', flexDirection:'column', gap:8 }}>
+            <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, display:'flex', gap:12 }}>
+              <span><span style={{color:T.grn}}>■</span> 正確</span>
+              <span><span style={{color:T.amber}}>■</span> 拼錯（你寫的在上方）</span>
+              <span><span style={{color:T.red}}>■</span> 缺字</span>
+            </div>
+            <DiffDisplay tokens={result.tokens}/>
+          </div>
+
+          {/* 你的輸入 */}
+          <div style={{ background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:10, padding:'10px 14px' }}>
+            <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, marginBottom:4 }}>你寫的</div>
+            <div style={{ fontFamily:MONO, fontSize:12, color:T.txt2, lineHeight:1.7 }}>{input}</div>
+          </div>
+
+          {/* 中文（選擇性）*/}
+          {card.zh && (
+            <div onClick={() => setShowZh(v=>!v)} style={{ cursor:'pointer', textAlign:'center' }}>
+              {showZh
+                ? <span style={{ fontFamily:SERIF, fontSize:13, color:T.txt2, fontStyle:'italic' }}>{card.zh}</span>
+                : <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>▾ 顯示中文翻譯</span>}
+            </div>
+          )}
+
+          {/* 按鈕 */}
+          <div style={{ display:'flex', gap:8 }}>
+            <button className="btn" onClick={() => { speak(card.en, 0.7) }}
+              style={{ flex:1, background:T.surf2, border:`1px solid ${T.bdr2}`, color:T.txt2, fontSize:11 }}>🔊 再聽</button>
+            <button className="btn" onClick={handleNext}
+              style={{ flex:2, background:T.grnD, border:`1px solid ${T.grn}60`, color:T.grn, fontSize:11, fontWeight:700 }}>下一句 →</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── DictationCardManager：管理洗牌 queue ────────────────────
+function DictationCardManager({ pool, cat }) {
+  const [queue, setQueue] = useState(() => [...pool].sort(() => Math.random() - 0.5))
+  const [idx, setIdx] = useState(0)
+
+  // pool 改變時（切換分類）重新洗牌
+  useEffect(() => {
+    setQueue([...pool].sort(() => Math.random() - 0.5))
+    setIdx(0)
+  }, [cat])
+
+  const card = queue[idx] ?? queue[0]
+  if (!card) return (
+    <div style={{ textAlign:'center', color:T.txt3, fontFamily:SERIF, fontSize:14, padding:40 }}>此分類尚無句子</div>
+  )
+  return (
+    <DictationCard card={card} cardNum={idx+1} total={queue.length}
+      onNext={() => setIdx(i => (i+1) % queue.length)}/>
+  )
+}
+
+// ── SpeechCard：口說比對 ─────────────────────────────────────
+function SpeechCard({ card, cardNum, total, onNext }) {
+  const [phase, setPhase]             = useState('ready')
+  const [transcript, setTranscript]   = useState('')
+  const [interim, setInterim]         = useState('')
+  const [result, setResult]           = useState(null)
+  const [isListening, setIsListening] = useState(false)
+  const [supported, setSupported]     = useState(null)
+  const [errMsg, setErrMsg]           = useState('')
+  const [played, setPlayed]           = useState(false)
+  const [showZh, setShowZh]           = useState(false)
+  const recogRef = useRef(null)
+
+  useEffect(() => {
+    const SR = window.SpeechRecognition ?? window.webkitSpeechRecognition
+    setSupported(!!SR)
+  }, [])
+
+  useEffect(() => {
+    setPhase('ready'); setTranscript(''); setInterim('')
+    setResult(null); setIsListening(false); setErrMsg('')
+    setPlayed(false); setShowZh(false)
+    recogRef.current?.abort()
+  }, [card?.en])
+
+  useEffect(() => {
+    if (phase === 'ready' && !played && card) {
+      const t = setTimeout(() => { speak(card.en, 0.75); setPlayed(true) }, 400)
+      return () => clearTimeout(t)
+    }
+  }, [phase, card, played])
+
+  function startRecognition() {
+    const SR = window.SpeechRecognition ?? window.webkitSpeechRecognition
+    if (!SR) { setErrMsg('此裝置不支援語音辨識（需要 Chrome 或 Safari）'); return }
+    window.speechSynthesis?.cancel()
+    const recog = new SR()
+    recog.lang = 'en-US'; recog.continuous = false
+    recog.interimResults = true; recog.maxAlternatives = 3
+    let finalT = ''
+    recog.onstart  = () => { setIsListening(true); setErrMsg(''); setInterim('') }
+    recog.onresult = (e) => {
+      let itm = ''
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript
+        if (e.results[i].isFinal) finalT += t + ' '
+        else itm += t
+      }
+      setInterim(itm); setTranscript(finalT.trim())
+    }
+    recog.onend = () => {
+      setIsListening(false); setInterim('')
+      const final = finalT.trim()
+      if (final) { setTranscript(final); setResult(dictDiff(card.en, final)); setPhase('result') }
+      else { if (!errMsg) setErrMsg('沒有偵測到聲音，請靠近麥克風再試'); setPhase('ready') }
+    }
+    recog.onerror = (e) => {
+      setIsListening(false); setInterim('')
+      const msgs = { 'no-speech':'沒有偵測到聲音，請靠近麥克風再試', 'not-allowed':'麥克風權限被拒絕，請在瀏覽器設定中允許', 'network':'網路錯誤，請確認連線狀態' }
+      setErrMsg(msgs[e.error] ?? ('辨識失敗：' + e.error)); setPhase('ready')
+    }
+    recogRef.current = recog; recog.start(); setPhase('listening')
+  }
+
+  function stopRecognition() { recogRef.current?.stop() }
+  function retry() { setPhase('ready'); setTranscript(''); setInterim(''); setResult(null); setErrMsg(''); setPlayed(false) }
+
+  const sc = result ? (result.score>=90?T.grn : result.score>=60?T.amber : T.red) : T.amber
+
+  if (supported === false) return (
+    <div style={{ background:T.surf, border:`1px solid ${T.red}40`, borderRadius:14, padding:24, textAlign:'center', display:'flex', flexDirection:'column', gap:12, alignItems:'center' }}>
+      <div style={{ fontSize:28 }}>🚫</div>
+      <div style={{ fontFamily:MONO, fontSize:11, color:T.red }}>此裝置不支援語音辨識</div>
+      <div style={{ fontFamily:SERIF, fontSize:13, color:T.txt2, lineHeight:1.7 }}>
+        請使用 Chrome（桌機/Android）<br/>或 Safari（iOS 14.5+）
+      </div>
+    </div>
+  )
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+      <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, textAlign:'right' }}>{cardNum} / {total}</div>
+
+      {/* ── READY / LISTENING ── */}
+      {(phase === 'ready' || phase === 'listening') && (
+        <>
+          {/* 句子卡（顯示）*/}
+          <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:14, padding:'18px 18px', display:'flex', flexDirection:'column', gap:10 }}>
+            <div style={{ fontFamily:MONO, fontSize:8.5, color:T.txt3, letterSpacing:'0.1em' }}>🎙 口說比對 — 跟著說這句話</div>
+            <div style={{ fontFamily:MONO, fontSize:15, color:T.txt, lineHeight:1.8 }}>{card.en}</div>
+            {card.zh && showZh && <div style={{ fontFamily:SERIF, fontStyle:'italic', fontSize:13, color:T.txt2 }}>{card.zh}</div>}
+            <div style={{ display:'flex', gap:8 }}>
+              <div onClick={() => { speak(card.en, 0.75); setPlayed(true) }}
+                style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', color:T.txt3, padding:'4px 8px', background:T.surf2, borderRadius:6, fontFamily:MONO, fontSize:9 }}
+                onMouseOver={e=>e.currentTarget.style.color=T.amber} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
+                <svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none"/></svg>
+                聽範例
+              </div>
+              {card.zh && (
+                <div onClick={() => setShowZh(v=>!v)}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3, padding:'4px 8px', background:T.surf2, borderRadius:6 }}>
+                  {showZh ? '隱藏翻譯' : '中文翻譯'}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Interim transcript */}
+          {phase === 'listening' && (
+            <div style={{ background:T.surf2, border:`1px solid ${T.blue}40`, borderRadius:12, padding:'12px 16px', minHeight:48, display:'flex', alignItems:'center' }} className="fadeUp">
+              <div style={{ fontFamily:MONO, fontSize:13, color: interim ? T.blue : T.txt3, lineHeight:1.6 }}>
+                {interim || <span style={{ animation:'pulse 1s infinite', display:'inline-block' }}>聆聽中…</span>}
+              </div>
+            </div>
+          )}
+
+          {/* Error */}
+          {errMsg && (
+            <div style={{ background:T.redD, border:`1px solid ${T.red}40`, borderRadius:10, padding:'10px 14px', fontFamily:MONO, fontSize:10, color:T.red }}>⚠ {errMsg}</div>
+          )}
+
+          {/* Mic button */}
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:10 }}>
+            <div onClick={phase==='ready' ? startRecognition : stopRecognition}
+              style={{ width:80, height:80, borderRadius:'50%',
+                background: phase==='listening' ? `${T.red}25` : T.redD,
+                border: `2px solid ${phase==='listening' ? T.red : T.red+'60'}`,
+                display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', cursor:'pointer', gap:4,
+                animation: phase==='listening' ? 'glow 1s infinite' : 'none', transition:'background 0.2s' }}>
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+                <rect x="9" y="2" width="6" height="12" rx="3" stroke={T.red} strokeWidth="1.6" fill={phase==='listening' ? T.red+'60' : T.red+'30'}/>
+                <path d="M5 10a7 7 0 0014 0" stroke={T.red} strokeWidth="1.6" strokeLinecap="round"/>
+                <line x1="12" y1="20" x2="12" y2="23" stroke={T.red} strokeWidth="1.6" strokeLinecap="round"/>
+                <line x1="9" y1="23" x2="15" y2="23" stroke={T.red} strokeWidth="1.6" strokeLinecap="round"/>
+              </svg>
+              <span style={{ fontFamily:MONO, fontSize:8, color:T.red }}>{phase==='listening' ? '按下停止' : '按下說話'}</span>
+            </div>
+            <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+              {phase==='listening' ? '正在聆聽，說完後自動辨識' : '按下麥克風開始說話'}
+            </div>
+          </div>
+          <button className="btn" onClick={onNext}
+            style={{ background:'transparent', border:`1px solid ${T.bdr}`, color:T.txt3, fontSize:10 }}>跳過 →</button>
+        </>
+      )}
+
+      {/* ── RESULT ── */}
+      {phase === 'result' && result && (
+        <div style={{ display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:16, background:T.surf, border:`1px solid ${sc}40`, borderRadius:14, padding:'16px 20px' }}>
+            <div style={{ fontFamily:MONO, fontSize:42, fontWeight:700, color:sc, lineHeight:1 }}>{result.score}</div>
+            <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
+              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>分</div>
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.txt2 }}>{result.correct} / {result.total} 字正確</div>
+              <div style={{ fontFamily:MONO, fontSize:10, color:sc }}>
+                {result.score>=90?'🎉 說得很好！':result.score>=70?'👍 不錯，繼續':result.score>=50?'多練幾次':'再聽一次再說'}
+              </div>
+            </div>
+          </div>
+          <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:12, padding:'14px 16px', display:'flex', flexDirection:'column', gap:8 }}>
+            <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, display:'flex', gap:12 }}>
+              <span><span style={{color:T.grn}}>■</span> 說對</span>
+              <span><span style={{color:T.amber}}>■</span> 近似</span>
+              <span><span style={{color:T.red}}>■</span> 漏說</span>
+            </div>
+            <DiffDisplay tokens={result.tokens}/>
+          </div>
+          <div style={{ background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:10, padding:'10px 14px' }}>
+            <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, marginBottom:4 }}>機器聽到的</div>
+            <div style={{ fontFamily:MONO, fontSize:12, color:T.txt2, lineHeight:1.7 }}>{transcript}</div>
+          </div>
+          <div style={{ display:'flex', gap:8 }}>
+            <button className="btn" onClick={retry}
+              style={{ flex:1, background:T.redD, border:`1px solid ${T.red}50`, color:T.red, fontSize:11 }}>🎙 再說一次</button>
+            <button className="btn" onClick={() => speak(card.en, 0.7)}
+              style={{ flex:1, background:T.surf2, border:`1px solid ${T.bdr2}`, color:T.txt2, fontSize:11 }}>🔊 聽範例</button>
+            <button className="btn" onClick={onNext}
+              style={{ flex:1, background:T.grnD, border:`1px solid ${T.grn}60`, color:T.grn, fontSize:11, fontWeight:700 }}>下一句</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function SpeechCardManager({ pool, cat }) {
+  const [queue, setQueue] = useState(() => [...pool].sort(() => Math.random() - 0.5))
+  const [idx, setIdx] = useState(0)
+  useEffect(() => { setQueue([...pool].sort(() => Math.random() - 0.5)); setIdx(0) }, [cat])
+  const card = queue[idx] ?? queue[0]
+  if (!card) return (
+    <div style={{ textAlign:'center', color:T.txt3, fontFamily:SERIF, fontSize:14, padding:40 }}>此分類尚無句子</div>
+  )
+  return <SpeechCard card={card} cardNum={idx+1} total={queue.length} onNext={() => setIdx(i => (i+1) % queue.length)}/>
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PHRASE SRS 輕量化
+// ═══════════════════════════════════════════════════════════════
+const PHRASE_SRS_KEY = 'fsi:ph:srs'
+const SRS_ITV = [1, 3, 7, 14, 30]  // 間隔天數（level 0~4）
+
+function phraseSrsRate(record = {}, rating) {
+  const now = Date.now()
+  let { state = 'new', level = 0, reps = 0 } = record
+  if (rating === 'again') {
+    level = Math.max(0, level - 1); state = 'review'
+  } else if (rating === 'okay') {
+    level = Math.min(SRS_ITV.length - 1, level + 1)
+    state = (level >= SRS_ITV.length - 1 && reps >= 2) ? 'done' : 'review'
+  } else if (rating === 'got') {
+    level = Math.min(SRS_ITV.length - 1, level + 2)
+    state = level >= SRS_ITV.length - 1 ? 'done' : 'review'
+  }
+  reps += 1
+  const dueDate = state === 'done' ? null : now + (SRS_ITV[level] ?? 30) * 86400000
+  return { state, level, reps, dueDate, lastSeen: now }
+}
+
+function phraseBuildQueue(pool, srsMap, maxNew = 20) {
+  const now = Date.now()
+  const overdue = [], newCards = [], future = []
+  pool.forEach(p => {
+    const r = srsMap[p.id]
+    if (!r || r.state === 'new') newCards.push(p)
+    else if (r.state === 'done') { /* 畢業，略過 */ }
+    else if (r.dueDate <= now) overdue.push(p)
+    else future.push(p)
+  })
+  overdue.sort((a, b) => (srsMap[a.id]?.dueDate ?? 0) - (srsMap[b.id]?.dueDate ?? 0))
+  return [...overdue, ...newCards.slice(0, maxNew), ...future]
+}
+
+function phraseCalcStats(pool, srsMap) {
+  const now = Date.now()
+  let newC = 0, overdueC = 0, reviewC = 0, doneC = 0
+  pool.forEach(p => {
+    const r = srsMap[p.id]
+    if (!r || r.state === 'new') newC++
+    else if (r.state === 'done') doneC++
+    else if (r.dueDate <= now) overdueC++
+    else reviewC++
+  })
+  return { newC, overdueC, reviewC, doneC }
+}
+
+function nextItvLabel(level, delta) {
+  const l = Math.min(SRS_ITV.length - 1, Math.max(0, (level ?? 0) + delta))
+  return l >= SRS_ITV.length - 1 ? '畢業✨' : SRS_ITV[l] + '天'
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 反向模式（中 → 英）
+// ═══════════════════════════════════════════════════════════════
+const PHRASE_RSRS_KEY = 'fsi:ph:rsrs'  // 獨立 key，不混正向 SRS
+
+function ReverseCard({ card, cardNum, total, onNext, srsMap, onRate }) {
+  const [phase, setPhase]           = useState('prompt')
+  const [hintPlayed, setHintPlayed] = useState(false)
+
+  useEffect(() => { setPhase('prompt'); setHintPlayed(false) }, [card?.en])
+
+  function handleReveal() { setPhase('reveal'); setTimeout(() => speak(card.en, 0.75), 300) }
+  function handleRate(rating) { onRate(card.id, rating); onNext() }
+
+  const cardSrs = srsMap[card?.id] ?? {}
+  const lv = cardSrs.level ?? 0
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+      <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, textAlign:'right' }}>{cardNum} / {total}</div>
+
+      {/* ── PROMPT ── */}
+      {phase === 'prompt' && (
+        <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+          <div style={{ background:T.surf, border:`1px solid ${T.blue}40`, borderRadius:16,
+            padding:'30px 22px', textAlign:'center', display:'flex', flexDirection:'column', gap:8 }}>
+            <div style={{ fontFamily:MONO, fontSize:9, color:T.blue, letterSpacing:'0.14em', marginBottom:4 }}>🔄 中 → 英</div>
+            <div style={{ fontFamily:SERIF, fontSize:20, color:T.txt, lineHeight:1.8, fontStyle:'italic' }}>{card.zh}</div>
+            {cardSrs.state && cardSrs.state !== 'new' && (
+              <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, marginTop:4 }}>
+                {cardSrs.state === 'done' ? '✨ 已畢業' : `lv${lv} · 已練${cardSrs.reps}次`}
+              </div>
+            )}
+          </div>
+          <div style={{ textAlign:'center' }}>
+            <div onClick={() => { speak(card.en, 0.5); setHintPlayed(true) }}
+              style={{ display:'inline-flex', alignItems:'center', gap:6, cursor:'pointer', fontFamily:MONO, fontSize:9,
+                padding:'5px 14px', borderRadius:8,
+                background: hintPlayed ? T.amberD : T.surf2,
+                border:`1px solid ${hintPlayed ? T.amber+'50' : T.bdr}`,
+                color: hintPlayed ? T.amber : T.txt3, transition:'all 0.15s' }}>
+              <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+                <path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none"/>
+              </svg>
+              {hintPlayed ? '再播一次提示' : '💡 播放提示（0.5x）'}
+            </div>
+          </div>
+          <button className="btn" onClick={handleReveal}
+            style={{ background:T.amberD, border:`1px solid ${T.amber}60`, color:T.amber, fontSize:12, fontWeight:700, padding:'14px', letterSpacing:'0.08em' }}>
+            顯示英文 →
+          </button>
+        </div>
+      )}
+
+      {/* ── REVEAL ── */}
+      {phase === 'reveal' && (
+        <div style={{ display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
+          <div style={{ background:T.surf, border:`1px solid ${T.amber}40`, borderRadius:14, padding:'18px 18px', display:'flex', flexDirection:'column', gap:10 }}>
+            <div style={{ fontFamily:SERIF, fontStyle:'italic', fontSize:14, color:T.txt2, lineHeight:1.7 }}>{card.zh}</div>
+            <div style={{ height:1, background:T.bdr }}/>
+            <div style={{ fontFamily:MONO, fontSize:15, color:T.txt, lineHeight:1.8 }}>{card.en}</div>
+          </div>
+          <SpeakRow text={card.en} color={T.amber}/>
+          <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+            <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, textAlign:'center', letterSpacing:'0.06em' }}>
+              你說出來了嗎？　下次複習間隔
+            </div>
+            <div style={{ display:'flex', gap:6 }}>
+              <button className="btn" onClick={() => handleRate('again')}
+                style={{ flex:1, background:T.redD, border:`1px solid ${T.red}50`, color:T.red, padding:'10px 0', fontSize:10, display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
+                <span>✗ 說不出</span>
+                <span style={{ fontSize:8, opacity:0.8 }}>{nextItvLabel(lv, -1)}</span>
+              </button>
+              <button className="btn" onClick={() => handleRate('okay')}
+                style={{ flex:1, background:T.amberD, border:`1px solid ${T.amber}50`, color:T.amber, padding:'10px 0', fontSize:10, display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
+                <span>◎ 說一半</span>
+                <span style={{ fontSize:8, opacity:0.8 }}>{nextItvLabel(lv, 1)}</span>
+              </button>
+              <button className="btn" onClick={() => handleRate('got')}
+                style={{ flex:1, background:T.grnD, border:`1px solid ${T.grn}50`, color:T.grn, padding:'10px 0', fontSize:10, fontWeight:700, display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
+                <span>✓ 完整說</span>
+                <span style={{ fontSize:8, opacity:0.8 }}>{nextItvLabel(lv, 2)}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ReverseCardManager({ pool, cat, rsrsMap, onRate }) {
+  const zhPool = useMemo(() => pool.filter(p => p.zh && p.zh.trim()), [pool.map(p=>p.id).join(',')])
+  const queue  = useMemo(() => phraseBuildQueue(zhPool, rsrsMap), [zhPool.map(p=>p.id).join(','), rsrsMap])
+  const [idx, setIdx] = useState(0)
+  useEffect(() => { setIdx(0) }, [cat])
+
+  const card = queue[idx] ?? queue[0]
+  const stats = useMemo(() => phraseCalcStats(zhPool, rsrsMap), [zhPool.map(p=>p.id).join(','), rsrsMap])
+
+  if (!card) return (
+    <div style={{ textAlign:'center', color:T.txt3, fontFamily:SERIF, fontSize:14, padding:40 }}>
+      此分類尚無含中文翻譯的句子
+    </div>
+  )
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+      {/* 統計 mini-bar */}
+      <div style={{ display:'flex', gap:5, alignItems:'center' }}>
+        {stats.overdueC > 0 && <div style={{ fontFamily:MONO, fontSize:8, padding:'2px 7px', borderRadius:5, background:T.redD, color:T.red, border:`1px solid ${T.red}30` }}>⏰ {stats.overdueC}</div>}
+        <div style={{ fontFamily:MONO, fontSize:8, padding:'2px 7px', borderRadius:5, background:T.blueD, color:T.blue, border:`1px solid ${T.blue}30` }}>🆕 {stats.newC}</div>
+        {stats.reviewC > 0 && <div style={{ fontFamily:MONO, fontSize:8, padding:'2px 7px', borderRadius:5, background:T.amberD, color:T.amber, border:`1px solid ${T.amber}30` }}>📅 {stats.reviewC}</div>}
+        {stats.doneC > 0 && <div style={{ fontFamily:MONO, fontSize:8, padding:'2px 7px', borderRadius:5, background:T.grnD, color:T.grn, border:`1px solid ${T.grn}30` }}>✓ {stats.doneC}</div>}
+        <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3, marginLeft:'auto' }}>{zhPool.length} 句（含譯）</span>
+      </div>
+      <ReverseCard card={card} cardNum={idx+1} total={queue.length}
+        srsMap={rsrsMap} onRate={onRate}
+        onNext={() => setIdx(i => (i+1) % Math.max(1, queue.length))}/>
+    </div>
+  )
+}
 
 const SCENARIOS = [
   { id:'mystyle', label:'我的風格', en:'Free conversation from my collection', icon:'⭐', cat:'my' },
@@ -9444,10 +10068,17 @@ function PhraseTab({ settings }) {
   const [addDone,   setAddDone]   = useState(null)  // {en, zh, cat, _count}
   const [addProgress, setAddProgress] = useState(null) // {current, total}
   const [showMyList, setShowMyList] = useState(false) // 我的收藏清單模式
+  const [showSubcatFilter, setShowSubcatFilter] = useState(true) // 我的收藏子分類篩選展開
   const [deleteConfirm, setDeleteConfirm] = useState(null) // phrase id 待確認刪除
   const [mySubcat, setMySubcat] = useState('all') // 我的收藏子分類篩選
   const [reclassifyLoading, setReclassifyLoading] = useState(false)
   const [reclassifyProgress, setReclassifyProgress] = useState(null)
+  const [srsMap, setSrsMap] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(PHRASE_SRS_KEY) ?? '{}') } catch { return {} }
+  })
+  const [rsrsMap, setRsrsMap] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(PHRASE_RSRS_KEY) ?? '{}') } catch { return {} }
+  })
 
   // ── Q&A 練習 ─────────────────────────────────────────────────
   const [qaIdx,       setQaIdx]       = useState(0)
@@ -9469,12 +10100,15 @@ function PhraseTab({ settings }) {
 
   // ── 句型資料 ──────────────────────────────────────────────────
   const allPhrases = [...PHRASE_DATA, ...extraPhrases]
-  const baseQueue  = cat === 'all' ? allPhrases : allPhrases.filter(p => p.cat === cat)
-  const queue      = (cat === 'my' && mySubcat !== 'all')
-    ? baseQueue.filter(p => (p.subcat ?? '') === mySubcat)
-    : baseQueue
+  const basePool   = cat === 'all' ? allPhrases : allPhrases.filter(p => p.cat === cat)
+  const pool       = (cat === 'my' && mySubcat !== 'all')
+    ? basePool.filter(p => (p.subcat ?? '') === mySubcat)
+    : basePool
+  const queue      = useMemo(() => pMode === 'sentence' ? phraseBuildQueue(pool, srsMap) : pool,
+    [pool.map(p=>p.id).join(','), srsMap, pMode])
   const card       = queue[idx] ?? queue[0]
-  const doneCount  = queue.filter(p => doneIds.has(p.id)).length
+  const srsStats   = useMemo(() => phraseCalcStats(pool, srsMap), [pool.map(p=>p.id).join(','), srsMap])
+  const doneCount  = srsStats.doneC
 
   // 我的收藏：計算各 subcat 筆數（動態）
   const mySubcatCounts = useMemo(() => {
@@ -9620,7 +10254,26 @@ function PhraseTab({ settings }) {
   function markDone() {
     const n = new Set(doneIds); n.add(card.id)
     setDoneIds(n); localStorage.setItem('fsi:ph:done', JSON.stringify([...n]))
-    setIdx(i => (i + 1) % queue.length)
+    setIdx(i => (i + 1) % Math.max(1, queue.length))
+  }
+
+  function srsRatePhrase(rating) {
+    if (!card) return
+    const rec = srsMap[card.id] ?? {}
+    const newRec = phraseSrsRate(rec, rating)
+    const newMap = { ...srsMap, [card.id]: newRec }
+    setSrsMap(newMap)
+    try { localStorage.setItem(PHRASE_SRS_KEY, JSON.stringify(newMap)) } catch {}
+    setPhase('listen'); setAutoPlayed(false)
+    setIdx(i => (i + 1) % Math.max(1, queue.length))
+  }
+
+  function reverseRatePhrase(phraseId, rating) {
+    const rec = rsrsMap[phraseId] ?? {}
+    const newRec = phraseSrsRate(rec, rating)
+    const newMap = { ...rsrsMap, [phraseId]: newRec }
+    setRsrsMap(newMap)
+    try { localStorage.setItem(PHRASE_RSRS_KEY, JSON.stringify(newMap)) } catch {}
   }
 
   // ── Q&A helpers ───────────────────────────────────────────────
@@ -9734,7 +10387,7 @@ function PhraseTab({ settings }) {
 
       {/* 主模式切換 */}
       <div style={{ display:'flex', background:'#161b22', borderRadius:10, padding:3, gap:3, flexShrink:0 }}>
-        {[{id:'sentence',label:'📋 句型'},{id:'qa',label:'💬 問答'},{id:'scenario',label:'🎭 情境'}].map(m => (
+        {[{id:'sentence',label:'📋 句型'},{id:'reverse',label:'🔄 反向'},{id:'qa',label:'💬 問答'},{id:'dictation',label:'🎧 聽寫'},{id:'speech',label:'🎙 口說'},{id:'scenario',label:'🎭 情境'}].map(m => (
           <div key={m.id} onClick={() => setPMode(m.id)}
             style={{ flex:1, textAlign:'center', padding:'8px 0', borderRadius:8, cursor:'pointer',
               fontFamily:MONO, fontSize:10, letterSpacing:'0.05em', fontWeight: pMode===m.id ? 700 : 400,
@@ -9856,12 +10509,37 @@ function PhraseTab({ settings }) {
           {/* ── 我的收藏清單（showMyList 模式）──────────────────────── */}
           {showMyList && cat === 'my' ? (
             <div style={{ display:'flex', flexDirection:'column', gap:8 }} className="fadeUp">
-              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                <div style={{ fontFamily:MONO, fontSize:9, color:'#58a6ff', letterSpacing:'0.1em' }}>
-                  📋 我的收藏 — 共 {extraPhrases.length} 句
+              {/* ── 頂部操作列：切換分類 ｜ 全部（N）｜ 🤖 ｜ ▶ ── */}
+              <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                <div onClick={() => setShowSubcatFilter(v=>!v)}
+                  style={{ padding:'5px 10px', borderRadius:8, cursor:'pointer', fontFamily:MONO, fontSize:9,
+                    background: showSubcatFilter ? '#f5a62320' : '#161b22',
+                    border:'1px solid '+(showSubcatFilter ? '#f5a62360' : '#30363d'),
+                    color: showSubcatFilter ? '#f5a623' : '#8b949e', flexShrink:0, transition:'all 0.14s' }}>
+                  切換分類
+                </div>
+                <div style={{ flex:1, fontFamily:MONO, fontSize:10, color:'#8b949e', textAlign:'center' }}>
+                  全部（{extraPhrases.length}）
+                </div>
+                <div onClick={reclassifyLoading ? undefined : aiReclassify}
+                  title="AI 自動重新分類"
+                  style={{ width:32, height:32, borderRadius:8, cursor: reclassifyLoading ? 'default' : 'pointer',
+                    display:'flex', alignItems:'center', justifyContent:'center', fontSize:15,
+                    background: reclassifyLoading ? '#21262d' : '#a371f715',
+                    border:'1px solid '+(reclassifyLoading ? '#30363d' : '#a371f750'), flexShrink:0 }}>
+                  {reclassifyLoading ? (reclassifyProgress ? reclassifyProgress.current+'/'+reclassifyProgress.total : '⏳') : '🤖'}
+                </div>
+                <div onClick={() => { const n=!autoListen; setAutoListen(n); autoListenRef.current=n; if(n){setShowMyList(false);setAutoPlayed(false)} }}
+                  title={autoListen ? '停止自動播放' : '自動播放我的收藏'}
+                  style={{ width:32, height:32, borderRadius:8, cursor:'pointer',
+                    display:'flex', alignItems:'center', justifyContent:'center', fontSize:14,
+                    background: autoListen ? '#58a6ff' : '#58a6ff15',
+                    border:'1px solid '+(autoListen ? '#58a6ff' : '#58a6ff50'),
+                    color: autoListen ? '#050810' : '#58a6ff', flexShrink:0, transition:'all 0.14s' }}>
+                  {autoListen ? '⏸' : '▶'}
                 </div>
                 {extraPhrases.some(p => !p.zh) && (
-                  <button className="btn" onClick={async () => {
+                  <div onClick={async () => {
                     const apiKey = settings?.apiKey || (() => { try { return JSON.parse(localStorage.getItem('fsi:se')||'{}')?.apiKey??'' } catch { return '' } })()
                     if (!apiKey) return
                     const sys = 'Translate the English phrase/sentence to Traditional Chinese. Reply with ONLY the translation, nothing else.'
@@ -9878,10 +10556,12 @@ function PhraseTab({ settings }) {
                     localStorage.setItem('fsi:ph:extra', JSON.stringify(updated))
                     setExtraPhrases(updated)
                   }}
-                    style={{ fontFamily:MONO, fontSize:9, padding:'4px 10px', background:'#58a6ff18',
-                      border:'1px solid #58a6ff50', color:'#58a6ff', borderRadius:8 }}>
-                    🌐 全部翻譯
-                  </button>
+                    title="翻譯所有未翻句子"
+                    style={{ width:32, height:32, borderRadius:8, cursor:'pointer',
+                      display:'flex', alignItems:'center', justifyContent:'center', fontSize:14,
+                      background:'#58a6ff18', border:'1px solid #58a6ff50', flexShrink:0 }}>
+                    🌐
+                  </div>
                 )}
               </div>
               {extraPhrases.length === 0 && (
@@ -9889,8 +10569,8 @@ function PhraseTab({ settings }) {
                   尚無收藏句子，點 ＋ 新增
                 </div>
               )}
-              {/* 子分類篩選列（清單模式）*/}
-              {extraPhrases.length > 0 && (() => {
+              {/* 子分類篩選列（清單模式 - 收合式）*/}
+              {showSubcatFilter && extraPhrases.length > 0 && (() => {
                 const subcatList = ['all', ...Object.keys(mySubcatCounts).filter(k => k !== 'all').sort()]
                 return (
                   <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
@@ -9964,10 +10644,28 @@ function PhraseTab({ settings }) {
           ) : (
           <>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-            <div style={{ flex:1, height:4, background:'#161b22', borderRadius:4, overflow:'hidden' }}>
-              <div style={{ height:'100%', width:(doneCount/queue.length*100)+'%', background:'#3fb950', borderRadius:4, transition:'width 0.4s' }}/>
+            {/* SRS 統計 mini-bar */}
+            <div style={{ display:'flex', gap:5, flex:1 }}>
+              {srsStats.overdueC > 0 && (
+                <div style={{ fontFamily:MONO, fontSize:8, padding:'2px 7px', borderRadius:5, background:T.redD, color:T.red, border:`1px solid ${T.red}30` }}>
+                  ⏰ {srsStats.overdueC}
+                </div>
+              )}
+              <div style={{ fontFamily:MONO, fontSize:8, padding:'2px 7px', borderRadius:5, background:T.blueD, color:T.blue, border:`1px solid ${T.blue}30` }}>
+                🆕 {srsStats.newC}
+              </div>
+              {srsStats.reviewC > 0 && (
+                <div style={{ fontFamily:MONO, fontSize:8, padding:'2px 7px', borderRadius:5, background:T.amberD, color:T.amber, border:`1px solid ${T.amber}30` }}>
+                  📅 {srsStats.reviewC}
+                </div>
+              )}
+              {srsStats.doneC > 0 && (
+                <div style={{ fontFamily:MONO, fontSize:8, padding:'2px 7px', borderRadius:5, background:T.grnD, color:T.grn, border:`1px solid ${T.grn}30` }}>
+                  ✓ {srsStats.doneC}
+                </div>
+              )}
             </div>
-            <span style={{ fontFamily:MONO, fontSize:9, color:'#8b949e' }}>{doneCount}/{queue.length}</span>
+            <span style={{ fontFamily:MONO, fontSize:9, color:'#8b949e' }}>{doneCount}/{pool.length}</span>
           </div>
           {card && (
             <>
@@ -10015,16 +10713,35 @@ function PhraseTab({ settings }) {
                     <div style={{ fontFamily:SERIF, fontSize:14, color:'#c9d1d9', fontStyle:'italic' }}>{card.zh}</div>
                   </div>
                   <SpeakRow text={card.en} color={cc}/>
-                  <div style={{ display:'flex', gap:8 }}>
-                    <button className="btn" onClick={() => { setPhase('listen'); setAutoPlayed(false) }}
-                      style={{ flex:1, background:'#f8514918', border:'1px solid #f8514955', color:'#f85149', padding:'13px 0', fontSize:13 }}>
-                      ↺ 再來一次
-                    </button>
-                    <button className="btn" onClick={markDone}
-                      style={{ flex:2, background:'#3fb95018', border:'1px solid #3fb95055', color:'#3fb950', padding:'13px 0', fontSize:13, fontWeight:700 }}>
-                      ✓ 我會了 →
-                    </button>
-                  </div>
+                  {/* SRS 評分按鈕 */}
+                  {(() => {
+                    const cardSrs = srsMap[card?.id] ?? {}
+                    const lv = cardSrs.level ?? 0
+                    return (
+                      <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+                        <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, textAlign:'center', letterSpacing:'0.06em' }}>
+                          下次複習間隔
+                        </div>
+                        <div style={{ display:'flex', gap:6 }}>
+                          <button className="btn" onClick={() => srsRatePhrase('again')}
+                            style={{ flex:1, background:T.redD, border:`1px solid ${T.red}50`, color:T.red, padding:'10px 0', fontSize:11, display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
+                            <span>✗ 再練</span>
+                            <span style={{ fontSize:8, opacity:0.8 }}>{nextItvLabel(lv, -1)}</span>
+                          </button>
+                          <button className="btn" onClick={() => srsRatePhrase('okay')}
+                            style={{ flex:1, background:T.amberD, border:`1px solid ${T.amber}50`, color:T.amber, padding:'10px 0', fontSize:11, display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
+                            <span>◎ 還行</span>
+                            <span style={{ fontSize:8, opacity:0.8 }}>{nextItvLabel(lv, 1)}</span>
+                          </button>
+                          <button className="btn" onClick={() => srsRatePhrase('got')}
+                            style={{ flex:1, background:T.grnD, border:`1px solid ${T.grn}50`, color:T.grn, padding:'10px 0', fontSize:11, fontWeight:700, display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
+                            <span>✓ 會了</span>
+                            <span style={{ fontSize:8, opacity:0.8 }}>{nextItvLabel(lv, 2)}</span>
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })()}
                   {cat === 'my' && extraPhrases.length > 0 && (
                     <MySubcatPanel counts={mySubcatCounts} selected={mySubcat}
                       onSelect={s => { setMySubcat(s); setIdx(0); setPhase('listen'); setAutoPlayed(false) }}
@@ -10038,6 +10755,27 @@ function PhraseTab({ settings }) {
           </> )} {/* end showMyList ternary */}
         </>
       )}
+
+      {/* ══════════════════ 🔄 反向（中→英）══════════════════ */}
+      {pMode === 'reverse' && (
+        <ReverseCardManager pool={pool} cat={cat} rsrsMap={rsrsMap} onRate={reverseRatePhrase}/>
+      )}
+
+      {/* ══════════════════ 🎧 聽寫 ══════════════════ */}
+      {pMode === 'dictation' && (() => {
+        const dictPool = cat === 'all' ? allPhrases
+          : cat === 'my' ? (mySubcat === 'all' ? allPhrases.filter(p=>p.cat==='my') : allPhrases.filter(p=>p.cat==='my'&&(p.subcat??'')===mySubcat))
+          : allPhrases.filter(p=>p.cat===cat)
+        return <DictationCardManager pool={dictPool} cat={cat}/>
+      })()}
+
+      {/* ══════════════════ 🎙 口說比對 ══════════════════ */}
+      {pMode === 'speech' && (() => {
+        const speechPool = cat === 'all' ? allPhrases
+          : cat === 'my' ? (mySubcat === 'all' ? allPhrases.filter(p=>p.cat==='my') : allPhrases.filter(p=>p.cat==='my'&&(p.subcat??'')===mySubcat))
+          : allPhrases.filter(p=>p.cat===cat)
+        return <SpeechCardManager pool={speechPool} cat={cat}/>
+      })()}
 
       {/* ══════════════════ Q&A 問答 ══════════════════ */}
       {pMode === 'qa' && qa && (
@@ -11638,7 +12376,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.15</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.16</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
