@@ -9372,7 +9372,10 @@ function PhraseTab({ settings }) {
   const [addText,   setAddText]   = useState('')
   const [addCat,    setAddCat]    = useState('life')
   const [addLoading, setAddLoading] = useState(false)
-  const [addDone,   setAddDone]   = useState(null)  // {en, zh, cat}
+  const [addDone,   setAddDone]   = useState(null)  // {en, zh, cat, _count}
+  const [addProgress, setAddProgress] = useState(null) // {current, total}
+  const [showMyList, setShowMyList] = useState(false) // 我的收藏清單模式
+  const [deleteConfirm, setDeleteConfirm] = useState(null) // phrase id 待確認刪除
 
   // ── Q&A 練習 ─────────────────────────────────────────────────
   const [qaIdx,       setQaIdx]       = useState(0)
@@ -9427,27 +9430,41 @@ function PhraseTab({ settings }) {
     window.speechSynthesis.speak(u)
   }
 
-  async function savePhrase(en, catId) {
+  async function savePhrase(rawText, catId) {
     const apiKey = settings?.apiKey || (() => {
       try { return JSON.parse(localStorage.getItem('fsi:se') || '{}')?.apiKey ?? '' } catch { return '' }
     })()
+    const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0)
+    if (lines.length === 0) return
     setAddLoading(true)
-    let zh = ''
-    try {
-      if (apiKey) {
-        const sys = 'Translate the English phrase/sentence to Traditional Chinese (繁體中文). Reply with ONLY the translation, nothing else.'
-        zh = await callClaude(apiKey, [{ role:'user', content: en }], sys)
-        zh = zh.trim()
-      }
-    } catch(e) { zh = '' }
-    const id = 'ph_my_' + Date.now()
-    const newPhrase = { id, cat: 'my', subcat: catId, en: en.trim(), zh }
+    setAddProgress({ current: 0, total: lines.length })
     const existing = (() => { try { return JSON.parse(localStorage.getItem('fsi:ph:extra') ?? '[]') } catch { return [] } })()
-    const updated = [...existing, newPhrase]
+    let updated = [...existing]
+    let lastPhrase = null
+    const sys = 'Translate the English phrase/sentence to Traditional Chinese. Reply with ONLY the translation, nothing else.'
+    for (let i = 0; i < lines.length; i++) {
+      setAddProgress({ current: i + 1, total: lines.length })
+      const en = lines[i]
+      let zh = ''
+      try {
+        if (apiKey) { zh = (await callClaude(apiKey, [{ role:'user', content: en }], sys)).trim() }
+      } catch(e) { zh = '' }
+      const newPhrase = { id: 'ph_my_' + Date.now() + '_' + i, cat: 'my', subcat: catId, en, zh }
+      updated = [...updated, newPhrase]
+      lastPhrase = newPhrase
+    }
     localStorage.setItem('fsi:ph:extra', JSON.stringify(updated))
     setExtraPhrases(updated)
-    setAddDone(newPhrase)
+    setAddDone({ ...lastPhrase, _count: lines.length })
+    setAddProgress(null)
     setAddLoading(false)
+  }
+
+  function deletePhrase(id) {
+    const updated = extraPhrases.filter(p => p.id !== id)
+    localStorage.setItem('fsi:ph:extra', JSON.stringify(updated))
+    setExtraPhrases(updated)
+    setDeleteConfirm(null)
   }
 
   // ── 句型 helpers ──────────────────────────────────────────────
@@ -9594,8 +9611,19 @@ function PhraseTab({ settings }) {
                 {c.label}
               </div>
             ))}
+            {cat === 'my' && (
+              <div onClick={() => { setShowMyList(v => !v); setDeleteConfirm(null) }}
+                title="查看全部收藏"
+                style={{ width:30, height:30, borderRadius:'50%',
+                  background: showMyList ? '#58a6ff' : '#58a6ff20', border:'1px solid #58a6ff40',
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  cursor:'pointer', fontSize:14, color: showMyList ? '#050810' : '#58a6ff',
+                  fontWeight:700, flexShrink:0, transition:'all 0.15s' }}>
+                📋
+              </div>
+            )}
             <div onClick={() => { setShowAdd(v => !v); setAddDone(null); setAddText('') }}
-              style={{ marginLeft:'auto', width:30, height:30, borderRadius:'50%',
+              style={{ marginLeft: cat === 'my' ? 0 : 'auto', width:30, height:30, borderRadius:'50%',
                 background: showAdd ? '#f5a623' : '#f5a62320', border:'1px solid #f5a62360',
                 display:'flex', alignItems:'center', justifyContent:'center',
                 cursor:'pointer', fontSize:18, color: showAdd ? '#050810' : '#f5a623',
@@ -9642,15 +9670,22 @@ function PhraseTab({ settings }) {
                       padding:'12px', fontSize:12, fontWeight:700, letterSpacing:'0.08em',
                       display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
                     {addLoading
-                      ? <><span style={{ display:'inline-block', width:10, height:10, border:'2px solid transparent', borderTopColor:'#7a8390', borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/> AI 翻譯中…</>
+                      ? <><span style={{ display:'inline-block', width:10, height:10, border:'2px solid transparent', borderTopColor:'#7a8390', borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>
+                          {addProgress ? 'AI 翻譯中… ' + addProgress.current + ' / ' + addProgress.total : 'AI 翻譯中…'}
+                        </>
                       : '✨ AI 新增（自動翻譯）'
                     }
                   </button>
                 </>
               ) : (
                 <div style={{ display:'flex', flexDirection:'column', gap:10 }} className="fadeUp">
-                  <div style={{ fontFamily:MONO, fontSize:9, color:'#3fb950', letterSpacing:'0.08em' }}>✓ 已加入收藏</div>
+                  <div style={{ fontFamily:MONO, fontSize:9, color:'#3fb950', letterSpacing:'0.08em' }}>
+                    ✓ 已加入收藏 {addDone._count > 1 ? addDone._count + ' 句' : ''}
+                  </div>
                   <div style={{ background:'#161b22', borderRadius:10, padding:'12px' }}>
+                    <div style={{ fontFamily:MONO, fontSize:13, color:'#7a8390', marginBottom:4 }}>
+                      {addDone._count > 1 ? '最後一句：' : ''}
+                    </div>
                     <div style={{ fontFamily:MONO, fontSize:14, color:'#e6edf3', marginBottom:6 }}>{addDone.en}</div>
                     {addDone.zh && <div style={{ fontFamily:"'Crimson Pro',Georgia,serif", fontSize:13, color:'#aab3be', fontStyle:'italic' }}>{addDone.zh}</div>}
                   </div>
@@ -9668,6 +9703,57 @@ function PhraseTab({ settings }) {
               )}
             </div>
           )}
+
+          {/* ── 我的收藏清單（showMyList 模式）──────────────────────── */}
+          {showMyList && cat === 'my' ? (
+            <div style={{ display:'flex', flexDirection:'column', gap:8 }} className="fadeUp">
+              <div style={{ fontFamily:MONO, fontSize:9, color:'#58a6ff', letterSpacing:'0.1em', marginBottom:2 }}>
+                📋 我的收藏 — 共 {extraPhrases.length} 句
+              </div>
+              {extraPhrases.length === 0 && (
+                <div style={{ fontFamily:MONO, fontSize:11, color:'#7a8390', textAlign:'center', padding:'24px 0' }}>
+                  尚無收藏句子，點 ＋ 新增
+                </div>
+              )}
+              {extraPhrases.map(p => (
+                <div key={p.id} style={{ background:'#0d1117', border:'1px solid '+(deleteConfirm===p.id ? '#f85149aa' : '#21262d'),
+                  borderRadius:10, padding:'12px 14px', display:'flex', flexDirection:'column', gap:6,
+                  transition:'border-color 0.15s' }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:8 }}>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontFamily:MONO, fontSize:13, color:'#e6edf3', lineHeight:1.5 }}>{p.en}</div>
+                      {p.zh && <div style={{ fontFamily:"'Crimson Pro',Georgia,serif", fontSize:12, color:'#7a8390', fontStyle:'italic', marginTop:3 }}>{p.zh}</div>}
+                    </div>
+                    {deleteConfirm === p.id ? (
+                      <div style={{ display:'flex', gap:5, flexShrink:0 }}>
+                        <button className="btn" onClick={() => setDeleteConfirm(null)}
+                          style={{ fontSize:10, padding:'4px 8px', background:'#21262d', border:'1px solid #30363d', color:'#aab3be' }}>
+                          取消
+                        </button>
+                        <button className="btn" onClick={() => deletePhrase(p.id)}
+                          style={{ fontSize:10, padding:'4px 8px', background:'#f8514920', border:'1px solid #f85149', color:'#f85149', fontWeight:700 }}>
+                          確認刪除
+                        </button>
+                      </div>
+                    ) : (
+                      <button className="btn" onClick={() => setDeleteConfirm(p.id)}
+                        style={{ fontSize:12, padding:'4px 10px', background:'transparent', border:'1px solid #30363d',
+                          color:'#7a8390', flexShrink:0, lineHeight:1 }}>
+                        🗑
+                      </button>
+                    )}
+                  </div>
+                  {p.subcat && (
+                    <div style={{ fontFamily:MONO, fontSize:8, color:'#f5a623', background:'#f5a62315',
+                      border:'1px solid #f5a62330', borderRadius:5, padding:'2px 7px', alignSelf:'flex-start' }}>
+                      {p.subcat}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+          <>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
             <div style={{ flex:1, height:4, background:'#161b22', borderRadius:4, overflow:'hidden' }}>
               <div style={{ height:'100%', width:(doneCount/queue.length*100)+'%', background:'#3fb950', borderRadius:4, transition:'width 0.4s' }}/>
@@ -9716,6 +9802,7 @@ function PhraseTab({ settings }) {
               )}
             </>
           )}
+          </> )} {/* end showMyList ternary */}
         </>
       )}
 
