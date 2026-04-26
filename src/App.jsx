@@ -9350,38 +9350,54 @@ const SCENARIOS = [
 
 // ── Linked / Rhythm 渲染器 ────────────────────────────────────
 // ── 我的收藏子分類導覽面板 ─────────────────────────────────────
-function MySubcatPanel({ counts, selected, onSelect }) {
+function MySubcatPanel({ counts, selected, onSelect, onReclassify, reclassifyLoading, reclassifyProgress }) {
   const MONO = "'JetBrains Mono',monospace"
+  const RECLASSIFY_LABELS = {
+    restaurant:'🍽️ 餐廳咖啡', shopping:'🛍️ 購物', travel:'✈️ 交通旅遊',
+    greeting:'👋 打招呼', opinion:'💬 表達意見', emotion:'😤 情緒狀態',
+    request:'🤝 請求幫忙', apology:'🙏 道謝道歉', idiom:'🗣️ 慣用語',
+    daily:'🌅 日常作息', relationship:'❤️ 友情關係', grammar:'📚 語法學習',
+  }
   const subcats = Object.keys(counts).filter(k => k !== 'all').sort()
+  const getLabel = s => RECLASSIFY_LABELS[s] || s
   return (
     <div style={{ width:'100%', background:'#0d1117', border:'1px solid #21262d',
       borderRadius:14, padding:'14px 14px 12px', display:'flex', flexDirection:'column', gap:10 }}>
-      <div style={{ fontFamily:MONO, fontSize:8, color:'#7a8390', letterSpacing:'0.1em' }}>
-        ⭐ 我的收藏 — 切換子分類
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+        <div style={{ fontFamily:MONO, fontSize:8, color:'#8b949e', letterSpacing:'0.1em' }}>
+          ⭐ 我的收藏 — 切換分類
+        </div>
+        {onReclassify && (
+          <button className="btn" onClick={onReclassify} disabled={reclassifyLoading}
+            style={{ fontFamily:MONO, fontSize:8, padding:'4px 10px',
+              background: reclassifyLoading ? '#21262d' : '#a371f718',
+              border:'1px solid '+(reclassifyLoading ? '#30363d' : '#a371f750'),
+              color: reclassifyLoading ? '#7a8390' : '#a371f7', borderRadius:8 }}>
+            {reclassifyLoading
+              ? (reclassifyProgress ? '🤖 ' + reclassifyProgress.current + '/' + reclassifyProgress.total : '🤖 分類中…')
+              : '🤖 AI 重新分類'}
+          </button>
+        )}
       </div>
       <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
-        {/* 全部 */}
         <div onClick={() => onSelect('all')}
-          style={{ padding:'6px 12px', borderRadius:10, cursor:'pointer', fontFamily:MONO, fontSize:10,
+          style={{ padding:'5px 11px', borderRadius:10, cursor:'pointer', fontFamily:MONO, fontSize:10,
             background: selected==='all' ? '#f5a623' : '#161b22',
             border:'1px solid '+(selected==='all' ? '#f5a623' : '#30363d'),
-            color: selected==='all' ? '#050810' : '#aab3be',
-            fontWeight: selected==='all' ? 700 : 400, transition:'all 0.14s' }}>
+            color: selected==='all' ? '#050810' : '#c9d1d9',
+            fontWeight: selected==='all' ? 700 : 400 }}>
           全部 <span style={{ opacity:0.7 }}>({counts.all})</span>
         </div>
         {subcats.map(s => (
           <div key={s} onClick={() => onSelect(s)}
-            style={{ padding:'6px 12px', borderRadius:10, cursor:'pointer', fontFamily:MONO, fontSize:10,
+            style={{ padding:'5px 11px', borderRadius:10, cursor:'pointer', fontFamily:MONO, fontSize:10,
               background: selected===s ? '#f5a623' : '#161b22',
               border:'1px solid '+(selected===s ? '#f5a623' : '#30363d'),
-              color: selected===s ? '#050810' : '#aab3be',
-              fontWeight: selected===s ? 700 : 400, transition:'all 0.14s' }}>
-            {s} <span style={{ opacity:0.7 }}>({counts[s]})</span>
+              color: selected===s ? '#050810' : '#c9d1d9',
+              fontWeight: selected===s ? 700 : 400 }}>
+            {getLabel(s)} <span style={{ opacity:0.7 }}>({counts[s]})</span>
           </div>
         ))}
-      </div>
-      <div style={{ fontFamily:MONO, fontSize:8, color:'#484f58', textAlign:'right' }}>
-        句子全部輸入後，可用 AI 自動重新分類
       </div>
     </div>
   )
@@ -9417,6 +9433,8 @@ function PhraseTab({ settings }) {
   const [showMyList, setShowMyList] = useState(false) // 我的收藏清單模式
   const [deleteConfirm, setDeleteConfirm] = useState(null) // phrase id 待確認刪除
   const [mySubcat, setMySubcat] = useState('all') // 我的收藏子分類篩選
+  const [reclassifyLoading, setReclassifyLoading] = useState(false)
+  const [reclassifyProgress, setReclassifyProgress] = useState(null)
 
   // ── Q&A 練習 ─────────────────────────────────────────────────
   const [qaIdx,       setQaIdx]       = useState(0)
@@ -9534,6 +9552,55 @@ function PhraseTab({ settings }) {
     localStorage.setItem('fsi:ph:extra', JSON.stringify(updated))
     setExtraPhrases(updated)
     setDeleteConfirm(null)
+  }
+
+  // ── AI 一鍵重新分類 ───────────────────────────────────────────
+  const RECLASSIFY_CATS = {
+    restaurant: '🍽️ 餐廳咖啡',
+    shopping:   '🛍️ 購物',
+    travel:     '✈️ 交通旅遊',
+    greeting:   '👋 打招呼',
+    opinion:    '💬 表達意見',
+    emotion:    '😤 情緒狀態',
+    request:    '🤝 請求幫忙',
+    apology:    '🙏 道謝道歉',
+    idiom:      '🗣️ 慣用語',
+    daily:      '🌅 日常作息',
+    relationship:'❤️ 友情關係',
+    grammar:    '📚 語法學習',
+  }
+
+  async function aiReclassify() {
+    const apiKey = settings?.apiKey || (() => { try { return JSON.parse(localStorage.getItem('fsi:se')||'{}')?.apiKey??'' } catch { return '' } })()
+    if (!apiKey) { alert('請先設定 API Key'); return }
+    if (!extraPhrases.length) { alert('尚無收藏句子'); return }
+    setReclassifyLoading(true)
+    setReclassifyProgress({ current: 0, total: extraPhrases.length })
+    const BATCH = 30
+    const catKeys = Object.keys(RECLASSIFY_CATS).join(', ')
+    const sys = 'You are classifying English sentences into categories. Reply ONLY with a JSON array of category keys, one per sentence, in the same order. Categories: ' + catKeys + '. Choose the single best fit.'
+    let updated = [...extraPhrases]
+    for (let i = 0; i < updated.length; i += BATCH) {
+      const batch = updated.slice(i, i + BATCH)
+      const prompt = 'Classify each sentence (return JSON array of category keys only):\n' + batch.map((p,j) => (j+1)+'. '+p.en).join('\n')
+      try {
+        const raw = await callClaude(apiKey, [{ role:'user', content: prompt }], sys)
+        const clean = raw.replace(/```json|```/g,'').trim()
+        const cats = JSON.parse(clean)
+        cats.forEach((c, j) => {
+          if (i+j < updated.length && RECLASSIFY_CATS[c]) {
+            updated[i+j] = { ...updated[i+j], subcat: c }
+          }
+        })
+        setReclassifyProgress({ current: Math.min(i+BATCH, updated.length), total: updated.length })
+        setExtraPhrases([...updated])
+      } catch(e) { /* skip batch on error */ }
+    }
+    localStorage.setItem('fsi:ph:extra', JSON.stringify(updated))
+    setExtraPhrases(updated)
+    setReclassifyLoading(false)
+    setReclassifyProgress(null)
+    alert('✓ 分類完成！共 ' + updated.length + ' 句')
   }
 
   // ── 句型 helpers ──────────────────────────────────────────────
@@ -9960,7 +10027,8 @@ function PhraseTab({ settings }) {
                   </button>
                   {cat === 'my' && extraPhrases.length > 0 && (
                     <MySubcatPanel counts={mySubcatCounts} selected={mySubcat}
-                      onSelect={s => { setMySubcat(s); setIdx(0); setAutoPlayed(false) }}/>
+                      onSelect={s => { setMySubcat(s); setIdx(0); setAutoPlayed(false) }}
+                      onReclassify={aiReclassify} reclassifyLoading={reclassifyLoading} reclassifyProgress={reclassifyProgress}/>
                   )}
                 </div>
               )}
@@ -9985,7 +10053,8 @@ function PhraseTab({ settings }) {
                   {/* ── 我的收藏子分類面板（紅框區）── */}
                   {cat === 'my' && extraPhrases.length > 0 && (
                     <MySubcatPanel counts={mySubcatCounts} selected={mySubcat}
-                      onSelect={s => { setMySubcat(s); setIdx(0); setPhase('listen'); setAutoPlayed(false) }}/>
+                      onSelect={s => { setMySubcat(s); setIdx(0); setPhase('listen'); setAutoPlayed(false) }}
+                      onReclassify={aiReclassify} reclassifyLoading={reclassifyLoading} reclassifyProgress={reclassifyProgress}/>
                   )}
                 </div>
               )}
