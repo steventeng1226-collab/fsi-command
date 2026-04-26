@@ -9337,8 +9337,8 @@ const SCENARIOS = [
   { id:'greet',   label:'打招呼',   en:'Greeting friends',      icon:'👋', cat:'life'  },
   { id:'cafe',    label:'咖啡廳',   en:'Coffee shop',            icon:'☕', cat:'life'  },
   { id:'shop',    label:'買衣服',   en:'Clothing store',         icon:'👗', cat:'life'  },
-  { id:'dining',  label:'餐廳',     en:'Restaurant',             icon:'🍽', cat:'life'  },
-  { id:'airport', label:'機場',     en:'Airport',                icon:'✈', cat:'life'  },
+  { id:'dining',  label:'餐廳',     en:'Restaurant',             icon:'🍽️', cat:'life'  },
+  { id:'airport', label:'機場',     en:'Airport',                icon:'✈️', cat:'life'  },
   { id:'hotel',   label:'飯店',     en:'Hotel check-in',         icon:'🏨', cat:'life'  },
   { id:'taxi',    label:'計程車',   en:'Taxi / transport',       icon:'🚕', cat:'life'  },
   { id:'doctor',  label:'診所',     en:'Clinic / pharmacy',      icon:'💊', cat:'life'  },
@@ -9528,6 +9528,16 @@ function PhraseTab({ settings }) {
   // ════════════════════════════════════════════════════════════════
   return (
     <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
+
+      {/* OPEN YOUR MOUTH banner */}
+      <div style={{ textAlign:'center', padding:'10px 0 4px' }}>
+        <div style={{ fontFamily:"'Cinzel',serif", fontSize:18, color:'#f5a623', letterSpacing:'0.18em', fontWeight:700 }}>
+          OPEN YOUR MOUTH.
+        </div>
+        <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:8.5, color:'#7a8390', letterSpacing:'0.12em', marginTop:4 }}>
+          每天開口，英文才會真正屬於你
+        </div>
+      </div>
 
       {/* 主模式切換 */}
       <div style={{ display:'flex', background:'#161b22', borderRadius:10, padding:3, gap:3, flexShrink:0 }}>
