@@ -10048,7 +10048,7 @@ function PhraseTab({ settings }) {
   const [pMode, setPMode] = useState('sentence') // 'sentence'|'qa'|'scenario'
 
   // ── 句型練習 ──────────────────────────────────────────────────
-  const [cat,        setCat]        = useState('all')
+  const [cat,        setCat]        = useState('my')
   const [idx,        setIdx]        = useState(0)
   const [phase,      setPhase]      = useState('listen')
   const [autoPlayed, setAutoPlayed] = useState(false)
@@ -10126,17 +10126,17 @@ function PhraseTab({ settings }) {
   const qa          = QA_DATA[qaIdx]
   const qaDoneCount = QA_DATA.filter(q => qaDoneIds.has(q.id)).length
 
-  // ── 句型：自動播放 ────────────────────────────────────────────
+  // ── 句型：自動播放（只有 autoListen 開啟時才自動播音）────────
   useEffect(() => { setPhase('listen'); setAutoPlayed(false) }, [idx, cat])
   useEffect(() => {
-    if (pMode === 'sentence' && phase === 'listen' && !autoPlayed && card) {
+    if (autoListen && pMode === 'sentence' && phase === 'listen' && !autoPlayed && card) {
       const t = setTimeout(() => {
         speakEn(card.en, 0.6)
         setAutoPlayed(true)
       }, 400)
       return () => clearTimeout(t)
     }
-  }, [phase, autoPlayed, card, pMode])
+  }, [phase, autoPlayed, card, pMode, autoListen])
 
   // 自動播放模式：播完後自動跳下一句
   useEffect(() => {
