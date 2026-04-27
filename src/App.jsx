@@ -10104,8 +10104,10 @@ function PhraseTab({ settings }) {
   const pool       = (cat === 'my' && mySubcat !== 'all')
     ? basePool.filter(p => (p.subcat ?? '') === mySubcat)
     : basePool
-  const queue      = useMemo(() => pMode === 'sentence' ? phraseBuildQueue(pool, srsMap) : pool,
-    [pool.map(p=>p.id).join(','), srsMap, pMode])
+  const queue      = useMemo(
+    () => (pMode !== 'sentence' || autoListen) ? pool : phraseBuildQueue(pool, srsMap),
+    [pool.map(p=>p.id).join(','), srsMap, pMode, autoListen]
+  )
   const card       = queue[idx] ?? queue[0]
   const srsStats   = useMemo(() => phraseCalcStats(pool, srsMap), [pool.map(p=>p.id).join(','), srsMap])
   const doneCount  = srsStats.doneC
