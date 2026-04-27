@@ -10394,7 +10394,7 @@ function PhraseTab({ settings }) {
             style={{ flex:1, textAlign:'center', padding:'6px 0', borderRadius:8, cursor:'pointer',
               fontFamily:MONO, fontSize:10, letterSpacing:'0.05em', fontWeight: pMode===m.id ? 700 : 400,
               background: pMode===m.id ? '#f5a623' : 'transparent',
-              color:      pMode===m.id ? '#050810' : '#7a8390',
+              color:      pMode===m.id ? '#050810' : '#c9d1d9',
               transition:'all 0.15s' }}>
             {m.label}
           </div>
@@ -10411,7 +10411,7 @@ function PhraseTab({ settings }) {
                 style={{ padding:'3px 8px', borderRadius:12, fontFamily:MONO, fontSize:9, cursor:'pointer',
                   background: cat===c.id ? '#f5a623' : '#161b22',
                   border: '1px solid '+(cat===c.id ? '#f5a623' : '#21262d'),
-                  color: cat===c.id ? '#050810' : '#7a8390', fontWeight: cat===c.id ? 700 : 400, transition:'all 0.14s' }}>
+                  color: cat===c.id ? '#050810' : '#c9d1d9', fontWeight: cat===c.id ? 700 : 400, transition:'all 0.14s' }}>
                 {c.label}
               </div>
             ))}
