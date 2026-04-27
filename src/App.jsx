@@ -7035,7 +7035,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.16</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.17</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -10101,13 +10101,18 @@ function PhraseTab({ settings }) {
   // ── 句型資料 ──────────────────────────────────────────────────
   const allPhrases = [...PHRASE_DATA, ...extraPhrases]
   const basePool   = cat === 'all' ? allPhrases : allPhrases.filter(p => p.cat === cat)
-  const pool       = (cat === 'my' && mySubcat !== 'all')
-    ? basePool.filter(p => (p.subcat ?? '') === mySubcat)
-    : basePool
-  const queue      = useMemo(
+  const pool       = (() => {
+    const p = (cat === 'my' && mySubcat !== 'all')
+      ? basePool.filter(p => (p.subcat ?? '') === mySubcat)
+      : basePool
+    // fallback：my 分類空時自動用全部
+    return (cat === 'my' && p.length === 0) ? allPhrases : p
+  })()
+  const _srsQueue = useMemo(
     () => (pMode !== 'sentence' || autoListen) ? pool : phraseBuildQueue(pool, srsMap),
     [pool.map(p=>p.id).join(','), srsMap, pMode, autoListen]
   )
+  const queue = _srsQueue.length > 0 ? _srsQueue : pool
   const card       = queue[idx] ?? queue[0]
   const srsStats   = useMemo(() => phraseCalcStats(pool, srsMap), [pool.map(p=>p.id).join(','), srsMap])
   const doneCount  = srsStats.doneC
@@ -10645,36 +10650,21 @@ function PhraseTab({ settings }) {
             </div>
           ) : (
           <>
-          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-            {/* SRS 統計 mini-bar */}
-            <div style={{ display:'flex', gap:5, flex:1 }}>
-              {srsStats.overdueC > 0 && (
-                <div style={{ fontFamily:MONO, fontSize:8, padding:'2px 7px', borderRadius:5, background:T.redD, color:T.red, border:`1px solid ${T.red}30` }}>
-                  ⏰ {srsStats.overdueC}
-                </div>
-              )}
-              <div style={{ fontFamily:MONO, fontSize:8, padding:'2px 7px', borderRadius:5, background:T.blueD, color:T.blue, border:`1px solid ${T.blue}30` }}>
-                🆕 {srsStats.newC}
+          {!card ? (
+            <div style={{ textAlign:'center', padding:'40px 20px', display:'flex', flexDirection:'column', gap:12, alignItems:'center' }}>
+              <div style={{ fontSize:32 }}>📭</div>
+              <div style={{ fontFamily:MONO, fontSize:12, color:T.txt2 }}>此分類尚無句子</div>
+              <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>
+                {cat === 'my' ? '點右上角「+」新增收藏句子' : '請選擇其他分類'}
               </div>
-              {srsStats.reviewC > 0 && (
-                <div style={{ fontFamily:MONO, fontSize:8, padding:'2px 7px', borderRadius:5, background:T.amberD, color:T.amber, border:`1px solid ${T.amber}30` }}>
-                  📅 {srsStats.reviewC}
-                </div>
-              )}
-              {srsStats.doneC > 0 && (
-                <div style={{ fontFamily:MONO, fontSize:8, padding:'2px 7px', borderRadius:5, background:T.grnD, color:T.grn, border:`1px solid ${T.grn}30` }}>
-                  ✓ {srsStats.doneC}
-                </div>
-              )}
             </div>
-          </div>
-          {card && (
+          ) : (
             <>
               {phase === 'listen' && (
-                <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:16 }}>
+                <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:10 }}>
                   {/* 句子卡片 */}
                   <div style={{ width:'100%', background:'#0d1117', border:'1px solid '+cc+'40',
-                    borderRadius:14, padding:'20px 18px', textAlign:'center' }}>
+                    borderRadius:14, padding:'14px 18px', textAlign:'center' }}>
                     <div style={{ fontFamily:MONO, fontSize:16, color:'#ffffff', lineHeight:1.75, letterSpacing:'0.01em' }}>
                       {card.en}
                     </div>
@@ -10698,12 +10688,6 @@ function PhraseTab({ settings }) {
                       ✏️ 對答案
                     </button>
                   </div>
-                  {cat === 'my' && extraPhrases.length > 0 && (
-                    <MySubcatPanel counts={mySubcatCounts} selected={mySubcat}
-                      onSelect={s => { setMySubcat(s); setIdx(0); setAutoPlayed(false) }}
-                      onReclassify={aiReclassify} reclassifyLoading={reclassifyLoading} reclassifyProgress={reclassifyProgress}
-                      autoListen={autoListen} onToggleAuto={() => { const n=!autoListen; setAutoListen(n); autoListenRef.current=n; if(n) setAutoPlayed(false) }}/>
-                  )}
                 </div>
               )}
               {phase === 'reveal' && (
@@ -10750,6 +10734,13 @@ function PhraseTab({ settings }) {
                       autoListen={autoListen} onToggleAuto={() => { const n=!autoListen; setAutoListen(n); autoListenRef.current=n; if(n) setAutoPlayed(false) }}/>
                   )}
                 </div>
+              )}
+              {/* ── 我的收藏子分類（listen/reveal 通用，常駐顯示）── */}
+              {cat === 'my' && extraPhrases.length > 0 && phase !== 'reveal' && (
+                <MySubcatPanel counts={mySubcatCounts} selected={mySubcat}
+                  onSelect={s => { setMySubcat(s); setIdx(0); setAutoPlayed(false) }}
+                  onReclassify={aiReclassify} reclassifyLoading={reclassifyLoading} reclassifyProgress={reclassifyProgress}
+                  autoListen={autoListen} onToggleAuto={() => { const n=!autoListen; setAutoListen(n); autoListenRef.current=n; if(n) setAutoPlayed(false) }}/>
               )}
             </>
           )}
@@ -12377,7 +12368,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.16</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.17</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
