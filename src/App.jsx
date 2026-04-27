@@ -10375,23 +10375,23 @@ function PhraseTab({ settings }) {
 
   // ════════════════════════════════════════════════════════════════
   return (
-    <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
+    <div style={{ padding:'10px 16px 0', display:'flex', flexDirection:'column', gap:8 }} className="fadeUp">
 
       {/* OPEN YOUR MOUTH banner */}
-      <div style={{ textAlign:'center', padding:'10px 0 4px' }}>
-        <div style={{ fontFamily:"'Cinzel',serif", fontSize:18, color:'#f5a623', letterSpacing:'0.18em', fontWeight:700 }}>
+      <div style={{ textAlign:'center', padding:'4px 0 2px' }}>
+        <div style={{ fontFamily:"'Cinzel',serif", fontSize:16, color:'#f5a623', letterSpacing:'0.18em', fontWeight:700 }}>
           OPEN YOUR MOUTH.
         </div>
-        <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:8.5, color:'#7a8390', letterSpacing:'0.12em', marginTop:4 }}>
+        <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:8, color:'#7a8390', letterSpacing:'0.12em', marginTop:2 }}>
           每天開口，英文才會真正屬於你
         </div>
       </div>
 
       {/* 主模式切換 */}
-      <div style={{ display:'flex', background:'#161b22', borderRadius:10, padding:3, gap:3, flexShrink:0 }}>
+      <div style={{ display:'flex', background:'#161b22', borderRadius:10, padding:2, gap:2, flexShrink:0 }}>
         {[{id:'sentence',label:'📋 句型'},{id:'reverse',label:'🔄 反向'},{id:'qa',label:'💬 問答'},{id:'dictation',label:'🎧 聽寫'},{id:'speech',label:'🎙 口說'},{id:'scenario',label:'🎭 情境'}].map(m => (
           <div key={m.id} onClick={() => setPMode(m.id)}
-            style={{ flex:1, textAlign:'center', padding:'8px 0', borderRadius:8, cursor:'pointer',
+            style={{ flex:1, textAlign:'center', padding:'6px 0', borderRadius:8, cursor:'pointer',
               fontFamily:MONO, fontSize:10, letterSpacing:'0.05em', fontWeight: pMode===m.id ? 700 : 400,
               background: pMode===m.id ? '#f5a623' : 'transparent',
               color:      pMode===m.id ? '#050810' : '#7a8390',
@@ -10405,10 +10405,10 @@ function PhraseTab({ settings }) {
       {pMode === 'sentence' && (
         <>
           {/* 分類篩選 + 新增按鈕 */}
-          <div style={{ display:'flex', alignItems:'center', gap:5, flexWrap:'wrap' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:4, flexWrap:'wrap' }}>
             {PHRASE_CATS.map(c => (
               <div key={c.id} onClick={() => { setCat(c.id); setIdx(0); setMySubcat('all') }}
-                style={{ padding:'4px 10px', borderRadius:12, fontFamily:MONO, fontSize:9, cursor:'pointer',
+                style={{ padding:'3px 8px', borderRadius:12, fontFamily:MONO, fontSize:9, cursor:'pointer',
                   background: cat===c.id ? '#f5a623' : '#161b22',
                   border: '1px solid '+(cat===c.id ? '#f5a623' : '#21262d'),
                   color: cat===c.id ? '#050810' : '#7a8390', fontWeight: cat===c.id ? 700 : 400, transition:'all 0.14s' }}>
@@ -10645,7 +10645,7 @@ function PhraseTab({ settings }) {
             </div>
           ) : (
           <>
-          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
             {/* SRS 統計 mini-bar */}
             <div style={{ display:'flex', gap:5, flex:1 }}>
               {srsStats.overdueC > 0 && (
@@ -10667,7 +10667,6 @@ function PhraseTab({ settings }) {
                 </div>
               )}
             </div>
-            <span style={{ fontFamily:MONO, fontSize:9, color:'#8b949e' }}>{doneCount}/{pool.length}</span>
           </div>
           {card && (
             <>
