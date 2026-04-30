@@ -7035,7 +7035,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.17</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.18</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -10070,6 +10070,7 @@ function PhraseTab({ settings }) {
   const [showMyList, setShowMyList] = useState(false) // 我的收藏清單模式
   const [showSubcatFilter, setShowSubcatFilter] = useState(true) // 我的收藏子分類篩選展開
   const [deleteConfirm, setDeleteConfirm] = useState(null) // phrase id 待確認刪除
+  const [editingPhrase, setEditingPhrase] = useState(null)  // { id, en, zh }
   const [mySubcat, setMySubcat] = useState('all') // 我的收藏子分類篩選
   const [reclassifyLoading, setReclassifyLoading] = useState(false)
   const [reclassifyProgress, setReclassifyProgress] = useState(null)
@@ -10155,14 +10156,14 @@ function PhraseTab({ settings }) {
 
   useEffect(() => { autoListenRef.current = autoListen }, [autoListen])
 
-  // ── Q&A：自動播放 ────────────────────────────────────────────
+  // ── Q&A：自動播放（只有 autoListen 開啟時才自動播音）────────
   useEffect(() => { setQaPhase('question'); setQaAutoPlayed(false) }, [qaIdx])
   useEffect(() => {
-    if (pMode === 'qa' && qaPhase === 'question' && !qaAutoPlayed && qa) {
+    if (autoListen && pMode === 'qa' && qaPhase === 'question' && !qaAutoPlayed && qa) {
       const t = setTimeout(() => { speakEn(qa.q, 0.6); setQaAutoPlayed(true) }, 400)
       return () => clearTimeout(t)
     }
-  }, [qaPhase, qaAutoPlayed, qa, pMode])
+  }, [autoListen, qaPhase, qaAutoPlayed, qa, pMode])
 
   function speakEn(text, rate = 0.6) {
     const u = new SpeechSynthesisUtterance(text)
@@ -10595,9 +10596,45 @@ function PhraseTab({ settings }) {
                 )
               })()}
               {(mySubcat === 'all' ? extraPhrases : extraPhrases.filter(p => (p.subcat ?? '未分類') === mySubcat)).map(p => (
-                <div key={p.id} style={{ background:'#0d1117', border:'1px solid '+(deleteConfirm===p.id ? '#f85149aa' : '#21262d'),
+                <div key={p.id} style={{ background:'#0d1117', border:'1px solid '+(deleteConfirm===p.id ? '#f85149aa' : editingPhrase?.id===p.id ? '#58a6ffaa' : '#21262d'),
                   borderRadius:10, padding:'12px 14px', display:'flex', flexDirection:'column', gap:6,
                   transition:'border-color 0.15s' }}>
+
+                  {/* ── 編輯模式 ── */}
+                  {editingPhrase?.id === p.id ? (
+                    <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                      <div style={{ fontFamily:MONO, fontSize:9, color:'#58a6ff', letterSpacing:'0.08em', marginBottom:2 }}>✏ 編輯句子</div>
+                      <div>
+                        <div style={{ fontFamily:MONO, fontSize:9, color:'#7a8390', marginBottom:3 }}>英文</div>
+                        <textarea rows={2} value={editingPhrase.en}
+                          onChange={e => setEditingPhrase(prev => ({ ...prev, en: e.target.value }))}
+                          style={{ width:'100%', fontFamily:MONO, fontSize:12, background:'#161b22', border:'1px solid #58a6ff60',
+                            borderRadius:7, color:'#e6edf3', padding:'8px 10px', resize:'none', outline:'none', lineHeight:1.5 }}/>
+                      </div>
+                      <div>
+                        <div style={{ fontFamily:MONO, fontSize:9, color:'#7a8390', marginBottom:3 }}>中文</div>
+                        <textarea rows={2} value={editingPhrase.zh ?? ''}
+                          onChange={e => setEditingPhrase(prev => ({ ...prev, zh: e.target.value }))}
+                          style={{ width:'100%', fontFamily:"'Crimson Pro',Georgia,serif", fontSize:13, background:'#161b22', border:'1px solid #58a6ff60',
+                            borderRadius:7, color:'#aab3be', padding:'8px 10px', resize:'none', outline:'none', lineHeight:1.5 }}/>
+                      </div>
+                      <div style={{ display:'flex', gap:6, justifyContent:'flex-end' }}>
+                        <button className="btn" onClick={() => setEditingPhrase(null)}
+                          style={{ fontSize:10, padding:'5px 12px', background:'#21262d', border:'1px solid #30363d', color:'#aab3be' }}>
+                          取消
+                        </button>
+                        <button className="btn" onClick={() => {
+                          const updated = extraPhrases.map(x => x.id===p.id ? { ...x, en: editingPhrase.en.trim(), zh: editingPhrase.zh?.trim() ?? x.zh } : x)
+                          localStorage.setItem('fsi:ph:extra', JSON.stringify(updated))
+                          setExtraPhrases(updated)
+                          setEditingPhrase(null)
+                        }} style={{ fontSize:10, padding:'5px 12px', background:'#58a6ff25', border:'1px solid #58a6ff', color:'#58a6ff', fontWeight:700 }}>
+                          ✓ 儲存
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                  <>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:8 }}>
                     <div style={{ flex:1 }}>
                       <div style={{ fontFamily:MONO, fontSize:13, color:'#e6edf3', lineHeight:1.5 }}>{p.en}</div>
@@ -10632,11 +10669,19 @@ function PhraseTab({ settings }) {
                         </button>
                       </div>
                     ) : (
-                      <button className="btn" onClick={() => setDeleteConfirm(p.id)}
-                        style={{ fontSize:12, padding:'4px 10px', background:'transparent', border:'1px solid #30363d',
-                          color:'#7a8390', flexShrink:0, lineHeight:1 }}>
-                        🗑
-                      </button>
+                      <div style={{ display:'flex', gap:5, flexShrink:0 }}>
+                        <button className="btn" onClick={() => { setEditingPhrase({ id: p.id, en: p.en, zh: p.zh ?? '' }); setDeleteConfirm(null) }}
+                          style={{ fontSize:12, padding:'4px 10px', background:'transparent', border:'1px solid #30363d',
+                            color:'#7a8390', lineHeight:1 }}
+                          title="編輯">
+                          ✏
+                        </button>
+                        <button className="btn" onClick={() => setDeleteConfirm(p.id)}
+                          style={{ fontSize:12, padding:'4px 10px', background:'transparent', border:'1px solid #30363d',
+                            color:'#7a8390', lineHeight:1 }}>
+                          🗑
+                        </button>
+                      </div>
                     )}
                   </div>
                   {p.subcat && (
@@ -10644,6 +10689,8 @@ function PhraseTab({ settings }) {
                       border:'1px solid #f5a62330', borderRadius:5, padding:'2px 7px', alignSelf:'flex-start' }}>
                       {p.subcat}
                     </div>
+                  )}
+                  </>
                   )}
                 </div>
               ))}
@@ -12368,7 +12415,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.17</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.18</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
