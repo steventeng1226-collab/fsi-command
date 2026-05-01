@@ -10160,8 +10160,8 @@ function PhraseTab({ settings }) {
     return (cat === 'my' && p.length === 0) ? allPhrases : p
   })()
   const _srsQueue = useMemo(
-    () => (pMode !== 'sentence' || autoListen) ? pool : phraseBuildQueue(pool, srsMap),
-    [pool.map(p=>p.id).join(','), srsMap, pMode, autoListen]
+    () => pool,
+    [pool.map(p=>p.id).join(',')]
   )
   const queue = _srsQueue.length > 0 ? _srsQueue : pool
   const card       = queue[idx] ?? queue[0]
@@ -10774,7 +10774,12 @@ function PhraseTab({ settings }) {
                   <SpeakRow text={card.en} color={cc}/>
                   {/* 下一句 + 對答案 同一行 */}
                   <div style={{ display:'flex', gap:8, width:'100%' }}>
-                    <button className="btn" onClick={() => setIdx(i => (i+1) % queue.length)}
+                    <button className="btn" onClick={() => {
+                        const nextIdx = (idx + 1) % queue.length
+                        setIdx(nextIdx)
+                        const next = queue[nextIdx]
+                        if (next) { window.speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(next.en); u.lang='en-US'; u.rate=0.82; window.speechSynthesis.speak(u) }
+                      }}
                       style={{ flex:1, padding:'12px 0', fontSize:12, background:'#161b22',
                         border:'1px solid #30363d', color:'#c9d1d9' }}>
                       ▷ 下一句
