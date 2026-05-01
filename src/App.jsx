@@ -10040,6 +10040,42 @@ function MySubcatPanel({ counts, selected, onSelect, onReclassify, reclassifyLoa
   )
 }
 
+// ── SpeakRow：通用大喇叭按鈕組（PhraseTab 外部定義）──────────────
+function SpeakRow({ text, color }) {
+  function speakEn(t, rate) {
+    const u = new SpeechSynthesisUtterance(t)
+    u.lang = 'en-US'; u.rate = rate
+    window.speechSynthesis.cancel()
+    window.speechSynthesis.speak(u)
+  }
+  return (
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:12 }}>
+      <div onClick={() => speakEn(text, 0.6)}
+        style={{ minWidth:108, height:78, borderRadius:10, background:color+'18', border:'2px solid '+color+'60',
+          display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+          cursor:'pointer', gap:2, padding:'0 16px' }}>
+        <span style={{ fontSize:26 }}>🐢</span>
+        <span style={{ fontFamily:MONO, fontSize:13, color, fontWeight:600 }}>0.6x</span>
+      </div>
+      <div style={{ width:64, height:64, borderRadius:'50%', background:color+'18', border:'2px solid '+color+'40',
+        display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+          <path d="M3 9h4l5-5v16l-5-5H3z" stroke={color} strokeWidth="1.5" fill={color+'30'}/>
+          <path d="M16 6.5a5.5 5.5 0 010 11" stroke={color} strokeWidth="1.5" strokeLinecap="round"/>
+          <path d="M13.5 9a2.5 2.5 0 010 5" stroke={color} strokeWidth="1.5" strokeLinecap="round"/>
+        </svg>
+      </div>
+      <div onClick={() => speakEn(text, 1)}
+        style={{ minWidth:108, height:78, borderRadius:10, background:color+'15', border:'1px solid '+color+'50',
+          display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+          cursor:'pointer', gap:2, padding:'0 16px' }}>
+        <span style={{ fontSize:26 }}>🔊</span>
+        <span style={{ fontFamily:MONO, fontSize:13, color }}>1.0x</span>
+      </div>
+    </div>
+  )
+}
+
 function PhraseTab({ settings }) {
   const MONO  = "'JetBrains Mono',monospace"
   const SERIF = "'Crimson Pro',Georgia,serif"
@@ -10343,38 +10379,7 @@ function PhraseTab({ settings }) {
     else { setSessionDone(true) }
   }
 
-  // ── 共用：大喇叭按鈕組 ───────────────────────────────────────
-  function SpeakRow({ text, color }) {
-    return (
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:12 }}>
-        {/* 慢速：左邊方框，比較好按 */}
-        <div onClick={() => speakEn(text, 0.6)}
-          style={{ minWidth:108, height:78, borderRadius:10, background:color+'18', border:'2px solid '+color+'60',
-            display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
-            cursor:'pointer', gap:2, padding:'0 16px' }}>
-          <span style={{ fontSize:26 }}>🐢</span>
-          <span style={{ fontFamily:MONO, fontSize:13, color, fontWeight:600 }}>0.6x</span>
-        </div>
-        {/* 喇叭圖示中間（裝飾） */}
-        <div style={{ width:64, height:64, borderRadius:'50%', background:color+'18', border:'2px solid '+color+'40',
-          display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-            <path d="M3 9h4l5-5v16l-5-5H3z" stroke={color} strokeWidth="1.5" fill={color+'30'}/>
-            <path d="M16 6.5a5.5 5.5 0 010 11" stroke={color} strokeWidth="1.5" strokeLinecap="round"/>
-            <path d="M13.5 9a2.5 2.5 0 010 5" stroke={color} strokeWidth="1.5" strokeLinecap="round"/>
-          </svg>
-        </div>
-        {/* 正常速：右邊圓形 */}
-        <div onClick={() => speakEn(text, 1)}
-          style={{ minWidth:108, height:78, borderRadius:10, background:color+'15', border:'1px solid '+color+'50',
-            display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
-            cursor:'pointer', gap:2, padding:'0 16px' }}>
-          <span style={{ fontSize:26 }}>🔊</span>
-          <span style={{ fontFamily:MONO, fontSize:13, color }}>1.0x</span>
-        </div>
-      </div>
-    )
-  }
+  // ── 共用：大喇叭按鈕組（定義在 PhraseTab 外部，避免 hoisting 問題）───
 
   const CAT_COLORS = { opening:'#58a6ff', capacity:'#f5a623', quality:'#3fb950', cost:'#f85149', action:'#a371f7', life:'#f78166' }
   const cc = CAT_COLORS[card?.cat] ?? '#f5a623'
