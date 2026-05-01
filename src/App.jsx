@@ -9974,7 +9974,7 @@ const SCENARIOS = [
 
 // ── Linked / Rhythm 渲染器 ────────────────────────────────────
 // ── 我的收藏子分類導覽面板 ─────────────────────────────────────
-function MySubcatPanel({ counts, selected, onSelect, onReclassify, reclassifyLoading, reclassifyProgress, autoListen, onToggleAuto, shuffleMode, onToggleShuffle }) {
+function MySubcatPanel({ counts, selected, onSelect, onReclassify, reclassifyLoading, reclassifyProgress, autoListen, onToggleAuto, shuffleMode, onToggleShuffle, sleepMins, sleepLeft, onSleepPick }) {
   const MONO = "'JetBrains Mono',monospace"
   const RECLASSIFY_LABELS = {
     restaurant:'🍽️ 餐廳咖啡', shopping:'🛍️ 購物', travel:'✈️ 交通旅遊',
@@ -10038,6 +10038,35 @@ function MySubcatPanel({ counts, selected, onSelect, onReclassify, reclassifyLoa
           </div>
         )}
       </div>
+      {/* 睡眠計時器列（只在自動播放開啟時顯示）*/}
+      {autoListen && onSleepPick && (
+        <div style={{ display:'flex', alignItems:'center', gap:6, paddingTop:2 }}>
+          <span style={{ fontFamily:MONO, fontSize:9, color:'#7a8390', flexShrink:0 }}>🌙</span>
+          {[10,15,20,25,30].map(m => {
+            const active = sleepMins === m
+            const fmt = sleepLeft != null && active
+              ? Math.floor(sleepLeft/60)+':'+(sleepLeft%60).toString().padStart(2,'0')
+              : m+'min'
+            return (
+              <div key={m} onClick={() => onSleepPick(m)}
+                style={{ padding:'3px 9px', borderRadius:8, cursor:'pointer', fontFamily:MONO, fontSize:9,
+                  background: active ? '#58a6ff22' : '#ffffff08',
+                  border:'1px solid '+(active ? '#58a6ffaa' : '#ffffff15'),
+                  color: active ? '#58a6ff' : '#7a8390',
+                  fontWeight: active ? 700 : 400, transition:'all 0.2s', flexShrink:0 }}>
+                {fmt}
+              </div>
+            )
+          })}
+          {sleepMins && (
+            <div onClick={() => onSleepPick(null)}
+              style={{ padding:'3px 8px', borderRadius:8, cursor:'pointer', fontFamily:MONO, fontSize:9,
+                color:'#f85149', border:'1px solid #f8514930', background:'#f8514910' }}>
+              ✕
+            </div>
+          )}
+        </div>
+      )}
       {/* 分類 chips */}
       <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
         <div onClick={() => onSelect('all')} style={chipStyle(selected==='all')}>
@@ -10103,6 +10132,9 @@ function PhraseTab({ settings }) {
   const [autoPlayed, setAutoPlayed] = useState(false)
   const [autoListen, setAutoListen] = useState(false)  // 連續自動播放模式
   const [shuffleMode, setShuffleMode] = useState(false) // 隨機播放模式
+  const [sleepMins,  setSleepMins]  = useState(null)   // 選取的睡眠分鐘數
+  const [sleepEnd,   setSleepEnd]   = useState(null)   // 計時結束 timestamp
+  const [sleepLeft,  setSleepLeft]  = useState(null)   // 剩餘秒數（顯示用）
   const autoListenRef = useRef(false)
   const [doneIds,    setDoneIds]    = useState(() => {
     try { return new Set(JSON.parse(localStorage.getItem('fsi:ph:done') ?? '[]')) } catch { return new Set() }
@@ -10213,6 +10245,22 @@ function PhraseTab({ settings }) {
   }, [autoListen, autoPlayed, card, phase, shuffleMode])
 
   useEffect(() => { autoListenRef.current = autoListen }, [autoListen])
+
+  // ── 睡眠計時器 ────────────────────────────────────────────────
+  useEffect(() => {
+    if (!sleepEnd) { setSleepLeft(null); return }
+    const tick = () => {
+      const left = Math.max(0, Math.round((sleepEnd - Date.now()) / 1000))
+      setSleepLeft(left)
+      if (left <= 0) {
+        setAutoListen(false); autoListenRef.current = false
+        setSleepEnd(null); setSleepMins(null)
+      }
+    }
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [sleepEnd])
 
   // ── Q&A：自動播放（只有 autoListen 開啟時才自動播音）────────
   useEffect(() => { setQaPhase('question'); setQaAutoPlayed(false) }, [qaIdx])
@@ -10833,8 +10881,13 @@ function PhraseTab({ settings }) {
                     <MySubcatPanel counts={mySubcatCounts} selected={mySubcat}
                       onSelect={s => { setMySubcat(s); setIdx(0); setPhase('listen'); setAutoPlayed(false) }}
                       onReclassify={aiReclassify} reclassifyLoading={reclassifyLoading} reclassifyProgress={reclassifyProgress}
-                      autoListen={autoListen} onToggleAuto={() => { const n=!autoListen; setAutoListen(n); autoListenRef.current=n; if(n) setAutoPlayed(false) }}
-                      shuffleMode={shuffleMode} onToggleShuffle={() => setShuffleMode(m => !m)}/>
+                      autoListen={autoListen} onToggleAuto={() => { const n=!autoListen; setAutoListen(n); autoListenRef.current=n; if(n) setAutoPlayed(false); if(!n){setSleepEnd(null);setSleepMins(null)} }}
+                      shuffleMode={shuffleMode} onToggleShuffle={() => setShuffleMode(m => !m)}
+                      sleepMins={sleepMins} sleepLeft={sleepLeft}
+                      onSleepPick={m => {
+                        if (!m || m === sleepMins) { setSleepMins(null); setSleepEnd(null) }
+                        else { setSleepMins(m); setSleepEnd(Date.now() + m * 60000) }
+                      }}/>
                   )}
                 </div>
               )}
@@ -10843,8 +10896,13 @@ function PhraseTab({ settings }) {
                 <MySubcatPanel counts={mySubcatCounts} selected={mySubcat}
                   onSelect={s => { setMySubcat(s); setIdx(0); setAutoPlayed(false) }}
                   onReclassify={aiReclassify} reclassifyLoading={reclassifyLoading} reclassifyProgress={reclassifyProgress}
-                  autoListen={autoListen} onToggleAuto={() => { const n=!autoListen; setAutoListen(n); autoListenRef.current=n; if(n) setAutoPlayed(false) }}
-                  shuffleMode={shuffleMode} onToggleShuffle={() => setShuffleMode(m => !m)}/>
+                  autoListen={autoListen} onToggleAuto={() => { const n=!autoListen; setAutoListen(n); autoListenRef.current=n; if(n) setAutoPlayed(false); if(!n){setSleepEnd(null);setSleepMins(null)} }}
+                  shuffleMode={shuffleMode} onToggleShuffle={() => setShuffleMode(m => !m)}
+                  sleepMins={sleepMins} sleepLeft={sleepLeft}
+                  onSleepPick={m => {
+                    if (!m || m === sleepMins) { setSleepMins(null); setSleepEnd(null) }
+                    else { setSleepMins(m); setSleepEnd(Date.now() + m * 60000) }
+                  }}/>
               )}
             </>
           )}
