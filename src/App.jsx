@@ -9974,7 +9974,7 @@ const SCENARIOS = [
 
 // ── Linked / Rhythm 渲染器 ────────────────────────────────────
 // ── 我的收藏子分類導覽面板 ─────────────────────────────────────
-function MySubcatPanel({ counts, selected, onSelect, onReclassify, reclassifyLoading, reclassifyProgress, autoListen, onToggleAuto }) {
+function MySubcatPanel({ counts, selected, onSelect, onReclassify, reclassifyLoading, reclassifyProgress, autoListen, onToggleAuto, shuffleMode, onToggleShuffle }) {
   const MONO = "'JetBrains Mono',monospace"
   const RECLASSIFY_LABELS = {
     restaurant:'🍽️ 餐廳咖啡', shopping:'🛍️ 購物', travel:'✈️ 交通旅遊',
@@ -9999,6 +9999,19 @@ function MySubcatPanel({ counts, selected, onSelect, onReclassify, reclassifyLoa
         <div style={{ fontFamily:MONO, fontSize:8, color:'#8b949e', letterSpacing:'0.1em', flex:1 }}>
           ⭐ 我的收藏 — 切換分類
         </div>
+        {/* 隨機播放按鈕 */}
+        {onToggleShuffle && (
+          <div onClick={onToggleShuffle}
+            title={shuffleMode ? '關閉隨機' : '開啟隨機播放'}
+            style={{ padding:'4px 10px', borderRadius:8, cursor:'pointer', fontFamily:MONO, fontSize:12,
+              background: shuffleMode ? '#3fb95020' : '#ffffff08',
+              border:'1px solid '+(shuffleMode ? '#3fb95080' : '#ffffff20'),
+              color: shuffleMode ? '#3fb950' : '#7a8390',
+              fontWeight: shuffleMode ? 700 : 400, flexShrink:0, transition:'all 0.14s',
+              userSelect:'none' }}>
+            🔀
+          </div>
+        )}
         {/* 自動播放長方形按鈕 */}
         {onToggleAuto && (
           <div onClick={onToggleAuto}
@@ -10089,6 +10102,7 @@ function PhraseTab({ settings }) {
   const [phase,      setPhase]      = useState('listen')
   const [autoPlayed, setAutoPlayed] = useState(false)
   const [autoListen, setAutoListen] = useState(false)  // 連續自動播放模式
+  const [shuffleMode, setShuffleMode] = useState(false) // 隨機播放模式
   const autoListenRef = useRef(false)
   const [doneIds,    setDoneIds]    = useState(() => {
     try { return new Set(JSON.parse(localStorage.getItem('fsi:ph:done') ?? '[]')) } catch { return new Set() }
@@ -10180,15 +10194,23 @@ function PhraseTab({ settings }) {
     }
   }, [phase, autoPlayed, card, pMode, autoListen])
 
-  // 自動播放模式：播完後自動跳下一句
+  // 自動播放模式：播完後自動跳下一句（支援隨機）
   useEffect(() => {
     if (!autoListen || !autoPlayed || phase !== 'listen' || !card) return
     const dur = Math.max(2800, card.en.split(' ').length * 650 + 1500)
     const t = setTimeout(() => {
-      setIdx(i => (i + 1) % queue.length)
+      if (shuffleMode && queue.length > 1) {
+        setIdx(i => {
+          let next
+          do { next = Math.floor(Math.random() * queue.length) } while (next === i)
+          return next
+        })
+      } else {
+        setIdx(i => (i + 1) % queue.length)
+      }
     }, dur)
     return () => clearTimeout(t)
-  }, [autoListen, autoPlayed, card, phase])
+  }, [autoListen, autoPlayed, card, phase, shuffleMode])
 
   useEffect(() => { autoListenRef.current = autoListen }, [autoListen])
 
@@ -10208,6 +10230,10 @@ function PhraseTab({ settings }) {
     window.speechSynthesis.speak(u)
   }
 
+  function normalizeEn(text) {
+    return text.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim()
+  }
+
   async function savePhrase(rawText, catId) {
     const apiKey = settings?.apiKey || (() => {
       try { return JSON.parse(localStorage.getItem('fsi:se') || '{}')?.apiKey ?? '' } catch { return '' }
@@ -10217,12 +10243,18 @@ function PhraseTab({ settings }) {
     setAddLoading(true)
     setAddProgress({ current: 0, total: lines.length })
     const existing = (() => { try { return JSON.parse(localStorage.getItem('fsi:ph:extra') ?? '[]') } catch { return [] } })()
+    // 建立已存在句子的正規化 set（含本次 existing + 本批次已新增的）
+    const existingNorm = new Set(existing.map(p => normalizeEn(p.en)))
     let updated = [...existing]
     let lastPhrase = null
+    let skipped = 0
     const sys = 'Translate the English phrase/sentence to Traditional Chinese. Reply with ONLY the translation, nothing else.'
     for (let i = 0; i < lines.length; i++) {
       setAddProgress({ current: i + 1, total: lines.length })
       const en = lines[i]
+      const norm = normalizeEn(en)
+      if (existingNorm.has(norm)) { skipped++; continue }
+      existingNorm.add(norm) // 防止同批次重複
       let zh = ''
       try {
         if (apiKey) { zh = (await callClaude(apiKey, [{ role:'user', content: en }], sys)).trim() }
@@ -10233,7 +10265,11 @@ function PhraseTab({ settings }) {
     }
     localStorage.setItem('fsi:ph:extra', JSON.stringify(updated))
     setExtraPhrases(updated)
-    setAddDone({ ...lastPhrase, _count: lines.length })
+    const added = lines.length - skipped
+    setAddDone(lastPhrase
+      ? { ...lastPhrase, _count: added, _skipped: skipped }
+      : { en: '', zh: '', _count: 0, _skipped: skipped }
+    )
     setAddProgress(null)
     setAddLoading(false)
   }
@@ -10495,15 +10531,24 @@ function PhraseTab({ settings }) {
               ) : (
                 <div style={{ display:'flex', flexDirection:'column', gap:10 }} className="fadeUp">
                   <div style={{ fontFamily:MONO, fontSize:9, color:'#3fb950', letterSpacing:'0.08em' }}>
-                    ✓ 已加入收藏 {addDone._count > 1 ? addDone._count + ' 句' : ''}
+                    {addDone._count > 0
+                      ? `✓ 已加入收藏 ${addDone._count > 1 ? addDone._count + ' 句' : ''}`
+                      : '⚠ 全部為重複句子，未新增'}
                   </div>
-                  <div style={{ background:'#161b22', borderRadius:10, padding:'12px' }}>
-                    <div style={{ fontFamily:MONO, fontSize:13, color:'#7a8390', marginBottom:4 }}>
-                      {addDone._count > 1 ? '最後一句：' : ''}
+                  {addDone._skipped > 0 && (
+                    <div style={{ fontFamily:MONO, fontSize:9, color:'#f5a623', background:'#f5a62310', border:'1px solid #f5a62330', borderRadius:8, padding:'6px 10px' }}>
+                      🔁 跳過 {addDone._skipped} 筆重複
                     </div>
-                    <div style={{ fontFamily:MONO, fontSize:14, color:'#e6edf3', marginBottom:6 }}>{addDone.en}</div>
-                    {addDone.zh && <div style={{ fontFamily:"'Crimson Pro',Georgia,serif", fontSize:13, color:'#aab3be', fontStyle:'italic' }}>{addDone.zh}</div>}
-                  </div>
+                  )}
+                  {addDone._count > 0 && (
+                    <div style={{ background:'#161b22', borderRadius:10, padding:'12px' }}>
+                      <div style={{ fontFamily:MONO, fontSize:13, color:'#7a8390', marginBottom:4 }}>
+                        {addDone._count > 1 ? '最後一句：' : ''}
+                      </div>
+                      <div style={{ fontFamily:MONO, fontSize:14, color:'#e6edf3', marginBottom:6 }}>{addDone.en}</div>
+                      {addDone.zh && <div style={{ fontFamily:"'Crimson Pro',Georgia,serif", fontSize:13, color:'#aab3be', fontStyle:'italic' }}>{addDone.zh}</div>}
+                    </div>
+                  )}
                   <div style={{ display:'flex', gap:8 }}>
                     <button className="btn" onClick={() => { setAddText(''); setAddDone(null) }}
                       style={{ flex:1, background:'#161b22', border:'1px solid #21262d', color:'#aab3be', padding:'10px 0', fontSize:11 }}>
@@ -10783,7 +10828,8 @@ function PhraseTab({ settings }) {
                     <MySubcatPanel counts={mySubcatCounts} selected={mySubcat}
                       onSelect={s => { setMySubcat(s); setIdx(0); setPhase('listen'); setAutoPlayed(false) }}
                       onReclassify={aiReclassify} reclassifyLoading={reclassifyLoading} reclassifyProgress={reclassifyProgress}
-                      autoListen={autoListen} onToggleAuto={() => { const n=!autoListen; setAutoListen(n); autoListenRef.current=n; if(n) setAutoPlayed(false) }}/>
+                      autoListen={autoListen} onToggleAuto={() => { const n=!autoListen; setAutoListen(n); autoListenRef.current=n; if(n) setAutoPlayed(false) }}
+                      shuffleMode={shuffleMode} onToggleShuffle={() => setShuffleMode(m => !m)}/>
                   )}
                 </div>
               )}
@@ -10792,7 +10838,8 @@ function PhraseTab({ settings }) {
                 <MySubcatPanel counts={mySubcatCounts} selected={mySubcat}
                   onSelect={s => { setMySubcat(s); setIdx(0); setAutoPlayed(false) }}
                   onReclassify={aiReclassify} reclassifyLoading={reclassifyLoading} reclassifyProgress={reclassifyProgress}
-                  autoListen={autoListen} onToggleAuto={() => { const n=!autoListen; setAutoListen(n); autoListenRef.current=n; if(n) setAutoPlayed(false) }}/>
+                  autoListen={autoListen} onToggleAuto={() => { const n=!autoListen; setAutoListen(n); autoListenRef.current=n; if(n) setAutoPlayed(false) }}
+                  shuffleMode={shuffleMode} onToggleShuffle={() => setShuffleMode(m => !m)}/>
               )}
             </>
           )}
@@ -12420,7 +12467,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.18</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.19</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
