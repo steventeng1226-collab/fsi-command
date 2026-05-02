@@ -8049,6 +8049,7 @@ function PracticeTab({ sentences, vocab, stats, settings, updateSentences, updat
   const [slotEditMode, setSlotEditMode] = useState(false)   // show edit controls
   const [addingSlot, setAddingSlot]     = useState(null)    // gi index being added to
   const [newOptText, setNewOptText]     = useState('')
+  const [showFsiList, setShowFsiList]   = useState(false)   // FSI 一覽表
   const [dailyCount, setDailyCount] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('fsi:daily') || 'null')
@@ -8340,10 +8341,58 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
             {lbl}
           </div>
         ))}
-        <div style={{ display:'flex', alignItems:'center', fontFamily:MONO, fontSize:9, color:T.txt3, whiteSpace:'nowrap', paddingLeft:4 }}>
-          {queue.length} cards
+        <div style={{ display:'flex', alignItems:'center', gap:6, paddingLeft:4 }}>
+          <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3, whiteSpace:'nowrap' }}>{queue.length} cards</span>
+          <div onClick={() => setShowFsiList(v => !v)} title="一覽表"
+            style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color: showFsiList ? T.amber : T.txt3,
+              background: showFsiList ? T.amberD : 'transparent', border:`1px solid ${showFsiList ? T.amber+'60' : T.bdr}`,
+              borderRadius:6, padding:'3px 7px', whiteSpace:'nowrap', transition:'all 0.14s' }}>
+            ☰
+          </div>
         </div>
       </div>
+
+      {/* FSI 一覽表 */}
+      {showFsiList && (
+        <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:12, overflow:'hidden' }}>
+          <div style={{ padding:'10px 14px', borderBottom:`1px solid ${T.bdr}`, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+            <span style={{ fontFamily:MONO, fontSize:9, color:T.amber, letterSpacing:'0.1em' }}>FSI 一覽表</span>
+            <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>{queue.length} 句</span>
+          </div>
+          <div style={{ maxHeight:320, overflowY:'auto' }}>
+            {queue.map((s, i) => {
+              const isLife = LIFE_CONTEXTS.some(c => (s.context??'').toLowerCase().includes(c.toLowerCase()))
+              return (
+                <div key={s.id} style={{ padding:'9px 14px', borderBottom:`1px solid ${T.bdr}20`, display:'flex', alignItems:'center', gap:8,
+                  background: i % 2 === 0 ? 'transparent' : T.surf2 }}>
+                  <div onClick={() => {
+                    const newCtx = isLife
+                      ? s.context.replace(/\s*\(Life\)/i,'').replace(/Daily Life|生活/i, 'Work').trim()
+                      : (s.context ? s.context + ' (Life)' : 'Daily Life')
+                    updateSentences(prev => prev.map(x => x.id === s.id ? {...x, context: newCtx} : x))
+                  }}
+                    title={isLife ? '移至 WORK' : '移至 LIFE'}
+                    style={{ flexShrink:0, fontFamily:MONO, fontSize:8, padding:'2px 7px', borderRadius:6, cursor:'pointer', userSelect:'none',
+                      background: isLife ? '#3fb95018' : T.amberD,
+                      border:`1px solid ${isLife ? '#3fb95050' : T.amber+'50'}`,
+                      color: isLife ? '#3fb950' : T.amber }}>
+                    {isLife ? '🏠' : '💼'}
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontFamily:MONO, fontSize:11, color:T.txt, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{s.template}</div>
+                    <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginTop:1 }}>{s.context}</div>
+                  </div>
+                  <div onClick={() => { setShowFsiList(false); setIdx(i) }}
+                    style={{ flexShrink:0, fontFamily:MONO, fontSize:8, color:T.txt3, cursor:'pointer', padding:'2px 6px',
+                      border:`1px solid ${T.bdr}`, borderRadius:6 }}>
+                    練習
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {!card ? (
         <div style={{ textAlign:'center', padding:'40px 0', color:T.txt3, fontFamily:SERIF, fontSize:14 }}>
@@ -8352,7 +8401,23 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
         </div>
       ) : (
         <>
-          <SectionLabel color={T.amber}>{card.context}</SectionLabel>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}>
+            <SectionLabel color={T.amber}>{card.context}</SectionLabel>
+            <div onClick={() => {
+              const isLifeCard = LIFE_CONTEXTS.some(c => (card.context??'').toLowerCase().includes(c.toLowerCase()))
+              const newCtx = isLifeCard
+                ? card.context.replace(/\s*\(Life\)/i,'').replace(/Daily Life|生活/i,'Work').trim()
+                : (card.context ? card.context + ' (Life)' : 'Daily Life')
+              updateSentences(prev => prev.map(x => x.id === card.id ? {...x, context: newCtx} : x))
+            }}
+              title="切換 WORK / LIFE"
+              style={{ flexShrink:0, fontFamily:MONO, fontSize:8, padding:'3px 9px', borderRadius:6, cursor:'pointer', userSelect:'none',
+                background: LIFE_CONTEXTS.some(c=>(card.context??'').toLowerCase().includes(c.toLowerCase())) ? '#3fb95018' : T.amberD,
+                border:`1px solid ${LIFE_CONTEXTS.some(c=>(card.context??'').toLowerCase().includes(c.toLowerCase())) ? '#3fb95050' : T.amber+'50'}`,
+                color: LIFE_CONTEXTS.some(c=>(card.context??'').toLowerCase().includes(c.toLowerCase())) ? '#3fb950' : T.amber }}>
+              {LIFE_CONTEXTS.some(c=>(card.context??'').toLowerCase().includes(c.toLowerCase())) ? '🏠 LIFE' : '💼 WORK'}
+            </div>
+          </div>
 
           {/* Drill card */}
           <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:14, padding:20, position:'relative' }}>
