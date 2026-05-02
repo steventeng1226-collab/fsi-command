@@ -11326,6 +11326,11 @@ function EmailTab({ settings, updateSentences, updateVocab, updateStats, awardBa
   }
 
   function addFsi(s, cat) {
+    const existing = (() => { try { return JSON.parse(localStorage.getItem('fsi:s') ?? '[]') } catch { return [] } })()
+    const normT = normalizeEn(s.template)
+    if (existing.some(e => normalizeEn(e.template) === normT)) {
+      setAddedS(a => [...a, s.template + '⚠️重複']); return
+    }
     const id = 'ai_' + Date.now()
     const context = cat === 'life' ? (s.context||'Daily Life') + ' (Life)' : s.context || 'AI'
     updateSentences(prev => [...(prev??[]), {
@@ -11338,6 +11343,11 @@ function EmailTab({ settings, updateSentences, updateVocab, updateStats, awardBa
   }
 
   function addVocab(v) {
+    const existing = (() => { try { return JSON.parse(localStorage.getItem('fsi:v') ?? '[]') } catch { return [] } })()
+    const normW = v.word.toLowerCase().trim()
+    if (existing.some(e => (e.word||'').toLowerCase().trim() === normW)) {
+      setAddedV(a => [...a, v.word + '⚠️重複']); return
+    }
     const id = 'av_' + Date.now()
     updateVocab(prev => [...(prev??[]), {
       id, word:v.word, ipa_us:'', def:v.def, ex:v.ex,
@@ -11441,9 +11451,17 @@ function EmailTab({ settings, updateSentences, updateVocab, updateStats, awardBa
   }
 
   function FsiCard({ s, i, desktop }) {
-    const done = addedS.includes(s.template)
+    const added = addedS.includes(s.template)
+    const isDup = addedS.includes(s.template + '⚠️重複')
+    const done = added || isDup
+    const dupExists = !added && !isDup && (() => {
+      try {
+        const ex = JSON.parse(localStorage.getItem('fsi:s') ?? '[]')
+        return ex.some(e => normalizeEn(e.template) === normalizeEn(s.template))
+      } catch { return false }
+    })()
     return (
-      <div style={{ background:T.surf, border:'1px solid '+(done ? T.grn+'50' : T.bdr), borderRadius:10, padding:12, display:'flex', flexDirection:'column', gap:7, transition:'border-color 0.3s' }}>
+      <div style={{ background:T.surf, border:'1px solid '+((isDup||dupExists) ? '#f5a62350' : done ? T.grn+'50' : T.bdr), borderRadius:10, padding:12, display:'flex', flexDirection:'column', gap:7, transition:'border-color 0.3s' }}>
         <div style={{ fontFamily:MONO, fontSize: desktop?11:12, color:T.txt, lineHeight:1.6 }}>{s.template}</div>
         <div style={{ fontFamily:SERIF, fontStyle:'italic', fontSize:11, color:T.txt3 }}>{s.context} — {s.hint}</div>
         {s.linked_hint && <div style={{ fontFamily:MONO, fontSize:10, color:T.amber, background:T.amberD, borderRadius:6, padding:'4px 8px' }}>{s.linked_hint}</div>}
@@ -11453,18 +11471,29 @@ function EmailTab({ settings, updateSentences, updateVocab, updateStats, awardBa
           </div>
         ))}
         <WLSelect idx={i} done={done}/>
-        <button className="btn" onClick={() => addFsi(s, fsiCats[i]??'work')} disabled={done}
-          style={{ background: done ? T.grnD : T.amberD, border:'1px solid '+(done ? T.grn+'50' : T.amber+'50'), color: done ? T.grn : T.amber, fontSize:9, padding:'5px 0', marginTop:2 }}>
-          {done ? '✓ 已加入 FSI' : '+ 加入 FSI 練習'}
+        <button className="btn" onClick={() => addFsi(s, fsiCats[i]??'work')} disabled={done || dupExists}
+          style={{ background: (isDup||dupExists) ? '#f5a62315' : done ? T.grnD : T.amberD,
+            border:'1px solid '+((isDup||dupExists) ? '#f5a62350' : done ? T.grn+'50' : T.amber+'50'),
+            color: (isDup||dupExists) ? '#f5a623' : done ? T.grn : T.amber,
+            fontSize:9, padding:'5px 0', marginTop:2 }}>
+          {(isDup||dupExists) ? '⚠ 已存在（重複）' : done ? '✓ 已加入 FSI' : '+ 加入 FSI 練習'}
         </button>
       </div>
     )
   }
 
   function VocabCard({ v }) {
-    const done = addedV.includes(v.word)
+    const added = addedV.includes(v.word)
+    const isDup = addedV.includes(v.word + '⚠️重複')
+    const done = added || isDup
+    const dupExists = !added && !isDup && (() => {
+      try {
+        const ex = JSON.parse(localStorage.getItem('fsi:v') ?? '[]')
+        return ex.some(e => (e.word||'').toLowerCase().trim() === v.word.toLowerCase().trim())
+      } catch { return false }
+    })()
     return (
-      <div style={{ background:T.surf, border:'1px solid '+(done ? T.grn+'50' : T.bdr), borderRadius:10, padding:12, display:'flex', flexDirection:'column', gap:6 }}>
+      <div style={{ background:T.surf, border:'1px solid '+((isDup||dupExists) ? '#f5a62350' : done ? T.grn+'50' : T.bdr), borderRadius:10, padding:12, display:'flex', flexDirection:'column', gap:6 }}>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <span style={{ fontFamily:MONO, fontSize:13, color:T.blue, fontWeight:500 }}>{v.word}</span>
           <div onClick={() => speak(v.word)} style={{ cursor:'pointer', color:T.txt3 }}
@@ -11474,9 +11503,12 @@ function EmailTab({ settings, updateSentences, updateVocab, updateStats, awardBa
         </div>
         <div style={{ fontFamily:SERIF, fontSize:12, color:T.txt2, lineHeight:1.4 }}>{v.def}</div>
         {v.ex && <div style={{ fontFamily:SERIF, fontStyle:'italic', fontSize:11, color:T.txt3 }}>"{v.ex}"</div>}
-        <button className="btn" onClick={() => addVocab(v)} disabled={done}
-          style={{ background: done ? T.grnD : T.blueD, border:'1px solid '+(done ? T.grn+'50' : T.blue+'50'), color: done ? T.grn : T.blue, fontSize:9, padding:'5px 0', marginTop:2 }}>
-          {done ? '✓ 已加入 VOCAB' : '+ 加入 VOCAB'}
+        <button className="btn" onClick={() => addVocab(v)} disabled={done || dupExists}
+          style={{ background: (isDup||dupExists) ? '#f5a62315' : done ? T.grnD : T.blueD,
+            border:'1px solid '+((isDup||dupExists) ? '#f5a62350' : done ? T.grn+'50' : T.blue+'50'),
+            color: (isDup||dupExists) ? '#f5a623' : done ? T.grn : T.blue,
+            fontSize:9, padding:'5px 0', marginTop:2 }}>
+          {(isDup||dupExists) ? '⚠ 已存在（重複）' : done ? '✓ 已加入 VOCAB' : '+ 加入 VOCAB'}
         </button>
       </div>
     )
