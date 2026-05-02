@@ -11358,13 +11358,26 @@ function EmailTab({ settings, updateSentences, updateVocab, updateStats, awardBa
   }
 
   function addAll() {
-    ;(res?.phrases ?? []).forEach((p,i) => { if (!addedP.includes(p.en)) addPhrase(p, phraseCats[i]) })
-    ;(res?.fsi     ?? []).forEach((s,i) => { if (!addedS.includes(s.template)) addFsi(s, fsiCats[i] ?? 'work') })
-    ;(res?.vocab   ?? []).forEach(v => { if (!addedV.includes(v.word)) addVocab(v) })
+    ;(res?.phrases ?? []).forEach((p,i) => {
+      if (!addedP.includes(p.en) && !addedP.includes(p.en+'⚠️重複')) addPhrase(p, phraseCats[i])
+    })
+    ;(res?.fsi ?? []).forEach((s,i) => {
+      if (!addedS.includes(s.template) && !addedS.includes(s.template+'⚠️重複')) addFsi(s, fsiCats[i] ?? 'work')
+    })
+    ;(res?.vocab ?? []).forEach(v => {
+      if (!addedV.includes(v.word) && !addedV.includes(v.word+'⚠️重複')) addVocab(v)
+    })
   }
 
-  const totalAdded  = addedP.length + addedS.length + addedV.length
+  // 計算真正新增數 vs 重複數
+  const addedNew  = addedP.filter(x=>!x.includes('⚠️重複')).length
+                  + addedS.filter(x=>!x.includes('⚠️重複')).length
+                  + addedV.filter(x=>!x.includes('⚠️重複')).length
+  const addedDup  = addedP.filter(x=>x.includes('⚠️重複')).length
+                  + addedS.filter(x=>x.includes('⚠️重複')).length
+                  + addedV.filter(x=>x.includes('⚠️重複')).length
   const totalItems  = (res?.phrases?.length??0) + (res?.fsi?.length??0) + (res?.vocab?.length??0)
+  const pendingNew  = totalItems - addedNew - addedDup
 
   // ── Section header chip ─────────────────────────────────────
   function SecHead({ label, color, count, added }) {
@@ -11552,9 +11565,11 @@ function EmailTab({ settings, updateSentences, updateVocab, updateStats, awardBa
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:10 }}>
             {res && (
-              <button className="btn" onClick={addAll}
-                style={{ background:T.grnD, border:'1px solid '+T.grn+'50', color:T.grn, fontSize:10, padding:'5px 14px' }}>
-                ✓ 全部加入（{totalAdded}/{totalItems}）
+              <button className="btn" onClick={addAll} disabled={pendingNew===0}
+                style={{ background: pendingNew===0 ? T.surf2 : T.grnD, border:'1px solid '+(pendingNew===0 ? T.bdr : T.grn+'50'), color: pendingNew===0 ? T.txt3 : T.grn, fontSize:10, padding:'5px 14px' }}>
+                {pendingNew > 0
+                  ? `全部加入 ✦ ${pendingNew} 筆新${addedDup>0?' / 跳過'+addedDup+'筆重複':''}`
+                  : `✓ 已全部加入${addedDup>0?' （跳過'+addedDup+'筆重複）':''}`}
               </button>
             )}
             <button className="btn" onClick={() => { setText(''); setRes(null); setErr('') }}
@@ -11648,9 +11663,11 @@ function EmailTab({ settings, updateSentences, updateVocab, updateStats, awardBa
               <span style={{ fontFamily:MONO, fontSize:9, color:T.amber }}>🔄 {res.fsi?.length??0}</span>
               <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2 }}>📖 {res.vocab?.length??0}</span>
             </div>
-            <button className="btn" onClick={addAll}
-              style={{ background:T.grnD, border:'1px solid '+T.grn+'50', color:T.grn, fontSize:9, padding:'4px 12px' }}>
-              全部加入 ({totalAdded}/{totalItems})
+            <button className="btn" onClick={addAll} disabled={pendingNew===0}
+              style={{ background: pendingNew===0 ? T.surf2 : T.grnD, border:'1px solid '+(pendingNew===0 ? T.bdr : T.grn+'50'), color: pendingNew===0 ? T.txt3 : T.grn, fontSize:9, padding:'4px 12px', maxWidth:200, textAlign:'center', lineHeight:1.4 }}>
+              {pendingNew > 0
+                ? `全部加入 ✦ ${pendingNew}筆新${addedDup>0?' /跳過'+addedDup+'重複':''}`
+                : `✓ 已全部加入${addedDup>0?' (跳過'+addedDup+')':''}`}
             </button>
           </div>
 
