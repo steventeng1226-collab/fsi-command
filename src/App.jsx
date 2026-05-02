@@ -9974,7 +9974,7 @@ const SCENARIOS = [
 
 // ── Linked / Rhythm 渲染器 ────────────────────────────────────
 // ── 我的收藏子分類導覽面板 ─────────────────────────────────────
-function MySubcatPanel({ counts, selected, onSelect, onReclassify, reclassifyLoading, reclassifyProgress, autoListen, onToggleAuto, shuffleMode, onToggleShuffle, sleepMins, sleepLeft, onSleepPick }) {
+function MySubcatPanel({ counts, selected, onSelect, onReclassify, reclassifyLoading, reclassifyProgress, autoListen, onToggleAuto, shuffleMode, onToggleShuffle, sleepMins, sleepLeft, onSleepPick, pendingCount }) {
   const MONO = "'JetBrains Mono',monospace"
   const RECLASSIFY_LABELS = {
     restaurant:'🍽️ 餐廳咖啡', shopping:'🛍️ 購物', travel:'✈️ 交通旅遊',
@@ -10034,7 +10034,7 @@ function MySubcatPanel({ counts, selected, onSelect, onReclassify, reclassifyLoa
               color: reclassifyLoading ? '#7a8390' : '#a371f7', flexShrink:0 }}>
             {reclassifyLoading
               ? (reclassifyProgress ? reclassifyProgress.current+'/'+reclassifyProgress.total : '⏳')
-              : '🤖'}
+              : (pendingCount > 0 ? '🤖 '+pendingCount : '🤖')}
           </div>
         )}
       </div>
@@ -10348,26 +10348,30 @@ function PhraseTab({ settings }) {
   async function aiReclassify() {
     const apiKey = settings?.apiKey || (() => { try { return JSON.parse(localStorage.getItem('fsi:se')||'{}')?.apiKey??'' } catch { return '' } })()
     if (!apiKey) { alert('請先設定 API Key'); return }
-    if (!extraPhrases.length) { alert('尚無收藏句子'); return }
+    const targets = extraPhrases.filter(p => p.subcat === 'life')
+    if (!targets.length) { alert('沒有待分類的句子（分類=life）'); return }
     setReclassifyLoading(true)
-    setReclassifyProgress({ current: 0, total: extraPhrases.length })
+    setReclassifyProgress({ current: 0, total: targets.length })
     const BATCH = 30
     const catKeys = Object.keys(RECLASSIFY_CATS).join(', ')
     const sys = 'You are classifying English sentences into categories. Reply ONLY with a JSON array of category keys, one per sentence, in the same order. Categories: ' + catKeys + '. Choose the single best fit.'
     let updated = [...extraPhrases]
-    for (let i = 0; i < updated.length; i += BATCH) {
-      const batch = updated.slice(i, i + BATCH)
+    // 建立 id → index map 方便回寫
+    const idxMap = {}
+    updated.forEach((p, i) => { idxMap[p.id] = i })
+    for (let i = 0; i < targets.length; i += BATCH) {
+      const batch = targets.slice(i, i + BATCH)
       const prompt = 'Classify each sentence (return JSON array of category keys only):\n' + batch.map((p,j) => (j+1)+'. '+p.en).join('\n')
       try {
         const raw = await callClaude(apiKey, [{ role:'user', content: prompt }], sys)
         const clean = raw.replace(/```json|```/g,'').trim()
         const cats = JSON.parse(clean)
         cats.forEach((c, j) => {
-          if (i+j < updated.length && RECLASSIFY_CATS[c]) {
-            updated[i+j] = { ...updated[i+j], subcat: c }
+          if (batch[j] && RECLASSIFY_CATS[c]) {
+            updated[idxMap[batch[j].id]] = { ...updated[idxMap[batch[j].id]], subcat: c }
           }
         })
-        setReclassifyProgress({ current: Math.min(i+BATCH, updated.length), total: updated.length })
+        setReclassifyProgress({ current: Math.min(i+BATCH, targets.length), total: targets.length })
         setExtraPhrases([...updated])
       } catch(e) { /* skip batch on error */ }
     }
@@ -10375,7 +10379,7 @@ function PhraseTab({ settings }) {
     setExtraPhrases(updated)
     setReclassifyLoading(false)
     setReclassifyProgress(null)
-    alert('✓ 分類完成！共 ' + updated.length + ' 句')
+    alert('✓ 分類完成！共處理 ' + targets.length + ' 句')
   }
 
   // ── 句型 helpers ──────────────────────────────────────────────
@@ -10884,6 +10888,7 @@ function PhraseTab({ settings }) {
                       autoListen={autoListen} onToggleAuto={() => { const n=!autoListen; setAutoListen(n); autoListenRef.current=n; if(n) setAutoPlayed(false); if(!n){setSleepEnd(null);setSleepMins(null)} }}
                       shuffleMode={shuffleMode} onToggleShuffle={() => setShuffleMode(m => !m)}
                       sleepMins={sleepMins} sleepLeft={sleepLeft}
+                      pendingCount={extraPhrases.filter(p=>p.subcat==='life').length}
                       onSleepPick={m => {
                         if (!m || m === sleepMins) { setSleepMins(null); setSleepEnd(null) }
                         else { setSleepMins(m); setSleepEnd(Date.now() + m * 60000) }
@@ -10899,6 +10904,7 @@ function PhraseTab({ settings }) {
                   autoListen={autoListen} onToggleAuto={() => { const n=!autoListen; setAutoListen(n); autoListenRef.current=n; if(n) setAutoPlayed(false); if(!n){setSleepEnd(null);setSleepMins(null)} }}
                   shuffleMode={shuffleMode} onToggleShuffle={() => setShuffleMode(m => !m)}
                   sleepMins={sleepMins} sleepLeft={sleepLeft}
+                  pendingCount={extraPhrases.filter(p=>p.subcat==='life').length}
                   onSleepPick={m => {
                     if (!m || m === sleepMins) { setSleepMins(null); setSleepEnd(null) }
                     else { setSleepMins(m); setSleepEnd(Date.now() + m * 60000) }
