@@ -80,6 +80,10 @@ function srsSchedule(card, q) {
   ease = Math.max(1.3, ease + 0.1 - (5 - q) * (0.08 + (5 - q) * 0.02))
   return { ...card, interval, ease, reps, dueDate: Date.now() + interval * 86400000, lastSeen: Date.now() }
 }
+// ── 正規化英文句子（重複比對用）────────────────────────────────
+function normalizeEn(text) {
+  return (text || '').toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim()
+}
 function srsSort(items) {
   const now = Date.now()
   return [...(items ?? [])].sort((a, b) => {
@@ -10278,9 +10282,6 @@ function PhraseTab({ settings }) {
     window.speechSynthesis.speak(u)
   }
 
-  function normalizeEn(text) {
-    return text.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim()
-  }
 
   async function savePhrase(rawText, catId) {
     const apiKey = settings?.apiKey || (() => {
@@ -11311,6 +11312,11 @@ function EmailTab({ settings, updateSentences, updateVocab, updateStats, awardBa
   // ── Add functions ───────────────────────────────────────────
   function addPhrase(p, catId) {
     const existing = JSON.parse(localStorage.getItem('fsi:ph:extra') ?? '[]')
+    const norm = normalizeEn(p.en)
+    if (existing.some(e => normalizeEn(e.en) === norm)) {
+      setAddedP(a => [...a, p.en + '⚠️重複'])
+      return
+    }
     const id = 'ph_ai_' + Date.now()
     const cat = catId || p.cat || 'action'
     const newPhrase = { id, cat, en: p.en, zh: p.zh }
@@ -11409,15 +11415,26 @@ function EmailTab({ settings, updateSentences, updateVocab, updateStats, awardBa
 
   // ── Card renderers ──────────────────────────────────────────
   function PhraseCard({ p, i, desktop }) {
-    const done = addedP.includes(p.en)
+    const added = addedP.includes(p.en)
+    const isDup = addedP.includes(p.en + '⚠️重複')
+    const done = added || isDup
+    const dupExists = !added && !isDup && (() => {
+      try {
+        const ex = JSON.parse(localStorage.getItem('fsi:ph:extra') ?? '[]')
+        return ex.some(e => normalizeEn(e.en) === normalizeEn(p.en))
+      } catch { return false }
+    })()
     return (
-      <div style={{ background:T.surf, border:'1px solid '+(done ? T.grn+'50' : T.bdr), borderRadius:10, padding:12, display:'flex', flexDirection:'column', gap:7, transition:'border-color 0.3s' }}>
+      <div style={{ background:T.surf, border:'1px solid '+((isDup||dupExists) ? '#f5a62350' : done ? T.grn+'50' : T.bdr), borderRadius:10, padding:12, display:'flex', flexDirection:'column', gap:7, transition:'border-color 0.3s' }}>
         <div style={{ fontFamily:SERIF, fontSize: desktop?12:13, color:T.txt, lineHeight:1.6 }}>{p.en}</div>
         <div style={{ fontFamily:SERIF, fontStyle:'italic', fontSize: desktop?11:12, color:T.txt2 }}>{p.zh}</div>
         <PhraseCatSelect idx={i} done={done}/>
-        <button className="btn" onClick={() => addPhrase(p, phraseCats[i])} disabled={done}
-          style={{ background: done ? T.grnD : T.blueD, border:'1px solid '+(done ? T.grn+'50' : T.blue+'50'), color: done ? T.grn : T.blue, fontSize:9, padding:'5px 0', marginTop:2 }}>
-          {done ? '✓ 已加入 PHRASE' : '+ 加入 PHRASE 練習'}
+        <button className="btn" onClick={() => addPhrase(p, phraseCats[i])} disabled={done || dupExists}
+          style={{ background: (isDup||dupExists) ? '#f5a62315' : done ? T.grnD : T.blueD,
+            border:'1px solid '+((isDup||dupExists) ? '#f5a62350' : done ? T.grn+'50' : T.blue+'50'),
+            color: (isDup||dupExists) ? '#f5a623' : done ? T.grn : T.blue,
+            fontSize:9, padding:'5px 0', marginTop:2 }}>
+          {(isDup||dupExists) ? '⚠ 已存在（重複）' : done ? '✓ 已加入 PHRASE' : '+ 加入 PHRASE 練習'}
         </button>
       </div>
     )
