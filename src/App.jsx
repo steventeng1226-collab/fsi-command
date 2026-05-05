@@ -8005,10 +8005,48 @@ function DrillTab({ sentences, vocab, settings }) {
                 </button>
               </div>
 
-              {/* Weakness tag placeholder */}
-              <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, textAlign:'center', opacity:0.5 }}>
-                WEAKNESS TAGS — coming soon
-              </div>
+              {/* Weakness tags */}
+              {phase === 'answered' && (() => {
+                const WEAKNESS_TAGS = [
+                  { id:'vocab',   label:'詞彙不足', icon:'📖', color:T.blue },
+                  { id:'fluency', label:'說不流暢', icon:'🗣️', color:T.amber },
+                  { id:'grammar', label:'文法錯誤', icon:'📝', color:'#a371f7' },
+                  { id:'blank',   label:'腦袋空白', icon:'🫥', color:T.red },
+                  { id:'stress',  label:'重音錯誤', icon:'🎵', color:T.grn },
+                ]
+                const cardTags = drillProgress[card.id]?.weakTags ?? []
+                return (
+                  <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+                    <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, letterSpacing:'0.08em' }}>⚑ 標記弱點（選填）</div>
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
+                      {WEAKNESS_TAGS.map(tag => {
+                        const active = cardTags.includes(tag.id)
+                        return (
+                          <div key={tag.id}
+                            onClick={() => {
+                              const next = active
+                                ? cardTags.filter(t => t !== tag.id)
+                                : [...cardTags, tag.id]
+                              saveProgress(card.id, { weakTags: next })
+                            }}
+                            style={{
+                              display:'inline-flex', alignItems:'center', gap:4,
+                              padding:'3px 9px', borderRadius:12, cursor:'pointer',
+                              fontFamily:MONO, fontSize:9,
+                              background: active ? tag.color+'22' : T.surf2,
+                              border:`1px solid ${active ? tag.color+'80' : T.bdr}`,
+                              color: active ? tag.color : T.txt3,
+                              transition:'all 0.14s', userSelect:'none',
+                            }}>
+                            <span>{tag.icon}</span>
+                            <span>{tag.label}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
           )}
         </div>
@@ -11356,12 +11394,12 @@ function EmailTab({ settings, updateSentences, updateVocab, updateStats, awardBa
         '   - {slot} is INVISIBLE WALL — never merge · across it.',
         '   - Extract 2-4 FSI sentences.\n',
         '3. VOCAB: Key words worth memorizing.',
-        '   - Include def (concise) and ex (example sentence).',
+        '   - Include ipa_us (IPA pronunciation), def (concise English def), zh (Traditional Chinese translation), and ex (example sentence).',
         '   - Extract 2-4 words.\n',
         'Return ONLY valid JSON, no markdown:',
         '{"phrases":[{"en":"...","zh":"...","cat":"opening"}],',
         '"fsi":[{"template":"...{slot}...","context":"Short name","hint":"When to say this","linked_hint":"annotated","subs":[["opt1","opt2","opt3"]]}],',
-        '"vocab":[{"word":"...","def":"...","ex":"..."}]}'
+        '"vocab":[{"word":"...","ipa_us":"/…/","def":"...","zh":"...","ex":"..."}]}'
       ].join('\n')
 
       const raw = await callClaude(settings.apiKey, [{ role:'user', content: text }], system)
@@ -11415,7 +11453,7 @@ function EmailTab({ settings, updateSentences, updateVocab, updateStats, awardBa
     }
     const id = 'av_' + Date.now()
     updateVocab(prev => [...(prev??[]), {
-      id, word:v.word, ipa_us:'', def:v.def, ex:v.ex,
+      id, word:v.word, ipa_us:v.ipa_us||'', def:v.def, zh:v.zh||'', ex:v.ex,
       reps:0, ease:2.5, interval:1, dueDate:0, lastSeen:0
     }])
     setAddedV(a => [...a, v.word])
@@ -11817,6 +11855,50 @@ function AchieveTab({ stats, earned, sentences, vocab }) {
         ))}
       </div>
 
+      {/* Weakness stats */}
+      {(() => {
+        try {
+          const drillProgress = JSON.parse(localStorage.getItem('fsi:drill') || '{}')
+          const WEAKNESS_TAGS = [
+            { id:'vocab',   label:'詞彙不足', icon:'📖', color:T.blue },
+            { id:'fluency', label:'說不流暢', icon:'🗣️', color:T.amber },
+            { id:'grammar', label:'文法錯誤', icon:'📝', color:'#a371f7' },
+            { id:'blank',   label:'腦袋空白', icon:'🫥', color:T.red },
+            { id:'stress',  label:'重音錯誤', icon:'🎵', color:T.grn },
+          ]
+          const counts = {}
+          WEAKNESS_TAGS.forEach(t => { counts[t.id] = 0 })
+          Object.values(drillProgress).forEach(p => {
+            ;(p.weakTags ?? []).forEach(tag => { if (counts[tag] !== undefined) counts[tag]++ })
+          })
+          const total = Object.values(counts).reduce((a, b) => a + b, 0)
+          if (total === 0) return null
+          const sorted = WEAKNESS_TAGS.map(t => ({ ...t, count: counts[t.id] })).sort((a,b) => b.count - a.count)
+          return (
+            <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:14, padding:'16px 16px' }}>
+              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, letterSpacing:'0.12em', marginBottom:12 }}>⚑ 弱點分析</div>
+              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                {sorted.filter(t => t.count > 0).map(t => (
+                  <div key={t.id} style={{ display:'flex', alignItems:'center', gap:10 }}>
+                    <span style={{ width:16, textAlign:'center' }}>{t.icon}</span>
+                    <div style={{ flex:1 }}>
+                      <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
+                        <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2 }}>{t.label}</span>
+                        <span style={{ fontFamily:MONO, fontSize:9, color:t.color }}>{t.count} 次</span>
+                      </div>
+                      <div style={{ background:T.bdr2, borderRadius:3, height:4, overflow:'hidden' }}>
+                        <div style={{ height:'100%', borderRadius:3, background:t.color, width:`${Math.round(t.count/total*100)}%`, transition:'width 0.5s' }}/>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, marginTop:8 }}>共標記 {total} 次（在 DRILL 評分後可選填）</div>
+            </div>
+          )
+        } catch { return null }
+      })()}
+
       {/* Badges */}
       <div>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
@@ -11917,6 +11999,39 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
       if (i < targets.length - 1) await new Promise(r => setTimeout(r, 400))
     }
     setBatchProgress(p => ({ ...p, current: p.stopped ? p.current : targets.length, done, errors }))
+  }
+
+  // ── 批次補全 VOCAB IPA + 中文 ─────────────────────────────────
+  async function batchFillVocabMeta() {
+    const apiKey = settings?.apiKey || (() => {
+      try { return JSON.parse(localStorage.getItem('fsi:se') || '{}')?.apiKey ?? '' } catch { return '' }
+    })()
+    if (!apiKey) { flash('✗ 請先設定 Anthropic API Key'); return }
+    const targets = (vocab ?? []).filter(v => !v.ipa_us || !v.zh)
+    if (!targets.length) { flash('✓ 所有單字已有 IPA 和中文'); return }
+    batchStop.current = false
+    setBatchProgress({ current: 0, total: targets.length, label: '', done: 0, errors: 0, stopped: false, mode: 'vocab' })
+    let done = 0, errors = 0
+    for (let i = 0; i < targets.length; i++) {
+      if (batchStop.current) { setBatchProgress(p => ({ ...p, stopped: true })); break }
+      const w = targets[i]
+      setBatchProgress(p => ({ ...p, current: i + 1, label: w.word, mode: 'vocab' }))
+      try {
+        const system = 'You are a dictionary API. Given an English word, return ONLY valid JSON (no markdown) with keys: ipa_us (IPA US pronunciation, e.g. /wɜːrd/), zh (Traditional Chinese translation, concise, e.g. 字詞). Example: {"ipa_us":"/ˈmæn.ɪdʒ/","zh":"管理"}'
+        const raw = await callClaude(apiKey, [{ role:'user', content: w.word }], system)
+        const clean = raw.trim().replace(/```json|```/g, '').trim()
+        const parsed = JSON.parse(clean)
+        updateVocab(prev => prev.map(v => v.id === w.id ? {
+          ...v,
+          ipa_us: v.ipa_us || parsed.ipa_us || '',
+          zh:     v.zh     || parsed.zh     || '',
+        } : v))
+        done++
+      } catch { errors++ }
+      setBatchProgress(p => ({ ...p, done, errors, mode: 'vocab' }))
+      if (i < targets.length - 1) await new Promise(r => setTimeout(r, 300))
+    }
+    setBatchProgress(p => ({ ...p, current: p.stopped ? p.current : targets.length, done, errors, mode: 'vocab' }))
   }
 
   function handleImportFile(e) {
@@ -12488,6 +12603,59 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
         })()}
       </div>
 
+      {/* ── VOCAB 批次補全 IPA + 中文 ── */}
+      <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
+        <label style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>📖 VOCAB 批次補全 IPA ＋ 中文</label>
+        {(() => {
+          const totalV = (vocab ?? []).length
+          const missingV = (vocab ?? []).filter(v => !v.ipa_us || !v.zh).length
+          const isRunningV = batchProgress && batchProgress.mode === 'vocab' && batchProgress.current < batchProgress.total && !batchProgress.stopped
+          return (
+            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.7 }}>
+                目前：<span style={{color:T.txt}}>{totalV - missingV}</span> / {totalV} 個單字已有 IPA ＋ 中文
+                {missingV > 0 && <span style={{color:T.amber}}>（{missingV} 個缺少）</span>}
+              </div>
+              {!isRunningV ? (
+                <button className="btn"
+                  onClick={batchFillVocabMeta}
+                  disabled={missingV === 0}
+                  style={{ background:T.blueD, border:`1px solid ${T.blue}50`, color:T.blue, fontSize:10 }}>
+                  🤖 AI 批次補全 ({missingV} 個)
+                </button>
+              ) : (
+                <button className="btn" onClick={() => { batchStop.current = true }}
+                  style={{ background:T.redD, border:`1px solid ${T.red}50`, color:T.red, fontSize:10 }}>
+                  ■ 停止
+                </button>
+              )}
+              {batchProgress && batchProgress.mode === 'vocab' && (
+                <div style={{ background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:9, padding:'11px 13px', display:'flex', flexDirection:'column', gap:6 }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                    <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2 }}>
+                      {batchProgress.stopped ? '已停止' : batchProgress.current >= batchProgress.total ? '完成！' : '補全中…'}
+                    </span>
+                    <span style={{ fontFamily:MONO, fontSize:10, color:T.blue }}>
+                      {batchProgress.current} / {batchProgress.total}
+                    </span>
+                  </div>
+                  <div style={{ background:T.bdr, borderRadius:4, height:4, overflow:'hidden' }}>
+                    <div style={{ height:'100%', borderRadius:4, background: batchProgress.stopped ? T.red : T.blue, width:`${(batchProgress.current/batchProgress.total)*100}%`, transition:'width 0.3s' }}/>
+                  </div>
+                  <div style={{ fontFamily:MONO, fontSize:9, color:T.blue, fontWeight:500 }}>
+                    {batchProgress.label}
+                  </div>
+                  <div style={{ fontFamily:MONO, fontSize:9, display:'flex', gap:14 }}>
+                    <span style={{color:T.grn}}>✓ {batchProgress.done}</span>
+                    {batchProgress.errors > 0 && <span style={{color:T.red}}>✗ {batchProgress.errors}</span>}
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })()}
+      </div>
+
       {/* ── BACKUP / EXPORT ── */}
       <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
         <label style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>DATA BACKUP</label>
@@ -12667,7 +12835,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.19</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.20</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
