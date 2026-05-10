@@ -7183,6 +7183,100 @@ const KW_TEMPLATES = {
   default:    ['status', 'update', 'action'],
 }
 
+// ── BOSS 追問題庫（預設，無需 API）────────────────────────────
+const BOSS_FOLLOWUP = {
+  capacity:   [
+    "What's causing the gap from target?",
+    "Can we recover by end of week?",
+    "What does the team need to get back to 100%?",
+  ],
+  yield:      [
+    "Have we identified the root cause yet?",
+    "What's the trend over the past three days?",
+    "Is this a process issue or a material issue?",
+  ],
+  delay:      [
+    "Who's the customer and how critical is this order?",
+    "What's the risk if we miss the revised date?",
+    "Have you looped in logistics yet?",
+  ],
+  cost:       [
+    "What's the dollar impact this quarter?",
+    "Have we looked at alternative suppliers?",
+    "What's the action plan to close the gap?",
+  ],
+  output:     [
+    "How does that compare to last week?",
+    "What's the bottleneck right now?",
+    "Are we at risk of missing the monthly target?",
+  ],
+  manpower:   [
+    "Is overtime an option this week?",
+    "Which line is most short-staffed?",
+    "Have you escalated to HR?",
+  ],
+  schedule:   [
+    "What's the critical path item right now?",
+    "Which customer is most impacted?",
+    "What do you need from management to stay on track?",
+  ],
+  bottleneck: [
+    "How long has this been the constraint?",
+    "What's the fix and how long will it take?",
+    "Have we reallocated resources from other lines?",
+  ],
+  margin:     [
+    "Is this a one-time hit or a structural change?",
+    "What levers do we have to recover margin?",
+    "How does this compare to our annual target?",
+  ],
+  default:    [
+    "What's the biggest risk right now?",
+    "Who owns the action item?",
+    "When can I expect an update?",
+  ],
+}
+
+// ── AI 產生 BOSS 追問（有 API Key 時使用）────────────────────
+async function generateBossFollowup(card, answer, apiKey) {
+  if (!apiKey) return null
+  const cacheKey = 'fsi:boss:' + card.id
+  try {
+    const cached = localStorage.getItem(cacheKey)
+    if (cached) return JSON.parse(cached)
+  } catch {}
+  try {
+    const prompt = `You are a senior manager in a manufacturing/electronics company.
+A team member just answered your question about "${card.context}".
+Their answer was: "${answer}"
+Generate exactly 3 sharp follow-up questions a senior manager would realistically ask (under 12 words each, direct and pressured).
+Return ONLY a JSON array of 3 strings, no markdown.
+Example: ["Follow-up 1?","Follow-up 2?","Follow-up 3?"]`
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 200,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    })
+    const d = await r.json()
+    const text = d.content?.[0]?.text ?? ''
+    const qs = JSON.parse(text.replace(/```json|```/g, '').trim())
+    if (Array.isArray(qs) && qs.length >= 1) {
+      // Cache only briefly (boss Qs should stay fresh per session)
+      return qs
+    }
+  } catch {}
+  return null
+}
+
 function detectCardType(card) {
   const t = (card.template + ' ' + card.context + ' ' + (card.hint||'')).toLowerCase()
   if (/capacity|utiliz|running at/.test(t))   return 'capacity'
@@ -7282,9 +7376,9 @@ function ProgressBar({ duration, onTimeout, running, color = T.amber }) {
 
 // ── Stage indicator ───────────────────────────────────────────
 function StageIndicator({ stage }) {
-  const stages = ['shadow','respond','pressure']
-  const labels = ['SHADOW','RESPOND','PRESSURE']
-  const colors = [T.blue, T.amber, T.red]
+  const stages = ['shadow','respond','pressure','boss']
+  const labels = ['SHADOW','RESPOND','PRESSURE','BOSS']
+  const colors = [T.blue, T.amber, T.red, '#f0883e']
   const ci = stages.indexOf(stage)
   return (
     <div style={{ display:'flex', alignItems:'center', gap:6 }}>
@@ -7331,6 +7425,13 @@ function DrillTab({ sentences, vocab, settings }) {
   const [activeChunk, setActiveChunk] = useState(null)
   const rideTimer = useRef(null)
   const rideStop = useRef(false)
+
+  // ── BOSS FOLLOW-UP state ──────────────────────────────────
+  const [bossPhase, setBossPhase] = useState(null)   // null | 'question' | 'answered'
+  const [bossQ, setBossQ]         = useState('')     // the follow-up question
+  const [bossRef, setBossRef]     = useState('')     // reference answer (filled template)
+  const [bossLoading, setBossLoading] = useState(false)
+  const BOSS_COLOR = '#f0883e'
 
   // ── Ride mode engine ──────────────────────────────────────
   function clearRideTimers() {
@@ -7579,7 +7680,6 @@ function DrillTab({ sentences, vocab, settings }) {
     if (stage === 'respond' && newOk >= 3) {
       saveProgress(card.id, { stage:'pressure', respondOk: newOk, qIndex: nextQIndex })
     } else {
-      // PRESSURE: 70/30 rotation
       if (stage === 'pressure') {
         const rotate = Math.random() < 0.3 ? 'respond' : 'pressure'
         saveProgress(card.id, { stage: rotate, qIndex: nextQIndex })
@@ -7587,7 +7687,45 @@ function DrillTab({ sentences, vocab, settings }) {
         saveProgress(card.id, { respondOk: newOk, qIndex: nextQIndex })
       }
     }
-    nextCard()
+
+    // 30% 機率觸發 BOSS（只在 respond 或 pressure 且有開口時）
+    if (ok && (stage === 'respond' || stage === 'pressure') && Math.random() < 0.30) {
+      triggerBoss()
+    } else {
+      nextCard()
+    }
+  }
+
+  async function triggerBoss() {
+    const cardType  = detectCardType(card)
+    const fallbacks = BOSS_FOLLOWUP[cardType] || BOSS_FOLLOWUP.default
+    const fallbackQ = fallbacks[Math.floor(Math.random() * fallbacks.length)]
+    const filledAns = buildDrillFilled(card)
+
+    // Build reference answer string (show first option per slot clearly)
+    setBossPhase('question')
+    setBossQ(fallbackQ)
+    setBossRef(filledAns)
+
+    // Speak the boss question
+    speak(fallbackQ, 0.82)
+
+    // Try AI in background (replace if faster than user thinks)
+    const apiKey = settings?.apiKey || (() => {
+      try { return JSON.parse(localStorage.getItem('fsi:se') || '{}')?.apiKey ?? '' } catch { return '' }
+    })()
+    if (apiKey) {
+      setBossLoading(true)
+      generateBossFollowup(card, filledAns, apiKey).then(aiQs => {
+        setBossLoading(false)
+        if (aiQs && aiQs.length > 0) {
+          const aiQ = aiQs[Math.floor(Math.random() * aiQs.length)]
+          setBossQ(aiQ)
+          // Re-speak with AI question
+          speak(aiQ, 0.82)
+        }
+      })
+    }
   }
 
   function nextCard() {
@@ -7597,6 +7735,9 @@ function DrillTab({ sentences, vocab, settings }) {
     setTimerRunning(false)
     setShowHint(false)
     setShowKw(false)
+    setBossPhase(null)
+    setBossQ('')
+    setBossRef('')
   }
 
   if (!card) return (
@@ -7766,7 +7907,8 @@ function DrillTab({ sentences, vocab, settings }) {
           <div style={{ fontFamily:SERIF, fontSize:13, color:T.txt2, lineHeight:1.75 }}>
             <b style={{color:T.blue}}>SHADOW</b> — 看完整句，跟TTS朗讀3次，熟悉句型後自動升級<br/>
             <b style={{color:T.amber}}>RESPOND</b> — 看問題，5秒內開口說完整句，按「我說完了」看答案<br/>
-            <b style={{color:T.red}}>PRESSURE</b> — 3秒倒數，超時只顯示關鍵詞，模擬會議壓力
+            <b style={{color:T.red}}>PRESSURE</b> — 3秒倒數，超時只顯示關鍵詞，模擬會議壓力<br/>
+            <b style={{color:'#f0883e'}}>BOSS</b> — 答完後 30% 機率主管追問，即時應對真實追問情境
           </div>
         </div>
       )}
@@ -8052,11 +8194,70 @@ function DrillTab({ sentences, vocab, settings }) {
         </div>
       )}
 
-      {/* BOSS placeholder */}
-      <div style={{ marginTop:4, padding:'10px 14px', background:T.surf2, borderRadius:9, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-        <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3, letterSpacing:'0.1em' }}>STAGE 4 — BOSS FOLLOW-UP</span>
-        <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3, background:T.bdr, padding:'2px 8px', borderRadius:10 }}>COMING SOON</span>
-      </div>
+      {/* ─── BOSS FOLLOW-UP OVERLAY ───────────────────── */}
+      {bossPhase && (
+        <div style={{ position:'fixed', inset:0, background:'#00000095', zIndex:200, display:'flex', alignItems:'flex-end', justifyContent:'center', padding:'0 0 calc(120px + env(safe-area-inset-bottom,20px)) 0' }} className="fadeUp">
+          <div style={{ width:'100%', maxWidth:480, background:T.surf, border:`2px solid ${BOSS_COLOR}60`, borderRadius:'20px 20px 0 0', padding:'22px 20px 24px', display:'flex', flexDirection:'column', gap:16 }}>
+
+            {/* Header */}
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <div style={{ width:36, height:36, borderRadius:'50%', background:`${BOSS_COLOR}22`, border:`2px solid ${BOSS_COLOR}60`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, flexShrink:0 }}>
+                👔
+              </div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontFamily:MONO, fontSize:9, color:BOSS_COLOR, letterSpacing:'0.14em', marginBottom:2 }}>
+                  BOSS FOLLOW-UP {bossLoading ? <span style={{ color:T.txt3 }}>— AI 產生中…</span> : ''}
+                </div>
+                <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>主管追問，30 秒內開口回應</div>
+              </div>
+            </div>
+
+            {/* Boss question */}
+            <div style={{ background:`${BOSS_COLOR}12`, border:`1px solid ${BOSS_COLOR}40`, borderRadius:14, padding:'18px 16px' }}>
+              <div style={{ fontFamily:SERIF, fontSize:18, color:T.txt, lineHeight:1.55 }}>
+                {bossQ || '…'}
+              </div>
+              <div onClick={() => speak(bossQ, 0.82)}
+                style={{ marginTop:12, display:'inline-flex', alignItems:'center', gap:5, cursor:'pointer',
+                  fontFamily:MONO, fontSize:9, color:BOSS_COLOR, background:`${BOSS_COLOR}15`,
+                  border:`1px solid ${BOSS_COLOR}40`, padding:'4px 10px', borderRadius:8 }}>
+                🔊 再聽一次
+              </div>
+            </div>
+
+            {/* Reference answer (shown after spoke) */}
+            {bossPhase === 'answered' && (
+              <div style={{ background:T.grnD, border:`1px solid ${T.grn}40`, borderRadius:12, padding:'14px 16px' }} className="fadeUp">
+                <div style={{ fontFamily:MONO, fontSize:8, color:T.grn, letterSpacing:'0.1em', marginBottom:8 }}>參考答案</div>
+                <div style={{ fontFamily:MONO, fontSize:13, color:T.txt, lineHeight:1.8 }}>
+                  {bossRef}
+                </div>
+                <div onClick={() => speak(bossRef, 0.75)}
+                  style={{ marginTop:10, display:'inline-flex', alignItems:'center', gap:5, cursor:'pointer',
+                    fontFamily:MONO, fontSize:9, color:T.grn, background:T.grnD,
+                    border:`1px solid ${T.grn}40`, padding:'4px 10px', borderRadius:8 }}>
+                  🔊 聽範例
+                </div>
+              </div>
+            )}
+
+            {/* Buttons */}
+            {bossPhase === 'question' ? (
+              <button className="btn" onClick={() => setBossPhase('answered')}
+                style={{ background:`${BOSS_COLOR}20`, border:`2px solid ${BOSS_COLOR}70`, color:BOSS_COLOR,
+                  fontSize:13, fontWeight:700, padding:'15px', letterSpacing:'0.08em' }}>
+                🎙 我說完了，看參考答案
+              </button>
+            ) : (
+              <button className="btn" onClick={nextCard}
+                style={{ background:T.grnD, border:`1px solid ${T.grn}60`, color:T.grn,
+                  fontSize:13, fontWeight:700, padding:'15px', letterSpacing:'0.08em' }}>
+                ✓ 繼續下一題 →
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -12835,7 +13036,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.20</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.21</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
