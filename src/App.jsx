@@ -10488,6 +10488,7 @@ function PhraseTab({ settings }) {
     setExtraPhrases(updated)
     localStorage.setItem('fsi:ph:extra', JSON.stringify(updated))
   }
+  const [reclassifyLoading, setReclassifyLoading] = useState(false)
   const [reclassifyProgress, setReclassifyProgress] = useState(null)
   const [srsMap, setSrsMap] = useState(() => {
     try { return JSON.parse(localStorage.getItem(PHRASE_SRS_KEY) ?? '{}') } catch { return {} }
