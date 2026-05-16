@@ -332,20 +332,52 @@ function extractLiaisonChunks(hint) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// ── 統一 AI 呼叫（Anthropic / Gemini 切換）──────────────────────
+function getAISettings() {
+  try { return JSON.parse(localStorage.getItem('fsi:se') || '{}') } catch { return {} }
+}
+
+async function callAI(messages, system = '', _unused) {
+  const se = getAISettings()
+  const provider = se.aiProvider || 'anthropic'
+
+  if (provider === 'gemini') {
+    const apiKey = se.geminiKey || ''
+    if (!apiKey) throw new Error('請先在 Setup 設定 Gemini API Key')
+    const contents = []
+    if (system) contents.push({ role:'user', parts:[{ text: system }] }, { role:'model', parts:[{ text:'OK, understood.' }] })
+    messages.forEach(m => contents.push({ role: m.role === 'assistant' ? 'model' : 'user', parts:[{ text: m.content }] }))
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents, generationConfig: { maxOutputTokens: 1000 } })
+    })
+    const d = await r.json()
+    if (!r.ok) throw new Error(d.error?.message ?? 'Gemini error ' + r.status)
+    return d.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+  } else {
+    // Anthropic（預設）
+    const apiKey = se.apiKey || ''
+    if (!apiKey) throw new Error('請先在 Setup 設定 Anthropic API Key')
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 1000, system, messages })
+    })
+    const d = await r.json()
+    if (!r.ok) throw new Error(d.error?.message ?? 'API error ' + r.status)
+    return d.content?.[0]?.text ?? ''
+  }
+}
+
+// 舊名稱相容（所有 callClaude 呼叫自動走 callAI）
 async function callClaude(apiKey, messages, system = '') {
-  const r = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 1000, system, messages })
-  })
-  const d = await r.json()
-  if (!r.ok) throw new Error(d.error?.message ?? 'API error ' + r.status)
-  return d.content?.[0]?.text ?? ''
+  return callAI(messages, system)
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -7039,7 +7071,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.21</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.22</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -7238,13 +7270,10 @@ const BOSS_FOLLOWUP = {
 }
 
 // ── AI 產生 BOSS 追問（有 API Key 時使用）────────────────────
-async function generateBossFollowup(card, answer, apiKey) {
-  if (!apiKey) return null
-  const cacheKey = 'fsi:boss:' + card.id
-  try {
-    const cached = localStorage.getItem(cacheKey)
-    if (cached) return JSON.parse(cached)
-  } catch {}
+async function generateBossFollowup(card, answer) {
+  const se = getAISettings()
+  const hasKey = se.aiProvider === 'gemini' ? !!se.geminiKey : !!se.apiKey
+  if (!hasKey) return null
   try {
     const prompt = `You are a senior manager in a manufacturing/electronics company.
 A team member just answered your question about "${card.context}".
@@ -7252,27 +7281,9 @@ Their answer was: "${answer}"
 Generate exactly 3 sharp follow-up questions a senior manager would realistically ask (under 12 words each, direct and pressured).
 Return ONLY a JSON array of 3 strings, no markdown.
 Example: ["Follow-up 1?","Follow-up 2?","Follow-up 3?"]`
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 200,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    })
-    const d = await r.json()
-    const text = d.content?.[0]?.text ?? ''
+    const text = await callAI([{ role:'user', content: prompt }], '')
     const qs = JSON.parse(text.replace(/```json|```/g, '').trim())
-    if (Array.isArray(qs) && qs.length >= 1) {
-      // Cache only briefly (boss Qs should stay fresh per session)
-      return qs
-    }
+    if (Array.isArray(qs) && qs.length >= 1) return qs
   } catch {}
   return null
 }
@@ -7299,7 +7310,7 @@ function buildAnswerPattern(template) {
   return { main, keywords: blanks.slice(0, 5) }
 }
 
-async function generateQuestions(card, apiKey) {
+async function generateQuestions(card) {
   const cacheKey = 'fsi:dq:' + card.id
   try {
     const cached = localStorage.getItem(cacheKey)
@@ -7309,7 +7320,9 @@ async function generateQuestions(card, apiKey) {
   const type = detectCardType(card)
   const fallback = Q_TEMPLATES[type]
 
-  if (!apiKey) return fallback
+  const se = getAISettings()
+  const hasKey = se.aiProvider === 'gemini' ? !!se.geminiKey : !!se.apiKey
+  if (!hasKey) return fallback
 
   try {
     const prompt = `Factory meeting context. Generate exactly 3 short questions (under 12 words each) that someone might ask in a meeting, where the answer would be:
@@ -7318,24 +7331,8 @@ Scenario: ${card.context}${card.hint ? ' — ' + card.hint : ''}
 
 Return ONLY a JSON array of 3 strings, no markdown, no explanation.
 Example: ["Question 1?","Question 2?","Question 3?"]`
-
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 200,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    })
-    const d = await r.json()
-    const text = d.content?.[0]?.text ?? ""
-    const questions = JSON.parse(text.replace(/```json|```/g, "").trim())
+    const text = await callAI([{ role:'user', content: prompt }], '')
+    const questions = JSON.parse(text.replace(/```json|```/g, '').trim())
     if (Array.isArray(questions) && questions.length === 3) {
       localStorage.setItem(cacheKey, JSON.stringify(questions))
       return questions
@@ -7623,12 +7620,12 @@ function DrillTab({ sentences, vocab, settings }) {
     }
     if (stage !== 'shadow') {
       setLoadingQ(true)
-      generateQuestions(card, settings?.apiKey).then(qs => {
+      generateQuestions(card).then(qs => {
         setQuestions(qs); setLoadingQ(false)
       })
     } else {
       // Silent background generation during shadow stage
-      generateQuestions(card, settings?.apiKey).then(qs => setQuestions(qs))
+      generateQuestions(card).then(qs => setQuestions(qs))
     }
   }, [cardIdx, card?.id])
 
@@ -7710,13 +7707,12 @@ function DrillTab({ sentences, vocab, settings }) {
     // Speak the boss question
     speak(fallbackQ, 0.82)
 
-    // Try AI in background (replace if faster than user thinks)
-    const apiKey = settings?.apiKey || (() => {
-      try { return JSON.parse(localStorage.getItem('fsi:se') || '{}')?.apiKey ?? '' } catch { return '' }
-    })()
-    if (apiKey) {
+    // Try AI in background
+    const se = getAISettings()
+    const hasKey = se.aiProvider === 'gemini' ? !!se.geminiKey : !!se.apiKey
+    if (hasKey) {
       setBossLoading(true)
-      generateBossFollowup(card, filledAns, apiKey).then(aiQs => {
+      generateBossFollowup(card, filledAns).then(aiQs => {
         setBossLoading(false)
         if (aiQs && aiQs.length > 0) {
           const aiQ = aiQs[Math.floor(Math.random() * aiQs.length)]
@@ -10462,7 +10458,36 @@ function PhraseTab({ settings }) {
   const [deleteConfirm, setDeleteConfirm] = useState(null) // phrase id 待確認刪除
   const [editingPhrase, setEditingPhrase] = useState(null)  // { id, en, zh }
   const [mySubcat, setMySubcat] = useState('all') // 我的收藏子分類篩選
-  const [reclassifyLoading, setReclassifyLoading] = useState(false)
+  const [myTag, setMyTag] = useState('all')   // 臨時 tag 篩選
+  const [showTagInput, setShowTagInput] = useState(null) // phrase id | null
+  const [tagDraft, setTagDraft] = useState('')
+
+  // 所有 tag 統計（動態）
+  const myTagCounts = useMemo(() => {
+    const counts = { all: extraPhrases.length }
+    extraPhrases.forEach(p => {
+      ;(p.tags ?? []).forEach(t => { counts[t] = (counts[t] ?? 0) + 1 })
+    })
+    return counts
+  }, [extraPhrases])
+
+  function addTagToPhrase(id, tag) {
+    const t = tag.trim().toLowerCase().replace(/\s+/g, '-').slice(0, 20)
+    if (!t) return
+    const updated = extraPhrases.map(p =>
+      p.id === id ? { ...p, tags: [...new Set([...(p.tags ?? []), t])] } : p
+    )
+    setExtraPhrases(updated)
+    localStorage.setItem('fsi:ph:extra', JSON.stringify(updated))
+  }
+
+  function removeTagFromPhrase(id, tag) {
+    const updated = extraPhrases.map(p =>
+      p.id === id ? { ...p, tags: (p.tags ?? []).filter(t => t !== tag) } : p
+    )
+    setExtraPhrases(updated)
+    localStorage.setItem('fsi:ph:extra', JSON.stringify(updated))
+  }
   const [reclassifyProgress, setReclassifyProgress] = useState(null)
   const [srsMap, setSrsMap] = useState(() => {
     try { return JSON.parse(localStorage.getItem(PHRASE_SRS_KEY) ?? '{}') } catch { return {} }
@@ -10493,9 +10518,13 @@ function PhraseTab({ settings }) {
   const allPhrases = [...PHRASE_DATA, ...extraPhrases]
   const basePool   = cat === 'all' ? allPhrases : allPhrases.filter(p => p.cat === cat)
   const pool       = (() => {
-    const p = (cat === 'my' && mySubcat !== 'all')
+    let p = (cat === 'my' && mySubcat !== 'all')
       ? basePool.filter(p => (p.subcat ?? '') === mySubcat)
       : basePool
+    // Tag 篩選（臨時分類）
+    if (cat === 'my' && myTag !== 'all') {
+      p = p.filter(p => (p.tags ?? []).includes(myTag))
+    }
     // fallback：my 分類空時自動用全部
     return (cat === 'my' && p.length === 0) ? allPhrases : p
   })()
@@ -11097,6 +11126,37 @@ function PhraseTab({ settings }) {
                       {p.subcat}
                     </div>
                   )}
+                  {/* Tags */}
+                  <div style={{ display:'flex', flexWrap:'wrap', gap:4, alignItems:'center' }}>
+                    {(p.tags ?? []).map(tag => (
+                      <span key={tag} style={{ fontFamily:MONO, fontSize:8, color:T.blue,
+                        background:T.blue+'15', border:`1px solid ${T.blue}40`,
+                        borderRadius:6, padding:'2px 7px', display:'inline-flex', alignItems:'center', gap:4 }}>
+                        #{tag}
+                        <span onClick={() => removeTagFromPhrase(p.id, tag)}
+                          style={{ cursor:'pointer', color:T.txt3, fontSize:9, lineHeight:1 }}>✕</span>
+                      </span>
+                    ))}
+                    {showTagInput === p.id ? (
+                      <div style={{ display:'flex', gap:4, alignItems:'center' }}>
+                        <input value={tagDraft} onChange={e => setTagDraft(e.target.value)}
+                          onKeyDown={e => { if(e.key==='Enter'){ addTagToPhrase(p.id, tagDraft); setTagDraft(''); setShowTagInput(null) } if(e.key==='Escape') setShowTagInput(null) }}
+                          placeholder="標籤名稱…" autoFocus
+                          style={{ fontFamily:MONO, fontSize:9, padding:'2px 7px', borderRadius:6, width:90,
+                            background:T.surf2, border:`1px solid ${T.blue}60`, color:T.txt }}/>
+                        <span onClick={() => { addTagToPhrase(p.id, tagDraft); setTagDraft(''); setShowTagInput(null) }}
+                          style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.grn }}>✓</span>
+                        <span onClick={() => setShowTagInput(null)}
+                          style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.red }}>✕</span>
+                      </div>
+                    ) : (
+                      <span onClick={() => { setShowTagInput(p.id); setTagDraft('') }}
+                        style={{ fontFamily:MONO, fontSize:8, color:T.txt3, cursor:'pointer',
+                          border:`1px dashed ${T.bdr2}`, borderRadius:6, padding:'2px 7px' }}>
+                        + 標籤
+                      </span>
+                    )}
+                  </div>
                   </>
                   )}
                 </div>
@@ -11204,7 +11264,7 @@ function PhraseTab({ settings }) {
               {/* ── 我的收藏子分類（listen/reveal 通用，常駐顯示）── */}
               {cat === 'my' && extraPhrases.length > 0 && phase !== 'reveal' && (
                 <MySubcatPanel counts={mySubcatCounts} selected={mySubcat}
-                  onSelect={s => { setMySubcat(s); setIdx(0); setAutoPlayed(false) }}
+                  onSelect={s => { setMySubcat(s); setMyTag('all'); setIdx(0); setAutoPlayed(false) }}
                   onReclassify={aiReclassify} reclassifyLoading={reclassifyLoading} reclassifyProgress={reclassifyProgress}
                   autoListen={autoListen} onToggleAuto={() => { const n=!autoListen; setAutoListen(n); autoListenRef.current=n; if(n) setAutoPlayed(false); if(!n){setSleepEnd(null);setSleepMins(null)} }}
                   shuffleMode={shuffleMode} onToggleShuffle={() => setShuffleMode(m => !m)}
@@ -11214,6 +11274,28 @@ function PhraseTab({ settings }) {
                     if (!m || m === sleepMins) { setSleepMins(null); setSleepEnd(null) }
                     else { setSleepMins(m); setSleepEnd(Date.now() + m * 60000) }
                   }}/>
+              )}
+              {/* ── 臨時 Tag 篩選列 ── */}
+              {cat === 'my' && Object.keys(myTagCounts).length > 1 && (
+                <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                  <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, letterSpacing:'0.08em' }}>🏷 臨時標籤篩選</div>
+                  <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
+                    {Object.entries(myTagCounts).map(([tag, cnt]) => {
+                      const active = myTag === tag
+                      return (
+                        <div key={tag} onClick={() => { setMyTag(tag); setIdx(0) }}
+                          style={{ padding:'4px 10px', borderRadius:10, cursor:'pointer',
+                            fontFamily:MONO, fontSize:9,
+                            background: active ? T.blue+'25' : T.surf2,
+                            border:`1px solid ${active ? T.blue+'80' : T.bdr}`,
+                            color: active ? T.blue : T.txt3,
+                            fontWeight: active ? 700 : 400, transition:'all 0.12s' }}>
+                          {tag === 'all' ? `全部 (${cnt})` : `#${tag} (${cnt})`}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
               )}
             </>
           )}
@@ -12132,14 +12214,22 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
   const [key, setKey] = useState(() => {
     try { return JSON.parse(localStorage.getItem('fsi:se') || '{}')?.apiKey ?? '' } catch { return '' }
   })
+  const [geminiKey, setGeminiKey] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('fsi:se') || '{}')?.geminiKey ?? '' } catch { return '' }
+  })
+  const [aiProvider, setAiProvider] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('fsi:se') || '{}')?.aiProvider ?? 'anthropic' } catch { return 'anthropic' }
+  })
   const [elevenKey, setElevenKey] = useState(() => {
     try { return JSON.parse(localStorage.getItem('fsi:se') || '{}')?.elevenKey ?? '' } catch { return '' }
   })
-  // 仍保留 prop sync（例如 Sheets 同步後更新）
+  const [showGeminiKey, setShowGeminiKey] = useState(false)
   useEffect(() => {
     if (settings?.apiKey)    setKey(settings.apiKey)
+    if (settings?.geminiKey) setGeminiKey(settings.geminiKey)
+    if (settings?.aiProvider) setAiProvider(settings.aiProvider)
     if (settings?.elevenKey) setElevenKey(settings.elevenKey)
-  }, [settings?.apiKey, settings?.elevenKey])
+  }, [settings?.apiKey, settings?.geminiKey, settings?.aiProvider, settings?.elevenKey])
   const [showKey, setShowKey] = useState(false)
   const [showElevenKey, setShowElevenKey] = useState(false)
   const [syncing, setSyncing] = useState(false)
@@ -12327,8 +12417,7 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
   }
 
   function save() {
-    const newSettings = { apiKey: key.trim(), elevenKey: elevenKey.trim() }
-    // 先同步寫入 localStorage，再更新 React state
+    const newSettings = { apiKey: key.trim(), geminiKey: geminiKey.trim(), aiProvider, elevenKey: elevenKey.trim() }
     try { localStorage.setItem('fsi:se', JSON.stringify(newSettings)) } catch(e) {}
     updateSettings(() => newSettings)
     flash('✓ API Keys 已儲存')
@@ -12416,16 +12505,61 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
 
   return (
     <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:18 }} className="fadeUp">
-      {/* API Key */}
+
+      {/* ── AI 供應商切換 ── */}
       <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
-        <label style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>ANTHROPIC API KEY</label>
+        <label style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>🤖 AI 供應商</label>
+        <div style={{ display:'flex', gap:8 }}>
+          {[
+            { id:'anthropic', label:'Anthropic Claude', sub:'claude-haiku', color:T.amber },
+            { id:'gemini',    label:'Google Gemini',   sub:'gemini-2.0-flash', color:'#4285f4' },
+          ].map(p => {
+            const active = aiProvider === p.id
+            return (
+              <div key={p.id} onClick={() => setAiProvider(p.id)}
+                style={{ flex:1, padding:'10px 12px', borderRadius:12, cursor:'pointer',
+                  background: active ? p.color+'18' : T.surf2,
+                  border:`2px solid ${active ? p.color+'90' : T.bdr}`,
+                  display:'flex', flexDirection:'column', gap:3, transition:'all 0.14s' }}>
+                <span style={{ fontFamily:MONO, fontSize:10, color: active ? p.color : T.txt2, fontWeight: active ? 700 : 400 }}>{p.label}</span>
+                <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>{p.sub}</span>
+                {active && <span style={{ fontFamily:MONO, fontSize:8, color:p.color }}>✓ 使用中</span>}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Anthropic API Key */}
+      <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
+        <label style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>
+          ANTHROPIC API KEY {aiProvider === 'anthropic' && <span style={{color:T.grn}}>★ 使用中</span>}
+        </label>
         <div style={{ display:'flex', gap:8 }}>
           <input type={showKey ? 'text' : 'password'} value={key} onChange={e=>setKey(e.target.value)} placeholder="sk-ant-api03-…" style={{ flex:1 }}/>
           <button className="btn" onClick={()=>setShowKey(s=>!s)} style={{ background:T.bdr, color:T.txt2, padding:'10px 13px', fontSize:13 }}>
             {showKey ? '🙈' : '👁'}
           </button>
         </div>
-        <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>Required for AI Analysis tab and auto-generated context hints.</span>
+        <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+          免費版：<a href="https://console.anthropic.com" target="_blank" rel="noreferrer" style={{color:T.amber}}>console.anthropic.com</a> → API Keys
+        </span>
+      </div>
+
+      {/* Gemini API Key */}
+      <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
+        <label style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>
+          GEMINI API KEY {aiProvider === 'gemini' && <span style={{color:'#4285f4'}}>★ 使用中</span>}
+        </label>
+        <div style={{ display:'flex', gap:8 }}>
+          <input type={showGeminiKey ? 'text' : 'password'} value={geminiKey} onChange={e=>setGeminiKey(e.target.value)} placeholder="AIza…" style={{ flex:1 }}/>
+          <button className="btn" onClick={()=>setShowGeminiKey(s=>!s)} style={{ background:T.bdr, color:T.txt2, padding:'10px 13px', fontSize:13 }}>
+            {showGeminiKey ? '🙈' : '👁'}
+          </button>
+        </div>
+        <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+          免費版：<a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{color:'#4285f4'}}>aistudio.google.com</a> → Get API Key
+        </span>
       </div>
 
       {/* ElevenLabs Key */}
@@ -13036,7 +13170,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.21</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.22</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
