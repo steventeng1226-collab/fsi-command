@@ -10830,32 +10830,33 @@ function PhraseTab({ settings }) {
     if (!extraPhrases.length) { flash('我的收藏目前沒有句子'); return }
     setCreatingTempCat(true)
     try {
-      // Step 1: 關鍵字預篩（中英文都比對），降低 API payload
-      const topicWords = topic.trim().toLowerCase()
-        .split(/[\s，,、\/]+/).filter(w => w.length > 1)
-      const scored = extraPhrases.map(p => {
-        const text = (p.en + ' ' + (p.zh ?? '')).toLowerCase()
-        const score = topicWords.filter(w => text.includes(w)).length
-        return { p, score }
-      })
-      scored.sort((a, b) => b.score - a.score)
-      // 取前 200（關鍵字命中優先，其次隨機補足）
-      const toSend = scored.slice(0, 200).map(s => ({ id: s.p.id, en: s.p.en, zh: s.p.zh ?? '' }))
+      // Step 1: AI 生成語意關鍵字（只送主題詞，payload 極小）
+      const system = 'You are a language learning assistant. Given a topic keyword (possibly in Chinese or English), generate 12-15 English keywords and short phrases that commonly appear in English sentences related to this topic. Include both single words and short phrases (2-3 words). Return ONLY a JSON array of lowercase strings. No markdown, no explanation.'
+      const raw = await callAI([{ role: 'user', content: `Topic: "${topic.trim()}"` }], system)
+      const keywords = JSON.parse(raw.replace(/```json|```/g, '').trim())
+      if (!Array.isArray(keywords) || keywords.length === 0) {
+        flash('AI 無法生成關鍵字，請重試'); return
+      }
 
-      const system = 'You are a phrase classifier. Given a list of phrases and a topic keyword, return ONLY a JSON array of phrase IDs relevant to the topic. Return [] if none match. No markdown, no explanation.'
-      const prompt = `Topic: "${topic.trim()}"\n\nPhrases:\n${JSON.stringify(toSend)}`
-      const raw = await callAI([{ role: 'user', content: prompt }], system)
-      const ids = JSON.parse(raw.replace(/```json|```/g, '').trim())
-      if (!Array.isArray(ids) || ids.length === 0) {
+      // Step 2: 本地關鍵字掃描（不需呼叫 API）
+      const kwLower = keywords.map(k => k.toLowerCase().trim()).filter(k => k.length > 1)
+      const matched = extraPhrases.filter(p => {
+        const text = (p.en + ' ' + (p.zh ?? '')).toLowerCase()
+        return kwLower.some(kw => text.includes(kw))
+      })
+
+      if (matched.length === 0) {
         flash('找不到相關句子，請換個關鍵字'); return
       }
-      const newTc = { id: 'tc_' + Date.now(), name: topic.trim(), phraseIds: ids, createdAt: Date.now() }
+
+      const phraseIds = matched.map(p => p.id)
+      const newTc = { id: 'tc_' + Date.now(), name: topic.trim(), phraseIds, createdAt: Date.now() }
       const updated = [...tempCats, newTc]
       setTempCats(updated)
       localStorage.setItem('fsi:ph:tempCats', JSON.stringify(updated))
       setNewTempTopic('')
       setShowTempCatInput(false)
-      flash(`✓ 臨時分類「${topic.trim()}」建立（${ids.length} 句）`)
+      flash(`✓ 臨時分類「${topic.trim()}」建立（${phraseIds.length} 句）`)
     } catch(e) {
       flash('AI 分類失敗，請重試')
     } finally {
