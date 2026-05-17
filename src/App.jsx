@@ -10461,6 +10461,14 @@ function PhraseTab({ settings }) {
   const [myTag, setMyTag] = useState('all')   // 臨時 tag 篩選
   const [showTagInput, setShowTagInput] = useState(null) // phrase id | null
   const [tagDraft, setTagDraft] = useState('')
+  // ── 臨時分類 ─────────────────────────────────────────────────
+  const [tempCats, setTempCats] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('fsi:ph:tempCats') ?? '[]') } catch { return [] }
+  })
+  const [activeTempCatId, setActiveTempCatId] = useState(null)
+  const [newTempTopic, setNewTempTopic] = useState('')
+  const [showTempCatInput, setShowTempCatInput] = useState(false)
+  const [creatingTempCat, setCreatingTempCat] = useState(false)
 
   // 所有 tag 統計（動態）
   const myTagCounts = useMemo(() => {
@@ -10519,10 +10527,18 @@ function PhraseTab({ settings }) {
   const allPhrases = [...PHRASE_DATA, ...extraPhrases]
   const basePool   = cat === 'all' ? allPhrases : allPhrases.filter(p => p.cat === cat)
   const pool       = (() => {
+    // 臨時分類優先
+    if (activeTempCatId && cat === 'my') {
+      const tc = tempCats.find(t => t.id === activeTempCatId)
+      if (tc) {
+        const matched = extraPhrases.filter(p => tc.phraseIds.includes(p.id))
+        return matched.length > 0 ? matched : extraPhrases
+      }
+    }
     let p = (cat === 'my' && mySubcat !== 'all')
       ? basePool.filter(p => (p.subcat ?? '') === mySubcat)
       : basePool
-    // Tag 篩選（臨時分類）
+    // Tag 篩選
     if (cat === 'my' && myTag !== 'all') {
       p = p.filter(p => (p.tags ?? []).includes(myTag))
     }
@@ -10803,6 +10819,47 @@ function PhraseTab({ settings }) {
   }
 
   // ── 共用：大喇叭按鈕組（定義在 PhraseTab 外部，避免 hoisting 問題）───
+
+  // ── 臨時分類 functions ────────────────────────────────────────
+  async function createTempCat(topic) {
+    const apiKey = settings?.apiKey || (() => {
+      try { return JSON.parse(localStorage.getItem('fsi:se') || '{}')?.apiKey ?? '' } catch { return '' }
+    })()
+    if (!apiKey) { flash('請先設定 API Key'); return }
+    if (!topic.trim()) return
+    if (!extraPhrases.length) { flash('我的收藏目前沒有句子'); return }
+    setCreatingTempCat(true)
+    try {
+      const phraseList = extraPhrases.map(p => ({ id: p.id, en: p.en, zh: p.zh ?? '' }))
+      const system = 'You are a phrase classifier. Given a list of phrases and a topic keyword, return ONLY a JSON array of phrase IDs relevant to the topic. Return [] if none match. No markdown, no explanation.'
+      const prompt = `Topic: "${topic.trim()}"\n\nPhrases:\n${JSON.stringify(phraseList)}`
+      const raw = await callAI([{ role: 'user', content: prompt }], system)
+      const ids = JSON.parse(raw.replace(/```json|```/g, '').trim())
+      if (!Array.isArray(ids) || ids.length === 0) {
+        flash('找不到相關句子，請換個關鍵字'); return
+      }
+      const newTc = { id: 'tc_' + Date.now(), name: topic.trim(), phraseIds: ids, createdAt: Date.now() }
+      const updated = [...tempCats, newTc]
+      setTempCats(updated)
+      localStorage.setItem('fsi:ph:tempCats', JSON.stringify(updated))
+      setNewTempTopic('')
+      setShowTempCatInput(false)
+      flash(`✓ 臨時分類「${topic.trim()}」建立（${ids.length} 句）`)
+    } catch(e) {
+      flash('AI 分類失敗，請重試')
+    } finally {
+      setCreatingTempCat(false)
+    }
+  }
+
+  function dissolveTempCat(id) {
+    const tc = tempCats.find(t => t.id === id)
+    const updated = tempCats.filter(t => t.id !== id)
+    setTempCats(updated)
+    localStorage.setItem('fsi:ph:tempCats', JSON.stringify(updated))
+    if (activeTempCatId === id) setActiveTempCatId(null)
+    if (tc) flash(`🗑 「${tc.name}」已解散`)
+  }
 
   const CAT_COLORS = { opening:'#58a6ff', capacity:'#f5a623', quality:'#3fb950', cost:'#f85149', action:'#a371f7', life:'#f78166' }
   const cc = CAT_COLORS[card?.cat] ?? '#f5a623'
@@ -11175,6 +11232,35 @@ function PhraseTab({ settings }) {
             </div>
           ) : (
             <>
+              {/* ── 臨時分類 Active Banner ── */}
+              {activeTempCatId && cat === 'my' && (() => {
+                const tc = tempCats.find(t => t.id === activeTempCatId)
+                if (!tc) return null
+                const count = extraPhrases.filter(p => tc.phraseIds.includes(p.id)).length
+                return (
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+                    padding:'8px 12px', background:'#a371f718', border:'1px solid #a371f750',
+                    borderRadius:10 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:7 }}>
+                      <span style={{ fontSize:14 }}>🏷</span>
+                      <span style={{ fontFamily:MONO, fontSize:10, color:'#a371f7', fontWeight:700 }}>{tc.name}</span>
+                      <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>({count} 句)</span>
+                    </div>
+                    <div style={{ display:'flex', gap:6 }}>
+                      <div onClick={() => setActiveTempCatId(null)}
+                        style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
+                          padding:'3px 8px', background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:6 }}>
+                        取消
+                      </div>
+                      <div onClick={() => dissolveTempCat(tc.id)}
+                        style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.red,
+                          padding:'3px 8px', background:T.redD, border:`1px solid ${T.red}40`, borderRadius:6 }}>
+                        解散
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
               {phase === 'listen' && (
                 <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:10 }}>
                   {/* 句子卡片 */}
@@ -11299,6 +11385,92 @@ function PhraseTab({ settings }) {
                 </div>
               )}
             </>
+          )}
+          {/* ── 臨時分類管理 ── */}
+          {cat === 'my' && (
+            <div style={{ display:'flex', flexDirection:'column', gap:8, paddingTop:4 }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3, letterSpacing:'0.1em' }}>🏷 臨時分類</span>
+                <div onClick={() => { setShowTempCatInput(v => !v); setNewTempTopic('') }}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, padding:'3px 9px', borderRadius:7,
+                    background: showTempCatInput ? '#a371f725' : T.surf2,
+                    border:`1px solid ${showTempCatInput ? '#a371f760' : T.bdr}`,
+                    color: showTempCatInput ? '#a371f7' : T.txt3, transition:'all 0.14s' }}>
+                  {showTempCatInput ? '✕ 取消' : '+ 建立'}
+                </div>
+              </div>
+
+              {/* 建立新臨時分類 */}
+              {showTempCatInput && (
+                <div style={{ display:'flex', flexDirection:'column', gap:7, background:T.surf2,
+                  border:`1px solid #a371f740`, borderRadius:10, padding:'11px 12px' }} className="fadeUp">
+                  <div style={{ fontFamily:MONO, fontSize:8, color:'#a371f7', letterSpacing:'0.08em' }}>
+                    AI 從我的收藏中找出相關句子
+                  </div>
+                  <input value={newTempTopic} onChange={e => setNewTempTopic(e.target.value)}
+                    onKeyDown={e => e.key==='Enter' && !creatingTempCat && newTempTopic.trim() && createTempCat(newTempTopic)}
+                    placeholder="輸入主題，如：健康、道歉、旅遊…"
+                    style={{ background:T.surf, border:`1px solid #a371f750`, borderRadius:7,
+                      padding:'8px 11px', fontFamily:MONO, fontSize:12, color:T.txt, outline:'none' }}/>
+                  <button className="btn" onClick={() => createTempCat(newTempTopic)}
+                    disabled={creatingTempCat || !newTempTopic.trim()}
+                    style={{ background: creatingTempCat ? T.surf : '#a371f720',
+                      border:`1px solid ${creatingTempCat ? T.bdr : '#a371f760'}`,
+                      color: creatingTempCat ? T.txt3 : '#a371f7',
+                      fontSize:11, padding:'8px', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+                    {creatingTempCat
+                      ? <><span style={{ display:'inline-block', width:9, height:9, border:'1.5px solid transparent', borderTopColor:'#a371f7', borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>{' '}AI 搜尋中…</>
+                      : '🤖 AI 找句子'}
+                  </button>
+                </div>
+              )}
+
+              {/* 現有臨時分類清單 */}
+              {tempCats.map(tc => {
+                const count = extraPhrases.filter(p => tc.phraseIds.includes(p.id)).length
+                const isActive = activeTempCatId === tc.id
+                return (
+                  <div key={tc.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+                    padding:'8px 12px', borderRadius:10,
+                    background: isActive ? '#a371f720' : T.surf2,
+                    border:`1px solid ${isActive ? '#a371f780' : T.bdr}`,
+                    transition:'all 0.14s' }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:7, flex:1, minWidth:0 }}>
+                      <span style={{ fontSize:13 }}>🏷</span>
+                      <span style={{ fontFamily:MONO, fontSize:11, color: isActive ? '#a371f7' : T.txt,
+                        fontWeight: isActive ? 700 : 400, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                        {tc.name}
+                      </span>
+                      <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3, flexShrink:0 }}>({count} 句)</span>
+                    </div>
+                    <div style={{ display:'flex', gap:5, flexShrink:0 }}>
+                      <div onClick={() => {
+                          if (isActive) { setActiveTempCatId(null) }
+                          else { setActiveTempCatId(tc.id); setMySubcat('all'); setMyTag('all'); setIdx(0); setAutoPlayed(false) }
+                        }}
+                        style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, padding:'3px 9px', borderRadius:7,
+                          background: isActive ? '#a371f7' : '#a371f720',
+                          border:`1px solid ${isActive ? '#a371f7' : '#a371f750'}`,
+                          color: isActive ? '#050810' : '#a371f7', fontWeight: isActive ? 700 : 400,
+                          transition:'all 0.14s' }}>
+                        {isActive ? '✓ 練習中' : '練習'}
+                      </div>
+                      <div onClick={() => dissolveTempCat(tc.id)}
+                        style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, padding:'3px 9px', borderRadius:7,
+                          background:T.redD, border:`1px solid ${T.red}40`, color:T.red }}>
+                        解散
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+
+              {tempCats.length === 0 && !showTempCatInput && (
+                <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, textAlign:'center', padding:'6px 0' }}>
+                  尚無臨時分類，點「+ 建立」讓 AI 幫你找句子
+                </div>
+              )}
+            </div>
           )}
           </> )} {/* end showMyList ternary */}
         </>
