@@ -11249,24 +11249,50 @@ function PhraseTab({ settings }) {
                 if (!tc) return null
                 const count = extraPhrases.filter(p => tc.phraseIds.includes(p.id)).length
                 return (
-                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
-                    padding:'8px 12px', background:'#a371f718', border:'1px solid #a371f750',
+                  <div style={{ display:'flex', flexDirection:'column', gap:6,
+                    padding:'10px 12px', background:'#a371f718', border:'1px solid #a371f750',
                     borderRadius:10 }}>
-                    <div style={{ display:'flex', alignItems:'center', gap:7 }}>
-                      <span style={{ fontSize:14 }}>🏷</span>
-                      <span style={{ fontFamily:MONO, fontSize:10, color:'#a371f7', fontWeight:700 }}>{tc.name}</span>
-                      <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>({count} 句)</span>
-                    </div>
-                    <div style={{ display:'flex', gap:6 }}>
-                      <div onClick={() => setActiveTempCatId(null)}
-                        style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
-                          padding:'3px 8px', background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:6 }}>
-                        取消
+                    {/* 第一列：名稱 + 取消/解散 */}
+                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:7 }}>
+                        <span style={{ fontSize:14 }}>🏷</span>
+                        <span style={{ fontFamily:MONO, fontSize:10, color:'#a371f7', fontWeight:700 }}>{tc.name}</span>
+                        <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>({count} 句)</span>
                       </div>
-                      <div onClick={() => dissolveTempCat(tc.id)}
-                        style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.red,
-                          padding:'3px 8px', background:T.redD, border:`1px solid ${T.red}40`, borderRadius:6 }}>
-                        解散
+                      <div style={{ display:'flex', gap:5 }}>
+                        <div onClick={() => setActiveTempCatId(null)}
+                          style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
+                            padding:'3px 8px', background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:6 }}>
+                          取消
+                        </div>
+                        <div onClick={() => dissolveTempCat(tc.id)}
+                          style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.red,
+                            padding:'3px 8px', background:T.redD, border:`1px solid ${T.red}40`, borderRadius:6 }}>
+                          解散
+                        </div>
+                      </div>
+                    </div>
+                    {/* 第二列：騎車快捷控制 */}
+                    <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                      <span style={{ fontFamily:MONO, fontSize:8, color:'#a371f7', opacity:0.8 }}>🚴 騎車</span>
+                      <div onClick={() => { setShuffleMode(m => !m) }}
+                        style={{ cursor:'pointer', fontFamily:MONO, fontSize:12, padding:'4px 10px',
+                          borderRadius:8, border:`1px solid ${shuffleMode ? T.grn+'70' : T.bdr}`,
+                          background: shuffleMode ? T.grnD : T.surf2,
+                          color: shuffleMode ? T.grn : T.txt3, transition:'all 0.14s' }}>
+                        🔀 {shuffleMode ? '隨機 ON' : '隨機 OFF'}
+                      </div>
+                      <div onClick={() => {
+                          const n = !autoListen
+                          setAutoListen(n); autoListenRef.current = n
+                          if (n) setAutoPlayed(false)
+                        }}
+                        style={{ cursor:'pointer', fontFamily:MONO, fontSize:12, padding:'4px 14px',
+                          borderRadius:8, fontWeight:700,
+                          border:`1px solid ${autoListen ? T.amber+'80' : T.bdr}`,
+                          background: autoListen ? T.amber : T.surf2,
+                          color: autoListen ? T.bg : T.txt3, transition:'all 0.14s' }}>
+                        {autoListen ? '⏸ 暫停' : '▶ 自動播'}
                       </div>
                     </div>
                   </div>
@@ -11455,6 +11481,18 @@ function PhraseTab({ settings }) {
                       <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3, flexShrink:0 }}>({count} 句)</span>
                     </div>
                     <div style={{ display:'flex', gap:5, flexShrink:0 }}>
+                      {/* 🚴 一鍵騎車：啟動 + 隨機 + 自動播 */}
+                      <div onClick={() => {
+                          setActiveTempCatId(tc.id)
+                          setMySubcat('all'); setMyTag('all'); setIdx(0); setAutoPlayed(false)
+                          setShuffleMode(true)
+                          setAutoListen(true); autoListenRef.current = true
+                        }}
+                        title="隨機自動播放（騎車模式）"
+                        style={{ cursor:'pointer', fontFamily:MONO, fontSize:12, padding:'3px 10px', borderRadius:7,
+                          background: T.grnD, border:`1px solid ${T.grn}50`, color:T.grn }}>
+                        🚴
+                      </div>
                       <div onClick={() => {
                           if (isActive) { setActiveTempCatId(null) }
                           else { setActiveTempCatId(tc.id); setMySubcat('all'); setMyTag('all'); setIdx(0); setAutoPlayed(false) }
