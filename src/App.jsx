@@ -10616,7 +10616,7 @@ function PhraseTab({ settings }) {
       clearTimeout(timer)
       window.speechSynthesis?.cancel()
     }
-  }, [autoListen, pMode, phase, card?.id])  // ← autoPlayed 不在 deps
+  }, [autoListen, pMode, phase, card?.id, autoPlayed])
 
   // ── Effect 2：語音鏈結束後跳下一句
   useEffect(() => {
