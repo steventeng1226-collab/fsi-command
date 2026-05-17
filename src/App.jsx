@@ -10572,47 +10572,39 @@ function PhraseTab({ settings }) {
   // ── 句型：自動播放（只有 autoListen 開啟時才自動播音）────────
   useEffect(() => { setPhase('listen'); setAutoPlayed(false) }, [idx, cat])
 
-  // 自動播放：EN×2（0.6x）→ ZH（0.9x）→ 下一句
+  // ── Effect 1：語音鏈 EN×2 → ZH（autoPlayed 不在 deps，避免 cleanup 中斷）
   useEffect(() => {
     if (!autoListen || pMode !== 'sentence' || phase !== 'listen' || autoPlayed || !card) return
-    setAutoPlayed(true)
     window.speechSynthesis?.cancel()
-    let stopped = false
-    const timer = setTimeout(() => {
-      if (!autoListenRef.current || stopped) return
 
-      function advance() {
-        if (stopped || !autoListenRef.current) return
-        setTimeout(() => {
-          if (!autoListenRef.current) return
-          if (shuffleModeRef.current && queue.length > 1) {
-            setIdx(i => { let n; do { n = Math.floor(Math.random() * queue.length) } while (n === i); return n })
-          } else {
-            setIdx(i => (i + 1) % queue.length)
-          }
-        }, 600)
+    const timer = setTimeout(() => {
+      if (!autoListenRef.current) return
+
+      function afterAll() {
+        // 語音全部說完才 setAutoPlayed，觸發 Effect 2 跳下一句
+        if (autoListenRef.current) setAutoPlayed(true)
       }
 
-      // EN 第一次
+      // EN 第一次（0.6x）
       const u1 = new SpeechSynthesisUtterance(card.en)
       u1.lang = 'en-US'; u1.rate = 0.6
       u1.onend = u1.onerror = () => {
-        if (!autoListenRef.current || stopped) return
-        // EN 第二次
+        if (!autoListenRef.current) return
+        // EN 第二次（0.6x）
         const u2 = new SpeechSynthesisUtterance(card.en)
         u2.lang = 'en-US'; u2.rate = 0.6
         u2.onend = u2.onerror = () => {
-          if (!autoListenRef.current || stopped) return
+          if (!autoListenRef.current) return
           const zhText = card.zh?.trim()
           if (zhText) {
-            // ZH 一次
+            // ZH（0.9x）
             const u3 = new SpeechSynthesisUtterance(zhText)
             u3.lang = /[一-鿿]/.test(zhText) ? 'zh-TW' : 'en-US'
             u3.rate = 0.9
-            u3.onend = u3.onerror = () => advance()
+            u3.onend = u3.onerror = () => afterAll()
             window.speechSynthesis?.speak(u3)
           } else {
-            advance()
+            afterAll()
           }
         }
         window.speechSynthesis?.speak(u2)
@@ -10621,11 +10613,24 @@ function PhraseTab({ settings }) {
     }, 400)
 
     return () => {
-      stopped = true
       clearTimeout(timer)
       window.speechSynthesis?.cancel()
     }
-  }, [autoListen, pMode, phase, autoPlayed, card?.id])
+  }, [autoListen, pMode, phase, card?.id])  // ← autoPlayed 不在 deps
+
+  // ── Effect 2：語音鏈結束後跳下一句
+  useEffect(() => {
+    if (!autoPlayed || phase !== 'listen') return
+    const t = setTimeout(() => {
+      if (!autoListenRef.current) return
+      if (shuffleModeRef.current && queue.length > 1) {
+        setIdx(i => { let n; do { n = Math.floor(Math.random() * queue.length) } while (n === i); return n })
+      } else {
+        setIdx(i => (i + 1) % queue.length)
+      }
+    }, 600)
+    return () => clearTimeout(t)
+  }, [autoPlayed])
 
   useEffect(() => { autoListenRef.current = autoListen }, [autoListen])
   useEffect(() => { shuffleModeRef.current = shuffleMode }, [shuffleMode])
