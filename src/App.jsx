@@ -10830,9 +10830,20 @@ function PhraseTab({ settings }) {
     if (!extraPhrases.length) { flash('我的收藏目前沒有句子'); return }
     setCreatingTempCat(true)
     try {
-      const phraseList = extraPhrases.map(p => ({ id: p.id, en: p.en, zh: p.zh ?? '' }))
+      // Step 1: 關鍵字預篩（中英文都比對），降低 API payload
+      const topicWords = topic.trim().toLowerCase()
+        .split(/[\s，,、\/]+/).filter(w => w.length > 1)
+      const scored = extraPhrases.map(p => {
+        const text = (p.en + ' ' + (p.zh ?? '')).toLowerCase()
+        const score = topicWords.filter(w => text.includes(w)).length
+        return { p, score }
+      })
+      scored.sort((a, b) => b.score - a.score)
+      // 取前 200（關鍵字命中優先，其次隨機補足）
+      const toSend = scored.slice(0, 200).map(s => ({ id: s.p.id, en: s.p.en, zh: s.p.zh ?? '' }))
+
       const system = 'You are a phrase classifier. Given a list of phrases and a topic keyword, return ONLY a JSON array of phrase IDs relevant to the topic. Return [] if none match. No markdown, no explanation.'
-      const prompt = `Topic: "${topic.trim()}"\n\nPhrases:\n${JSON.stringify(phraseList)}`
+      const prompt = `Topic: "${topic.trim()}"\n\nPhrases:\n${JSON.stringify(toSend)}`
       const raw = await callAI([{ role: 'user', content: prompt }], system)
       const ids = JSON.parse(raw.replace(/```json|```/g, '').trim())
       if (!Array.isArray(ids) || ids.length === 0) {
