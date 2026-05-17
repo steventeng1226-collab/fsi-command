@@ -1,12 +1,31 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FSI Command</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/App.jsx"></script>
-  </body>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#050810" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="FSI Command" />
+  <meta name="description" content="FSI English Substitution Drill — Business English Practice" />
+  <link rel="manifest" href="/fsi-command/manifest.json" />
+  <link rel="apple-touch-icon" href="/fsi-command/icon-apple.svg" />
+  <link rel="icon" type="image/svg+xml" href="/fsi-command/icon.svg" />
+  <title>FSI Command</title>
+  <style>
+    html,body,#root{height:100%;background:#050810;margin:0;padding:0;overscroll-behavior:none;}
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+  <script>
+    // Unregister all service workers to prevent stale cache issues
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        regs.forEach(r => r.unregister())
+      })
+    }
+  </script>
+</body>
 </html>
