@@ -7071,7 +7071,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.22</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.23</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -10440,6 +10440,7 @@ function PhraseTab({ settings }) {
   const [sleepEnd,   setSleepEnd]   = useState(null)   // 計時結束 timestamp
   const [sleepLeft,  setSleepLeft]  = useState(null)   // 剩餘秒數（顯示用）
   const autoListenRef = useRef(false)
+  const shuffleModeRef = useRef(false)
   const [doneIds,    setDoneIds]    = useState(() => {
     try { return new Set(JSON.parse(localStorage.getItem('fsi:ph:done') ?? '[]')) } catch { return new Set() }
   })
@@ -10570,35 +10571,64 @@ function PhraseTab({ settings }) {
 
   // ── 句型：自動播放（只有 autoListen 開啟時才自動播音）────────
   useEffect(() => { setPhase('listen'); setAutoPlayed(false) }, [idx, cat])
-  useEffect(() => {
-    if (autoListen && pMode === 'sentence' && phase === 'listen' && !autoPlayed && card) {
-      const t = setTimeout(() => {
-        speakEn(card.en, 0.6)
-        setAutoPlayed(true)
-      }, 400)
-      return () => clearTimeout(t)
-    }
-  }, [phase, autoPlayed, card, pMode, autoListen])
 
-  // 自動播放模式：播完後自動跳下一句（支援隨機）
+  // 自動播放：EN×2（0.6x）→ ZH（0.9x）→ 下一句
   useEffect(() => {
-    if (!autoListen || !autoPlayed || phase !== 'listen' || !card) return
-    const dur = Math.max(2800, card.en.split(' ').length * 650 + 1500)
-    const t = setTimeout(() => {
-      if (shuffleMode && queue.length > 1) {
-        setIdx(i => {
-          let next
-          do { next = Math.floor(Math.random() * queue.length) } while (next === i)
-          return next
-        })
-      } else {
-        setIdx(i => (i + 1) % queue.length)
+    if (!autoListen || pMode !== 'sentence' || phase !== 'listen' || autoPlayed || !card) return
+    setAutoPlayed(true)
+    window.speechSynthesis?.cancel()
+    let stopped = false
+    const timer = setTimeout(() => {
+      if (!autoListenRef.current || stopped) return
+
+      function advance() {
+        if (stopped || !autoListenRef.current) return
+        setTimeout(() => {
+          if (!autoListenRef.current) return
+          if (shuffleModeRef.current && queue.length > 1) {
+            setIdx(i => { let n; do { n = Math.floor(Math.random() * queue.length) } while (n === i); return n })
+          } else {
+            setIdx(i => (i + 1) % queue.length)
+          }
+        }, 600)
       }
-    }, dur)
-    return () => clearTimeout(t)
-  }, [autoListen, autoPlayed, card, phase, shuffleMode])
+
+      // EN 第一次
+      const u1 = new SpeechSynthesisUtterance(card.en)
+      u1.lang = 'en-US'; u1.rate = 0.6
+      u1.onend = u1.onerror = () => {
+        if (!autoListenRef.current || stopped) return
+        // EN 第二次
+        const u2 = new SpeechSynthesisUtterance(card.en)
+        u2.lang = 'en-US'; u2.rate = 0.6
+        u2.onend = u2.onerror = () => {
+          if (!autoListenRef.current || stopped) return
+          const zhText = card.zh?.trim()
+          if (zhText) {
+            // ZH 一次
+            const u3 = new SpeechSynthesisUtterance(zhText)
+            u3.lang = /[一-鿿]/.test(zhText) ? 'zh-TW' : 'en-US'
+            u3.rate = 0.9
+            u3.onend = u3.onerror = () => advance()
+            window.speechSynthesis?.speak(u3)
+          } else {
+            advance()
+          }
+        }
+        window.speechSynthesis?.speak(u2)
+      }
+      window.speechSynthesis?.speak(u1)
+    }, 400)
+
+    return () => {
+      stopped = true
+      clearTimeout(timer)
+      window.speechSynthesis?.cancel()
+    }
+  }, [autoListen, pMode, phase, autoPlayed, card?.id])
 
   useEffect(() => { autoListenRef.current = autoListen }, [autoListen])
+  useEffect(() => { shuffleModeRef.current = shuffleMode }, [shuffleMode])
 
   // ── 睡眠計時器 ────────────────────────────────────────────────
   useEffect(() => {
@@ -10805,10 +10835,13 @@ function PhraseTab({ settings }) {
     try {
       const raw = await callClaude(apiKey, [{ role:'user', content: prompt }], sys)
       const parsed = JSON.parse(raw.replace(/```json|```/g,'').trim())
-      setConv(parsed.exchanges ?? [])
+      const exchanges = parsed.exchanges ?? []
+      if (exchanges.length === 0) throw new Error('empty exchanges')
+      setConv(exchanges)
       setConvStep(0)
     } catch(e) {
       setConvErr('AI 產生失敗，請重試')
+      setChosenScene(null)  // 重置回場景選擇，避免黑畫面
     } finally { setConvLoading(false) }
   }
 
@@ -13393,7 +13426,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.22</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.23</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
