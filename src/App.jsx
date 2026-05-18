@@ -7071,7 +7071,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.23</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.24</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -10395,28 +10395,18 @@ function SpeakRow({ text, color }) {
     window.speechSynthesis.speak(u)
   }
   return (
-    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:12 }}>
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
       <div onClick={() => speakEn(text, 0.6)}
-        style={{ minWidth:108, height:78, borderRadius:10, background:color+'18', border:'2px solid '+color+'60',
-          display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
-          cursor:'pointer', gap:2, padding:'0 16px' }}>
-        <span style={{ fontSize:26 }}>🐢</span>
-        <span style={{ fontFamily:MONO, fontSize:13, color, fontWeight:600 }}>0.6x</span>
-      </div>
-      <div style={{ width:64, height:64, borderRadius:'50%', background:color+'18', border:'2px solid '+color+'40',
-        display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-          <path d="M3 9h4l5-5v16l-5-5H3z" stroke={color} strokeWidth="1.5" fill={color+'30'}/>
-          <path d="M16 6.5a5.5 5.5 0 010 11" stroke={color} strokeWidth="1.5" strokeLinecap="round"/>
-          <path d="M13.5 9a2.5 2.5 0 010 5" stroke={color} strokeWidth="1.5" strokeLinecap="round"/>
-        </svg>
+        style={{ padding:'6px 16px', borderRadius:8, background:color+'18', border:`1px solid ${color}60`,
+          display:'flex', alignItems:'center', gap:5, cursor:'pointer' }}>
+        <span style={{ fontSize:16 }}>🐢</span>
+        <span style={{ fontFamily:MONO, fontSize:11, color, fontWeight:600 }}>0.6x</span>
       </div>
       <div onClick={() => speakEn(text, 1)}
-        style={{ minWidth:108, height:78, borderRadius:10, background:color+'15', border:'1px solid '+color+'50',
-          display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
-          cursor:'pointer', gap:2, padding:'0 16px' }}>
-        <span style={{ fontSize:26 }}>🔊</span>
-        <span style={{ fontFamily:MONO, fontSize:13, color }}>1.0x</span>
+        style={{ padding:'6px 16px', borderRadius:8, background:color+'15', border:`1px solid ${color}50`,
+          display:'flex', alignItems:'center', gap:5, cursor:'pointer' }}>
+        <span style={{ fontSize:16 }}>🔊</span>
+        <span style={{ fontFamily:MONO, fontSize:11, color }}>1.0x</span>
       </div>
     </div>
   )
@@ -10968,12 +10958,25 @@ function PhraseTab({ settings }) {
               </div>
             )}
             <div onClick={() => { setShowAdd(v => !v); setAddDone(null); setAddText('') }}
-              style={{ marginLeft: cat === 'my' ? 0 : 'auto', width:30, height:30, borderRadius:'50%',
+              style={{ width:30, height:30, borderRadius:'50%',
                 background: showAdd ? '#f5a623' : '#f5a62320', border:'1px solid #f5a62360',
                 display:'flex', alignItems:'center', justifyContent:'center',
                 cursor:'pointer', fontSize:18, color: showAdd ? '#050810' : '#f5a623',
                 fontWeight:700, flexShrink:0, transition:'all 0.15s' }}>
               {showAdd ? '×' : '+'}
+            </div>
+            {/* 🐢 0.6x / 🔊 1.0x — 最右側 */}
+            <div onClick={() => { if (!card?.en) return; window.speechSynthesis?.cancel(); const u=new SpeechSynthesisUtterance(card.en); u.lang='en-US'; u.rate=0.6; window.speechSynthesis?.speak(u) }}
+              style={{ marginLeft:'auto', padding:'4px 10px', borderRadius:8, cursor:'pointer', fontFamily:MONO, fontSize:9,
+                background:T.amberD, border:`1px solid ${T.amber}50`, color:T.amber,
+                display:'flex', alignItems:'center', gap:4, flexShrink:0, transition:'all 0.14s' }}>
+              🐢 <span>0.6x</span>
+            </div>
+            <div onClick={() => { if (!card?.en) return; window.speechSynthesis?.cancel(); const u=new SpeechSynthesisUtterance(card.en); u.lang='en-US'; u.rate=1; window.speechSynthesis?.speak(u) }}
+              style={{ padding:'4px 10px', borderRadius:8, cursor:'pointer', fontFamily:MONO, fontSize:9,
+                background:T.amberD, border:`1px solid ${T.amber}50`, color:T.amber,
+                display:'flex', alignItems:'center', gap:4, flexShrink:0, transition:'all 0.14s' }}>
+              🔊 <span>1.0x</span>
             </div>
           </div>
 
@@ -11351,14 +11354,23 @@ function PhraseTab({ settings }) {
                       </div>
                     )}
                   </div>
-                  <SpeakRow text={card.en} color={cc}/>
-                  {/* 下一句 + 對答案 同一行 */}
-                  <div style={{ display:'flex', gap:8, width:'100%' }}>
+                  {/* ⏸/▶ + 下一句 + 對答案 — 三顆等寬 */}
+                  <div style={{ display:'flex', gap:6, width:'100%' }}>
+                    <button className="btn" onClick={() => {
+                        const n = !autoListen
+                        setAutoListen(n); autoListenRef.current = n
+                        if (n) { setAutoPlayed(false) } else { window.speechSynthesis?.cancel() }
+                      }}
+                      style={{ flex:1, padding:'12px 0', fontSize:14, background: autoListen ? T.amberD : T.surf2,
+                        border:`1px solid ${autoListen ? T.amber+'60' : T.bdr}`,
+                        color: autoListen ? T.amber : T.txt3 }}>
+                      {autoListen ? '⏸' : '▶'}
+                    </button>
                     <button className="btn" onClick={() => {
                         const nextIdx = (idx + 1) % queue.length
                         setIdx(nextIdx)
                         const next = queue[nextIdx]
-                        if (next) { window.speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(next.en); u.lang='en-US'; u.rate=0.82; window.speechSynthesis.speak(u) }
+                        if (next) { window.speechSynthesis?.cancel(); const u=new SpeechSynthesisUtterance(next.en); u.lang='en-US'; u.rate=0.82; window.speechSynthesis?.speak(u) }
                       }}
                       style={{ flex:1, padding:'12px 0', fontSize:12, background:'#161b22',
                         border:'1px solid #30363d', color:'#c9d1d9' }}>
@@ -11379,7 +11391,6 @@ function PhraseTab({ settings }) {
                     <div style={{ height:1, background:'#21262d' }}/>
                     <div style={{ fontFamily:SERIF, fontSize:14, color:'#c9d1d9', fontStyle:'italic' }}>{card.zh}</div>
                   </div>
-                  <SpeakRow text={card.en} color={cc}/>
                   {/* SRS 評分按鈕 */}
                   {(() => {
                     const cardSrs = srsMap[card?.id] ?? {}
@@ -13431,7 +13442,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.23</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.24</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
