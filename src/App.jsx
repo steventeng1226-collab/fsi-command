@@ -7071,7 +7071,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.24</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.25</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -9228,7 +9228,7 @@ function VocabTab({ vocab, updateVocab, updateStats, awardBadge }) {
   )
 
   const DiffTag = ({ diff, onClick }) => {
-    const d = DIFF[diff ?? 'mid']
+    const d = DIFF[diff ?? 'mid'] ?? DIFF.mid
     return (
       <div onClick={onClick} title="點擊切換難度"
         style={{ cursor:'pointer', fontFamily:MONO, fontSize:8, color:d.color, background:d.bg, border:`1px solid ${d.color}50`, padding:'2px 7px', borderRadius:8, letterSpacing:'0.08em', flexShrink:0, userSelect:'none' }}>
@@ -10286,7 +10286,12 @@ function MySubcatPanel({ counts, selected, onSelect, onReclassify, reclassifyLoa
     request:'🤝 請求幫忙', apology:'🙏 道謝道歉', idiom:'🗣️ 慣用語',
     daily:'🌅 日常作息', relationship:'❤️ 友情關係', grammar:'📚 語法學習',
   }
+  const PINNED_SUBCATS = ['shopping']  // 購物固定在全部旁邊
   const subcats = Object.keys(counts).filter(k => k !== 'all').sort()
+  const subcatOrdered = [
+    ...PINNED_SUBCATS.filter(k => counts[k] != null),
+    ...subcats.filter(k => !PINNED_SUBCATS.includes(k))
+  ]
   const getLabel = s => RECLASSIFY_LABELS[s] || s
   const chipStyle = (active) => ({
     padding:'5px 11px', borderRadius:10, cursor:'pointer', fontFamily:MONO, fontSize:10,
@@ -10300,7 +10305,7 @@ function MySubcatPanel({ counts, selected, onSelect, onReclassify, reclassifyLoa
       borderRadius:14, padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }}>
       {/* 標題列：文字 + 自動播放長方形 + AI圖示 */}
       <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-        <div style={{ fontFamily:MONO, fontSize:8, color:'#8b949e', letterSpacing:'0.1em', flex:1 }}>
+        <div style={{ fontFamily:MONO, fontSize:11, color:'#8b949e', letterSpacing:'0.06em', flex:1 }}>
           ⭐ 我的收藏 — 切換分類
         </div>
         {/* 隨機播放按鈕 */}
@@ -10376,7 +10381,7 @@ function MySubcatPanel({ counts, selected, onSelect, onReclassify, reclassifyLoa
         <div onClick={() => onSelect('all')} style={chipStyle(selected==='all')}>
           全部 <span style={{ opacity:0.6 }}>({counts.all})</span>
         </div>
-        {subcats.map(s => (
+        {subcatOrdered.map(s => (
           <div key={s} onClick={() => onSelect(s)} style={chipStyle(selected===s)}>
             {getLabel(s)} <span style={{ opacity:0.6 }}>({counts[s]})</span>
           </div>
@@ -13442,7 +13447,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.24</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.25</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
