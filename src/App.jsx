@@ -7071,7 +7071,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.26</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.27</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -10434,6 +10434,7 @@ function PhraseTab({ settings }) {
   const [sleepMins,  setSleepMins]  = useState(null)   // 選取的睡眠分鐘數
   const [sleepEnd,   setSleepEnd]   = useState(null)   // 計時結束 timestamp
   const [sleepLeft,  setSleepLeft]  = useState(null)   // 剩餘秒數（顯示用）
+  const [sessionPlayedIds, setSessionPlayedIds] = useState(new Set()) // 本輪已播
   const autoListenRef = useRef(false)
   const shuffleModeRef = useRef(false)
   const [doneIds,    setDoneIds]    = useState(() => {
@@ -10629,6 +10630,20 @@ function PhraseTab({ settings }) {
 
   useEffect(() => { autoListenRef.current = autoListen }, [autoListen])
   useEffect(() => { shuffleModeRef.current = shuffleMode }, [shuffleMode])
+
+  // 自動播放進度追蹤：記錄已播 card
+  useEffect(() => {
+    if (!autoListen || !card?.id) return
+    setSessionPlayedIds(prev => {
+      if (prev.has(card.id)) return prev
+      return new Set([...prev, card.id])
+    })
+  }, [card?.id, autoListen])
+
+  // 換分類/subcat/tempCat 時重置進度
+  useEffect(() => {
+    setSessionPlayedIds(new Set())
+  }, [cat, mySubcat, activeTempCatId, myTag])
 
   // ── 睡眠計時器 ────────────────────────────────────────────────
   useEffect(() => {
@@ -11387,6 +11402,33 @@ function PhraseTab({ settings }) {
                       ✏️ 對答案
                     </button>
                   </div>
+                  {/* 本輪播放進度條（autoListen 開啟時顯示）*/}
+                  {autoListen && queue.length > 0 && (() => {
+                    const played = [...sessionPlayedIds].filter(id => queue.some(p => p.id === id)).length
+                    const total  = queue.length
+                    const pct    = Math.min(100, Math.round(played / total * 100))
+                    const done   = played >= total
+                    return (
+                      <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+                        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                          <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                            本輪進度 {played}/{total}
+                          </span>
+                          {done
+                            ? <span style={{ fontFamily:MONO, fontSize:9, color:T.grn }}>🎉 完成一輪！</span>
+                            : <span style={{ fontFamily:MONO, fontSize:9, color: pct >= 70 ? T.grn : T.amber }}>{pct}%</span>
+                          }
+                        </div>
+                        <div style={{ height:5, background:T.bdr, borderRadius:3, overflow:'hidden' }}>
+                          <div style={{
+                            height:'100%', borderRadius:3, transition:'width 0.5s ease',
+                            width:`${pct}%`,
+                            background: done ? T.grn : pct >= 70 ? `linear-gradient(90deg,${T.amber},${T.grn})` : T.amber
+                          }}/>
+                        </div>
+                      </div>
+                    )
+                  })()}
                 </div>
               )}
               {phase === 'reveal' && (
@@ -13447,7 +13489,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.26</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.27</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
