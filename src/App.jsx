@@ -7071,7 +7071,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.25</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.26</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -10430,7 +10430,7 @@ function PhraseTab({ settings }) {
   const [phase,      setPhase]      = useState('listen')
   const [autoPlayed, setAutoPlayed] = useState(false)
   const [autoListen, setAutoListen] = useState(false)  // 連續自動播放模式
-  const [shuffleMode, setShuffleMode] = useState(false) // 隨機播放模式
+  const [shuffleMode, setShuffleMode] = useState(true) // 隨機播放模式（預設開啟）
   const [sleepMins,  setSleepMins]  = useState(null)   // 選取的睡眠分鐘數
   const [sleepEnd,   setSleepEnd]   = useState(null)   // 計時結束 timestamp
   const [sleepLeft,  setSleepLeft]  = useState(null)   // 剩餘秒數（顯示用）
@@ -13447,7 +13447,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.25</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.26</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
