@@ -10570,7 +10570,7 @@ function PhraseTab({ settings }) {
   useEffect(() => { setPhase('listen'); setAutoPlayed(false) }, [idx, cat])
 
   // ── Effect 1：語音鏈 EN×2 → ZH（autoPlayed 不在 deps，避免 cleanup 中斷）
-  // cancelled flag：防止 Chrome cancel() 觸發 onend 後繼續播舊 card（畫面/語音不同步 bug）
+  // cancelled flag：防止 Chrome cancel() 觸發 onend 後繼續播下一張的聲音（畫面/聲音不同步根因）
   useEffect(() => {
     if (!autoListen || pMode !== 'sentence' || phase !== 'listen' || autoPlayed || !card) return
     window.speechSynthesis?.cancel()
@@ -10580,23 +10580,19 @@ function PhraseTab({ settings }) {
       if (!autoListenRef.current || cancelled) return
 
       function afterAll() {
-        // 語音全部說完才 setAutoPlayed，觸發 Effect 2 跳下一句
         if (autoListenRef.current && !cancelled) setAutoPlayed(true)
       }
 
-      // EN 第一次（0.6x）
       const u1 = new SpeechSynthesisUtterance(card.en)
       u1.lang = 'en-US'; u1.rate = 0.6
       u1.onend = u1.onerror = () => {
         if (!autoListenRef.current || cancelled) return
-        // EN 第二次（0.6x）
         const u2 = new SpeechSynthesisUtterance(card.en)
         u2.lang = 'en-US'; u2.rate = 0.6
         u2.onend = u2.onerror = () => {
           if (!autoListenRef.current || cancelled) return
           const zhText = card.zh?.trim()
           if (zhText) {
-            // ZH（0.9x）
             const u3 = new SpeechSynthesisUtterance(zhText)
             u3.lang = /[一-鿿]/.test(zhText) ? 'zh-TW' : 'en-US'
             u3.rate = 0.9
@@ -10945,7 +10941,7 @@ function PhraseTab({ settings }) {
       {/* 主模式切換 */}
       <div style={{ display:'flex', background:'#161b22', borderRadius:10, padding:2, gap:2, flexShrink:0 }}>
         {[{id:'sentence',label:'📋 句型'},{id:'reverse',label:'🔄 反向'},{id:'qa',label:'💬 問答'},{id:'dictation',label:'🎧 聽寫'},{id:'speech',label:'🎙 口說'},{id:'scenario',label:'🎭 情境'}].map(m => (
-          <div key={m.id} onClick={() => setPMode(m.id)}
+          <div key={m.id} onClick={() => { setPMode(m.id); if (m.id !== 'reverse') setReverseFilter('all') }}
             style={{ flex:1, textAlign:'center', padding:'6px 0', borderRadius:8, cursor:'pointer',
               fontFamily:MONO, fontSize:10, letterSpacing:'0.05em', fontWeight: pMode===m.id ? 700 : 400,
               background: pMode===m.id ? '#f5a623' : 'transparent',
@@ -10955,6 +10951,34 @@ function PhraseTab({ settings }) {
           </div>
         ))}
       </div>
+
+      {/* ── 我的中文句捷徑按鈕（有自創句時顯示）────────────────── */}
+      {(() => {
+        const islandCount = extraPhrases.filter(p => p.zh?.trim()).length
+        if (islandCount === 0) return null
+        const active = pMode === 'reverse' && reverseFilter === 'island'
+        return (
+          <div onClick={() => { setPMode('reverse'); setReverseFilter('island') }}
+            style={{ display:'flex', alignItems:'center', gap:8,
+              padding:'10px 14px', borderRadius:12, cursor:'pointer',
+              background: active ? T.blue+'22' : T.surf2,
+              border:`1.5px solid ${active ? T.blue : T.bdr2}`,
+              transition:'all 0.14s' }}>
+            <span style={{ fontSize:15 }}>🗣</span>
+            <div style={{ display:'flex', flexDirection:'column', gap:1 }}>
+              <span style={{ fontFamily:MONO, fontSize:11, fontWeight:700,
+                color: active ? T.blue : T.txt, letterSpacing:'0.04em' }}>
+                練習我的中文 → 英文例句
+              </span>
+              <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                {islandCount} 句 · 點我開始反向練習
+              </span>
+            </div>
+            <span style={{ fontFamily:MONO, fontSize:10, color: active ? T.blue : T.txt3,
+              marginLeft:'auto' }}>{active ? '▶ 練習中' : '→'}</span>
+          </div>
+        )
+      })()}
 
       {/* ══════════════════ 句型練習 ══════════════════ */}
       {pMode === 'sentence' && (
@@ -11632,33 +11656,38 @@ function PhraseTab({ settings }) {
       {pMode === 'reverse' && (() => {
         const islandPhrases = extraPhrases.filter(p => p.zh?.trim())
         const seenIds = new Set(pool.map(p => p.id))
-        const mergedPool = [...pool, ...islandPhrases.filter(p => !seenIds.has(p.id))]
-        // reverseFilter: 'all' = 全部含譯句子；'island' = 僅我自創的中→英例句
-        const reversePool = reverseFilter === 'island' ? islandPhrases : mergedPool
+        const fullPool = [...pool, ...islandPhrases.filter(p => !seenIds.has(p.id))]
+        const reversePool = reverseFilter === 'island'
+          ? islandPhrases
+          : fullPool
         return (
-          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-            {/* 篩選 chip */}
+          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+            {/* 篩選 chip 列 */}
             <div style={{ display:'flex', gap:6, alignItems:'center' }}>
               {[
-                { id:'all',    label:'🔄 全部含譯' },
-                { id:'island', label:'🗣 我的例句' },
-              ].map(f => (
-                <div key={f.id} onClick={() => setReverseFilter(f.id)}
-                  style={{ padding:'4px 10px', borderRadius:12, cursor:'pointer', fontFamily:MONO, fontSize:9,
-                    background: reverseFilter===f.id ? T.amber : T.surf2,
-                    border: `1px solid ${reverseFilter===f.id ? T.amber : T.bdr}`,
-                    color: reverseFilter===f.id ? T.bg : T.txt2,
-                    fontWeight: reverseFilter===f.id ? 700 : 400, transition:'all 0.14s' }}>
-                  {f.label}
-                </div>
-              ))}
-              {reverseFilter === 'island' && (
-                <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3, marginLeft:2 }}>
-                  {islandPhrases.length} 句
+                { id:'all',    label:'🌐 全部', count: fullPool.filter(p=>p.zh?.trim()).length },
+                { id:'island', label:'🗣 我的自創', count: islandPhrases.length },
+              ].map(f => {
+                const active = reverseFilter === f.id
+                return (
+                  <div key={f.id} onClick={() => setReverseFilter(f.id)}
+                    style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'5px 12px',
+                      borderRadius:16, cursor:'pointer', fontFamily:MONO, fontSize:10,
+                      background: active ? T.amber : T.surf2,
+                      border:`1px solid ${active ? T.amber : T.bdr}`,
+                      color: active ? T.bg : T.txt2, transition:'all 0.13s', userSelect:'none' }}>
+                    {f.label}
+                    <span style={{ fontSize:9, opacity:0.75 }}>({f.count})</span>
+                  </div>
+                )
+              })}
+              {reverseFilter === 'island' && islandPhrases.length === 0 && (
+                <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                  → 先到 AI tab 用「🗣 中文→英文」存入句子
                 </span>
               )}
             </div>
-            <ReverseCardManager pool={reversePool} cat={reverseFilter === 'island' ? 'island' : cat} rsrsMap={rsrsMap} onRate={reverseRatePhrase}/>
+            <ReverseCardManager pool={reversePool} cat={cat} rsrsMap={rsrsMap} onRate={reverseRatePhrase}/>
           </div>
         )
       })()}
