@@ -7071,7 +7071,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.29</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.30</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -11625,9 +11625,13 @@ function PhraseTab({ settings }) {
       )}
 
       {/* ══════════════════ 🔄 反向（中→英）══════════════════ */}
-      {pMode === 'reverse' && (
-        <ReverseCardManager pool={pool} cat={cat} rsrsMap={rsrsMap} onRate={reverseRatePhrase}/>
-      )}
+      {pMode === 'reverse' && (() => {
+        // 合併當前 pool + 所有 island 句子（extraPhrases 有 zh 的）
+        const islandPhrases = extraPhrases.filter(p => p.zh?.trim())
+        const seenIds = new Set(pool.map(p => p.id))
+        const reversePool = [...pool, ...islandPhrases.filter(p => !seenIds.has(p.id))]
+        return <ReverseCardManager pool={reversePool} cat={cat} rsrsMap={rsrsMap} onRate={reverseRatePhrase}/>
+      })()}
 
       {/* ══════════════════ 🎧 聽寫 ══════════════════ */}
       {pMode === 'dictation' && (() => {
@@ -11974,6 +11978,7 @@ function EmailTab({ settings, updateSentences, updateVocab, updateStats, awardBa
   const [siMode,        setSiMode]        = useState('analyze') // 'analyze' | 'island'
   const [zhInput,       setZhInput]       = useState('')
   const [islandCat,     setIslandCat]     = useState('life')   // 'life' | 'work'
+  const [islandAudience,setIslandAudience]= useState('friend') // 說話對象
   const [islandResults, setIslandResults] = useState([])       // [{zh,en,added,dup}]
   const [islandBusy,    setIslandBusy]    = useState(false)
   const [islandErr,     setIslandErr]     = useState('')
@@ -11990,17 +11995,28 @@ function EmailTab({ settings, updateSentences, updateVocab, updateStats, awardBa
     setIslandBusy(true); setIslandErr(''); setIslandResults([])
     try {
       const lines = zhInput.split('\n').map(l => l.trim()).filter(l => l.length > 0)
+      const audienceMap = {
+        colleague: 'casual office colleague small talk — friendly, relaxed, slightly professional',
+        friend:    'close American friends hanging out — most casual, slang welcome, very natural',
+        message:   'text message to a friend — short, punchy, lowercase ok, no formality',
+        social:    'social dinner or party chat — warm, fun, conversational, like meeting new people',
+      }
+      const audienceCtx = audienceMap[islandAudience] ?? audienceMap.friend
       const isWork = islandCat === 'work'
       const system = `You are an English language coach for a Taiwanese manufacturing professional.
-Translate each Chinese sentence into natural, colloquial spoken English that a native speaker would actually say.
+Translate each Chinese sentence into natural, colloquial American English that a native speaker would actually say out loud.
 
-RULES:
-- Use contractions: I'm, we've, it's, can't, don't
-- Use spoken connectors: actually, honestly, you know, like, I mean
-- NEVER use formal written English
-- Keep sentences punchy and concise
-${isWork ? '- Context: manufacturing workplace, meetings, client calls' : '- Context: everyday personal life, friends, family'}
-- Return ONLY valid JSON array: [{"zh":"original","en":"natural English"}]
+AUDIENCE: ${audienceCtx}
+${isWork ? 'SETTING: manufacturing workplace, meetings, client calls' : 'SETTING: everyday personal life'}
+
+STRICT RULES:
+- Use contractions: I'm, we've, it's, can't, you're, gonna, wanna
+- Use spoken American expressions, NOT textbook English
+- Keep it short and punchy like real speech
+- For text message mode: use casual abbreviations and short sentences
+- For friend mode: slang is welcome (e.g. "That client is a total nightmare")
+- NEVER write what sounds like a formal email or textbook sentence
+- Return ONLY valid JSON array: [{"zh":"original","en":"natural American English"}]
 - No markdown, no explanation`
       const prompt = `Translate these ${lines.length} sentences:\n${lines.map((l,i) => `${i+1}. ${l}`).join('\n')}`
       const raw = await callAI([{ role:'user', content: prompt }], system)
@@ -12350,6 +12366,32 @@ ${isWork ? '- Context: manufacturing workplace, meetings, client calls' : '- Con
               {c.l}
             </div>
           ))}
+        </div>
+
+        {/* 說話對象選擇 */}
+        <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+          <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, letterSpacing:'0.08em' }}>說給誰聽</div>
+          <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+            {[
+              {id:'colleague', l:'👥 同事閒聊'},
+              {id:'friend',    l:'👫 好友'},
+              {id:'message',   l:'📱 傳訊息'},
+              {id:'social',    l:'🍽️ 聚餐社交'},
+            ].map(a => {
+              const active = islandAudience === a.id
+              return (
+                <div key={a.id} onClick={() => setIslandAudience(a.id)}
+                  style={{ padding:'5px 12px', borderRadius:10, cursor:'pointer',
+                    fontFamily:MONO, fontSize:9, fontWeight: active?700:400,
+                    background: active ? T.amber+'25' : T.surf2,
+                    border: `1px solid ${active ? T.amber+'80' : T.bdr}`,
+                    color: active ? T.amber : T.txt2, transition:'all 0.14s',
+                    userSelect:'none' }}>
+                  {a.l}
+                </div>
+              )
+            })}
+          </div>
         </div>
 
         {/* 中文輸入 */}
@@ -13664,7 +13706,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.29</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.30</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
