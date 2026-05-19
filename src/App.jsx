@@ -7071,7 +7071,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.27</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.28</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -11968,12 +11968,65 @@ function EmailTab({ settings, updateSentences, updateVocab, updateStats, awardBa
   const [phraseCats, setPhraseCats] = useState({})   // index -> PHRASE_CATS id
   const [fsiCats,    setFsiCats]    = useState({})   // index -> 'work'|'life'
   const [isDesktop, setIsDesktop] = useState(window.innerWidth > 640)
+  // ── 🗣 中文→英文 句子島 state ──────────────────────────────
+  const [siMode,        setSiMode]        = useState('analyze') // 'analyze' | 'island'
+  const [zhInput,       setZhInput]       = useState('')
+  const [islandCat,     setIslandCat]     = useState('life')   // 'life' | 'work'
+  const [islandResults, setIslandResults] = useState([])       // [{zh,en,added,dup}]
+  const [islandBusy,    setIslandBusy]    = useState(false)
+  const [islandErr,     setIslandErr]     = useState('')
 
   useEffect(() => {
     const h = () => setIsDesktop(window.innerWidth > 640)
     window.addEventListener('resize', h)
     return () => window.removeEventListener('resize', h)
   }, [])
+
+  // ── 🗣 中文→英文 函式 ─────────────────────────────────────
+  async function translateIsland() {
+    if (!zhInput.trim()) return
+    setIslandBusy(true); setIslandErr(''); setIslandResults([])
+    try {
+      const lines = zhInput.split('\n').map(l => l.trim()).filter(l => l.length > 0)
+      const isWork = islandCat === 'work'
+      const system = `You are an English language coach for a Taiwanese manufacturing professional.
+Translate each Chinese sentence into natural, colloquial spoken English that a native speaker would actually say.
+
+RULES:
+- Use contractions: I'm, we've, it's, can't, don't
+- Use spoken connectors: actually, honestly, you know, like, I mean
+- NEVER use formal written English
+- Keep sentences punchy and concise
+${isWork ? '- Context: manufacturing workplace, meetings, client calls' : '- Context: everyday personal life, friends, family'}
+- Return ONLY valid JSON array: [{"zh":"original","en":"natural English"}]
+- No markdown, no explanation`
+      const prompt = `Translate these ${lines.length} sentences:\n${lines.map((l,i) => `${i+1}. ${l}`).join('\n')}`
+      const raw = await callAI([{ role:'user', content: prompt }], system)
+      const parsed = JSON.parse(raw.replace(/```json|```/g,'').trim())
+      if (!Array.isArray(parsed)) throw new Error('invalid')
+      setIslandResults(parsed.map(p => ({ zh: p.zh ?? '', en: p.en ?? '', added: false, dup: false })))
+    } catch(e) {
+      setIslandErr('翻譯失敗，請重試')
+    } finally { setIslandBusy(false) }
+  }
+
+  function addIslandPhrase(i) {
+    const p = islandResults[i]
+    if (!p || p.added) return
+    const existing = (() => { try { return JSON.parse(localStorage.getItem('fsi:ph:extra') ?? '[]') } catch { return [] } })()
+    const normEn = normalizeEn(p.en)
+    if (existing.some(e => normalizeEn(e.en) === normEn)) {
+      setIslandResults(prev => prev.map((r, ri) => ri === i ? { ...r, added: true, dup: true } : r))
+      return
+    }
+    const newPhrase = { id: 'ph_island_' + Date.now() + '_' + i, cat: 'my', subcat: islandCat === 'work' ? 'daily' : 'daily', en: p.en, zh: p.zh }
+    localStorage.setItem('fsi:ph:extra', JSON.stringify([...existing, newPhrase]))
+    setIslandResults(prev => prev.map((r, ri) => ri === i ? { ...r, added: true } : r))
+  }
+
+  function addAllIsland() {
+    islandResults.forEach((_, i) => addIslandPhrase(i))
+  }
 
   // ── AI prompt ──────────────────────────────────────────────
   async function analyze() {
@@ -12258,6 +12311,124 @@ function EmailTab({ settings, updateSentences, updateVocab, updateStats, awardBa
     )
   }
 
+  // ── 🗣 中文→英文 句子島 layout ─────────────────────────────
+  const ModeToggle = () => (
+    <div style={{ display:'flex', background:T.surf2, borderRadius:10, padding:2, gap:2, flexShrink:0 }}>
+      {[{id:'analyze',label:'⚡ AI 三分類'},{id:'island',label:'🗣 中文→英文'}].map(m => (
+        <div key={m.id} onClick={() => setSiMode(m.id)}
+          style={{ flex:1, textAlign:'center', padding:'7px 12px', borderRadius:8, cursor:'pointer',
+            fontFamily:MONO, fontSize:10, fontWeight: siMode===m.id?700:400, whiteSpace:'nowrap',
+            background: siMode===m.id ? T.amber : 'transparent',
+            color: siMode===m.id ? T.bg : T.txt2, transition:'all 0.15s' }}>
+          {m.label}
+        </div>
+      ))}
+    </div>
+  )
+
+  if (siMode === 'island') {
+    return (
+      <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:14 }} className="fadeUp">
+        <ModeToggle/>
+
+        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.8, background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:8, padding:'10px 12px' }}>
+          輸入你今天真實想說的中文 → AI 翻成道地口語英文 → 存入收藏 → 用「🔄 反向」模式練習
+        </div>
+
+        {/* 分類選擇 */}
+        <div style={{ display:'flex', gap:8 }}>
+          {[{id:'life',l:'🏠 生活日常'},{id:'work',l:'💼 工作職場'}].map(c => (
+            <div key={c.id} onClick={() => setIslandCat(c.id)}
+              style={{ flex:1, textAlign:'center', padding:'9px 0', borderRadius:9, cursor:'pointer',
+                fontFamily:MONO, fontSize:10, fontWeight: islandCat===c.id?700:400,
+                background: islandCat===c.id ? (c.id==='work' ? T.amberD : T.blueD) : T.surf2,
+                border: `1px solid ${islandCat===c.id ? (c.id==='work' ? T.amber+'60' : T.blue+'60') : T.bdr}`,
+                color: islandCat===c.id ? (c.id==='work' ? T.amber : T.blue) : T.txt2,
+                transition:'all 0.15s' }}>
+              {c.l}
+            </div>
+          ))}
+        </div>
+
+        {/* 中文輸入 */}
+        <textarea value={zhInput} onChange={e => setZhInput(e.target.value)}
+          onKeyDown={e => { if (e.key==='Enter' && (e.ctrlKey||e.metaKey)) translateIsland() }}
+          placeholder={'每行一句，輸入你今天真實想說的中文：\n\n晚上有全球視訊，壓力很大\n那個客戶最近很難搞\n想帶女兒去看畢業典禮'}
+          style={{ minHeight:160, resize:'none', lineHeight:1.8, fontSize:13,
+            background:T.surf2, border:'1px solid '+T.bdr2, borderRadius:10,
+            padding:'14px 16px', color:T.txt, fontFamily:SERIF, outline:'none' }}/>
+
+        {islandErr && (
+          <div style={{ background:T.redD, border:`1px solid ${T.red}50`, borderRadius:8, padding:11, fontFamily:MONO, fontSize:11, color:T.red }}>
+            {islandErr}
+          </div>
+        )}
+
+        <button className="btn" onClick={translateIsland} disabled={islandBusy || !zhInput.trim()}
+          style={{ background: islandBusy ? T.bdr : T.amber, color: islandBusy ? T.txt2 : T.bg,
+            width:'100%', letterSpacing:'0.1em', padding:'13px', fontSize:12, fontWeight:700 }}>
+          {islandBusy
+            ? <span style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+                <span style={{ display:'inline-block', width:10, height:10, border:'2px solid transparent', borderTopColor:T.txt2, borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>
+                AI 翻譯中…
+              </span>
+            : '🌐 翻成道地英文（Ctrl+Enter）'
+          }
+        </button>
+
+        {/* 翻譯結果 */}
+        {islandResults.length > 0 && (
+          <div style={{ display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+              <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                {islandResults.length} 句 · {islandResults.filter(r=>r.added).length} 已加入
+              </span>
+              <button className="btn" onClick={addAllIsland}
+                disabled={islandResults.every(r => r.added)}
+                style={{ background:T.grnD, border:`1px solid ${T.grn}50`, color:T.grn, fontSize:9, padding:'4px 12px' }}>
+                全部加入收藏
+              </button>
+            </div>
+
+            {islandResults.map((p, i) => (
+              <div key={i} style={{ background:T.surf, borderRadius:12, padding:14,
+                border:`1px solid ${p.added ? (p.dup ? T.amber+'50' : T.grn+'50') : T.bdr}`,
+                display:'flex', flexDirection:'column', gap:8, transition:'border-color 0.3s' }}>
+                {/* 原始中文 */}
+                <div style={{ fontFamily:SERIF, fontStyle:'italic', fontSize:13, color:T.txt3 }}>
+                  {p.zh}
+                </div>
+                {/* 英文結果 */}
+                <div style={{ fontFamily:MONO, fontSize:14, color:T.txt, lineHeight:1.6 }}>
+                  {p.en}
+                </div>
+                {/* 操作按鈕 */}
+                <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                  <div onClick={() => { window.speechSynthesis?.cancel(); const u=new SpeechSynthesisUtterance(p.en); u.lang='en-US'; u.rate=0.85; window.speechSynthesis?.speak(u) }}
+                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3, padding:'3px 8px', background:T.surf2, borderRadius:6, border:`1px solid ${T.bdr}` }}>
+                    🔊 聽
+                  </div>
+                  <div onClick={() => { window.speechSynthesis?.cancel(); const u=new SpeechSynthesisUtterance(p.en); u.lang='en-US'; u.rate=0.6; window.speechSynthesis?.speak(u) }}
+                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3, padding:'3px 8px', background:T.surf2, borderRadius:6, border:`1px solid ${T.bdr}` }}>
+                    🐢 慢
+                  </div>
+                  <button className="btn" onClick={() => addIslandPhrase(i)} disabled={p.added}
+                    style={{ marginLeft:'auto',
+                      background: p.added ? (p.dup ? '#f5a62315' : T.grnD) : T.blueD,
+                      border: `1px solid ${p.added ? (p.dup ? T.amber+'50' : T.grn+'50') : T.blue+'50'}`,
+                      color: p.added ? (p.dup ? T.amber : T.grn) : T.blue,
+                      fontSize:9, padding:'4px 12px' }}>
+                    {p.added ? (p.dup ? '⚠ 已存在' : '✓ 已加入') : '+ 加入收藏'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   // ── DESKTOP layout ──────────────────────────────────────────
   if (isDesktop) {
     return (
@@ -12267,6 +12438,7 @@ function EmailTab({ settings, updateSentences, updateVocab, updateStats, awardBa
           <div style={{ display:'flex', alignItems:'center', gap:12 }}>
             <AppIcon size={28}/>
             <span style={{ fontFamily:DISP, fontSize:13, color:T.amber, letterSpacing:'0.12em' }}>FSI COMMAND — AI 三分類分析</span>
+            <ModeToggle/>
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:10 }}>
             {res && (
@@ -12355,6 +12527,7 @@ function EmailTab({ settings, updateSentences, updateVocab, updateStats, awardBa
   // ── MOBILE layout ───────────────────────────────────────────
   return (
     <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:14 }} className="fadeUp">
+      <ModeToggle/>
       <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, letterSpacing:'0.1em' }}>AI 三分類分析</div>
       <InputArea/>
 
@@ -13489,7 +13662,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.27</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.28</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
