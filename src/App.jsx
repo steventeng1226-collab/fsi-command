@@ -347,7 +347,7 @@ async function callAI(messages, system = '', _unused) {
     const contents = []
     if (system) contents.push({ role:'user', parts:[{ text: system }] }, { role:'model', parts:[{ text:'OK, understood.' }] })
     messages.forEach(m => contents.push({ role: m.role === 'assistant' ? 'model' : 'user', parts:[{ text: m.content }] }))
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ contents, generationConfig: { maxOutputTokens: 1000 } })
@@ -10423,6 +10423,7 @@ function PhraseTab({ settings }) {
 
   // ── 主模式切換 ────────────────────────────────────────────────
   const [pMode, setPMode] = useState('sentence') // 'sentence'|'qa'|'scenario'
+  const [reverseFilter, setReverseFilter] = useState('all') // 'all'|'island'
 
   // ── 句型練習 ──────────────────────────────────────────────────
   const [cat,        setCat]        = useState('my')
@@ -10569,28 +10570,30 @@ function PhraseTab({ settings }) {
   useEffect(() => { setPhase('listen'); setAutoPlayed(false) }, [idx, cat])
 
   // ── Effect 1：語音鏈 EN×2 → ZH（autoPlayed 不在 deps，避免 cleanup 中斷）
+  // cancelled flag：防止 Chrome cancel() 觸發 onend 後繼續播舊 card（畫面/語音不同步 bug）
   useEffect(() => {
     if (!autoListen || pMode !== 'sentence' || phase !== 'listen' || autoPlayed || !card) return
     window.speechSynthesis?.cancel()
+    let cancelled = false
 
     const timer = setTimeout(() => {
-      if (!autoListenRef.current) return
+      if (!autoListenRef.current || cancelled) return
 
       function afterAll() {
         // 語音全部說完才 setAutoPlayed，觸發 Effect 2 跳下一句
-        if (autoListenRef.current) setAutoPlayed(true)
+        if (autoListenRef.current && !cancelled) setAutoPlayed(true)
       }
 
       // EN 第一次（0.6x）
       const u1 = new SpeechSynthesisUtterance(card.en)
       u1.lang = 'en-US'; u1.rate = 0.6
       u1.onend = u1.onerror = () => {
-        if (!autoListenRef.current) return
+        if (!autoListenRef.current || cancelled) return
         // EN 第二次（0.6x）
         const u2 = new SpeechSynthesisUtterance(card.en)
         u2.lang = 'en-US'; u2.rate = 0.6
         u2.onend = u2.onerror = () => {
-          if (!autoListenRef.current) return
+          if (!autoListenRef.current || cancelled) return
           const zhText = card.zh?.trim()
           if (zhText) {
             // ZH（0.9x）
@@ -10609,6 +10612,7 @@ function PhraseTab({ settings }) {
     }, 400)
 
     return () => {
+      cancelled = true
       clearTimeout(timer)
       window.speechSynthesis?.cancel()
     }
@@ -11626,11 +11630,37 @@ function PhraseTab({ settings }) {
 
       {/* ══════════════════ 🔄 反向（中→英）══════════════════ */}
       {pMode === 'reverse' && (() => {
-        // 合併當前 pool + 所有 island 句子（extraPhrases 有 zh 的）
         const islandPhrases = extraPhrases.filter(p => p.zh?.trim())
         const seenIds = new Set(pool.map(p => p.id))
-        const reversePool = [...pool, ...islandPhrases.filter(p => !seenIds.has(p.id))]
-        return <ReverseCardManager pool={reversePool} cat={cat} rsrsMap={rsrsMap} onRate={reverseRatePhrase}/>
+        const mergedPool = [...pool, ...islandPhrases.filter(p => !seenIds.has(p.id))]
+        // reverseFilter: 'all' = 全部含譯句子；'island' = 僅我自創的中→英例句
+        const reversePool = reverseFilter === 'island' ? islandPhrases : mergedPool
+        return (
+          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            {/* 篩選 chip */}
+            <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+              {[
+                { id:'all',    label:'🔄 全部含譯' },
+                { id:'island', label:'🗣 我的例句' },
+              ].map(f => (
+                <div key={f.id} onClick={() => setReverseFilter(f.id)}
+                  style={{ padding:'4px 10px', borderRadius:12, cursor:'pointer', fontFamily:MONO, fontSize:9,
+                    background: reverseFilter===f.id ? T.amber : T.surf2,
+                    border: `1px solid ${reverseFilter===f.id ? T.amber : T.bdr}`,
+                    color: reverseFilter===f.id ? T.bg : T.txt2,
+                    fontWeight: reverseFilter===f.id ? 700 : 400, transition:'all 0.14s' }}>
+                  {f.label}
+                </div>
+              ))}
+              {reverseFilter === 'island' && (
+                <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3, marginLeft:2 }}>
+                  {islandPhrases.length} 句
+                </span>
+              )}
+            </div>
+            <ReverseCardManager pool={reversePool} cat={reverseFilter === 'island' ? 'island' : cat} rsrsMap={rsrsMap} onRate={reverseRatePhrase}/>
+          </div>
+        )
       })()}
 
       {/* ══════════════════ 🎧 聽寫 ══════════════════ */}
@@ -12037,7 +12067,7 @@ STRICT RULES:
       setIslandResults(prev => prev.map((r, ri) => ri === i ? { ...r, added: true, dup: true } : r))
       return
     }
-    const newPhrase = { id: 'ph_island_' + Date.now() + '_' + i, cat: 'my', subcat: islandCat === 'work' ? 'daily' : 'daily', en: p.en, zh: p.zh }
+    const newPhrase = { id: 'ph_island_' + Date.now() + '_' + i, cat: 'my', subcat: islandCat, en: p.en, zh: p.zh }
     localStorage.setItem('fsi:ph:extra', JSON.stringify([...existing, newPhrase]))
     setIslandResults(prev => prev.map((r, ri) => ri === i ? { ...r, added: true } : r))
   }
@@ -13048,7 +13078,7 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
         <div style={{ display:'flex', gap:8 }}>
           {[
             { id:'anthropic', label:'Anthropic Claude', sub:'claude-haiku', color:T.amber },
-            { id:'gemini',    label:'Google Gemini',   sub:'gemini-2.0-flash', color:'#4285f4' },
+            { id:'gemini',    label:'Google Gemini',   sub:'gemini-2.5-flash', color:'#4285f4' },
           ].map(p => {
             const active = aiProvider === p.id
             return (
