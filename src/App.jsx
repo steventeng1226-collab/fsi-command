@@ -7093,7 +7093,7 @@ const NAV = [
   { id:'drill',    label:'Drill',   svg: <svg width="17" height="17" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.5"/><path d="M7 10l2 2 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg> },
   { id:'vocab',    label:'Vocab',   svg: <svg width="17" height="17" viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="14" height="14" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M7 7h6M7 10.5h6M7 14h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg> },
   { id:'email',    label:'AI',      svg: <svg width="17" height="17" viewBox="0 0 20 20" fill="none"><path d="M10 3a7 7 0 100 14A7 7 0 0010 3z" stroke="currentColor" strokeWidth="1.5"/><path d="M7 10h6M10 7v6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg> },
-  { id:'achieve',  label:'Goals',   svg: <svg width="17" height="17" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="6.5" stroke="currentColor" strokeWidth="1.5"/><circle cx="10" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.5"/><path d="M10 3V1.5M10 18.5V17M3 10H1.5M18.5 10H17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg> },
+  { id:'movie',    label:'電影',    svg: <svg width="17" height="17" viewBox="0 0 20 20" fill="none"><rect x="2" y="4" width="16" height="12" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M7 4v12M13 4v12M2 8h4M14 8h4M2 12h4M14 12h4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg> },
   { id:'settings', label:'Setup',   svg: <svg width="17" height="17" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.5"/><path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.34 4.34l1.41 1.41M14.25 14.25l1.41 1.41M15.66 4.34l-1.41 1.41M5.75 14.25l-1.41 1.41" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg> },
 ]
 function BottomNav({ tab, setTab }) {
@@ -12034,19 +12034,55 @@ function EmailTab({ settings, updateSentences, updateVocab, updateStats, awardBa
   const [fsiCats,    setFsiCats]    = useState({})   // index -> 'work'|'life'
   const [isDesktop, setIsDesktop] = useState(window.innerWidth > 640)
   // ── 🗣 中文→英文 句子島 state ──────────────────────────────
-  const [siMode,        setSiMode]        = useState('analyze') // 'analyze' | 'island'
+  const [siMode,        setSiMode]        = useState('analyze') // 'analyze' | 'island' | 'translate'
   const [zhInput,       setZhInput]       = useState('')
   const [islandCat,     setIslandCat]     = useState('life')   // 'life' | 'work'
   const [islandAudience,setIslandAudience]= useState('friend') // 說話對象
   const [islandResults, setIslandResults] = useState([])       // [{zh,en,added,dup}]
   const [islandBusy,    setIslandBusy]    = useState(false)
   const [islandErr,     setIslandErr]     = useState('')
+  // ── 即時翻譯 ──
+  const [transInput,     setTransInput]     = useState('')
+  const [transResult,    setTransResult]    = useState('')
+  const [transBusy,      setTransBusy]      = useState(false)
+  const [transErr,       setTransErr]       = useState('')
+  const [transLang,      setTransLang]      = useState('zh-TW') // 語音辨識語言
+  const [transListening, setTransListening] = useState(false)
+  const [transInterim,   setTransInterim]   = useState('')
+  const transTimerRef = useRef(null)
+  const transRecogRef = useRef(null)
 
   useEffect(() => {
     const h = () => setIsDesktop(window.innerWidth > 640)
     window.addEventListener('resize', h)
     return () => window.removeEventListener('resize', h)
   }, [])
+
+  // ── 即時翻譯：防抖 800ms ──────────────────────────────────
+  useEffect(() => {
+    if (siMode !== 'translate') return
+    const trimmed = transInput.trim()
+    if (!trimmed) { setTransResult(''); setTransErr(''); return }
+    clearTimeout(transTimerRef.current)
+    transTimerRef.current = setTimeout(() => doTranslate(trimmed), 800)
+    return () => clearTimeout(transTimerRef.current)
+  }, [transInput, siMode])
+
+  async function doTranslate(input) {
+    const hasChinese = /[\u4e00-\u9fff\u3400-\u4dbf\uff00-\uffef]/.test(input)
+    setTransBusy(true); setTransErr('')
+    try {
+      const prompt = hasChinese
+        ? `Translate the following Chinese text to natural, colloquial English. Return ONLY the translation with no explanation or preamble:\n\n${input}`
+        : `將以下英文翻譯成自然流暢的繁體中文。只回傳翻譯結果，不需任何說明：\n\n${input}`
+      const result = await callAI([{ role:'user', content: prompt }])
+      setTransResult(result.trim())
+    } catch(e) {
+      setTransErr(e.message)
+    } finally {
+      setTransBusy(false)
+    }
+  }
 
   // ── 🗣 中文→英文 函式 ─────────────────────────────────────
   async function translateIsland() {
@@ -12391,7 +12427,7 @@ STRICT RULES:
   // ── 🗣 中文→英文 句子島 layout ─────────────────────────────
   const ModeToggle = () => (
     <div style={{ display:'flex', background:T.surf2, borderRadius:10, padding:2, gap:2, flexShrink:0 }}>
-      {[{id:'analyze',label:'⚡ AI 三分類'},{id:'island',label:'🗣 中文→英文'}].map(m => (
+      {[{id:'analyze',label:'⚡ AI 三分類'},{id:'island',label:'🗣 中文→英文'},{id:'translate',label:'🔁 即時翻譯'}].map(m => (
         <div key={m.id} onClick={() => setSiMode(m.id)}
           style={{ flex:1, textAlign:'center', padding:'7px 12px', borderRadius:8, cursor:'pointer',
             fontFamily:MONO, fontSize:10, fontWeight: siMode===m.id?700:400, whiteSpace:'nowrap',
@@ -12526,6 +12562,210 @@ STRICT RULES:
                 </div>
               </div>
             ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ── 🔁 即時翻譯 layout ───────────────────────────────────
+  if (siMode === 'translate') {
+    const hasChinese = /[\u4e00-\u9fff\u3400-\u4dbf]/.test(transInput)
+    const dir        = transInput.trim() ? (hasChinese ? 'zh→en' : 'en→zh') : null
+    const canSave    = transResult && dir === 'zh→en'
+    const micSupported = !!(window.SpeechRecognition ?? window.webkitSpeechRecognition)
+
+    function startTransRecog() {
+      const SR = window.SpeechRecognition ?? window.webkitSpeechRecognition
+      if (!SR) { setTransErr('此裝置不支援語音辨識（需 Chrome）'); return }
+      window.speechSynthesis?.cancel()
+      const recog = new SR()
+      recog.lang = transLang; recog.continuous = false
+      recog.interimResults = true; recog.maxAlternatives = 1
+      let finalT = ''
+      recog.onstart  = () => { setTransListening(true); setTransInterim(''); setTransErr('') }
+      recog.onresult = (e) => {
+        let itm = ''
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const t = e.results[i][0].transcript
+          if (e.results[i].isFinal) finalT += t
+          else itm += t
+        }
+        setTransInterim(itm)
+      }
+      recog.onend = () => {
+        setTransListening(false); setTransInterim('')
+        if (finalT.trim()) { setTransInput(finalT.trim()); setTransResult(''); setTransErr('') }
+        else if (!transErr) setTransErr('沒有偵測到聲音，請靠近麥克風再試')
+      }
+      recog.onerror = (e) => {
+        setTransListening(false); setTransInterim('')
+        const msgs = { 'no-speech':'沒有偵測到聲音，請靠近麥克風再試', 'not-allowed':'麥克風權限被拒絕，請在瀏覽器設定中允許', 'network':'網路錯誤' }
+        setTransErr(msgs[e.error] ?? '語音辨識失敗：' + e.error)
+      }
+      transRecogRef.current = recog; recog.start()
+    }
+    function stopTransRecog() { transRecogRef.current?.stop() }
+    function copyResult() { navigator.clipboard?.writeText(transResult).catch(() => {}) }
+    function speakResult() {
+      if (!transResult) return
+      window.speechSynthesis?.cancel()
+      const u = new SpeechSynthesisUtterance(transResult)
+      u.lang = dir === 'zh→en' ? 'en-US' : 'zh-TW'; u.rate = 0.85
+      window.speechSynthesis?.speak(u)
+    }
+    function saveToCollection() {
+      if (!canSave) return
+      const newPhrase = { id:'ph_trans_'+Date.now(), cat:'my', subcat:'life', en:transResult, zh:transInput.trim() }
+      if (extraPhrases.find(p => p.en?.trim() === newPhrase.en)) { flash('⚠ 已存在收藏'); return }
+      setExtraPhrases(prev => { const u=[...prev,newPhrase]; localStorage.setItem('fsi:ph:extra',JSON.stringify(u)); return u })
+      flash('✓ 已加入我的收藏')
+    }
+
+    return (
+      <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:14 }} className="fadeUp">
+        <ModeToggle/>
+
+        {/* ── 麥克風區 ── */}
+        {micSupported && (
+          <div style={{ display:'flex', flexDirection:'column', gap:10, alignItems:'center',
+            background:T.surf2, border:`1.5px solid ${transListening ? T.red+'80' : T.bdr}`,
+            borderRadius:14, padding:'16px 12px', transition:'border-color 0.2s' }}>
+
+            {/* 語言切換 chip */}
+            <div style={{ display:'flex', gap:6 }}>
+              {[{id:'zh-TW',label:'🇹🇼 說中文'},{id:'en-US',label:'🇺🇸 說英文'}].map(l => (
+                <div key={l.id} onClick={() => !transListening && setTransLang(l.id)}
+                  style={{ padding:'5px 14px', borderRadius:10,
+                    cursor: transListening ? 'default' : 'pointer',
+                    fontFamily:MONO, fontSize:10, fontWeight: transLang===l.id ? 700 : 400,
+                    background: transLang===l.id ? (l.id==='zh-TW' ? T.amberD : T.blueD) : 'transparent',
+                    border:`1px solid ${transLang===l.id ? (l.id==='zh-TW' ? T.amber+'60' : T.blue+'60') : T.bdr}`,
+                    color: transLang===l.id ? (l.id==='zh-TW' ? T.amber : T.blue) : T.txt3,
+                    transition:'all 0.13s' }}>
+                  {l.label}
+                </div>
+              ))}
+            </div>
+
+            {/* 麥克風按鈕圓圈 */}
+            <div onClick={transListening ? stopTransRecog : startTransRecog}
+              style={{ width:64, height:64, borderRadius:'50%', cursor:'pointer',
+                display:'flex', alignItems:'center', justifyContent:'center',
+                background: transListening ? T.red+'22' : T.surf,
+                border:`2px solid ${transListening ? T.red : T.bdr2}`,
+                boxShadow: transListening ? `0 0 0 8px ${T.red}18` : 'none',
+                transition:'all 0.2s',
+                animation: transListening ? 'pulse 1.4s ease-in-out infinite' : 'none' }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                <rect x="9" y="2" width="6" height="12" rx="3"
+                  fill={transListening ? T.red : T.txt2}/>
+                <path d="M5 11a7 7 0 0 0 14 0"
+                  stroke={transListening ? T.red : T.txt2}
+                  strokeWidth="1.8" strokeLinecap="round" fill="none"/>
+                <line x1="12" y1="18" x2="12" y2="22"
+                  stroke={transListening ? T.red : T.txt2} strokeWidth="1.8" strokeLinecap="round"/>
+                <line x1="8" y1="22" x2="16" y2="22"
+                  stroke={transListening ? T.red : T.txt2} strokeWidth="1.8" strokeLinecap="round"/>
+              </svg>
+            </div>
+
+            {/* 狀態文字 / 即時辨識預覽 */}
+            <div style={{ fontFamily:MONO, fontSize:10, textAlign:'center', minHeight:18,
+              color: transListening ? T.red : T.txt3, fontStyle: transListening && transInterim ? 'italic' : 'normal' }}>
+              {transListening
+                ? (transInterim || '🎙 聆聽中，說完後自動辨識…')
+                : '點擊麥克風開始語音輸入'}
+            </div>
+          </div>
+        )}
+
+        {/* ── 方向指示列 ── */}
+        <div style={{ display:'flex', alignItems:'center', gap:8, minHeight:20 }}>
+          {dir ? (
+            <>
+              <span style={{ fontFamily:MONO, fontSize:10,
+                color: dir==='zh→en' ? T.amber : T.blue,
+                background: dir==='zh→en' ? T.amberD : T.blueD,
+                border:`1px solid ${dir==='zh→en' ? T.amber+'60' : T.blue+'60'}`,
+                padding:'2px 10px', borderRadius:10, letterSpacing:'0.08em' }}>
+                {dir === 'zh→en' ? '中文 → 英文' : '英文 → 中文'}
+              </span>
+              <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>自動偵測</span>
+            </>
+          ) : (
+            <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>語音或打字輸入，自動偵測語言</span>
+          )}
+          {transBusy && (
+            <span style={{ marginLeft:'auto', display:'inline-flex', alignItems:'center', gap:5,
+              fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+              <span style={{ display:'inline-block', width:8, height:8,
+                border:'1.5px solid transparent', borderTopColor:T.txt3,
+                borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>
+              翻譯中…
+            </span>
+          )}
+        </div>
+
+        {/* ── 文字輸入框 ── */}
+        <div style={{ position:'relative' }}>
+          <textarea
+            value={transListening ? transInterim : transInput}
+            onChange={e => { if (!transListening) { setTransInput(e.target.value); setTransResult(''); setTransErr('') } }}
+            placeholder={'或直接打字…\n\n停止打字 0.8 秒後自動翻譯'}
+            rows={3}
+            readOnly={transListening}
+            style={{ width:'100%', resize:'none', lineHeight:1.7, fontSize:14, boxSizing:'border-box',
+              background: transListening ? T.surf : T.surf2,
+              border:`1.5px solid ${transListening ? T.red+'40' : transInput ? T.bdr2 : T.bdr}`,
+              borderRadius:10, padding:'12px 40px 12px 16px', color: transListening ? T.txt3 : T.txt,
+              fontFamily:MONO, outline:'none', transition:'all 0.15s',
+              fontStyle: transListening ? 'italic' : 'normal' }}
+          />
+          {transInput && !transListening && (
+            <div onClick={() => { setTransInput(''); setTransResult(''); setTransErr('') }}
+              style={{ position:'absolute', top:10, right:10, cursor:'pointer',
+                fontFamily:MONO, fontSize:10, color:T.txt3, padding:'2px 6px',
+                background:T.surf, borderRadius:6, border:`1px solid ${T.bdr}` }}>✕</div>
+          )}
+        </div>
+
+        {/* ── 錯誤訊息 ── */}
+        {transErr && (
+          <div style={{ background:T.redD, border:`1px solid ${T.red}50`, borderRadius:8,
+            padding:'10px 14px', fontFamily:MONO, fontSize:11, color:T.red }}>{transErr}</div>
+        )}
+
+        {/* ── 翻譯結果 ── */}
+        {transResult && (
+          <div style={{ display:'flex', flexDirection:'column', gap:10 }} className="fadeUp">
+            <div style={{ height:1, background:T.bdr }}/>
+            <div style={{ background:T.surf, border:`1px solid ${T.bdr2}`, borderRadius:12,
+              padding:'16px 18px', fontFamily: dir==='zh→en' ? MONO : SERIF,
+              fontStyle: dir==='en→zh' ? 'italic' : 'normal',
+              fontSize:15, color:T.txt, lineHeight:1.8 }}>
+              {transResult}
+            </div>
+            <div style={{ display:'flex', gap:7 }}>
+              <div onClick={speakResult}
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt2,
+                  padding:'6px 14px', background:T.surf2, borderRadius:8, border:`1px solid ${T.bdr}` }}>
+                🔊 朗讀
+              </div>
+              <div onClick={copyResult}
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt2,
+                  padding:'6px 14px', background:T.surf2, borderRadius:8, border:`1px solid ${T.bdr}` }}>
+                📋 複製
+              </div>
+              {canSave && (
+                <div onClick={saveToCollection}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.blue,
+                    padding:'6px 14px', background:T.blueD, borderRadius:8,
+                    border:`1px solid ${T.blue}50`, marginLeft:'auto' }}>
+                  + 加入收藏
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -12687,6 +12927,592 @@ STRICT RULES:
   )
 }
 
+
+// ═══════════════════════════════════════════════════════════════
+// MOVIE TAB  🎬
+// ═══════════════════════════════════════════════════════════════
+const DEFAULT_MOVIE_DB = {
+  movies: [{
+    id: 'jerry_maguire', title: '征服情海', titleEn: 'Jerry Maguire', year: 1996,
+    scenes: [{
+      id: 'scene_001', timeRange: '00:05:57 ~ 00:07:59', name: '使命宣言的誕生',
+      phrases: [
+        { id:'jm_01', en:'I hated myself.',                                                                zh:'我討厭我自己。',                           played:false },
+        { id:'jm_02', en:"No, here's what it was.",                                                       zh:'不，真正的原因是這個。',                   played:false },
+        { id:'jm_03', en:'I hated my place in the world.',                                                zh:'我討厭自己在這世界上的位置。',             played:false },
+        { id:'jm_04', en:'I had so much to say and no one to listen.',                                    zh:'我有很多話想說，卻沒有人願意聽。',         played:false },
+        { id:'jm_05', en:'And then it happened.',                                                         zh:'然後，事情發生了。',                       played:false },
+        { id:'jm_06', en:'It was the oddest, most unexpected thing.',                                     zh:'那是最奇怪、最出乎意料的事。',             played:false },
+        { id:'jm_07', en:'I began writing what they call a mission statement.',                           zh:'我開始寫一份他們所謂的使命宣言。',         played:false },
+        { id:'jm_08', en:'Not a memo, a mission statement.',                                              zh:'不是備忘錄，而是使命宣言。',               played:false },
+        { id:'jm_09', en:'You know, a suggestion for the future of our company.',                         zh:'就是對公司未來的一些建議。',               played:false },
+        { id:'jm_10', en:"A night like this doesn't come along very often.",                              zh:'像這樣的夜晚並不常有。',                   played:false },
+        { id:'jm_11', en:'I seized it.',                                                                  zh:'我抓住了它。',                             played:false },
+        { id:'jm_12', en:'What started out as one page became 25.',                                       zh:'原本只有一頁，最後變成25頁。',             played:false },
+        { id:'jm_13', en:"Suddenly I was my father's son again.",                                         zh:'突然間，我又變回了父親的兒子。',           played:false },
+        { id:'jm_14', en:'I was remembering the simple pleasures of this job.',                           zh:'我想起了這份工作的單純快樂。',             played:false },
+        { id:'jm_15', en:'How I ended up here out of law school.',                                        zh:'我如何從法學院一路走到了今天。',           played:false },
+        { id:'jm_16', en:'The key to this business is personal relationships.',                           zh:'這個行業成功的關鍵是人際關係。',           played:false },
+        { id:'jm_17', en:'Suddenly it was all pretty clear.',                                             zh:'突然間，一切都變得很清楚了。',             played:false },
+        { id:'jm_18', en:'The answer was fewer clients, less money, more attention, caring for them.',    zh:'答案是更少客戶、更少金錢、更多關注、用心照顧他們。', played:false },
+        { id:'jm_19', en:'Just starting our lives, really.',                                              zh:'其實，我們才正要開始生活。',               played:false },
+        { id:'jm_20', en:"I didn't care.",                                                                zh:'我不在乎。',                               played:false },
+        { id:'jm_21', en:'I had lost the ability to bullshit.',                                           zh:'我已經失去了說場面話的能力。',             played:false },
+        { id:'jm_22', en:"It was me I'd always wanted to be.",                                            zh:'那才是我一直想成為的人。',                 played:false },
+      ]
+    }]
+  }],
+  vocab: []
+}
+
+function MovieTab() {
+  const [db, setDb] = useState(() => {
+    try { const s = localStorage.getItem('fsi:movie:db'); return s ? JSON.parse(s) : DEFAULT_MOVIE_DB }
+    catch { return DEFAULT_MOVIE_DB }
+  })
+  const [view,       setView]       = useState('list')
+  const [movieId,    setMovieId]    = useState('jerry_maguire')
+  const [sceneId,    setSceneId]    = useState(null)
+  const [playIdx,    setPlayIdx]    = useState(0)
+  const [playing,    setPlaying]    = useState(false)
+  const [looping,    setLooping]    = useState(false)
+  const [revIdx,     setRevIdx]     = useState(0)
+  const [revFlip,    setRevFlip]    = useState(false)
+  const [wordModal,  setWordModal]  = useState(null)
+  const [wordBusy,   setWordBusy]   = useState(false)
+  const [wordInfo,   setWordInfo]   = useState(null)
+  const [srtText,    setSrtText]    = useState('')
+  const [startTime,  setStartTime]  = useState('')
+  const [endTime,    setEndTime]    = useState('')
+  const [addBusy,    setAddBusy]    = useState(false)
+  const [addErr,     setAddErr]     = useState('')
+  const [addPreview, setAddPreview] = useState(null)
+
+  const movie   = db.movies.find(m => m.id === movieId)
+  const scene   = sceneId ? movie?.scenes.find(s => s.id === sceneId) : null
+  const phrases = scene?.phrases ?? []
+  const playedCount = phrases.filter(p => p.played).length
+
+  function saveDb(nd) { setDb(nd); localStorage.setItem('fsi:movie:db', JSON.stringify(nd)) }
+
+  function updateScenePhrases(fn) {
+    saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : {
+      ...m, scenes: m.scenes.map(s => s.id !== sceneId ? s : { ...s, phrases: fn(s.phrases) })
+    })})
+  }
+
+  function markPlayed(pid) {
+    updateScenePhrases(ps => ps.map(p => p.id === pid ? { ...p, played:true } : p))
+  }
+  function resetScene() {
+    updateScenePhrases(ps => ps.map(p => ({ ...p, played:false })))
+  }
+  function deletePhrase(pid) {
+    updateScenePhrases(ps => ps.filter(p => p.id !== pid))
+  }
+  function deleteScene(sid) {
+    saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : {
+      ...m, scenes: m.scenes.filter(s => s.id !== sid)
+    })})
+    if (sceneId === sid) { setSceneId(null); setView('list') }
+  }
+  function addToVocab(word, phonetic, zh, example) {
+    if (db.vocab.find(v => v.word.toLowerCase() === word.toLowerCase())) return false
+    saveDb({ ...db, vocab:[...db.vocab, { id:'v_'+Date.now(), word, phonetic, zh, example, movieId }] })
+    return true
+  }
+  function deleteVocab(vid) { saveDb({ ...db, vocab: db.vocab.filter(v => v.id !== vid) }) }
+
+  // ── auto-play effect ──────────────────────────────────────────
+  useEffect(() => {
+    if (view !== 'play' || !playing || !phrases[playIdx]) return
+    let cancelled = false
+    const p = phrases[playIdx]
+    window.speechSynthesis?.cancel()
+    const u = new SpeechSynthesisUtterance(p.en)
+    u.lang = 'en-US'; u.rate = 0.6
+    u.onend = () => {
+      if (cancelled) return
+      markPlayed(p.id)
+      setTimeout(() => {
+        if (cancelled) return
+        const next = playIdx + 1
+        if (next >= phrases.length) { if (looping) setPlayIdx(0); else setPlaying(false) }
+        else setPlayIdx(next)
+      }, 1200)
+    }
+    u.onerror = () => { if (!cancelled) setPlaying(false) }
+    window.speechSynthesis?.speak(u)
+    return () => { cancelled = true; window.speechSynthesis?.cancel() }
+  }, [view, playing, playIdx])
+
+  // ── word lookup ───────────────────────────────────────────────
+  async function lookupWord(word, sentence) {
+    setWordModal({ word, sentence }); setWordBusy(true); setWordInfo(null)
+    try {
+      const prompt = `For the English word/phrase "${word}" used in: "${sentence}"
+Return ONLY a JSON object, no markdown:
+{"phonetic":"/IPA/","zh":"中文意思（3~5字）","example":"${sentence}"}`
+      const raw = await callAI([{ role:'user', content:prompt }])
+      setWordInfo(JSON.parse(raw.replace(/```json|```/g,'').trim()))
+    } catch { setWordInfo({ phonetic:'', zh:'查詢失敗', example:sentence }) }
+    finally { setWordBusy(false) }
+  }
+
+  // ── parse SRT scene ───────────────────────────────────────────
+  async function parseScene() {
+    if (!srtText.trim() || !startTime || !endTime) { setAddErr('請填入逐字稿和時間範圍'); return }
+    setAddBusy(true); setAddErr(''); setAddPreview(null)
+    try {
+      const prompt = `You are given an SRT transcript. Extract lines within ${startTime} ~ ${endTime}, merge short consecutive lines into natural sentences, then:
+1. Give a short evocative Chinese scene name (6~10 characters)
+2. Provide each sentence in English + Chinese translation
+Return ONLY JSON, no markdown:
+{"name":"場景名稱","phrases":[{"en":"...","zh":"..."}]}
+SRT:
+${srtText.slice(0,4000)}`
+      const raw = await callAI([{ role:'user', content:prompt }])
+      setAddPreview(JSON.parse(raw.replace(/```json|```/g,'').trim()))
+    } catch(e) { setAddErr('AI解析失敗：'+e.message) }
+    finally { setAddBusy(false) }
+  }
+
+  function confirmAddScene() {
+    if (!addPreview) return
+    const ns = {
+      id: 'scene_'+Date.now(), timeRange:`${startTime} ~ ${endTime}`,
+      name: addPreview.name,
+      phrases: addPreview.phrases.map((p,i) => ({ id:'ph_'+Date.now()+'_'+i, en:p.en, zh:p.zh, played:false }))
+    }
+    saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : { ...m, scenes:[...m.scenes, ns] }) })
+    setSrtText(''); setStartTime(''); setEndTime(''); setAddPreview(null); setView('list')
+  }
+
+  // ── helpers ───────────────────────────────────────────────────
+  function goBack(to='list') { setView(to); setPlaying(false); window.speechSynthesis?.cancel() }
+
+  const BackBtn = ({ label='← 返回', to='list' }) => (
+    <span onClick={() => goBack(to)}
+      style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt3, display:'inline-flex', alignItems:'center', gap:3 }}>
+      {label}
+    </span>
+  )
+
+  const Chip = ({ on, onClick, children }) => (
+    <div onClick={onClick} style={{ cursor:'pointer', fontFamily:MONO, fontSize:9,
+      padding:'4px 12px', borderRadius:10, transition:'all 0.13s',
+      background: on ? T.amberD : T.surf2, border:`1px solid ${on ? T.amber+'60' : T.bdr}`,
+      color: on ? T.amber : T.txt3 }}>
+      {children}
+    </div>
+  )
+
+  // ══════════════════════════════════════════════════════════════
+  // VOCAB VIEW
+  // ══════════════════════════════════════════════════════════════
+  if (view === 'vocab') return (
+    <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <BackBtn label="← 返回句子" to="scene"/>
+        <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>📖 單字庫 · {db.vocab.length} 個</span>
+      </div>
+      {db.vocab.length === 0 && (
+        <div style={{ textAlign:'center', padding:'48px 0', fontFamily:MONO, fontSize:11, color:T.txt3 }}>
+          在句子頁面點任何單字即可加入
+        </div>
+      )}
+      {db.vocab.map(v => (
+        <div key={v.id} style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:12, padding:'14px 16px' }}>
+          <div style={{ display:'flex', alignItems:'baseline', gap:8, marginBottom:5 }}>
+            <span style={{ fontFamily:MONO, fontSize:15, color:T.amber, fontWeight:700 }}>{v.word}</span>
+            <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>{v.phonetic}</span>
+            <span onClick={() => deleteVocab(v.id)}
+              style={{ marginLeft:'auto', cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
+                padding:'1px 6px', background:T.surf2, borderRadius:5, border:`1px solid ${T.bdr}` }}>✕</span>
+          </div>
+          <div style={{ fontFamily:MONO, fontSize:12, color:T.txt2, marginBottom:5 }}>{v.zh}</div>
+          <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, fontStyle:'italic', lineHeight:1.7 }}>{v.example}</div>
+        </div>
+      ))}
+    </div>
+  )
+
+  // ══════════════════════════════════════════════════════════════
+  // ADD SCENE VIEW
+  // ══════════════════════════════════════════════════════════════
+  if (view === 'addScene') return (
+    <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <BackBtn to="list"/>
+        <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>＋ 新增場景</span>
+      </div>
+      {/* Time range */}
+      <div style={{ display:'flex', gap:8 }}>
+        {[['開始時間','00:05:57',startTime,setStartTime],['結束時間','00:07:59',endTime,setEndTime]].map(([lbl,ph,val,set]) => (
+          <div key={lbl} style={{ flex:1, display:'flex', flexDirection:'column', gap:4 }}>
+            <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>{lbl}</span>
+            <input value={val} onChange={e=>set(e.target.value)} placeholder={ph}
+              style={{ fontFamily:MONO, fontSize:12, background:T.surf2, border:`1px solid ${T.bdr}`,
+                borderRadius:8, padding:'9px 10px', color:T.txt, outline:'none' }}/>
+          </div>
+        ))}
+      </div>
+      {/* SRT textarea */}
+      <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+        <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>貼上逐字稿（含時間碼）</span>
+        <textarea value={srtText} onChange={e=>setSrtText(e.target.value)} rows={9}
+          placeholder={"00:05:34,303 --> 00:05:55,885\nDo you know your name?\n\n00:05:57,306 --> 00:06:04,540\nI hated myself."}
+          style={{ fontFamily:MONO, fontSize:11, background:T.surf2, border:`1px solid ${T.bdr}`,
+            borderRadius:10, padding:'12px', color:T.txt, resize:'none', outline:'none', lineHeight:1.6 }}/>
+      </div>
+      {addErr && <div style={{ fontFamily:MONO, fontSize:10, color:T.red, background:T.redD, borderRadius:8, padding:'8px 12px' }}>{addErr}</div>}
+      {/* Preview */}
+      {addPreview && (
+        <div style={{ display:'flex', flexDirection:'column', gap:8 }} className="fadeUp">
+          <div style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>
+            「{addPreview.name}」· {addPreview.phrases.length} 句
+          </div>
+          <div style={{ maxHeight:220, overflowY:'auto', display:'flex', flexDirection:'column', gap:6,
+            border:`1px solid ${T.bdr}`, borderRadius:10, padding:10 }}>
+            {addPreview.phrases.map((p,i) => (
+              <div key={i} style={{ background:T.surf, borderRadius:8, padding:'8px 12px' }}>
+                <div style={{ fontFamily:MONO, fontSize:11, color:T.txt, marginBottom:3 }}>{p.en}</div>
+                <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>{p.zh}</div>
+              </div>
+            ))}
+          </div>
+          <div onClick={confirmAddScene}
+            style={{ background:T.amber, borderRadius:10, padding:'12px', textAlign:'center',
+              fontFamily:MONO, fontSize:12, fontWeight:700, color:T.bg, cursor:'pointer' }}>
+            ✓ 確認加入場景
+          </div>
+          <div onClick={() => setAddPreview(null)}
+            style={{ textAlign:'center', fontFamily:MONO, fontSize:10, color:T.txt3, cursor:'pointer' }}>
+            重新解析
+          </div>
+        </div>
+      )}
+      {!addPreview && (
+        <div onClick={addBusy ? undefined : parseScene}
+          style={{ background: addBusy ? T.surf2 : T.amber, borderRadius:10, padding:'13px',
+            textAlign:'center', fontFamily:MONO, fontSize:12, fontWeight:700,
+            color: addBusy ? T.txt3 : T.bg, cursor: addBusy ? 'default' : 'pointer',
+            display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+          {addBusy && <span style={{ display:'inline-block', width:10, height:10, border:'2px solid transparent',
+            borderTopColor:T.txt3, borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>}
+          {addBusy ? 'AI 解析中…' : '⚡ AI 解析逐字稿'}
+        </div>
+      )}
+    </div>
+  )
+
+  // ══════════════════════════════════════════════════════════════
+  // PLAY VIEW
+  // ══════════════════════════════════════════════════════════════
+  if (view === 'play') {
+    const cur = phrases[playIdx]
+    const pct = phrases.length ? Math.round((playedCount / phrases.length) * 100) : 0
+    return (
+      <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:14 }} className="fadeUp">
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <BackBtn label="← 返回句子" to="scene"/>
+          <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>{playIdx+1} / {phrases.length}</span>
+        </div>
+        {/* Progress bar */}
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <div style={{ flex:1, background:T.bdr, borderRadius:4, height:6, overflow:'hidden' }}>
+            <div style={{ width:`${pct}%`, height:'100%', background:T.amber, transition:'width 0.4s' }}/>
+          </div>
+          <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>{playedCount}/{phrases.length}</span>
+        </div>
+        {/* Card */}
+        {cur && (
+          <div style={{ background:T.surf, border:`1px solid ${playing ? T.amber+'50' : T.bdr2}`,
+            borderRadius:18, padding:'32px 22px', display:'flex', flexDirection:'column', gap:16,
+            minHeight:170, transition:'border-color 0.3s' }}>
+            <div style={{ fontFamily:MONO, fontSize:16, color:T.txt, lineHeight:1.9, fontWeight:500 }}>
+              {cur.en}
+            </div>
+            <div style={{ height:1, background:T.bdr }}/>
+            <div style={{ fontFamily:MONO, fontSize:12, color:T.txt3, lineHeight:1.8 }}>{cur.zh}</div>
+          </div>
+        )}
+        {/* Main play button */}
+        <div style={{ display:'flex', justifyContent:'center' }}>
+          <div onClick={() => setPlaying(p => !p)}
+            style={{ width:76, height:76, borderRadius:'50%', cursor:'pointer',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              background: playing ? T.amber+'20' : T.surf,
+              border:`2px solid ${playing ? T.amber : T.bdr2}`,
+              boxShadow: playing ? `0 0 0 8px ${T.amber}12` : 'none',
+              transition:'all 0.2s' }}>
+            <span style={{ fontSize:30, color: playing ? T.amber : T.txt2 }}>{playing ? '⏸' : '▶'}</span>
+          </div>
+        </div>
+        {/* Prev / Next */}
+        <div style={{ display:'flex', gap:8 }}>
+          <div onClick={() => { setPlayIdx(i => Math.max(0,i-1)); setPlaying(false) }}
+            style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt2,
+              padding:'10px', background:T.surf2, borderRadius:10, border:`1px solid ${T.bdr}`, textAlign:'center' }}>
+            ◀ 上一句
+          </div>
+          <div onClick={() => { setPlayIdx(i => Math.min(phrases.length-1,i+1)); setPlaying(false) }}
+            style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt2,
+              padding:'10px', background:T.surf2, borderRadius:10, border:`1px solid ${T.bdr}`, textAlign:'center' }}>
+            下一句 ▶
+          </div>
+        </div>
+        {/* Loop / Reset */}
+        <div style={{ display:'flex', gap:8, justifyContent:'center' }}>
+          <Chip on={looping} onClick={() => setLooping(l => !l)}>🔁 循環 {looping?'ON':'OFF'}</Chip>
+          <Chip on={false} onClick={resetScene}>↺ 重置進度</Chip>
+        </div>
+      </div>
+    )
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // REVERSE VIEW
+  // ══════════════════════════════════════════════════════════════
+  if (view === 'reverse') {
+    const cur = phrases[revIdx]
+    return (
+      <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:14 }} className="fadeUp">
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <BackBtn label="← 返回句子" to="scene"/>
+          <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>{revIdx+1} / {phrases.length}</span>
+        </div>
+        {cur && (
+          <>
+            <div style={{ background:T.surf, border:`1px solid ${T.bdr2}`, borderRadius:16,
+              padding:'32px 22px', minHeight:110, display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <div style={{ fontFamily:MONO, fontSize:15, color:T.txt, lineHeight:1.9, textAlign:'center' }}>
+                {cur.zh}
+              </div>
+            </div>
+            {revFlip ? (
+              <div style={{ background:T.amberD, border:`1px solid ${T.amber}50`,
+                borderRadius:16, padding:'24px 22px' }} className="fadeUp">
+                <div style={{ fontFamily:MONO, fontSize:15, color:T.amber, lineHeight:1.9, fontWeight:500 }}>
+                  {cur.en}
+                </div>
+              </div>
+            ) : (
+              <div onClick={() => setRevFlip(true)}
+                style={{ background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:12,
+                  padding:'18px', textAlign:'center', cursor:'pointer',
+                  fontFamily:MONO, fontSize:11, color:T.txt3 }}>
+                點此翻牌看英文 →
+              </div>
+            )}
+            <div style={{ display:'flex', gap:8 }}>
+              <div onClick={() => { setRevIdx(i => Math.max(0,i-1)); setRevFlip(false) }}
+                style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt2,
+                  padding:'11px', background:T.surf2, borderRadius:10, border:`1px solid ${T.bdr}`, textAlign:'center' }}>
+                ◀ 上一句
+              </div>
+              <div onClick={() => { setRevIdx(i => Math.min(phrases.length-1,i+1)); setRevFlip(false) }}
+                style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt2,
+                  padding:'11px', background:T.surf2, borderRadius:10, border:`1px solid ${T.bdr}`, textAlign:'center' }}>
+                下一句 ▶
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    )
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // SCENE VIEW (sentence list + word tap)
+  // ══════════════════════════════════════════════════════════════
+  if (view === 'scene' && scene) {
+    const pct = phrases.length ? Math.round((playedCount / phrases.length) * 100) : 0
+    return (
+      <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
+        {/* Word modal overlay */}
+        {wordModal && (
+          <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.65)', zIndex:100,
+            display:'flex', alignItems:'flex-end', justifyContent:'center' }}
+            onClick={() => setWordModal(null)}>
+            <div onClick={e => e.stopPropagation()}
+              style={{ background:T.surf, borderRadius:'18px 18px 0 0', padding:'22px 22px 32px',
+                width:'100%', maxWidth:480, display:'flex', flexDirection:'column', gap:14 }}>
+              <div style={{ display:'flex', alignItems:'baseline', gap:10 }}>
+                <span style={{ fontFamily:MONO, fontSize:20, color:T.amber, fontWeight:700 }}>{wordModal.word}</span>
+                {wordBusy && <span style={{ display:'inline-block', width:10, height:10,
+                  border:'2px solid transparent', borderTopColor:T.txt3,
+                  borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>}
+                {wordInfo && <span style={{ fontFamily:MONO, fontSize:12, color:T.txt3 }}>{wordInfo.phonetic}</span>}
+              </div>
+              {wordInfo && (
+                <>
+                  <div style={{ fontFamily:MONO, fontSize:14, color:T.txt2 }}>{wordInfo.zh}</div>
+                  <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, fontStyle:'italic', lineHeight:1.7 }}>{wordInfo.example}</div>
+                  <div style={{ display:'flex', gap:8 }}>
+                    <div onClick={() => {
+                        const ok = addToVocab(wordModal.word, wordInfo.phonetic, wordInfo.zh, wordInfo.example)
+                        setWordModal(null)
+                      }}
+                      style={{ flex:1, cursor:'pointer', background:T.blue, borderRadius:10, padding:'11px',
+                        textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700, color:'#fff' }}>
+                      + 加入單字庫
+                    </div>
+                    <div onClick={() => setWordModal(null)}
+                      style={{ flex:1, cursor:'pointer', background:T.surf2, borderRadius:10, padding:'11px',
+                        textAlign:'center', fontFamily:MONO, fontSize:11, color:T.txt3, border:`1px solid ${T.bdr}` }}>
+                      關閉
+                    </div>
+                  </div>
+                </>
+              )}
+              {wordBusy && <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, textAlign:'center' }}>AI 查詢中…</div>}
+            </div>
+          </div>
+        )}
+        {/* Header */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <BackBtn to="list"/>
+          <div onClick={() => setView('vocab')}
+            style={{ cursor:'pointer', display:'flex', alignItems:'center', gap:5,
+              fontFamily:MONO, fontSize:10, color:T.txt3 }}>
+            📖 單字庫
+            <span style={{ background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:10, padding:'1px 7px',
+              fontFamily:MONO, fontSize:9 }}>{db.vocab.length}</span>
+          </div>
+        </div>
+        {/* Scene info card */}
+        <div style={{ background:T.surf, borderRadius:14, padding:'16px 18px' }}>
+          <div style={{ fontFamily:MONO, fontSize:13, color:T.amber, fontWeight:700, marginBottom:3 }}>{scene.name}</div>
+          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:10 }}>{scene.timeRange} · {phrases.length} 句</div>
+          <div style={{ background:T.bdr, borderRadius:4, height:5, overflow:'hidden', marginBottom:6 }}>
+            <div style={{ width:`${pct}%`, height:'100%', background:T.amber, transition:'width 0.3s' }}/>
+          </div>
+          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>已練習 {playedCount}/{phrases.length} · {pct}%</div>
+        </div>
+        {/* Practice buttons */}
+        <div style={{ display:'flex', gap:8 }}>
+          <div onClick={() => { setPlayIdx(0); setPlaying(false); setView('play') }}
+            style={{ flex:1, cursor:'pointer', background:T.amber, borderRadius:11,
+              padding:'13px', textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700, color:T.bg }}>
+            ▶ 自動播放 0.6x
+          </div>
+          <div onClick={() => { setRevIdx(0); setRevFlip(false); setView('reverse') }}
+            style={{ flex:1, cursor:'pointer', background:T.surf2, border:`1px solid ${T.bdr2}`,
+              borderRadius:11, padding:'13px', textAlign:'center', fontFamily:MONO, fontSize:11, color:T.txt2 }}>
+            🔄 反向練習
+          </div>
+        </div>
+        {/* Hint */}
+        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>👆 點單字加入單字庫 · ✕ 刪除不需要的句子</div>
+        {/* Sentence list */}
+        {phrases.map(p => (
+          <div key={p.id} style={{ background:T.surf,
+            border:`1px solid ${p.played ? T.amber+'40' : T.bdr}`,
+            borderRadius:12, padding:'14px 16px', position:'relative' }}>
+            {/* EN tokens (word-tappable) */}
+            <div style={{ marginBottom:7, lineHeight:2.1, display:'flex', flexWrap:'wrap', gap:1,
+              paddingRight:28 }}>
+              {p.en.split(/(\b)/).filter(Boolean).map((tok, j) => {
+                const isWord = /^[a-zA-Z']+$/.test(tok)
+                return (
+                  <span key={j} onClick={() => isWord && lookupWord(tok.replace(/[^a-zA-Z']/g,''), p.en)}
+                    style={{ fontFamily:MONO, fontSize:13, color: isWord ? T.txt : T.txt3,
+                      fontWeight: isWord ? 500 : 400,
+                      cursor: isWord ? 'pointer' : 'default',
+                      borderBottom: isWord ? `1px dashed ${T.bdr2}` : 'none',
+                      padding:'0 1px' }}>
+                    {tok}
+                  </span>
+                )
+              })}
+            </div>
+            <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.7 }}>{p.zh}</div>
+            {p.played && <span style={{ position:'absolute', top:10, right:32, fontSize:10 }}>✅</span>}
+            <div onClick={() => deletePhrase(p.id)}
+              style={{ position:'absolute', top:10, right:10, cursor:'pointer',
+                fontFamily:MONO, fontSize:9, color:T.txt3, padding:'2px 5px',
+                background:T.surf2, borderRadius:5, border:`1px solid ${T.bdr}` }}>✕</div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // LIST VIEW (default — scene list)
+  // ══════════════════════════════════════════════════════════════
+  const totalPhrases = movie?.scenes.reduce((a,s) => a+s.phrases.length, 0) ?? 0
+  const totalPlayed  = movie?.scenes.reduce((a,s) => a+s.phrases.filter(p=>p.played).length, 0) ?? 0
+  const totalPct     = totalPhrases ? Math.round((totalPlayed/totalPhrases)*100) : 0
+
+  return (
+    <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
+      {/* Movie header */}
+      <div style={{ background:T.surf, borderRadius:14, padding:'18px 20px' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
+          <span style={{ fontSize:20 }}>🎬</span>
+          <div>
+            <div style={{ fontFamily:DISP, fontSize:16, color:T.txt }}>{movie?.title}</div>
+            <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>{movie?.titleEn} · {movie?.year}</div>
+          </div>
+        </div>
+        <div style={{ background:T.bdr, borderRadius:4, height:6, overflow:'hidden', marginBottom:6 }}>
+          <div style={{ width:`${totalPct}%`, height:'100%',
+            background:`linear-gradient(90deg,${T.amber},${T.amber}cc)`, transition:'width 0.3s' }}/>
+        </div>
+        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+          總進度 {totalPlayed}/{totalPhrases} 句 · {totalPct}% · {movie?.scenes.length ?? 0} 個場景
+        </div>
+      </div>
+      {/* Scene cards */}
+      {(movie?.scenes ?? []).map(s => {
+        const sp  = s.phrases.filter(p=>p.played).length
+        const spc = s.phrases.length ? Math.round((sp/s.phrases.length)*100) : 0
+        const st  = spc===100 ? 'done' : spc>0 ? 'active' : 'new'
+        return (
+          <div key={s.id} onClick={() => { setSceneId(s.id); setView('scene') }}
+            style={{ background:T.surf,
+              border:`1px solid ${st==='active' ? T.amber+'60' : st==='done' ? T.amber+'30' : T.bdr}`,
+              borderRadius:13, padding:'15px 16px', cursor:'pointer', transition:'border-color 0.15s' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:5 }}>
+              <span style={{ fontSize:14 }}>{st==='done'?'✅':st==='active'?'🟡':'⭕'}</span>
+              <span style={{ fontFamily:MONO, fontSize:12, color:T.txt, fontWeight:st==='active'?600:400, flex:1 }}>
+                {s.name}
+              </span>
+              <div onClick={e=>{e.stopPropagation();deleteScene(s.id)}}
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
+                  padding:'2px 6px', background:T.surf2, borderRadius:5, border:`1px solid ${T.bdr}` }}>✕</div>
+            </div>
+            <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom: spc>0?7:0 }}>
+              {s.timeRange} · {s.phrases.length} 句 · {sp}/{s.phrases.length} 已練
+            </div>
+            {spc > 0 && (
+              <div style={{ background:T.bdr, borderRadius:3, height:3, overflow:'hidden' }}>
+                <div style={{ width:`${spc}%`, height:'100%', background:T.amber }}/>
+              </div>
+            )}
+          </div>
+        )
+      })}
+      {/* Add scene */}
+      <div onClick={() => setView('addScene')}
+        style={{ border:`1.5px dashed ${T.bdr2}`, borderRadius:12, padding:'15px',
+          textAlign:'center', cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.txt3,
+          display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+        ＋ 新增場景（貼逐字稿）
+      </div>
+      {/* Vocab shortcut */}
+      <div onClick={() => setView('vocab')}
+        style={{ border:`1px solid ${T.bdr}`, borderRadius:12, padding:'13px',
+          display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer' }}>
+        <span style={{ fontFamily:MONO, fontSize:11, color:T.txt2 }}>📖 單字庫</span>
+        <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>{db.vocab.length} 個 →</span>
+      </div>
+    </div>
+  )
+}
+
 // ═══════════════════════════════════════════════════════════════
 // ACHIEVEMENTS TAB
 // ═══════════════════════════════════════════════════════════════
@@ -12804,7 +13630,7 @@ function AchieveTab({ stats, earned, sentences, vocab }) {
 // ═══════════════════════════════════════════════════════════════
 // SETTINGS TAB
 // ═══════════════════════════════════════════════════════════════
-function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings, updateSettings }) {
+function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings, updateSettings, stats, earned }) {
   // 直接從 localStorage 讀取，避免 settings prop 非同步初始化問題
   const [key, setKey] = useState(() => {
     try { return JSON.parse(localStorage.getItem('fsi:se') || '{}')?.apiKey ?? '' } catch { return '' }
@@ -13668,6 +14494,9 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
       <div style={{ textAlign:'center', fontFamily:MONO, fontSize:9, color:T.txt3, paddingBottom:4 }}>
         {(sentences??[]).length} sentences in practice library
       </div>
+
+      {/* ── Goals / Achievements (moved from tab) ── */}
+      <AchieveTab stats={stats} earned={earned} sentences={sentences} vocab={vocab}/>
     </div>
   )
 }
@@ -13782,7 +14611,7 @@ export default function App() {
         {tab==='drill'    && <DrillTab    {...P}/>}
         {tab==='vocab'    && <VocabTab    {...P}/>}
         {tab==='email'    && <EmailTab    {...P}/>}
-        {tab==='achieve'  && <AchieveTab  {...P}/>}
+        {tab==='movie'    && <MovieTab/>}
         {tab==='settings' && <SettingsTab {...P}/>}
       </div>
       <BottomNav tab={tab} setTab={setTab}/>
