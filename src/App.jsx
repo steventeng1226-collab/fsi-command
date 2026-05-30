@@ -50,6 +50,7 @@ const T = {
 const MONO = "'JetBrains Mono',monospace"
 const SERIF = "'Crimson Pro',Georgia,serif"
 const DISP  = "'Cinzel',serif"
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx_xBUsiWvvoF8Qz9OczKniddNVENSz8W0ToTrzIw7VVCG3V0MlM85vl8Z1VmuNPS8STg/exec'
 
 // ═══════════════════════════════════════════════════════════════
 // STORAGE  (localStorage — persists across sessions)
@@ -12937,28 +12938,28 @@ const DEFAULT_MOVIE_DB = {
     scenes: [{
       id: 'scene_001', timeRange: '00:05:57 ~ 00:07:59', name: '使命宣言的誕生',
       phrases: [
-        { id:'jm_01', en:'I hated myself.',                                                                zh:'我討厭我自己。',                           played:false },
-        { id:'jm_02', en:"No, here's what it was.",                                                       zh:'不，真正的原因是這個。',                   played:false },
-        { id:'jm_03', en:'I hated my place in the world.',                                                zh:'我討厭自己在這世界上的位置。',             played:false },
-        { id:'jm_04', en:'I had so much to say and no one to listen.',                                    zh:'我有很多話想說，卻沒有人願意聽。',         played:false },
-        { id:'jm_05', en:'And then it happened.',                                                         zh:'然後，事情發生了。',                       played:false },
-        { id:'jm_06', en:'It was the oddest, most unexpected thing.',                                     zh:'那是最奇怪、最出乎意料的事。',             played:false },
-        { id:'jm_07', en:'I began writing what they call a mission statement.',                           zh:'我開始寫一份他們所謂的使命宣言。',         played:false },
-        { id:'jm_08', en:'Not a memo, a mission statement.',                                              zh:'不是備忘錄，而是使命宣言。',               played:false },
-        { id:'jm_09', en:'You know, a suggestion for the future of our company.',                         zh:'就是對公司未來的一些建議。',               played:false },
-        { id:'jm_10', en:"A night like this doesn't come along very often.",                              zh:'像這樣的夜晚並不常有。',                   played:false },
-        { id:'jm_11', en:'I seized it.',                                                                  zh:'我抓住了它。',                             played:false },
-        { id:'jm_12', en:'What started out as one page became 25.',                                       zh:'原本只有一頁，最後變成25頁。',             played:false },
-        { id:'jm_13', en:"Suddenly I was my father's son again.",                                         zh:'突然間，我又變回了父親的兒子。',           played:false },
-        { id:'jm_14', en:'I was remembering the simple pleasures of this job.',                           zh:'我想起了這份工作的單純快樂。',             played:false },
-        { id:'jm_15', en:'How I ended up here out of law school.',                                        zh:'我如何從法學院一路走到了今天。',           played:false },
-        { id:'jm_16', en:'The key to this business is personal relationships.',                           zh:'這個行業成功的關鍵是人際關係。',           played:false },
-        { id:'jm_17', en:'Suddenly it was all pretty clear.',                                             zh:'突然間，一切都變得很清楚了。',             played:false },
-        { id:'jm_18', en:'The answer was fewer clients, less money, more attention, caring for them.',    zh:'答案是更少客戶、更少金錢、更多關注、用心照顧他們。', played:false },
-        { id:'jm_19', en:'Just starting our lives, really.',                                              zh:'其實，我們才正要開始生活。',               played:false },
-        { id:'jm_20', en:"I didn't care.",                                                                zh:'我不在乎。',                               played:false },
-        { id:'jm_21', en:'I had lost the ability to bullshit.',                                           zh:'我已經失去了說場面話的能力。',             played:false },
-        { id:'jm_22', en:"It was me I'd always wanted to be.",                                            zh:'那才是我一直想成為的人。',                 played:false },
+        { id:'jm_01', en:'I hated myself.',                                                                zh:'我討厭我自己。',                           played:false, starred:false },
+        { id:'jm_02', en:"No, here's what it was.",                                                       zh:'不，真正的原因是這個。',                   played:false, starred:false },
+        { id:'jm_03', en:'I hated my place in the world.',                                                zh:'我討厭自己在這世界上的位置。',             played:false, starred:false },
+        { id:'jm_04', en:'I had so much to say and no one to listen.',                                    zh:'我有很多話想說，卻沒有人願意聽。',         played:false, starred:false },
+        { id:'jm_05', en:'And then it happened.',                                                         zh:'然後，事情發生了。',                       played:false, starred:false },
+        { id:'jm_06', en:'It was the oddest, most unexpected thing.',                                     zh:'那是最奇怪、最出乎意料的事。',             played:false, starred:false },
+        { id:'jm_07', en:'I began writing what they call a mission statement.',                           zh:'我開始寫一份他們所謂的使命宣言。',         played:false, starred:false },
+        { id:'jm_08', en:'Not a memo, a mission statement.',                                              zh:'不是備忘錄，而是使命宣言。',               played:false, starred:false },
+        { id:'jm_09', en:'You know, a suggestion for the future of our company.',                         zh:'就是對公司未來的一些建議。',               played:false, starred:false },
+        { id:'jm_10', en:"A night like this doesn't come along very often.",                              zh:'像這樣的夜晚並不常有。',                   played:false, starred:false },
+        { id:'jm_11', en:'I seized it.',                                                                  zh:'我抓住了它。',                             played:false, starred:false },
+        { id:'jm_12', en:'What started out as one page became 25.',                                       zh:'原本只有一頁，最後變成25頁。',             played:false, starred:false },
+        { id:'jm_13', en:"Suddenly I was my father's son again.",                                         zh:'突然間，我又變回了父親的兒子。',           played:false, starred:false },
+        { id:'jm_14', en:'I was remembering the simple pleasures of this job.',                           zh:'我想起了這份工作的單純快樂。',             played:false, starred:false },
+        { id:'jm_15', en:'How I ended up here out of law school.',                                        zh:'我如何從法學院一路走到了今天。',           played:false, starred:false },
+        { id:'jm_16', en:'The key to this business is personal relationships.',                           zh:'這個行業成功的關鍵是人際關係。',           played:false, starred:false },
+        { id:'jm_17', en:'Suddenly it was all pretty clear.',                                             zh:'突然間，一切都變得很清楚了。',             played:false, starred:false },
+        { id:'jm_18', en:'The answer was fewer clients, less money, more attention, caring for them.',    zh:'答案是更少客戶、更少金錢、更多關注、用心照顧他們。', played:false, starred:false },
+        { id:'jm_19', en:'Just starting our lives, really.',                                              zh:'其實，我們才正要開始生活。',               played:false, starred:false },
+        { id:'jm_20', en:"I didn't care.",                                                                zh:'我不在乎。',                               played:false, starred:false },
+        { id:'jm_21', en:'I had lost the ability to bullshit.',                                           zh:'我已經失去了說場面話的能力。',             played:false, starred:false },
+        { id:'jm_22', en:"It was me I'd always wanted to be.",                                            zh:'那才是我一直想成為的人。',                 played:false, starred:false },
       ]
     }]
   }],
@@ -12978,7 +12979,11 @@ function MovieTab() {
   const [looping,    setLooping]    = useState(false)
   const [revIdx,     setRevIdx]     = useState(0)
   const [revFlip,    setRevFlip]    = useState(false)
-  const [wordModal,  setWordModal]  = useState(null)
+  const [starFilter,      setStarFilter]      = useState(false)
+  const [playingPhraseId, setPlayingPhraseId] = useState(null) // 單句播放中的 id
+  const [wordModal,       setWordModal]       = useState(null)
+  const [movieSyncing,    setMovieSyncing]    = useState(false)
+  const [movieSyncMsg,    setMovieSyncMsg]    = useState("")
   const [wordBusy,   setWordBusy]   = useState(false)
   const [wordInfo,   setWordInfo]   = useState(null)
   const [srtText,    setSrtText]    = useState('')
@@ -12990,8 +12995,21 @@ function MovieTab() {
 
   const movie   = db.movies.find(m => m.id === movieId)
   const scene   = sceneId ? movie?.scenes.find(s => s.id === sceneId) : null
-  const phrases = scene?.phrases ?? []
-  const playedCount = phrases.filter(p => p.played).length
+  const phrases     = scene?.phrases ?? []
+  const activePhrases = starFilter ? phrases.filter(p => p.starred) : phrases
+  const playedCount = activePhrases.filter(p => p.played).length
+  const starredCount = phrases.filter(p => p.starred).length
+
+  // 監聽 Sheets 同步還原事件，自動重載電影資料
+  useEffect(() => {
+    function onStorage(e) {
+      if (e.key === 'fsi:movie:db') {
+        try { const nd = JSON.parse(localStorage.getItem('fsi:movie:db')); if (nd) setDb(nd) } catch {}
+      }
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
 
   function saveDb(nd) { setDb(nd); localStorage.setItem('fsi:movie:db', JSON.stringify(nd)) }
 
@@ -13005,10 +13023,26 @@ function MovieTab() {
     updateScenePhrases(ps => ps.map(p => p.id === pid ? { ...p, played:true } : p))
   }
   function resetScene() {
-    updateScenePhrases(ps => ps.map(p => ({ ...p, played:false })))
+    updateScenePhrases(ps => ps.map(p => ({ ...p, played:false, starred:false })))
   }
   function deletePhrase(pid) {
     updateScenePhrases(ps => ps.filter(p => p.id !== pid))
+  }
+  function toggleStar(pid) {
+    updateScenePhrases(ps => ps.map(p => p.id === pid ? { ...p, starred: !p.starred } : p))
+  }
+  function speakPhrase(pid, text) {
+    if (playingPhraseId === pid) {
+      window.speechSynthesis?.cancel()
+      setPlayingPhraseId(null)
+      return
+    }
+    window.speechSynthesis?.cancel()
+    setPlayingPhraseId(pid)
+    const u = new SpeechSynthesisUtterance(text)
+    u.lang = 'en-US'; u.rate = 0.6
+    u.onend = u.onerror = () => setPlayingPhraseId(null)
+    window.speechSynthesis?.speak(u)
   }
   function deleteScene(sid) {
     saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : {
@@ -13025,9 +13059,9 @@ function MovieTab() {
 
   // ── auto-play effect ──────────────────────────────────────────
   useEffect(() => {
-    if (view !== 'play' || !playing || !phrases[playIdx]) return
+    if (view !== 'play' || !playing || !activePhrases[playIdx]) return
     let cancelled = false
-    const p = phrases[playIdx]
+    const p = activePhrases[playIdx]
     window.speechSynthesis?.cancel()
     const u = new SpeechSynthesisUtterance(p.en)
     u.lang = 'en-US'; u.rate = 0.6
@@ -13082,13 +13116,50 @@ ${srtText.slice(0,4000)}`
     const ns = {
       id: 'scene_'+Date.now(), timeRange:`${startTime} ~ ${endTime}`,
       name: addPreview.name,
-      phrases: addPreview.phrases.map((p,i) => ({ id:'ph_'+Date.now()+'_'+i, en:p.en, zh:p.zh, played:false }))
+      phrases: addPreview.phrases.map((p,i) => ({ id:'ph_'+Date.now()+'_'+i, en:p.en, zh:p.zh, played:false, starred:false }))
     }
     saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : { ...m, scenes:[...m.scenes, ns] }) })
     setSrtText(''); setStartTime(''); setEndTime(''); setAddPreview(null); setView('list')
   }
 
   // ── helpers ───────────────────────────────────────────────────
+  // ── 電影資料獨立同步 ──────────────────────────────────────────
+  async function pushMovieDB() {
+    setMovieSyncing(true); setMovieSyncMsg('推送中…')
+    try {
+      const form = new FormData()
+      form.append('data', JSON.stringify({ movieDB: db }))
+      await fetch(APPS_SCRIPT_URL, { method:'POST', mode:'no-cors', body:form })
+      await new Promise(r => setTimeout(r, 2000))
+      try {
+        const check = await fetch(APPS_SCRIPT_URL)
+        const json  = await check.json()
+        const mc = json.movieDB?.movies?.length ?? 0
+        const vc = json.movieDB?.vocab?.length  ?? 0
+        setMovieSyncMsg(mc > 0 ? `✓ 已推送：${mc} 部電影 · 單字庫 ${vc} 個` : '✓ 已推送（請至 Sheets 確認）')
+      } catch { setMovieSyncMsg('✓ 已推送（請至 Sheets 確認）') }
+    } catch(e) { setMovieSyncMsg('✗ ' + (e.message ?? '網路錯誤')) }
+    finally { setMovieSyncing(false) }
+  }
+
+  async function pullMovieDB() {
+    setMovieSyncing(true); setMovieSyncMsg('讀取中…')
+    try {
+      const r    = await fetch(APPS_SCRIPT_URL)
+      const json = await r.json()
+      if (!json.ok) throw new Error(json.error ?? 'Sync failed')
+      if (!json.movieDB) throw new Error('Sheets 尚無電影資料，請先推送。')
+      const nd = json.movieDB
+      setDb(nd)
+      localStorage.setItem('fsi:movie:db', JSON.stringify(nd))
+      const mc = nd.movies?.length ?? 0
+      const sc = nd.movies?.reduce((a,m) => a + (m.scenes?.length ?? 0), 0) ?? 0
+      const vc = nd.vocab?.length ?? 0
+      setMovieSyncMsg(`✓ 已還原：${mc} 部 · ${sc} 場景 · 單字庫 ${vc} 個`)
+    } catch(e) { setMovieSyncMsg('✗ ' + (e.message ?? 'Sync failed')) }
+    finally { setMovieSyncing(false) }
+  }
+
   function goBack(to='list') { setView(to); setPlaying(false); window.speechSynthesis?.cancel() }
 
   const BackBtn = ({ label='← 返回', to='list' }) => (
@@ -13210,20 +13281,23 @@ ${srtText.slice(0,4000)}`
   // PLAY VIEW
   // ══════════════════════════════════════════════════════════════
   if (view === 'play') {
-    const cur = phrases[playIdx]
-    const pct = phrases.length ? Math.round((playedCount / phrases.length) * 100) : 0
+    const cur = activePhrases[playIdx]
+    const pct = activePhrases.length ? Math.round((playedCount / activePhrases.length) * 100) : 0
     return (
       <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:14 }} className="fadeUp">
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <BackBtn label="← 返回句子" to="scene"/>
-          <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>{playIdx+1} / {phrases.length}</span>
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            {starFilter && <span style={{ fontFamily:MONO, fontSize:9, color:T.amber, background:T.amberD, padding:'2px 8px', borderRadius:8 }}>⭐ 重點模式</span>}
+            <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>{playIdx+1} / {activePhrases.length}</span>
+          </div>
         </div>
         {/* Progress bar */}
         <div style={{ display:'flex', alignItems:'center', gap:8 }}>
           <div style={{ flex:1, background:T.bdr, borderRadius:4, height:6, overflow:'hidden' }}>
             <div style={{ width:`${pct}%`, height:'100%', background:T.amber, transition:'width 0.4s' }}/>
           </div>
-          <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>{playedCount}/{phrases.length}</span>
+          <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>{playedCount}/{activePhrases.length}</span>
         </div>
         {/* Card */}
         {cur && (
@@ -13256,7 +13330,7 @@ ${srtText.slice(0,4000)}`
               padding:'10px', background:T.surf2, borderRadius:10, border:`1px solid ${T.bdr}`, textAlign:'center' }}>
             ◀ 上一句
           </div>
-          <div onClick={() => { setPlayIdx(i => Math.min(phrases.length-1,i+1)); setPlaying(false) }}
+          <div onClick={() => { setPlayIdx(i => Math.min(activePhrases.length-1,i+1)); setPlaying(false) }}
             style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt2,
               padding:'10px', background:T.surf2, borderRadius:10, border:`1px solid ${T.bdr}`, textAlign:'center' }}>
             下一句 ▶
@@ -13275,12 +13349,15 @@ ${srtText.slice(0,4000)}`
   // REVERSE VIEW
   // ══════════════════════════════════════════════════════════════
   if (view === 'reverse') {
-    const cur = phrases[revIdx]
+    const cur = activePhrases[revIdx]
     return (
       <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:14 }} className="fadeUp">
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <BackBtn label="← 返回句子" to="scene"/>
-          <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>{revIdx+1} / {phrases.length}</span>
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            {starFilter && <span style={{ fontFamily:MONO, fontSize:9, color:T.amber, background:T.amberD, padding:'2px 8px', borderRadius:8 }}>⭐ 重點模式</span>}
+            <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>{revIdx+1} / {activePhrases.length}</span>
+          </div>
         </div>
         {cur && (
           <>
@@ -13311,7 +13388,7 @@ ${srtText.slice(0,4000)}`
                   padding:'11px', background:T.surf2, borderRadius:10, border:`1px solid ${T.bdr}`, textAlign:'center' }}>
                 ◀ 上一句
               </div>
-              <div onClick={() => { setRevIdx(i => Math.min(phrases.length-1,i+1)); setRevFlip(false) }}
+              <div onClick={() => { setRevIdx(i => Math.min(activePhrases.length-1,i+1)); setRevFlip(false) }}
                 style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt2,
                   padding:'11px', background:T.surf2, borderRadius:10, border:`1px solid ${T.bdr}`, textAlign:'center' }}>
                 下一句 ▶
@@ -13384,11 +13461,32 @@ ${srtText.slice(0,4000)}`
         {/* Scene info card */}
         <div style={{ background:T.surf, borderRadius:14, padding:'16px 18px' }}>
           <div style={{ fontFamily:MONO, fontSize:13, color:T.amber, fontWeight:700, marginBottom:3 }}>{scene.name}</div>
-          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:10 }}>{scene.timeRange} · {phrases.length} 句</div>
+          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:10 }}>
+            {scene.timeRange} · {phrases.length} 句 · ⭐ {starredCount} 重點
+          </div>
           <div style={{ background:T.bdr, borderRadius:4, height:5, overflow:'hidden', marginBottom:6 }}>
             <div style={{ width:`${pct}%`, height:'100%', background:T.amber, transition:'width 0.3s' }}/>
           </div>
-          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>已練習 {playedCount}/{phrases.length} · {pct}%</div>
+          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>已練習 {playedCount}/{activePhrases.length} · {pct}%</div>
+        </div>
+        {/* Star filter toggle */}
+        <div style={{ display:'flex', gap:6 }}>
+          <div onClick={() => setStarFilter(false)}
+            style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, textAlign:'center',
+              padding:'8px', borderRadius:10, transition:'all 0.13s',
+              background: !starFilter ? T.surf : T.surf2,
+              border:`1px solid ${!starFilter ? T.bdr2 : T.bdr}`,
+              color: !starFilter ? T.txt : T.txt3 }}>
+            全部 ({phrases.length})
+          </div>
+          <div onClick={() => setStarFilter(true)}
+            style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, textAlign:'center',
+              padding:'8px', borderRadius:10, transition:'all 0.13s',
+              background: starFilter ? T.amberD : T.surf2,
+              border:`1px solid ${starFilter ? T.amber+'60' : T.bdr}`,
+              color: starFilter ? T.amber : T.txt3 }}>
+            ⭐ 重點 ({starredCount})
+          </div>
         </div>
         {/* Practice buttons */}
         <div style={{ display:'flex', gap:8 }}>
@@ -13404,35 +13502,53 @@ ${srtText.slice(0,4000)}`
           </div>
         </div>
         {/* Hint */}
-        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>👆 點單字加入單字庫 · ✕ 刪除不需要的句子</div>
+        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>⭐ 收藏重點句 · 👆 點單字加入單字庫 · ✕ 刪除句子</div>
         {/* Sentence list */}
-        {phrases.map(p => (
+        {(starFilter ? phrases.filter(p=>p.starred) : phrases).map(p => (
           <div key={p.id} style={{ background:T.surf,
-            border:`1px solid ${p.played ? T.amber+'40' : T.bdr}`,
+            border:`1px solid ${p.starred ? T.amber+'60' : p.played ? T.amber+'25' : T.bdr}`,
             borderRadius:12, padding:'14px 16px', position:'relative' }}>
-            {/* EN tokens (word-tappable) */}
-            <div style={{ marginBottom:7, lineHeight:2.1, display:'flex', flexWrap:'wrap', gap:1,
-              paddingRight:28 }}>
+            {/* EN tokens */}
+            <div style={{ marginBottom:7, lineHeight:2.1, display:'flex', flexWrap:'wrap', gap:1, paddingRight:52 }}>
               {p.en.split(/(\b)/).filter(Boolean).map((tok, j) => {
                 const isWord = /^[a-zA-Z']+$/.test(tok)
                 return (
                   <span key={j} onClick={() => isWord && lookupWord(tok.replace(/[^a-zA-Z']/g,''), p.en)}
                     style={{ fontFamily:MONO, fontSize:13, color: isWord ? T.txt : T.txt3,
-                      fontWeight: isWord ? 500 : 400,
-                      cursor: isWord ? 'pointer' : 'default',
-                      borderBottom: isWord ? `1px dashed ${T.bdr2}` : 'none',
-                      padding:'0 1px' }}>
+                      fontWeight: isWord ? 500 : 400, cursor: isWord ? 'pointer' : 'default',
+                      borderBottom: isWord ? `1px dashed ${T.bdr2}` : 'none', padding:'0 1px' }}>
                     {tok}
                   </span>
                 )
               })}
             </div>
-            <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.7 }}>{p.zh}</div>
-            {p.played && <span style={{ position:'absolute', top:10, right:32, fontSize:10 }}>✅</span>}
+            <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.7, paddingRight:52 }}>{p.zh}</div>
+            {/* 🔊 play button */}
+            <div onClick={() => speakPhrase(p.id, p.en)}
+              style={{ marginTop:8, display:'inline-flex', alignItems:'center', gap:5, cursor:'pointer',
+                padding:'5px 12px', borderRadius:8, transition:'all 0.15s',
+                background: playingPhraseId===p.id ? T.amber+'22' : T.surf2,
+                border:`1px solid ${playingPhraseId===p.id ? T.amber : T.bdr}` }}>
+              <span style={{ fontSize:12 }}>{playingPhraseId===p.id ? '⏹' : '🔊'}</span>
+              <span style={{ fontFamily:MONO, fontSize:9,
+                color: playingPhraseId===p.id ? T.amber : T.txt3 }}>
+                {playingPhraseId===p.id ? '停止' : '0.6x'}
+              </span>
+            </div>
+            {/* ⭐ star button */}
+            <div onClick={() => toggleStar(p.id)}
+              style={{ position:'absolute', top:10, right:34, cursor:'pointer',
+                fontSize:14, opacity: p.starred ? 1 : 0.3,
+                transition:'opacity 0.15s, transform 0.15s',
+                transform: p.starred ? 'scale(1.15)' : 'scale(1)' }}>
+              ⭐
+            </div>
+            {/* ✕ delete */}
             <div onClick={() => deletePhrase(p.id)}
               style={{ position:'absolute', top:10, right:10, cursor:'pointer',
                 fontFamily:MONO, fontSize:9, color:T.txt3, padding:'2px 5px',
                 background:T.surf2, borderRadius:5, border:`1px solid ${T.bdr}` }}>✕</div>
+            {p.played && <span style={{ position:'absolute', bottom:10, right:10, fontSize:9, color:T.txt3 }}>✅</span>}
           </div>
         ))}
       </div>
@@ -13508,6 +13624,49 @@ ${srtText.slice(0,4000)}`
           display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer' }}>
         <span style={{ fontFamily:MONO, fontSize:11, color:T.txt2 }}>📖 單字庫</span>
         <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>{db.vocab.length} 個 →</span>
+      </div>
+
+      {/* ── 電影資料同步 ── */}
+      <div style={{ display:'flex', flexDirection:'column', gap:8,
+        background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:13, padding:'14px 16px' }}>
+        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>
+          🎬 電影資料同步 (Google Sheets)
+        </div>
+        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.7 }}>
+          同步範圍：場景、句子、⭐收藏、單字庫
+        </div>
+        <div style={{ display:'flex', gap:8 }}>
+          <div onClick={movieSyncing ? undefined : pushMovieDB}
+            style={{ flex:1, cursor: movieSyncing ? 'default' : 'pointer',
+              background: movieSyncing ? T.surf2 : T.blueD,
+              border:`1px solid ${movieSyncing ? T.bdr : T.blue+'50'}`,
+              borderRadius:9, padding:'10px', textAlign:'center',
+              fontFamily:MONO, fontSize:10, color: movieSyncing ? T.txt3 : T.blue,
+              display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+            {movieSyncing && <span style={{ display:'inline-block', width:8, height:8,
+              border:'1.5px solid transparent', borderTopColor:T.txt3,
+              borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>}
+            ☁ 推送到 Sheets
+          </div>
+          <div onClick={movieSyncing ? undefined : pullMovieDB}
+            style={{ flex:1, cursor: movieSyncing ? 'default' : 'pointer',
+              background: movieSyncing ? T.surf2 : T.grnD,
+              border:`1px solid ${movieSyncing ? T.bdr : T.grn+'50'}`,
+              borderRadius:9, padding:'10px', textAlign:'center',
+              fontFamily:MONO, fontSize:10, color: movieSyncing ? T.txt3 : T.grn,
+              display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+            {movieSyncing && <span style={{ display:'inline-block', width:8, height:8,
+              border:'1.5px solid transparent', borderTopColor:T.txt3,
+              borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>}
+            ⟳ 從 Sheets 讀入
+          </div>
+        </div>
+        {movieSyncMsg && (
+          <div style={{ fontFamily:MONO, fontSize:9, lineHeight:1.7,
+            color: movieSyncMsg.startsWith('✓') ? T.grn : movieSyncMsg.startsWith('✗') ? T.red : T.txt3 }}>
+            {movieSyncMsg}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -13800,27 +13959,21 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
     flash('✓ JSON 備份已下載')
   }
 
-  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx_xBUsiWvvoF8Qz9OczKniddNVENSz8W0ToTrzIw7VVCG3V0MlM85vl8Z1VmuNPS8STg/exec'
-
   async function pushToSheets() {
     if (!(sentences??[]).length && !(vocab??[]).length) { flash('✗ 沒有資料可同步'); return }
     setSyncing(true); flash('推送中…')
     try {
-      // 合併內建 + AI 新增的 phrases
       const extraPhrases = (() => { try { return JSON.parse(localStorage.getItem('fsi:ph:extra') ?? '[]') } catch { return [] } })()
       const allPhrases = [...PHRASE_DATA, ...extraPhrases]
-
+      const movieDB    = (() => { try { return JSON.parse(localStorage.getItem('fsi:movie:db') ?? 'null') } catch { return null } })()
       const form = new FormData()
       form.append('data', JSON.stringify({
         sentences: sentences ?? [],
         vocab:     vocab     ?? [],
         phrases:   allPhrases,
+        movieDB:   movieDB,
       }))
-      await fetch(APPS_SCRIPT_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        body: form,
-      })
+      await fetch(APPS_SCRIPT_URL, { method:'POST', mode:'no-cors', body:form })
       await new Promise(r => setTimeout(r, 2000))
       try {
         const check = await fetch(APPS_SCRIPT_URL)
@@ -13828,9 +13981,10 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
         const sc = (json.sentences ?? []).length
         const vc = (json.vocab     ?? []).length
         const pc = (json.phrases   ?? []).length
-        flash(sc || vc ? `✓ Sheets 已確認：${sc} 句 + ${vc} 單字 + ${pc} Phrases` : '✓ 已推送（請至 Sheets 手動確認）')
+        const mc = json.movieDB?.movies?.length ?? 0
+        flash(`✓ Sheets：${sc} 句 + ${vc} 字 + ${pc} Phrases + ${mc} 電影`)
       } catch {
-        flash('✓ 已推送（網路限制，請至 Sheets 確認）')
+        flash('✓ 已推送（請至 Sheets 確認）')
       }
     } catch(e) {
       flash('✗ ' + (e.message ?? '網路錯誤'))
@@ -13918,6 +14072,13 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
       if (extraFromSheet.length) {
         localStorage.setItem('fsi:ph:extra', JSON.stringify(extraFromSheet))
         flash(`✓ 已從 Sheets 覆蓋：${cards.length} 句 + ${words.length} 單字 + ${extraFromSheet.length} AI Phrases`)
+      }
+
+      // ── 電影資料：從 Sheets 還原 movieDB ──
+      if (json.movieDB) {
+        localStorage.setItem('fsi:movie:db', JSON.stringify(json.movieDB))
+        flash(`✓ 已從 Sheets 還原：含電影資料 ${json.movieDB.movies?.length ?? 0} 部`)
+        window.dispatchEvent(new StorageEvent('storage', { key:'fsi:movie:db' }))
       }
     } catch(e) {
       flash('✗ ' + (e.message ?? 'Sync failed.'))
