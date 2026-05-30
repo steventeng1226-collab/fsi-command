@@ -7072,7 +7072,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.30</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.32</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -12977,10 +12977,13 @@ function MovieTab() {
   const [playIdx,    setPlayIdx]    = useState(0)
   const [playing,    setPlaying]    = useState(false)
   const [looping,    setLooping]    = useState(false)
+  const [sleepMins,  setSleepMins]  = useState(null)   // null | 10 | 20 | 30
+  const [sleepSecs,  setSleepSecs]  = useState(null)   // 倒數秒數
   const [revIdx,     setRevIdx]     = useState(0)
   const [revFlip,    setRevFlip]    = useState(false)
   const [starFilter,      setStarFilter]      = useState(false)
   const [playingPhraseId, setPlayingPhraseId] = useState(null) // 單句播放中的 id
+  const [deletingPhraseId,setDeletingPhraseId]= useState(null)
   const [wordModal,       setWordModal]       = useState(null)
   const [movieSyncing,    setMovieSyncing]    = useState(false)
   const [movieSyncMsg,    setMovieSyncMsg]    = useState("")
@@ -13058,6 +13061,34 @@ function MovieTab() {
   }
   function deleteVocab(vid) { saveDb({ ...db, vocab: db.vocab.filter(v => v.id !== vid) }) }
 
+  // ── 睡眠計時器倒數 ────────────────────────────────────────────
+  useEffect(() => {
+    if (sleepSecs === null) return
+    if (sleepSecs <= 0) {
+      setPlaying(false)
+      window.speechSynthesis?.cancel()
+      setSleepMins(null)
+      setSleepSecs(null)
+      return
+    }
+    const t = setTimeout(() => setSleepSecs(s => s - 1), 1000)
+    return () => clearTimeout(t)
+  }, [sleepSecs])
+
+  function startSleep(mins) {
+    setSleepMins(mins)
+    setSleepSecs(mins * 60)
+  }
+  function cancelSleep() {
+    setSleepMins(null)
+    setSleepSecs(null)
+  }
+  function fmtSleep(secs) {
+    const m = Math.floor(secs / 60)
+    const s = secs % 60
+    return `${m}:${String(s).padStart(2,'0')}`
+  }
+
   // ── auto-play effect ──────────────────────────────────────────
   useEffect(() => {
     if (view !== 'play' || !playing || !activePhrases[playIdx]) return
@@ -13104,10 +13135,17 @@ Return ONLY a JSON object, no markdown:
   // ── SRT 格式正規化（支援 → / -> / --> / 空格時間碼）──────────
   function normalizeSRT(raw) {
     return raw
-      .replace(/(\d{2}):\s+(\d{2}:\d{2}[,\.]\d+)/g, '$1:$2') // 修正 "00: 11:09" → "00:11:09"
-      .replace(/(\d{2}:\d{2}:\d{2})[,\.](\d+)\s*[-–—→]+>?\s*/g, '$1,$2 --> ') // 統一箭頭格式
-      .replace(/(\d{2}:\d{2}:\d{2}[,\.]\d+)\s*→\s*(\d{2}:\d{2}:\d{2}[,\.]\d+)/g, '$1 --> $2')
-      .replace(/(\d{2}:\d{2}:\d{2}[,\.]\d+)\s*->\s*(\d{2}:\d{2}:\d{2}[,\.]\d+)/g, '$1 --> $2')
+      // 清除 OCR 雜訊：時間碼裡的非數字字元（除 :,. 外）
+      .replace(/(\d{2}:\d{2}:\d{2})[^\d:,.\s→\-–—>]+(\d+)/g, '$1,$2')
+      // 修正空格時間碼：「00: 10:48」→「00:10:48」、「00:11 :53」→「00:11:53」
+      .replace(/(\d{2}):\s+(\d{2})/g, '$1:$2')
+      .replace(/(\d{2}:\d{2})\s+:(\d{2})/g, '$1:$2')
+      // 統一小數點 → 逗號：00:06:09.218 → 00:06:09,218
+      .replace(/(\d{2}:\d{2}:\d{2})\.(\d+)/g, '$1,$2')
+      // 統一各種箭頭 → -->（/, →, ->, —>, –>, ——>）
+      .replace(/(\d{2}:\d{2}:\d{2},\d+)\s*(?:\/|→|->|—>|–>|——>|--?>)\s*(\d{2}:\d{2}:\d{2},\d+)/g, '$1 --> $2')
+      // 處理 em/en dash 開頭的箭頭：00:08:26,855 — 00:08:30,086
+      .replace(/(\d{2}:\d{2}:\d{2},\d+)\s*[–—]+\s*(\d{2}:\d{2}:\d{2},\d+)/g, '$1 --> $2')
   }
 
   // ── parse SRT scene ───────────────────────────────────────────
@@ -13266,11 +13304,14 @@ ${normalized.slice(0,5000)}`
 
       {/* 時間範圍 */}
       <div style={{ display:'flex', gap:8 }}>
-        {[['開始時間','00:05:57',startTime,setStartTime],['結束時間','00:07:59',endTime,setEndTime]].map(([lbl,ph,val,set]) => (
+        {[['開始時間','例：05:57',startTime,setStartTime],['結束時間','例：07:59',endTime,setEndTime]].map(([lbl,ph,val,set]) => (
           <div key={lbl} style={{ flex:1, display:'flex', flexDirection:'column', gap:4 }}>
-            <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>{lbl}</span>
+            <span style={{ fontFamily:MONO, fontSize:9, color: !val ? T.amber : T.txt3 }}>
+              {lbl}{!val ? ' ← 必填' : ''}
+            </span>
             <input value={val} onChange={e=>set(e.target.value)} placeholder={ph}
-              style={{ fontFamily:MONO, fontSize:13, background:T.surf2, border:`1px solid ${T.bdr}`,
+              style={{ fontFamily:MONO, fontSize:13, background:T.surf2,
+                border:`1px solid ${!val ? T.amber+'80' : T.bdr}`,
                 borderRadius:8, padding:'10px 12px', color:T.txt, outline:'none' }}/>
           </div>
         ))}
@@ -13449,6 +13490,54 @@ ${normalized.slice(0,5000)}`
         <div style={{ display:'flex', gap:8, justifyContent:'center' }}>
           <Chip on={looping} onClick={() => setLooping(l => !l)}>🔁 循環 {looping?'ON':'OFF'}</Chip>
           <Chip on={false} onClick={resetScene}>↺ 重置進度</Chip>
+        </div>
+
+        {/* ── 睡眠計時器 ── */}
+        <div style={{ background:T.surf, border:`1px solid ${sleepMins ? T.blue+'60' : T.bdr}`,
+          borderRadius:12, padding:'12px 16px', display:'flex', flexDirection:'column', gap:10,
+          transition:'border-color 0.2s' }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+            <span style={{ fontFamily:MONO, fontSize:10, color: sleepMins ? T.blue : T.txt3 }}>
+              😴 睡眠計時
+            </span>
+            {sleepSecs !== null && (
+              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                <span style={{ fontFamily:MONO, fontSize:13, color:T.blue, fontWeight:700 }}>
+                  {fmtSleep(sleepSecs)}
+                </span>
+                <span onClick={cancelSleep}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
+                    padding:'2px 8px', background:T.surf2, borderRadius:6,
+                    border:`1px solid ${T.bdr}` }}>取消</span>
+              </div>
+            )}
+          </div>
+          <div style={{ display:'flex', gap:7 }}>
+            {[10, 20, 30].map(m => {
+              const active = sleepMins === m
+              return (
+                <div key={m} onClick={() => active ? cancelSleep() : startSleep(m)}
+                  style={{ flex:1, cursor:'pointer', textAlign:'center',
+                    padding:'8px 0', borderRadius:9, fontFamily:MONO, fontSize:11, fontWeight:700,
+                    transition:'all 0.15s',
+                    background: active ? T.blueD : T.surf2,
+                    border:`1px solid ${active ? T.blue+'80' : T.bdr}`,
+                    color: active ? T.blue : T.txt3 }}>
+                  {m}分
+                  {active && sleepSecs !== null && (
+                    <div style={{ fontSize:8, fontWeight:400, color:T.blue, marginTop:2 }}>
+                      {fmtSleep(sleepSecs)}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+          {sleepMins && (
+            <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, textAlign:'center' }}>
+              {fmtSleep(sleepSecs)} 後自動停止播放
+            </div>
+          )}
         </div>
       </div>
     )
@@ -13632,28 +13721,46 @@ ${normalized.slice(0,5000)}`
               })}
             </div>
             <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.7, paddingRight:38 }}>{p.zh}</div>
-            {/* 右側按鈕欄：✕ → ⭐ → 🔊 */}
+            {/* 右側按鈕欄 */}
             <div style={{ position:'absolute', top:10, right:10,
-              display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>
-              {/* ✕ delete */}
-              <div onClick={() => deletePhrase(p.id)}
-                style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
-                  padding:'2px 5px', background:T.surf2, borderRadius:5, border:`1px solid ${T.bdr}` }}>✕</div>
-              {/* ⭐ star */}
-              <div onClick={() => toggleStar(p.id)}
-                style={{ cursor:'pointer', fontSize:14,
-                  opacity: p.starred ? 1 : 0.25,
-                  transition:'opacity 0.15s, transform 0.15s',
-                  transform: p.starred ? 'scale(1.15)' : 'scale(1)' }}>⭐</div>
-              {/* 🔊 play */}
-              <div onClick={() => speakPhrase(p.id, p.en)}
-                style={{ cursor:'pointer', width:26, height:26, borderRadius:6,
-                  display:'flex', alignItems:'center', justifyContent:'center',
-                  background: playingPhraseId===p.id ? T.amber+'22' : T.surf2,
-                  border:`1px solid ${playingPhraseId===p.id ? T.amber : T.bdr}`,
-                  transition:'all 0.15s' }}>
-                <span style={{ fontSize:13 }}>{playingPhraseId===p.id ? '⏹' : '🔊'}</span>
-              </div>
+              display:'flex', flexDirection:'column', alignItems:'flex-end', gap:5 }}>
+              {deletingPhraseId === p.id ? (
+                /* ── 刪除再確認 ── */
+                <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:5 }}>
+                  <span style={{ fontFamily:MONO, fontSize:9, color:T.red }}>確定刪除？</span>
+                  <div style={{ display:'flex', gap:4 }}>
+                    <div onClick={() => { deletePhrase(p.id); setDeletingPhraseId(null) }}
+                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#fff',
+                        padding:'3px 8px', background:T.red, borderRadius:5 }}>刪除</div>
+                    <div onClick={() => setDeletingPhraseId(null)}
+                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt2,
+                        padding:'3px 8px', background:T.surf2, borderRadius:5, border:`1px solid ${T.bdr}` }}>取消</div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* ⭐ | ✕ 並排 */}
+                  <div style={{ display:'flex', gap:5, alignItems:'center' }}>
+                    <div onClick={() => toggleStar(p.id)}
+                      style={{ cursor:'pointer', fontSize:14,
+                        opacity: p.starred ? 1 : 0.25,
+                        transition:'opacity 0.15s, transform 0.15s',
+                        transform: p.starred ? 'scale(1.15)' : 'scale(1)' }}>⭐</div>
+                    <div onClick={() => setDeletingPhraseId(p.id)}
+                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
+                        padding:'2px 5px', background:T.surf2, borderRadius:5, border:`1px solid ${T.bdr}` }}>✕</div>
+                  </div>
+                  {/* 🔊 play */}
+                  <div onClick={() => speakPhrase(p.id, p.en)}
+                    style={{ cursor:'pointer', width:28, height:28, borderRadius:7,
+                      display:'flex', alignItems:'center', justifyContent:'center',
+                      background: playingPhraseId===p.id ? T.amber+'22' : T.surf2,
+                      border:`1px solid ${playingPhraseId===p.id ? T.amber : T.bdr}`,
+                      transition:'all 0.15s' }}>
+                    <span style={{ fontSize:14 }}>{playingPhraseId===p.id ? '⏹' : '🔊'}</span>
+                  </div>
+                </>
+              )}
             </div>
             {p.played && <span style={{ position:'absolute', bottom:8, right:10, fontSize:9, color:T.txt3 }}>✅</span>}
           </div>
@@ -14876,7 +14983,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.30</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.32</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
