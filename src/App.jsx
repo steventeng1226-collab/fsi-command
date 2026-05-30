@@ -13155,29 +13155,81 @@ Return ONLY a JSON object, no markdown:
       .replace(/(\d{2}:\d{2}:\d{2},\d+)\s*[–—]+\s*(\d{2}:\d{2}:\d{2},\d+)/g, '$1 --> $2')
   }
 
-  // ── parse SRT scene ───────────────────────────────────────────
+  // ── 時間字串轉秒數（支援 HH:MM:SS 和 MM:SS）────────────────────
+  function timeToSecs(t) {
+    if (!t) return 0
+    const clean = t.replace(',','.').trim()
+    const parts  = clean.split(':').map(parseFloat)
+    if (parts.length === 3) return parts[0]*3600 + parts[1]*60 + parts[2]
+    if (parts.length === 2) return parts[0]*60   + parts[1]
+    return 0
+  }
+
+  // ── 直接從 SRT 取出指定時間範圍的每一行（不合併）─────────────
+  function extractSRTLines(raw, startTime, endTime) {
+    const normalized = normalizeSRT(raw)
+    const startSecs  = timeToSecs(startTime)
+    const endSecs    = timeToSecs(endTime)
+    const lines      = []
+
+    // 切分 block：以空白行為分隔
+    const blocks = normalized.split(/\n{2,}/)
+    for (const block of blocks) {
+      const blines = block.trim().split('\n')
+      // 找 --> 時間碼行
+      const tsLine = blines.find(l => /\d{2}:\d{2}:\d{2},\d+\s*-->\s*\d{2}:\d{2}:\d{2},\d+/.test(l))
+      if (!tsLine) continue
+      const [tsStart] = tsLine.split('-->')
+      const tsSecs = timeToSecs(tsStart.trim())
+      if (tsSecs < startSecs - 1 || tsSecs > endSecs + 1) continue
+      // 取文字行：排除純數字（block 編號）和時間碼行
+      const textLines = blines
+        .filter(l => !/^\s*\d+\s*$/.test(l) && !/\d{2}:\d{2}:\d{2}/.test(l))
+        .join(' ').replace(/\s+/g, ' ').trim()
+      if (textLines.length > 1) lines.push(textLines)
+    }
+    return lines
+  }
+
+  // ── parse SRT scene（client-side 取行，AI 只翻譯）────────────
   async function parseScene() {
     const savedTranscript = movie?.transcript ?? ''
     const activeTranscript = savedTranscript || srtText
     if (!activeTranscript.trim()) { setAddErr('請貼上逐字稿'); return }
-    if (!startTime || !endTime) { setAddErr('請填入開始和結束時間'); return }
-    // 若用臨時貼上的，自動儲存起來供下次使用
-    if (!savedTranscript && srtText.trim()) {
-      saveTranscript(srtText.trim())
-    }
+    if (!startTime || !endTime)   { setAddErr('請填入開始和結束時間'); return }
+    if (!savedTranscript && srtText.trim()) saveTranscript(srtText.trim())
+
     setAddBusy(true); setAddErr(''); setAddPreview(null)
     try {
-      const normalized = normalizeSRT(activeTranscript)
-      const prompt = `You are given an SRT transcript. Extract ALL subtitle lines that fall within the time range ${startTime} to ${endTime}. Merge short consecutive lines into natural complete sentences, then:
-1. Give a short evocative Chinese scene name (6~10 characters)
-2. For each sentence provide the English original and Chinese translation
-Return ONLY JSON, no markdown:
-{"name":"場景名稱","phrases":[{"en":"...","zh":"..."}]}
-SRT:
-${normalized.slice(0,5000)}`
-      const raw = await callAI([{ role:'user', content:prompt }])
-      setAddPreview(JSON.parse(raw.replace(/```json|```/g,'').trim()))
-    } catch(e) { setAddErr('AI解析失敗：'+e.message) }
+      // 1. 用程式直接取出每一行（不靠 AI 合併）
+      const lines = extractSRTLines(activeTranscript, startTime, endTime)
+      if (lines.length === 0) {
+        setAddErr(`在 ${startTime}～${endTime} 範圍內找不到字幕行。請確認時間格式（例：08:02 或 00:08:02）與逐字稿是否匹配。`)
+        return
+      }
+
+      // 2. AI 只負責：取場景名 + 每行翻中文（原文不改）
+      const prompt = `給你 ${lines.length} 句英文字幕，請：
+1. 根據內容取一個中文場景名（6~10字）
+2. 將每句翻成自然的繁體中文，保留原文、不合併、不增刪
+
+只回傳 JSON，不要 markdown：
+{"name":"場景名","phrases":[{"en":"原文","zh":"中文"},...]}
+
+字幕：
+${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
+
+      const raw    = await callAI([{ role:'user', content:prompt }])
+      const result = JSON.parse(raw.replace(/```json|```/g,'').trim())
+
+      // 確保 en 用原文（防止 AI 改寫）
+      result.phrases = result.phrases.map((p, i) => ({
+        en: lines[i] ?? p.en,
+        zh: p.zh
+      }))
+
+      setAddPreview(result)
+    } catch(e) { setAddErr('AI 翻譯失敗：' + e.message) }
     finally { setAddBusy(false) }
   }
 
