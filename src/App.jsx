@@ -13152,8 +13152,12 @@ Return ONLY a JSON object, no markdown:
   async function parseScene() {
     const savedTranscript = movie?.transcript ?? ''
     const activeTranscript = savedTranscript || srtText
-    if (!activeTranscript.trim()) { setAddErr('請先儲存逐字稿，或在下方貼上逐字稿'); return }
+    if (!activeTranscript.trim()) { setAddErr('請貼上逐字稿'); return }
     if (!startTime || !endTime) { setAddErr('請填入開始和結束時間'); return }
+    // 若用臨時貼上的，自動儲存起來供下次使用
+    if (!savedTranscript && srtText.trim()) {
+      saveTranscript(srtText.trim())
+    }
     setAddBusy(true); setAddErr(''); setAddPreview(null)
     try {
       const normalized = normalizeSRT(activeTranscript)
@@ -13272,6 +13276,8 @@ ${normalized.slice(0,5000)}`
   // ══════════════════════════════════════════════════════════════
   if (view === 'addScene') {
     const hasSaved = !!(movie?.transcript?.trim())
+    const hasTemp  = srtText.trim().length > 0
+    const readyToParse = (hasSaved || hasTemp) && startTime && endTime
     return (
     <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
@@ -13279,60 +13285,68 @@ ${normalized.slice(0,5000)}`
         <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>＋ 新增場景</span>
       </div>
 
-      {/* 逐字稿狀態 */}
-      {hasSaved ? (
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
-          background:T.surf, border:`1px solid ${T.grn}40`, borderRadius:10, padding:'10px 14px' }}>
-          <div>
-            <span style={{ fontFamily:MONO, fontSize:10, color:T.grn }}>✓ 逐字稿已儲存</span>
-            <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginLeft:8 }}>
-              {movie.transcript.length.toLocaleString()} 字元
+      {/* ① 逐字稿 */}
+      <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:12,
+        padding:'14px 16px', display:'flex', flexDirection:'column', gap:10 }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <span style={{ fontFamily:MONO, fontSize:10, color:T.txt2, fontWeight:700 }}>① 逐字稿</span>
+          {hasSaved && (
+            <span onClick={() => { setTranscriptDraft(movie.transcript); setView('manageTranscript') }}
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.amber }}>更新 →</span>
+          )}
+        </div>
+        {hasSaved ? (
+          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+            <span style={{ fontSize:11 }}>✅</span>
+            <span style={{ fontFamily:MONO, fontSize:10, color:T.grn }}>已儲存</span>
+            <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+              {movie.transcript.length.toLocaleString()} 字元 · 下次直接填時間即可
             </span>
           </div>
-          <span onClick={() => { setTranscriptDraft(movie.transcript); setView('manageTranscript') }}
-            style={{ fontFamily:MONO, fontSize:9, color:T.amber, cursor:'pointer' }}>更新 →</span>
-        </div>
-      ) : (
-        <div onClick={() => { setTranscriptDraft(''); setView('manageTranscript') }}
-          style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
-            background:T.redD, border:`1px solid ${T.red}40`, borderRadius:10,
-            padding:'10px 14px', cursor:'pointer' }}>
-          <span style={{ fontFamily:MONO, fontSize:10, color:T.red }}>⚠ 尚未儲存逐字稿</span>
-          <span style={{ fontFamily:MONO, fontSize:9, color:T.amber }}>去儲存 →</span>
-        </div>
-      )}
-
-      {/* 時間範圍 */}
-      <div style={{ display:'flex', gap:8 }}>
-        {[['開始時間','例：05:57',startTime,setStartTime],['結束時間','例：07:59',endTime,setEndTime]].map(([lbl,ph,val,set]) => (
-          <div key={lbl} style={{ flex:1, display:'flex', flexDirection:'column', gap:4 }}>
-            <span style={{ fontFamily:MONO, fontSize:9, color: !val ? T.amber : T.txt3 }}>
-              {lbl}{!val ? ' ← 必填' : ''}
-            </span>
-            <input value={val} onChange={e=>set(e.target.value)} placeholder={ph}
-              style={{ fontFamily:MONO, fontSize:13, background:T.surf2,
-                border:`1px solid ${!val ? T.amber+'80' : T.bdr}`,
-                borderRadius:8, padding:'10px 12px', color:T.txt, outline:'none' }}/>
-          </div>
-        ))}
+        ) : (
+          <>
+            <textarea value={srtText} onChange={e => { setSrtText(e.target.value); setAddErr('') }}
+              rows={7}
+              placeholder={'貼上 SRT 逐字稿（解析後自動儲存，下次不用再貼）\n\n00:05:34,303 --> 00:05:55,885\nDo you know your name?\n\n00:05:57,306 --> 00:06:04,540\nI hated myself.'}
+              style={{ fontFamily:MONO, fontSize:11, background:T.surf2,
+                border:`1px solid ${hasTemp ? T.grn+'60' : T.bdr}`,
+                borderRadius:10, padding:'12px', color:T.txt, resize:'none',
+                outline:'none', lineHeight:1.6 }}/>
+            {hasTemp && (
+              <div style={{ fontFamily:MONO, fontSize:9, color:T.grn }}>
+                ✓ {srtText.length.toLocaleString()} 字元 · 解析後自動儲存，下次只需填時間
+              </div>
+            )}
+          </>
+        )}
       </div>
 
-      {/* 備用：無已存逐字稿時顯示臨時貼上框 */}
-      {!hasSaved && (
-        <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
-          <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
-            或臨時貼上逐字稿（不會儲存）
-          </span>
-          <textarea value={srtText} onChange={e=>setSrtText(e.target.value)} rows={7}
-            placeholder={'00:05:34,303 --> 00:05:55,885\nDo you know your name?\n\n00:05:57,306 --> 00:06:04,540\nI hated myself.'}
-            style={{ fontFamily:MONO, fontSize:11, background:T.surf2, border:`1px solid ${T.bdr}`,
-              borderRadius:10, padding:'12px', color:T.txt, resize:'none', outline:'none', lineHeight:1.6 }}/>
+      {/* ② 時間範圍 */}
+      <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:12,
+        padding:'14px 16px', display:'flex', flexDirection:'column', gap:10 }}>
+        <span style={{ fontFamily:MONO, fontSize:10, color:T.txt2, fontWeight:700 }}>② 選取時間範圍</span>
+        <div style={{ display:'flex', gap:8 }}>
+          {[['開始','例：05:57',startTime,setStartTime],['結束','例：07:59',endTime,setEndTime]].map(([lbl,ph,val,set]) => (
+            <div key={lbl} style={{ flex:1, display:'flex', flexDirection:'column', gap:4 }}>
+              <span style={{ fontFamily:MONO, fontSize:9, color: val ? T.grn : T.txt3 }}>
+                {lbl}{val ? ' ✓' : '（必填）'}
+              </span>
+              <input value={val} onChange={e => { set(e.target.value); setAddErr('') }}
+                placeholder={ph}
+                style={{ fontFamily:MONO, fontSize:14, background:T.surf2,
+                  border:`1px solid ${val ? T.grn+'60' : T.bdr}`,
+                  borderRadius:8, padding:'10px 12px', color:T.txt, outline:'none' }}/>
+            </div>
+          ))}
         </div>
+      </div>
+
+      {addErr && (
+        <div style={{ fontFamily:MONO, fontSize:10, color:T.red, background:T.redD,
+          borderRadius:8, padding:'8px 12px' }}>{addErr}</div>
       )}
 
-      {addErr && <div style={{ fontFamily:MONO, fontSize:10, color:T.red, background:T.redD, borderRadius:8, padding:'8px 12px' }}>{addErr}</div>}
-
-      {/* 預覽 */}
+      {/* 預覽結果 */}
       {addPreview && (
         <div style={{ display:'flex', flexDirection:'column', gap:8 }} className="fadeUp">
           <div style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>
@@ -13358,19 +13372,25 @@ ${normalized.slice(0,5000)}`
           </div>
         </div>
       )}
+
+      {/* AI 解析按鈕 */}
       {!addPreview && (
         <div onClick={addBusy ? undefined : parseScene}
-          style={{ background: addBusy ? T.surf2 : T.amber, borderRadius:10, padding:'13px',
-            textAlign:'center', fontFamily:MONO, fontSize:12, fontWeight:700,
-            color: addBusy ? T.txt3 : T.bg, cursor: addBusy ? 'default' : 'pointer',
+          style={{ background: addBusy ? T.surf2 : readyToParse ? T.amber : T.surf2,
+            borderRadius:10, padding:'13px', textAlign:'center',
+            fontFamily:MONO, fontSize:12, fontWeight:700,
+            color: addBusy ? T.txt3 : readyToParse ? T.bg : T.txt3,
+            cursor: (addBusy || !readyToParse) ? 'default' : 'pointer',
             display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
-          {addBusy && <span style={{ display:'inline-block', width:10, height:10, border:'2px solid transparent',
-            borderTopColor:T.txt3, borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>}
-          {addBusy ? 'AI 解析中…' : '⚡ AI 解析'}
+          {addBusy && <span style={{ display:'inline-block', width:10, height:10,
+            border:'2px solid transparent', borderTopColor:T.txt3,
+            borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>}
+          {addBusy ? 'AI 解析中…' : !readyToParse ? '請完成①② 步驟' : '⚡ AI 解析'}
         </div>
       )}
     </div>
   )}
+
 
   // ══════════════════════════════════════════════════════════════
   // MANAGE TRANSCRIPT VIEW
