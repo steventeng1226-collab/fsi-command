@@ -13131,6 +13131,13 @@ Return ONLY a JSON object, no markdown:
       m.id !== movieId ? m : { ...m, transcript: text.trim() }
     )})
   }
+  function appendTranscript(text) {
+    const existing = movie?.transcript ?? ''
+    const merged = existing ? existing + '\n' + text.trim() : text.trim()
+    saveDb({ ...db, movies: db.movies.map(m =>
+      m.id !== movieId ? m : { ...m, transcript: merged }
+    )})
+  }
 
   // ── SRT 格式正規化（支援 → / -> / --> / 空格時間碼）──────────
   function normalizeSRT(raw) {
@@ -13313,8 +13320,31 @@ ${normalized.slice(0,5000)}`
                 borderRadius:10, padding:'12px', color:T.txt, resize:'none',
                 outline:'none', lineHeight:1.6 }}/>
             {hasTemp && (
-              <div style={{ fontFamily:MONO, fontSize:9, color:T.grn }}>
-                ✓ {srtText.length.toLocaleString()} 字元 · 解析後自動儲存，下次只需填時間
+              <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                <span style={{ fontFamily:MONO, fontSize:9, color:T.grn }}>
+                  ✓ {srtText.length.toLocaleString()} 字元
+                </span>
+                <div style={{ display:'flex', gap:6 }}>
+                  {hasSaved && (
+                    <div onClick={() => { appendTranscript(srtText); setSrtText('') }}
+                      style={{ flex:2, cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                        color:T.grn, padding:'7px 10px', background:T.grnD,
+                        borderRadius:7, border:`1px solid ${T.grn}50`, textAlign:'center' }}>
+                      ＋ 附加到後面
+                    </div>
+                  )}
+                  <div onClick={() => { saveTranscript(srtText); setSrtText('') }}
+                    style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:9,
+                      color:T.txt3, padding:'7px 10px', background:T.surf2,
+                      borderRadius:7, border:`1px solid ${T.bdr}`, textAlign:'center' }}>
+                    {hasSaved ? '↺ 取代' : '💾 儲存'}
+                  </div>
+                </div>
+                {hasSaved && (
+                  <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                    現有 {movie.transcript.length.toLocaleString()} 字元，附加後合計 {(movie.transcript.length + srtText.length).toLocaleString()} 字元
+                  </span>
+                )}
               </div>
             )}
           </>
@@ -13323,19 +13353,19 @@ ${normalized.slice(0,5000)}`
 
       {/* ② 時間範圍 */}
       <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:12,
-        padding:'14px 16px', display:'flex', flexDirection:'column', gap:10 }}>
+        padding:'12px 16px', display:'flex', flexDirection:'column', gap:8 }}>
         <span style={{ fontFamily:MONO, fontSize:10, color:T.txt2, fontWeight:700 }}>② 選取時間範圍</span>
         <div style={{ display:'flex', gap:8 }}>
-          {[['開始','例：05:57',startTime,setStartTime],['結束','例：07:59',endTime,setEndTime]].map(([lbl,ph,val,set]) => (
-            <div key={lbl} style={{ flex:1, display:'flex', flexDirection:'column', gap:4 }}>
+          {[['開始','05:57',startTime,setStartTime],['結束','07:59',endTime,setEndTime]].map(([lbl,ph,val,set]) => (
+            <div key={lbl} style={{ flex:1, display:'flex', flexDirection:'column', gap:3 }}>
               <span style={{ fontFamily:MONO, fontSize:9, color: val ? T.grn : T.txt3 }}>
                 {lbl}{val ? ' ✓' : '（必填）'}
               </span>
               <input value={val} onChange={e => { set(e.target.value); setAddErr('') }}
                 placeholder={ph}
-                style={{ fontFamily:MONO, fontSize:14, background:T.surf2,
+                style={{ fontFamily:MONO, fontSize:12, background:T.surf2,
                   border:`1px solid ${val ? T.grn+'60' : T.bdr}`,
-                  borderRadius:8, padding:'10px 12px', color:T.txt, outline:'none' }}/>
+                  borderRadius:8, padding:'8px 10px', color:T.txt, outline:'none' }}/>
             </div>
           ))}
         </div>
@@ -13405,9 +13435,11 @@ ${normalized.slice(0,5000)}`
         貼上完整 SRT 逐字稿，儲存後新增場景只需填時間範圍。<br/>
         支援格式：<span style={{color:T.txt2}}>--&gt;</span>、<span style={{color:T.txt2}}>→</span>、<span style={{color:T.txt2}}>-&gt;</span> 均可。
       </div>
+      {/* 說明字元數 + 現有狀態 */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
         <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
-          {transcriptDraft.length.toLocaleString()} 字元
+          本頁：{transcriptDraft.length.toLocaleString()} 字元
+          {movie?.transcript ? `　已存：${movie.transcript.length.toLocaleString()} 字元` : ''}
         </span>
         {transcriptDraft.trim() && (
           <span onClick={() => setTranscriptDraft('')}
@@ -13417,24 +13449,54 @@ ${normalized.slice(0,5000)}`
       <textarea
         value={transcriptDraft}
         onChange={e => setTranscriptDraft(e.target.value)}
-        rows={16}
-        placeholder={'貼上整頁 SRT 逐字稿...\n\n00:05:34,303 --> 00:05:55,885\nDo you know your name?\n\n00:05:57,306 --> 00:06:04,540\nI hated myself.'}
+        rows={14}
+        placeholder={'貼上一頁 SRT 逐字稿...\n\n00:05:34,303 --> 00:05:55,885\nDo you know your name?\n\n00:05:57,306 --> 00:06:04,540\nI hated myself.'}
         style={{ fontFamily:MONO, fontSize:10, background:T.surf2, border:`1px solid ${T.bdr}`,
           borderRadius:10, padding:'12px', color:T.txt, resize:'none', outline:'none',
           lineHeight:1.7, boxSizing:'border-box', width:'100%' }}
       />
-      <div onClick={() => {
-          if (!transcriptDraft.trim()) return
-          saveTranscript(transcriptDraft)
-          setView('addScene')
-        }}
-        style={{ background: transcriptDraft.trim() ? T.amber : T.surf2,
-          borderRadius:10, padding:'13px', textAlign:'center',
-          fontFamily:MONO, fontSize:12, fontWeight:700,
-          color: transcriptDraft.trim() ? T.bg : T.txt3,
-          cursor: transcriptDraft.trim() ? 'pointer' : 'default' }}>
-        💾 儲存逐字稿
-      </div>
+      {/* 儲存按鈕：有現有資料時顯示兩個選項 */}
+      {transcriptDraft.trim() && movie?.transcript ? (
+        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+          <div onClick={() => { appendTranscript(transcriptDraft); setTranscriptDraft(''); setView('addScene') }}
+            style={{ background:T.grnD, border:`1px solid ${T.grn}50`, borderRadius:10,
+              padding:'12px', textAlign:'center', cursor:'pointer',
+              fontFamily:MONO, fontSize:12, fontWeight:700, color:T.grn }}>
+            ＋ 附加到現有逐字稿後面
+          </div>
+          <div style={{ display:'flex', gap:8 }}>
+            <div onClick={() => setTranscriptDraft('')}
+              style={{ flex:1, background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:9,
+                padding:'10px', textAlign:'center', cursor:'pointer',
+                fontFamily:MONO, fontSize:10, color:T.txt3 }}>
+              取消
+            </div>
+            <div onClick={() => { saveTranscript(transcriptDraft); setTranscriptDraft(''); setView('addScene') }}
+              style={{ flex:1, background:T.redD, border:`1px solid ${T.red}40`, borderRadius:9,
+                padding:'10px', textAlign:'center', cursor:'pointer',
+                fontFamily:MONO, fontSize:10, color:T.red }}>
+              ↺ 取代現有
+            </div>
+          </div>
+          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, textAlign:'center' }}>
+            附加後合計約 {(movie.transcript.length + transcriptDraft.length).toLocaleString()} 字元
+          </div>
+        </div>
+      ) : (
+        <div onClick={() => {
+            if (!transcriptDraft.trim()) return
+            saveTranscript(transcriptDraft)
+            setTranscriptDraft('')
+            setView('addScene')
+          }}
+          style={{ background: transcriptDraft.trim() ? T.amber : T.surf2,
+            borderRadius:10, padding:'13px', textAlign:'center',
+            fontFamily:MONO, fontSize:12, fontWeight:700,
+            color: transcriptDraft.trim() ? T.bg : T.txt3,
+            cursor: transcriptDraft.trim() ? 'pointer' : 'default' }}>
+          💾 儲存逐字稿
+        </div>
+      )}
       {movie?.transcript && (
         <div onClick={() => {
             saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : { ...m, transcript: '' }) })
