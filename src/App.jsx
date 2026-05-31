@@ -7072,7 +7072,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.43</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.44</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -13054,6 +13054,41 @@ function MovieTab() {
     })})
   }
 
+  // ── 補充時間碼（不重新解析，保留所有備註和收藏）──────────────
+  function patchTimestamps() {
+    const transcript = movie?.transcript ?? ''
+    if (!transcript) return false
+    const normalized = normalizeSRT(transcript)
+    // 建立 文字 → 時間碼 對應表
+    const lookup = {}
+    for (const block of normalized.split(/\n{2,}/)) {
+      const blines = block.trim().split('\n')
+      const tsLine = blines.find(l => /\d{2}:\d{2}:\d{2},\d+\s*-->\s*\d{2}:\d{2}:\d{2},\d+/.test(l))
+      if (!tsLine) continue
+      const [tsStart, tsEnd] = tsLine.split('-->')
+      const ls = timeToSecs(tsStart.trim())
+      const le = timeToSecs((tsEnd ?? '').trim()) || ls + 3
+      const txt = blines
+        .filter(l => !/^\s*\d+\s*$/.test(l) && !/\d{2}:\d{2}:\d{2}/.test(l))
+        .join(' ').replace(/\s+/g,' ').replace(/[.!?,…]+$/,'').trim().toLowerCase()
+      if (txt.length > 1) lookup[txt] = { startSecs: ls, endSecs: le }
+    }
+    let patched = 0
+    updateScenePhrases(ps => ps.map(p => {
+      if (p.startSecs > 0) return p
+      const key = p.en.replace(/[.!?,…]+$/,'').trim().toLowerCase()
+      // 完全比對
+      if (lookup[key]) { patched++; return { ...p, ...lookup[key] } }
+      // 部分比對（句子可能有省略）
+      const found = Object.entries(lookup).find(([k]) =>
+        k.length > 8 && (k.includes(key) || key.includes(k))
+      )
+      if (found) { patched++; return { ...p, ...found[1] } }
+      return p
+    }))
+    return patched
+  }
+
   function markPlayed(pid) {
     updateScenePhrases(ps => ps.map(p => p.id === pid ? { ...p, played:true } : p))
   }
@@ -14162,6 +14197,19 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
           </div>
         </div>
         {/* Practice buttons — 三個並排 */}
+        {/* 補充時間碼提示：有音訊但無時間碼時顯示 */}
+        {audioReady && phrases.every(p => !p.startSecs) && movie?.transcript && (
+          <div onClick={() => {
+              const n = patchTimestamps()
+              if (n > 0) alert(`✅ 已為 ${n} 句補充時間碼，現在可用電影原音！`)
+              else alert('⚠ 無法比對，請確認逐字稿與場景是否對應')
+            }}
+            style={{ background:T.blueD, border:`1px solid ${T.blue}50`, borderRadius:11,
+              padding:'10px', textAlign:'center', cursor:'pointer',
+              fontFamily:MONO, fontSize:10, color:T.blue, fontWeight:700 }}>
+            🎵 補充時間碼（啟用電影原音）
+          </div>
+        )}
         <div style={{ display:'flex', gap:6 }}>
           <div onClick={() => { setPlayIdx(0); setPlaying(false); setView('play') }}
             style={{ flex:2, cursor:'pointer', background:T.amber, borderRadius:11,
@@ -15712,7 +15760,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.43</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.44</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
