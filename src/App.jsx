@@ -7072,7 +7072,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.35</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.36</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -13897,13 +13897,6 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
         {/* Header */}
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <BackBtn to="list"/>
-          <div onClick={() => setView('vocab')}
-            style={{ cursor:'pointer', display:'flex', alignItems:'center', gap:5,
-              fontFamily:MONO, fontSize:10, color:T.txt3 }}>
-            📖 單字庫
-            <span style={{ background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:10, padding:'1px 7px',
-              fontFamily:MONO, fontSize:9 }}>{db.vocab.length}</span>
-          </div>
         </div>
         {/* Scene info card */}
         <div style={{ background:T.surf, borderRadius:14, padding:'16px 18px' }}>
@@ -13935,17 +13928,27 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
             ⭐ 重點 ({starredCount})
           </div>
         </div>
-        {/* Practice buttons */}
-        <div style={{ display:'flex', gap:8 }}>
+        {/* Practice buttons — 三個並排 */}
+        <div style={{ display:'flex', gap:6 }}>
           <div onClick={() => { setPlayIdx(0); setPlaying(false); setView('play') }}
-            style={{ flex:1, cursor:'pointer', background:T.amber, borderRadius:11,
-              padding:'13px', textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700, color:T.bg }}>
+            style={{ flex:2, cursor:'pointer', background:T.amber, borderRadius:11,
+              padding:'12px 8px', textAlign:'center', fontFamily:MONO, fontSize:11,
+              fontWeight:700, color:T.bg }}>
             ▶ 自動播放 0.6x
           </div>
           <div onClick={() => { setRevIdx(0); setRevFlip(false); setView('reverse') }}
             style={{ flex:1, cursor:'pointer', background:T.surf2, border:`1px solid ${T.bdr2}`,
-              borderRadius:11, padding:'13px', textAlign:'center', fontFamily:MONO, fontSize:11, color:T.txt2 }}>
-            🔄 反向練習
+              borderRadius:11, padding:'12px 4px', textAlign:'center',
+              fontFamily:MONO, fontSize:11, color:T.txt2 }}>
+            🔄 反向
+          </div>
+          <div onClick={() => setView('vocab')}
+            style={{ flex:1, cursor:'pointer', background:T.surf2,
+              border:`1px solid ${db.vocab.length ? T.blue+'50' : T.bdr}`,
+              borderRadius:11, padding:'12px 4px', textAlign:'center',
+              fontFamily:MONO, fontSize:11,
+              color: db.vocab.length ? T.blue : T.txt3 }}>
+            📖 {db.vocab.length > 0 ? db.vocab.length : '字'}
           </div>
         </div>
         {/* Hint */}
@@ -13956,14 +13959,21 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
             border:`1px solid ${p.starred ? T.amber+'60' : p.played ? T.amber+'25' : T.bdr}`,
             borderRadius:12, padding:'14px 16px', position:'relative' }}>
             {/* EN tokens */}
-            <div style={{ marginBottom:7, lineHeight:2.1, display:'flex', flexWrap:'wrap', gap:1, paddingRight:38 }}>
+            <div style={{ marginBottom:7, lineHeight:2.1, display:'flex', flexWrap:'wrap', gap:1,
+              paddingRight:70, userSelect:'none', WebkitUserSelect:'none' }}>
               {p.en.split(/(\b)/).filter(Boolean).map((tok, j) => {
                 const isWord = /^[a-zA-Z']+$/.test(tok)
                 return (
-                  <span key={j} onClick={() => isWord && lookupWord(tok.replace(/[^a-zA-Z']/g,''), p.en)}
+                  <span key={j}
+                    onPointerDown={e => {
+                      if (!isWord) return
+                      e.preventDefault()
+                      e.stopPropagation()
+                      lookupWord(tok.replace(/[^a-zA-Z']/g,''), p.en)
+                    }}
                     style={{ fontFamily:MONO, fontSize:13, color: isWord ? T.txt : T.txt3,
                       fontWeight: isWord ? 500 : 400, cursor: isWord ? 'pointer' : 'default',
-                      borderBottom: isWord ? `1px dashed ${T.bdr2}` : 'none', padding:'0 1px',
+                      borderBottom: isWord ? `1px dashed ${T.bdr2}` : 'none', padding:'0 2px',
                       userSelect:'none', WebkitUserSelect:'none', touchAction:'manipulation' }}>
                     {tok}
                   </span>
@@ -15317,7 +15327,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.35</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.36</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
