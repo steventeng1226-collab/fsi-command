@@ -7072,7 +7072,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.44</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.45</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -13125,15 +13125,15 @@ function MovieTab() {
     finally { setAutoGenSceneBusy(false) }
   }
   function speakPhrase(pid, textOrRate, rateOverride) {
-    // 支援兩種呼叫：speakPhrase(id, text) 和 speakPhrase(id, text, rate)
     const text = typeof textOrRate === 'string' ? textOrRate : ''
     const rate = typeof rateOverride === 'number' ? rateOverride : 0.6
 
     // 停止當前播放
     clearTimeout(audioStopRef.current)
-    if (audioElRef.current) { audioElRef.current.pause() }
+    if (audioElRef.current) audioElRef.current.pause()
     window.speechSynthesis?.cancel()
 
+    // 再點同一句（且未指定 rate）→ 停止
     if (playingPhraseId === pid && rateOverride === undefined) {
       setPlayingPhraseId(null); return
     }
@@ -14106,7 +14106,7 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
                   {/* 播放按鈕 */}
                   <div style={{ display:'flex', gap:8, marginTop:12 }}>
                     {[{rate:0.6,label:'🔊 0.6x'},{rate:1.0,label:'🔊 1.0x'}].map(({rate,label}) => (
-                      <div key={rate} onClick={() => speakPhrase('rev_'+rate, cur.en)}
+                      <div key={rate} onClick={() => speakPhrase(cur.id, cur.en, rate)}
                         style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.amber,
                           padding:'7px', background:T.surf, borderRadius:8,
                           border:`1px solid ${T.amber}40`, textAlign:'center' }}>
@@ -15760,7 +15760,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.44</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.45</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
