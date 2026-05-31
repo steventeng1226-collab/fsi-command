@@ -7072,7 +7072,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.32</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.35</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -12982,13 +12982,23 @@ function MovieTab() {
   const [revIdx,     setRevIdx]     = useState(0)
   const [revFlip,    setRevFlip]    = useState(false)
   const [starFilter,      setStarFilter]      = useState(false)
-  const [playingPhraseId, setPlayingPhraseId] = useState(null) // 單句播放中的 id
+  const [playingPhraseId, setPlayingPhraseId] = useState(null)
   const [deletingPhraseId,setDeletingPhraseId]= useState(null)
+  const [editingZhId,     setEditingZhId]     = useState(null)
+  const [editingZhText,   setEditingZhText]   = useState('')
+  const [editingNoteId,   setEditingNoteId]   = useState(null)
+  const [editingNoteText, setEditingNoteText] = useState('')
   const [wordModal,       setWordModal]       = useState(null)
   const [movieSyncing,    setMovieSyncing]    = useState(false)
   const [movieSyncMsg,    setMovieSyncMsg]    = useState("")
   const [wordBusy,   setWordBusy]   = useState(false)
   const [wordInfo,   setWordInfo]   = useState(null)
+  // ── 手動新增單字 ──
+  const [manualOpen,    setManualOpen]    = useState(false)
+  const [manualInput,   setManualInput]   = useState('')
+  const [manualBusy,    setManualBusy]    = useState(false)
+  const [manualResult,  setManualResult]  = useState(null) // {phonetic,zh,example}
+  const [manualExample, setManualExample] = useState('')
   const [srtText,       setSrtText]       = useState('')
   const [transcriptDraft, setTranscriptDraft] = useState('')
   const [startTime,  setStartTime]  = useState('')
@@ -13034,6 +13044,14 @@ function MovieTab() {
   }
   function toggleStar(pid) {
     updateScenePhrases(ps => ps.map(p => p.id === pid ? { ...p, starred: !p.starred } : p))
+  }
+  function saveZh(pid, newZh) {
+    updateScenePhrases(ps => ps.map(p => p.id === pid ? { ...p, zh: newZh.trim() } : p))
+    setEditingZhId(null)
+  }
+  function saveNote(pid, newNote) {
+    updateScenePhrases(ps => ps.map(p => p.id === pid ? { ...p, note: newNote } : p))
+    setEditingNoteId(null)
   }
   function speakPhrase(pid, text) {
     if (playingPhraseId === pid) {
@@ -13123,6 +13141,20 @@ Return ONLY a JSON object, no markdown:
       setWordInfo(JSON.parse(raw.replace(/```json|```/g,'').trim()))
     } catch { setWordInfo({ phonetic:'', zh:'查詢失敗', example:sentence }) }
     finally { setWordBusy(false) }
+  }
+
+  async function lookupManualVocab(input) {
+    if (!input.trim()) return
+    setManualBusy(true); setManualResult(null)
+    try {
+      const prompt = `For the English word or phrase "${input.trim()}", return ONLY JSON, no markdown:
+{"phonetic":"/IPA/","zh":"繁體中文意思（5~15字）","example":"一句自然的英文例句"}`
+      const raw = await callAI([{ role:'user', content:prompt }])
+      const res = JSON.parse(raw.replace(/```json|```/g,'').trim())
+      setManualResult(res)
+      setManualExample(res.example ?? '')
+    } catch { setManualResult({ phonetic:'', zh:'查詢失敗', example:'' }) }
+    finally { setManualBusy(false) }
   }
 
   // ── 儲存逐字稿到 movie 物件 ──────────────────────────────────
@@ -13305,15 +13337,98 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
   // ══════════════════════════════════════════════════════════════
   if (view === 'vocab') return (
     <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
+      {/* Header */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
         <BackBtn label="← 返回句子" to="scene"/>
-        <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>📖 單字庫 · {db.vocab.length} 個</span>
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>📖 單字庫 · {db.vocab.length} 個</span>
+          <div onClick={() => { setManualOpen(o=>!o); setManualInput(''); setManualResult(null); setManualExample('') }}
+            style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+              padding:'4px 12px', borderRadius:8, transition:'all 0.15s',
+              background: manualOpen ? T.amber : T.surf2,
+              border:`1px solid ${manualOpen ? T.amber : T.bdr}`,
+              color: manualOpen ? T.bg : T.txt2 }}>
+            {manualOpen ? '✕ 關閉' : '＋ 新增'}
+          </div>
+        </div>
       </div>
-      {db.vocab.length === 0 && (
-        <div style={{ textAlign:'center', padding:'48px 0', fontFamily:MONO, fontSize:11, color:T.txt3 }}>
-          在句子頁面點任何單字即可加入
+
+      {/* ── 手動新增表單 ── */}
+      {manualOpen && (
+        <div style={{ background:T.surf, border:`1px solid ${T.bdr2}`, borderRadius:14,
+          padding:'16px', display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
+          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+            可輸入單字、片語、動詞片語
+          </div>
+          {/* 輸入 + 查詢 */}
+          <div style={{ display:'flex', gap:8 }}>
+            <input value={manualInput}
+              onChange={e => { setManualInput(e.target.value); setManualResult(null) }}
+              onKeyDown={e => e.key==='Enter' && lookupManualVocab(manualInput)}
+              placeholder="cover / print up / in the middle of the night"
+              style={{ flex:1, fontFamily:MONO, fontSize:12, background:T.surf2,
+                border:`1px solid ${manualInput ? T.bdr2 : T.bdr}`,
+                borderRadius:8, padding:'9px 12px', color:T.txt, outline:'none' }}/>
+            <div onClick={() => lookupManualVocab(manualInput)}
+              style={{ cursor:'pointer', padding:'9px 14px', borderRadius:8,
+                background: manualBusy ? T.surf2 : T.blueD,
+                border:`1px solid ${manualBusy ? T.bdr : T.blue+'50'}`,
+                fontFamily:MONO, fontSize:10, color: manualBusy ? T.txt3 : T.blue,
+                display:'flex', alignItems:'center', gap:5, whiteSpace:'nowrap' }}>
+              {manualBusy
+                ? <span style={{ display:'inline-block', width:8, height:8,
+                    border:'1.5px solid transparent', borderTopColor:T.txt3,
+                    borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>
+                : '🔍'}
+              {manualBusy ? '查詢中' : 'AI 查'}
+            </div>
+          </div>
+          {/* 查詢結果 */}
+          {manualResult && (
+            <div style={{ display:'flex', flexDirection:'column', gap:10 }} className="fadeUp">
+              <div style={{ display:'flex', alignItems:'baseline', gap:10, flexWrap:'wrap' }}>
+                <span style={{ fontFamily:MONO, fontSize:16, color:T.amber, fontWeight:700 }}>
+                  {manualInput.trim()}
+                </span>
+                <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
+                  {manualResult.phonetic}
+                </span>
+              </div>
+              <div style={{ fontFamily:MONO, fontSize:13, color:T.txt2 }}>{manualResult.zh}</div>
+              {/* 例句（可編輯） */}
+              <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+                <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>例句（可修改）</span>
+                <input value={manualExample}
+                  onChange={e => setManualExample(e.target.value)}
+                  style={{ fontFamily:MONO, fontSize:11, background:T.surf2,
+                    border:`1px solid ${T.bdr}`, borderRadius:8,
+                    padding:'8px 10px', color:T.txt, outline:'none' }}/>
+              </div>
+              <div onClick={() => {
+                  const word = manualInput.trim()
+                  if (!word) return
+                  const ok = addToVocab(word, manualResult.phonetic, manualResult.zh, manualExample)
+                  if (ok) { setManualOpen(false); setManualInput(''); setManualResult(null) }
+                  else alert('已存在單字庫')
+                }}
+                style={{ background:T.amber, borderRadius:10, padding:'11px',
+                  textAlign:'center', cursor:'pointer',
+                  fontFamily:MONO, fontSize:11, fontWeight:700, color:T.bg }}>
+                ＋ 加入單字庫
+              </div>
+            </div>
+          )}
         </div>
       )}
+
+      {/* 空狀態 */}
+      {db.vocab.length === 0 && !manualOpen && (
+        <div style={{ textAlign:'center', padding:'40px 0', fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:2 }}>
+          點句子中的單字自動加入<br/>或點右上角「＋ 新增」手動輸入
+        </div>
+      )}
+
+      {/* 單字列表 */}
       {db.vocab.map(v => (
         <div key={v.id} style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:12, padding:'14px 16px' }}>
           <div style={{ display:'flex', alignItems:'baseline', gap:8, marginBottom:5 }}>
@@ -13848,18 +13963,88 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
                   <span key={j} onClick={() => isWord && lookupWord(tok.replace(/[^a-zA-Z']/g,''), p.en)}
                     style={{ fontFamily:MONO, fontSize:13, color: isWord ? T.txt : T.txt3,
                       fontWeight: isWord ? 500 : 400, cursor: isWord ? 'pointer' : 'default',
-                      borderBottom: isWord ? `1px dashed ${T.bdr2}` : 'none', padding:'0 1px' }}>
+                      borderBottom: isWord ? `1px dashed ${T.bdr2}` : 'none', padding:'0 1px',
+                      userSelect:'none', WebkitUserSelect:'none', touchAction:'manipulation' }}>
                     {tok}
                   </span>
                 )
               })}
             </div>
-            <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.7, paddingRight:38 }}>{p.zh}</div>
-            {/* 右側按鈕欄 */}
+            {/* 中文翻譯（點擊可編輯）*/}
+            {editingZhId === p.id ? (
+              <div style={{ display:'flex', gap:6, alignItems:'center', paddingRight:38, marginTop:2 }}>
+                <input
+                  autoFocus
+                  value={editingZhText}
+                  onChange={e => setEditingZhText(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') saveZh(p.id, editingZhText)
+                    if (e.key === 'Escape') setEditingZhId(null)
+                  }}
+                  style={{ flex:1, fontFamily:MONO, fontSize:11, color:T.txt,
+                    background:T.surf2, border:`1px solid ${T.amber}80`,
+                    borderRadius:7, padding:'5px 9px', outline:'none' }}/>
+                <div onClick={() => saveZh(p.id, editingZhText)}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.bg,
+                    padding:'4px 10px', background:T.amber, borderRadius:6,
+                    fontWeight:700, whiteSpace:'nowrap' }}>✓</div>
+                <div onClick={() => setEditingZhId(null)}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt3,
+                    padding:'4px 8px', background:T.surf2, borderRadius:6,
+                    border:`1px solid ${T.bdr}` }}>✕</div>
+              </div>
+            ) : (
+              <div
+                onClick={() => { setEditingZhId(p.id); setEditingZhText(p.zh) }}
+                title="點擊修改翻譯"
+                style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.7,
+                  paddingRight:38, cursor:'pointer',
+                  borderBottom:`1px dashed transparent`,
+                  transition:'border-color 0.15s' }}
+                onMouseEnter={e => e.currentTarget.style.borderBottomColor = T.bdr2}
+                onMouseLeave={e => e.currentTarget.style.borderBottomColor = 'transparent'}>
+                {p.zh}
+                <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3,
+                  opacity:0.5, marginLeft:5 }}>✎</span>
+              </div>
+            )}
+            {/* 備註（📝）顯示區 */}
+            {editingNoteId === p.id ? (
+              <div style={{ display:'flex', gap:6, alignItems:'center', paddingRight:70, marginTop:4 }}>
+                <input
+                  autoFocus
+                  value={editingNoteText}
+                  onChange={e => setEditingNoteText(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') saveNote(p.id, editingNoteText)
+                    if (e.key === 'Escape') setEditingNoteId(null)
+                  }}
+                  placeholder="例：They-v-all-gone-out / said it 連音"
+                  style={{ flex:1, fontFamily:MONO, fontSize:10, color:T.txt,
+                    background:T.surf2, border:`1px solid ${T.blue}80`,
+                    borderRadius:7, padding:'5px 9px', outline:'none' }}/>
+                <div onClick={() => saveNote(p.id, editingNoteText)}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, color:'#fff',
+                    padding:'4px 9px', background:T.blue, borderRadius:6, fontWeight:700 }}>✓</div>
+                <div onClick={() => setEditingNoteId(null)}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
+                    padding:'4px 7px', background:T.surf2, borderRadius:6,
+                    border:`1px solid ${T.bdr}` }}>✕</div>
+              </div>
+            ) : p.note ? (
+              <div onClick={() => { setEditingNoteId(p.id); setEditingNoteText(p.note) }}
+                style={{ display:'flex', alignItems:'flex-start', gap:5, paddingRight:70,
+                  marginTop:4, cursor:'pointer' }}>
+                <span style={{ fontSize:10, flexShrink:0, marginTop:1 }}>📝</span>
+                <span style={{ fontFamily:MONO, fontSize:10, color:T.blue,
+                  fontStyle:'italic', lineHeight:1.7 }}>{p.note}</span>
+              </div>
+            ) : null}
+
+            {/* 右側按鈕欄：⭐|✕ 上，🔊|📝 下 */}
             <div style={{ position:'absolute', top:10, right:10,
               display:'flex', flexDirection:'column', alignItems:'flex-end', gap:5 }}>
               {deletingPhraseId === p.id ? (
-                /* ── 刪除再確認 ── */
                 <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:5 }}>
                   <span style={{ fontFamily:MONO, fontSize:9, color:T.red }}>確定刪除？</span>
                   <div style={{ display:'flex', gap:4 }}>
@@ -13868,12 +14053,13 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
                         padding:'3px 8px', background:T.red, borderRadius:5 }}>刪除</div>
                     <div onClick={() => setDeletingPhraseId(null)}
                       style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt2,
-                        padding:'3px 8px', background:T.surf2, borderRadius:5, border:`1px solid ${T.bdr}` }}>取消</div>
+                        padding:'3px 8px', background:T.surf2, borderRadius:5,
+                        border:`1px solid ${T.bdr}` }}>取消</div>
                   </div>
                 </div>
               ) : (
                 <>
-                  {/* ⭐ | ✕ 並排 */}
+                  {/* Row 1: ⭐ | ✕ */}
                   <div style={{ display:'flex', gap:5, alignItems:'center' }}>
                     <div onClick={() => toggleStar(p.id)}
                       style={{ cursor:'pointer', fontSize:14,
@@ -13882,16 +14068,30 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
                         transform: p.starred ? 'scale(1.15)' : 'scale(1)' }}>⭐</div>
                     <div onClick={() => setDeletingPhraseId(p.id)}
                       style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
-                        padding:'2px 5px', background:T.surf2, borderRadius:5, border:`1px solid ${T.bdr}` }}>✕</div>
+                        padding:'2px 5px', background:T.surf2, borderRadius:5,
+                        border:`1px solid ${T.bdr}` }}>✕</div>
                   </div>
-                  {/* 🔊 play */}
-                  <div onClick={() => speakPhrase(p.id, p.en)}
-                    style={{ cursor:'pointer', width:28, height:28, borderRadius:7,
-                      display:'flex', alignItems:'center', justifyContent:'center',
-                      background: playingPhraseId===p.id ? T.amber+'22' : T.surf2,
-                      border:`1px solid ${playingPhraseId===p.id ? T.amber : T.bdr}`,
-                      transition:'all 0.15s' }}>
-                    <span style={{ fontSize:14 }}>{playingPhraseId===p.id ? '⏹' : '🔊'}</span>
+                  {/* Row 2: 🔊 | 📝 */}
+                  <div style={{ display:'flex', gap:5, alignItems:'center' }}>
+                    <div onClick={() => speakPhrase(p.id, p.en)}
+                      style={{ cursor:'pointer', width:26, height:26, borderRadius:6,
+                        display:'flex', alignItems:'center', justifyContent:'center',
+                        background: playingPhraseId===p.id ? T.amber+'22' : T.surf2,
+                        border:`1px solid ${playingPhraseId===p.id ? T.amber : T.bdr}`,
+                        transition:'all 0.15s' }}>
+                      <span style={{ fontSize:13 }}>{playingPhraseId===p.id ? '⏹' : '🔊'}</span>
+                    </div>
+                    <div onClick={() => {
+                        setEditingNoteId(p.id)
+                        setEditingNoteText(p.note ?? '')
+                      }}
+                      style={{ cursor:'pointer', width:26, height:26, borderRadius:6,
+                        display:'flex', alignItems:'center', justifyContent:'center',
+                        background: p.note ? T.blueD : T.surf2,
+                        border:`1px solid ${p.note ? T.blue+'60' : T.bdr}`,
+                        transition:'all 0.15s' }}>
+                      <span style={{ fontSize:13 }}>📝</span>
+                    </div>
                   </div>
                 </>
               )}
@@ -15117,7 +15317,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.32</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.35</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
