@@ -7072,7 +7072,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.36</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.38</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -13431,9 +13431,17 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
       {/* 單字列表 */}
       {db.vocab.map(v => (
         <div key={v.id} style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:12, padding:'14px 16px' }}>
-          <div style={{ display:'flex', alignItems:'baseline', gap:8, marginBottom:5 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:5 }}>
             <span style={{ fontFamily:MONO, fontSize:15, color:T.amber, fontWeight:700 }}>{v.word}</span>
             <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>{v.phonetic}</span>
+            <div onClick={() => speakPhrase('vocab_'+v.id, v.word)}
+              style={{ cursor:'pointer', width:24, height:24, borderRadius:6,
+                display:'flex', alignItems:'center', justifyContent:'center',
+                background: playingPhraseId==='vocab_'+v.id ? T.amber+'22' : T.surf2,
+                border:`1px solid ${playingPhraseId==='vocab_'+v.id ? T.amber : T.bdr}`,
+                transition:'all 0.15s' }}>
+              <span style={{ fontSize:12 }}>{playingPhraseId==='vocab_'+v.id ? '⏹' : '🔊'}</span>
+            </div>
             <span onClick={() => deleteVocab(v.id)}
               style={{ marginLeft:'auto', cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
                 padding:'1px 6px', background:T.surf2, borderRadius:5, border:`1px solid ${T.bdr}` }}>✕</span>
@@ -13856,12 +13864,13 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
       <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
         {/* Word modal overlay */}
         {wordModal && (
-          <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.65)', zIndex:100,
-            display:'flex', alignItems:'flex-end', justifyContent:'center' }}
+          <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', zIndex:9999,
+            display:'flex', alignItems:'center', justifyContent:'center', padding:'24px' }}
             onClick={() => setWordModal(null)}>
             <div onClick={e => e.stopPropagation()}
-              style={{ background:T.surf, borderRadius:'18px 18px 0 0', padding:'22px 22px 32px',
-                width:'100%', maxWidth:480, display:'flex', flexDirection:'column', gap:14 }}>
+              style={{ background:T.surf, borderRadius:18, padding:'24px 22px',
+                width:'100%', maxWidth:420, display:'flex', flexDirection:'column', gap:14,
+                border:`1px solid ${T.bdr2}`, boxShadow:'0 12px 48px rgba(0,0,0,0.5)' }}>
               <div style={{ display:'flex', alignItems:'baseline', gap:10 }}>
                 <span style={{ fontFamily:MONO, fontSize:20, color:T.amber, fontWeight:700 }}>{wordModal.word}</span>
                 {wordBusy && <span style={{ display:'inline-block', width:10, height:10,
@@ -13875,15 +13884,15 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
                   <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, fontStyle:'italic', lineHeight:1.7 }}>{wordInfo.example}</div>
                   <div style={{ display:'flex', gap:8 }}>
                     <div onClick={() => {
-                        const ok = addToVocab(wordModal.word, wordInfo.phonetic, wordInfo.zh, wordInfo.example)
+                        addToVocab(wordModal.word, wordInfo.phonetic, wordInfo.zh, wordInfo.example)
                         setWordModal(null)
                       }}
-                      style={{ flex:1, cursor:'pointer', background:T.blue, borderRadius:10, padding:'11px',
+                      style={{ flex:1, cursor:'pointer', background:T.blue, borderRadius:10, padding:'12px',
                         textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700, color:'#fff' }}>
                       + 加入單字庫
                     </div>
                     <div onClick={() => setWordModal(null)}
-                      style={{ flex:1, cursor:'pointer', background:T.surf2, borderRadius:10, padding:'11px',
+                      style={{ flex:1, cursor:'pointer', background:T.surf2, borderRadius:10, padding:'12px',
                         textAlign:'center', fontFamily:MONO, fontSize:11, color:T.txt3, border:`1px solid ${T.bdr}` }}>
                       關閉
                     </div>
@@ -15238,7 +15247,7 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
 // ROOT APP
 // ═══════════════════════════════════════════════════════════════
 export default function App() {
-  const [tab, setTab]         = useState('phrase')
+  const [tab, setTab]         = useState('movie')
   const [sentences, setSentences] = useState(null)
   const [vocab, setVocab]     = useState(null)
   const [stats, setStats]     = useState(null)
@@ -15327,7 +15336,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.36</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.38</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
