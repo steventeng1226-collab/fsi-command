@@ -7072,7 +7072,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.39</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.40</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -13249,25 +13249,35 @@ Return ONLY a JSON object, no markdown:
         return
       }
 
-      // 2. AI 只負責：取場景名 + 每行翻中文（原文不改）
-      const prompt = `給你 ${lines.length} 句英文字幕，請：
-1. 根據內容取一個中文場景名（6~10字）
-2. 將每句翻成自然的繁體中文，保留原文、不合併、不增刪
+      // 2. AI 只負責：取場景名 + 每行翻中文（改用 | 分隔格式，避免 JSON 引號問題）
+      const prompt = `給你 ${lines.length} 句英文字幕。
+第一行回傳中文場景名（6~10字，只有場景名，沒有其他文字）。
+之後每行格式：序號|中文翻譯
+不要合併句子，不要增刪，不要其他說明。
 
-只回傳 JSON，不要 markdown：
-{"name":"場景名","phrases":[{"en":"原文","zh":"中文"},...]}
+範例格式：
+使命宣言的誕生
+1|我討厭我自己。
+2|然後事情發生了。
 
 字幕：
 ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
 
-      const raw    = await callAI([{ role:'user', content:prompt }])
-      const result = JSON.parse(raw.replace(/```json|```/g,'').trim())
+      const raw = await callAI([{ role:'user', content:prompt }])
 
-      // 確保 en 用原文（防止 AI 改寫）
-      result.phrases = result.phrases.map((p, i) => ({
-        en: lines[i] ?? p.en,
-        zh: p.zh
-      }))
+      // 解析 pipe 格式
+      const rawLines = raw.trim().split('\n').filter(l => l.trim())
+      const nameLine = rawLines[0]?.trim() ?? '電影場景'
+      const translations = {}
+      rawLines.slice(1).forEach(l => {
+        const m = l.match(/^(\d+)\|(.+)$/)
+        if (m) translations[parseInt(m[1]) - 1] = m[2].trim()
+      })
+
+      const result = {
+        name: nameLine.replace(/^\d+[\.|]/, '').trim(),
+        phrases: lines.map((en, i) => ({ en, zh: translations[i] ?? '' }))
+      }
 
       setAddPreview(result)
     } catch(e) { setAddErr('AI 翻譯失敗：' + e.message) }
@@ -15378,7 +15388,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.39</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.40</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
