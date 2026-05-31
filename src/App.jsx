@@ -7073,7 +7073,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.46</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.48</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -13006,11 +13006,14 @@ function MovieTab() {
   // ── 電影原音播放 refs ──
   const audioElRef   = useRef(null)   // HTMLAudioElement
   const audioUrlRef  = useRef(null)   // blob URL
-  const audioStopRef = useRef(null)   // setTimeout handle for phrase end
+  const audioStopRef = useRef(null)
   const [audioFileName, setAudioFileName] = useState(
     () => localStorage.getItem('fsi:movie:audioName') ?? ''
   )
   const [audioReady, setAudioReady] = useState(false)
+  const [scenePlaying, setScenePlaying] = useState(false)
+  const [scenePlayPos,  setScenePlayPos]  = useState(0)
+  const [sceneRate,     setSceneRate]     = useState(0.6) // 0~1 進度
   const [movieSyncing,    setMovieSyncing]    = useState(false)
   const [movieSyncMsg,    setMovieSyncMsg]    = useState("")
   const [wordBusy,   setWordBusy]   = useState(false)
@@ -13165,17 +13168,55 @@ function MovieTab() {
 
   function loadAudioFile(file) {
     if (!file) return
-    // 釋放舊的 blob URL
     if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current)
     const url = URL.createObjectURL(file)
     audioUrlRef.current = url
     if (!audioElRef.current) audioElRef.current = new Audio()
-    audioElRef.current.src = url
-    audioElRef.current.oncanplay = () => setAudioReady(true)
-    audioElRef.current.onerror = () => setAudioReady(false)
+    const el = audioElRef.current
+    el.src = url
+    el.oncanplay = () => setAudioReady(true)
+    el.onerror = () => setAudioReady(false)
+    // 整段播放進度追蹤
+    el.ontimeupdate = () => {
+      if (el._sceneEnd && el.currentTime >= el._sceneEnd) {
+        el.pause(); el._sceneEnd = null
+        setScenePlaying(false); setScenePlayPos(0)
+      } else if (el._sceneStart !== undefined && el._sceneEnd) {
+        const pos = (el.currentTime - el._sceneStart) / (el._sceneEnd - el._sceneStart)
+        setScenePlayPos(Math.min(1, Math.max(0, pos)))
+      }
+    }
     setAudioFileName(file.name)
     localStorage.setItem('fsi:movie:audioName', file.name)
-    setAudioReady(false) // 等待 canplay
+    setAudioReady(false)
+  }
+
+  function parseSceneTimeRange(timeRange) {
+    // "00:05:57 ~ 00:07:59" 或 "00:08:02,498 ~ 00:10:00,382"
+    const parts = timeRange.split(/\s*[~～]\s*/)
+    return { start: timeToSecs(parts[0]?.trim()), end: timeToSecs(parts[1]?.trim()) }
+  }
+
+  function playSceneAudio() {
+    if (!audioElRef.current || !audioReady || !scene) return
+    const { start, end } = parseSceneTimeRange(scene.timeRange)
+    if (!end || end <= start) return
+    clearTimeout(audioStopRef.current)
+    window.speechSynthesis?.cancel()
+    setPlayingPhraseId(null)
+    const el = audioElRef.current
+    el._sceneStart = start; el._sceneEnd = end
+    el.playbackRate = sceneRate
+    el.currentTime = start
+    el.play().catch(() => setScenePlaying(false))
+    setScenePlaying(true); setScenePlayPos(0)
+  }
+
+  function stopSceneAudio() {
+    if (!audioElRef.current) return
+    audioElRef.current.pause()
+    audioElRef.current._sceneEnd = null
+    setScenePlaying(false); setScenePlayPos(0)
   }
   function deleteScene(sid) {
     saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : {
@@ -14197,6 +14238,49 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
             ⭐ 重點 ({starredCount})
           </div>
         </div>
+
+        {/* ── 整段原聲播放（有 MP3 時顯示）── */}
+        {audioReady && (
+          <div style={{ background:T.surf, border:`1px solid ${scenePlaying ? T.amber+'60' : T.bdr}`,
+            borderRadius:12, padding:'12px 14px', display:'flex', flexDirection:'column', gap:8,
+            transition:'border-color 0.2s' }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+              <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                🎬 整段原聲 · {scene.timeRange}
+              </span>
+              {/* 速度切換 */}
+              <div style={{ display:'flex', gap:5 }}>
+                {[0.6, 1.0].map(r => (
+                  <div key={r} onClick={() => {
+                      setSceneRate(r)
+                      if (scenePlaying && audioElRef.current) audioElRef.current.playbackRate = r
+                    }}
+                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                      padding:'2px 9px', borderRadius:7,
+                      background: sceneRate===r ? T.amberD : T.surf2,
+                      border:`1px solid ${sceneRate===r ? T.amber+'60' : T.bdr}`,
+                      color: sceneRate===r ? T.amber : T.txt3 }}>
+                    {r === 0.6 ? '0.6x' : '1.0x'}
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* 進度條 */}
+            <div style={{ background:T.bdr, borderRadius:4, height:5, overflow:'hidden' }}>
+              <div style={{ width:`${scenePlayPos*100}%`, height:'100%',
+                background:T.amber, transition:'width 0.3s' }}/>
+            </div>
+            {/* 播放 / 停止 */}
+            <div onClick={scenePlaying ? stopSceneAudio : playSceneAudio}
+              style={{ cursor:'pointer', background: scenePlaying ? T.surf2 : T.amberD,
+                border:`1px solid ${T.amber}60`, borderRadius:9, padding:'10px',
+                textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
+                color:T.amber }}>
+              {scenePlaying ? '⏹ 停止' : `🎬 播放整段原聲 ${sceneRate}x`}
+            </div>
+          </div>
+        )}
+
         {/* Practice buttons — 三個並排 */}
         {/* 補充時間碼提示：有音訊但無時間碼時顯示 */}
         {audioReady && phrases.every(p => !p.startSecs) && movie?.transcript && (
@@ -15761,7 +15845,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.46</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.48</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
