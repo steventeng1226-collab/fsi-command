@@ -7072,7 +7072,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.42</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.43</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -13002,6 +13002,14 @@ function MovieTab() {
   const [inlineLookup,    setInlineLookup]    = useState(null) // {phraseId, word, sentence}
   const tapTimerRef  = useRef(null)
   const tapStartRef  = useRef(null)
+  // ── 電影原音播放 refs ──
+  const audioElRef   = useRef(null)   // HTMLAudioElement
+  const audioUrlRef  = useRef(null)   // blob URL
+  const audioStopRef = useRef(null)   // setTimeout handle for phrase end
+  const [audioFileName, setAudioFileName] = useState(
+    () => localStorage.getItem('fsi:movie:audioName') ?? ''
+  )
+  const [audioReady, setAudioReady] = useState(false)
   const [movieSyncing,    setMovieSyncing]    = useState(false)
   const [movieSyncMsg,    setMovieSyncMsg]    = useState("")
   const [wordBusy,   setWordBusy]   = useState(false)
@@ -13081,18 +13089,57 @@ function MovieTab() {
     } catch(e) { /* silent fail */ }
     finally { setAutoGenSceneBusy(false) }
   }
-  function speakPhrase(pid, text) {
-    if (playingPhraseId === pid) {
-      window.speechSynthesis?.cancel()
-      setPlayingPhraseId(null)
-      return
-    }
+  function speakPhrase(pid, textOrRate, rateOverride) {
+    // 支援兩種呼叫：speakPhrase(id, text) 和 speakPhrase(id, text, rate)
+    const text = typeof textOrRate === 'string' ? textOrRate : ''
+    const rate = typeof rateOverride === 'number' ? rateOverride : 0.6
+
+    // 停止當前播放
+    clearTimeout(audioStopRef.current)
+    if (audioElRef.current) { audioElRef.current.pause() }
     window.speechSynthesis?.cancel()
+
+    if (playingPhraseId === pid && rateOverride === undefined) {
+      setPlayingPhraseId(null); return
+    }
     setPlayingPhraseId(pid)
-    const u = new SpeechSynthesisUtterance(text)
-    u.lang = 'en-US'; u.rate = 0.6
-    u.onend = u.onerror = () => setPlayingPhraseId(null)
-    window.speechSynthesis?.speak(u)
+
+    // 找當前場景的 phrase 取得時間碼
+    const phrase = phrases.find(p => p.id === pid)
+    const hasTimestamp = phrase && (phrase.startSecs > 0 || phrase.endSecs > 0)
+
+    // 優先用電影原音
+    if (audioElRef.current && audioReady && hasTimestamp) {
+      const el = audioElRef.current
+      el.playbackRate = rate
+      el.currentTime = phrase.startSecs
+      el.play().catch(() => {})
+      const dur = Math.max(0.5, (phrase.endSecs - phrase.startSecs)) * 1000 / rate
+      audioStopRef.current = setTimeout(() => {
+        el.pause(); setPlayingPhraseId(null)
+      }, dur + 200)
+    } else {
+      // fallback: TTS
+      const u = new SpeechSynthesisUtterance(text)
+      u.lang = 'en-US'; u.rate = rate
+      u.onend = u.onerror = () => setPlayingPhraseId(null)
+      window.speechSynthesis?.speak(u)
+    }
+  }
+
+  function loadAudioFile(file) {
+    if (!file) return
+    // 釋放舊的 blob URL
+    if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current)
+    const url = URL.createObjectURL(file)
+    audioUrlRef.current = url
+    if (!audioElRef.current) audioElRef.current = new Audio()
+    audioElRef.current.src = url
+    audioElRef.current.oncanplay = () => setAudioReady(true)
+    audioElRef.current.onerror = () => setAudioReady(false)
+    setAudioFileName(file.name)
+    localStorage.setItem('fsi:movie:audioName', file.name)
+    setAudioReady(false) // 等待 canplay
   }
   function deleteScene(sid) {
     saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : {
@@ -13158,28 +13205,51 @@ function MovieTab() {
     return `${m}:${String(s).padStart(2,'0')}`
   }
 
-  // ── auto-play effect ──────────────────────────────────────────
+  // ── auto-play effect（優先電影原音，fallback TTS）──────────────
   useEffect(() => {
     if (view !== 'play' || !playing || !activePhrases[playIdx]) return
     let cancelled = false
     const p = activePhrases[playIdx]
+    const hasTimestamp = p.startSecs > 0 || p.endSecs > 0
+
+    clearTimeout(audioStopRef.current)
     window.speechSynthesis?.cancel()
-    const u = new SpeechSynthesisUtterance(p.en)
-    u.lang = 'en-US'; u.rate = 0.6
-    u.onend = () => {
+
+    function advance() {
       if (cancelled) return
       markPlayed(p.id)
       setTimeout(() => {
         if (cancelled) return
         const next = playIdx + 1
-        if (next >= phrases.length) { if (looping) setPlayIdx(0); else setPlaying(false) }
+        if (next >= activePhrases.length) { if (looping) setPlayIdx(0); else setPlaying(false) }
         else setPlayIdx(next)
-      }, 1200)
+      }, 800)
     }
-    u.onerror = () => { if (!cancelled) setPlaying(false) }
-    window.speechSynthesis?.speak(u)
-    return () => { cancelled = true; window.speechSynthesis?.cancel() }
-  }, [view, playing, playIdx])
+
+    if (audioElRef.current && audioReady && hasTimestamp) {
+      // 電影原音
+      const el = audioElRef.current
+      el.playbackRate = 0.6
+      el.currentTime = p.startSecs
+      el.play().catch(() => { if (!cancelled) setPlaying(false) })
+      const dur = Math.max(1, (p.endSecs - p.startSecs)) * 1000 / 0.6
+      audioStopRef.current = setTimeout(() => { el.pause(); advance() }, dur + 300)
+    } else {
+      // TTS fallback
+      const u = new SpeechSynthesisUtterance(p.en)
+      u.lang = 'en-US'; u.rate = 0.6
+      u.onend = () => { if (!cancelled) advance() }
+      u.onerror = () => { if (!cancelled) setPlaying(false) }
+      window.speechSynthesis?.speak(u)
+    }
+
+    return () => {
+      cancelled = true
+      clearTimeout(audioStopRef.current)
+      if (audioElRef.current) audioElRef.current.pause()
+      window.speechSynthesis?.cancel()
+    }
+  }, [view, playing, playIdx, audioReady])
 
   // ── word lookup ───────────────────────────────────────────────
   async function lookupWord(phraseId, word, sentence) {
@@ -13258,23 +13328,21 @@ Return ONLY a JSON object, no markdown:
     const normalized = normalizeSRT(raw)
     const startSecs  = timeToSecs(startTime)
     const endSecs    = timeToSecs(endTime)
-    const lines      = []
+    const lines      = [] // [{text, startSecs, endSecs}]
 
-    // 切分 block：以空白行為分隔
     const blocks = normalized.split(/\n{2,}/)
     for (const block of blocks) {
       const blines = block.trim().split('\n')
-      // 找 --> 時間碼行
       const tsLine = blines.find(l => /\d{2}:\d{2}:\d{2},\d+\s*-->\s*\d{2}:\d{2}:\d{2},\d+/.test(l))
       if (!tsLine) continue
-      const [tsStart] = tsLine.split('-->')
-      const tsSecs = timeToSecs(tsStart.trim())
-      if (tsSecs < startSecs - 1 || tsSecs > endSecs + 1) continue
-      // 取文字行：排除純數字（block 編號）和時間碼行
+      const [tsStart, tsEnd] = tsLine.split('-->')
+      const lineStart = timeToSecs(tsStart.trim())
+      const lineEnd   = timeToSecs((tsEnd ?? '').trim())
+      if (lineStart < startSecs - 1 || lineStart > endSecs + 1) continue
       const textLines = blines
         .filter(l => !/^\s*\d+\s*$/.test(l) && !/\d{2}:\d{2}:\d{2}/.test(l))
         .join(' ').replace(/\s+/g, ' ').trim()
-      if (textLines.length > 1) lines.push(textLines)
+      if (textLines.length > 1) lines.push({ text: textLines, startSecs: lineStart, endSecs: lineEnd || lineStart + 3 })
     }
     return lines
   }
@@ -13290,11 +13358,12 @@ Return ONLY a JSON object, no markdown:
     setAddBusy(true); setAddErr(''); setAddPreview(null)
     try {
       // 1. 用程式直接取出每一行（不靠 AI 合併）
-      const lines = extractSRTLines(activeTranscript, startTime, endTime)
-      if (lines.length === 0) {
+      const lineObjects = extractSRTLines(activeTranscript, startTime, endTime)
+      if (lineObjects.length === 0) {
         setAddErr(`在 ${startTime}～${endTime} 範圍內找不到字幕行。請確認時間格式（例：08:02 或 00:08:02）與逐字稿是否匹配。`)
-        return
+        setAddBusy(false); return
       }
+      const lines = lineObjects.map(l => l.text)
 
       // 2. AI 只負責：取場景名 + 每行翻中文（改用 | 分隔格式，避免 JSON 引號問題）
       const prompt = `給你 ${lines.length} 句英文字幕。
@@ -13323,7 +13392,11 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
 
       const result = {
         name: nameLine.replace(/^\d+[\.|]/, '').trim(),
-        phrases: lines.map((en, i) => ({ en, zh: translations[i] ?? '' }))
+        phrases: lines.map((en, i) => ({
+          en, zh: translations[i] ?? '',
+          startSecs: lineObjects[i]?.startSecs ?? 0,
+          endSecs:   lineObjects[i]?.endSecs   ?? 0,
+        }))
       }
 
       setAddPreview(result)
@@ -13336,7 +13409,7 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
     const ns = {
       id: 'scene_'+Date.now(), timeRange:`${startTime} ~ ${endTime}`,
       name: addPreview.name,
-      phrases: addPreview.phrases.map((p,i) => ({ id:'ph_'+Date.now()+'_'+i, en:p.en, zh:p.zh, played:false, starred:false }))
+      phrases: addPreview.phrases.map((p,i) => ({ id:'ph_'+Date.now()+'_'+i, en:p.en, zh:p.zh, played:false, starred:false, startSecs: p.startSecs??0, endSecs: p.endSecs??0 }))
     }
     saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : { ...m, scenes:[...m.scenes, ns] }) })
     setSrtText(''); setStartTime(''); setEndTime(''); setAddPreview(null); setView('list')
@@ -14478,6 +14551,38 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
         <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>{db.vocab.length} 個 →</span>
       </div>
 
+      {/* ── 電影原音檔案 ── */}
+      <div style={{ background:T.surf, border:`1px solid ${audioReady ? T.grn+'60' : T.bdr}`,
+        borderRadius:13, padding:'14px 16px', display:'flex', flexDirection:'column', gap:10,
+        transition:'border-color 0.2s' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <span style={{ fontFamily:MONO, fontSize:10, color:T.txt2, fontWeight:700 }}>
+            🎵 電影原音（MP3）
+          </span>
+          {audioReady && (
+            <span style={{ fontFamily:MONO, fontSize:9, color:T.grn }}>✓ 已載入</span>
+          )}
+        </div>
+        {audioFileName ? (
+          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
+            {audioReady ? `✅ ${audioFileName}` : `⏳ 載入中… ${audioFileName}`}
+          </div>
+        ) : (
+          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
+            選擇 MP3 後，句子播放使用電影原聲<br/>
+            未選擇時自動用 TTS 播放
+          </div>
+        )}
+        <label style={{ cursor:'pointer', display:'flex', alignItems:'center',
+          justifyContent:'center', gap:8, padding:'10px', borderRadius:9,
+          background: T.blueD, border:`1px solid ${T.blue}50`,
+          fontFamily:MONO, fontSize:10, fontWeight:700, color:T.blue }}>
+          📁 {audioFileName ? '更換音訊檔案' : '選擇 MP3 檔案'}
+          <input type="file" accept="audio/*" style={{ display:'none' }}
+            onChange={e => e.target.files[0] && loadAudioFile(e.target.files[0])}/>
+        </label>
+      </div>
+
       {/* ── 電影資料同步 ── */}
       <div style={{ display:'flex', flexDirection:'column', gap:8,
         background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:13, padding:'14px 16px' }}>
@@ -15607,7 +15712,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.42</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.43</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
