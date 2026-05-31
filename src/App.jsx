@@ -7072,7 +7072,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.40</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.41</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -12981,6 +12981,10 @@ function MovieTab() {
   const [sleepSecs,  setSleepSecs]  = useState(null)   // 倒數秒數
   const [revIdx,     setRevIdx]     = useState(0)
   const [revFlip,    setRevFlip]    = useState(false)
+  const [revMode,    setRevMode]    = useState('zh')   // 'zh' | 'scene'
+  const [editingSceneDescId,   setEditingSceneDescId]   = useState(null)
+  const [editingSceneDescText, setEditingSceneDescText] = useState('')
+  const [autoGenSceneBusy, setAutoGenSceneBusy] = useState(false)
   const [starFilter,      setStarFilter]      = useState(false)
   const [playingPhraseId, setPlayingPhraseId] = useState(null)
   const [deletingPhraseId,setDeletingPhraseId]= useState(null)
@@ -13056,6 +13060,21 @@ function MovieTab() {
   function saveNote(pid, newNote) {
     updateScenePhrases(ps => ps.map(p => p.id === pid ? { ...p, note: newNote } : p))
     setEditingNoteId(null)
+  }
+  function saveSceneDesc(pid, text) {
+    updateScenePhrases(ps => ps.map(p => p.id === pid ? { ...p, sceneDesc: text } : p))
+    setEditingSceneDescId(null)
+  }
+  async function autoGenSceneDesc(pid, enText) {
+    setAutoGenSceneBusy(pid)
+    try {
+      const prompt = `這是電影《征服情海》的台詞："${enText}"
+用15~25字的繁體中文，描述說這句話時的電影畫面情境（不要翻譯台詞，描述場景畫面）。
+只回傳描述文字，不要任何說明。`
+      const result = await callAI([{ role:'user', content:prompt }])
+      saveSceneDesc(pid, result.trim())
+    } catch(e) { /* silent fail */ }
+    finally { setAutoGenSceneBusy(false) }
   }
   function speakPhrase(pid, text) {
     if (playingPhraseId === pid) {
@@ -13824,23 +13843,83 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
   // ══════════════════════════════════════════════════════════════
   if (view === 'reverse') {
     const cur = activePhrases[revIdx]
+    const hasScene = activePhrases.some(p => p.sceneDesc)
+    const displayText = revMode === 'scene' && cur?.sceneDesc ? cur.sceneDesc : cur?.zh
+    const displayIcon = revMode === 'scene' ? '🎬' : null
     return (
-      <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:14 }} className="fadeUp">
+      <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
+        {/* Header */}
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <BackBtn label="← 返回句子" to="scene"/>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-            {starFilter && <span style={{ fontFamily:MONO, fontSize:9, color:T.amber, background:T.amberD, padding:'2px 8px', borderRadius:8 }}>⭐ 重點模式</span>}
+            {starFilter && <span style={{ fontFamily:MONO, fontSize:9, color:T.amber, background:T.amberD, padding:'2px 8px', borderRadius:8 }}>⭐ 重點</span>}
             <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>{revIdx+1} / {activePhrases.length}</span>
           </div>
         </div>
+
+        {/* 模式切換 */}
+        <div style={{ display:'flex', gap:6 }}>
+          {[{id:'zh',label:'🈵 中文模式'},{id:'scene',label:'🎬 畫面模式'}].map(m => (
+            <div key={m.id} onClick={() => setRevMode(m.id)}
+              style={{ flex:1, cursor:'pointer', textAlign:'center', padding:'7px 8px',
+                borderRadius:9, fontFamily:MONO, fontSize:10, fontWeight: revMode===m.id ? 700 : 400,
+                transition:'all 0.15s',
+                background: revMode===m.id ? (m.id==='scene' ? T.amberD : T.surf) : T.surf2,
+                border:`1px solid ${revMode===m.id ? (m.id==='scene' ? T.amber+'60' : T.bdr2) : T.bdr}`,
+                color: revMode===m.id ? (m.id==='scene' ? T.amber : T.txt) : T.txt3 }}>
+              {m.label}
+            </div>
+          ))}
+        </div>
+
+        {/* 畫面模式提示 */}
+        {revMode === 'scene' && !hasScene && (
+          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, background:T.surf,
+            borderRadius:9, padding:'8px 12px', textAlign:'center' }}>
+            尚無畫面描述，請先在句子頁面點 🎬 新增
+          </div>
+        )}
+
         {cur && (
           <>
-            <div style={{ background:T.surf, border:`1px solid ${T.bdr2}`, borderRadius:16,
-              padding:'32px 22px', minHeight:110, display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <div style={{ fontFamily:MONO, fontSize:15, color:T.txt, lineHeight:1.9, textAlign:'center' }}>
-                {cur.zh}
+            {/* 提示卡：顯示中文或畫面描述 */}
+            <div style={{ background:T.surf, border:`1px solid ${revMode==='scene' ? T.amber+'40' : T.bdr2}`,
+              borderRadius:16, padding:'28px 22px', minHeight:110,
+              display:'flex', flexDirection:'column', alignItems:'center',
+              justifyContent:'center', gap:8, transition:'border-color 0.2s' }}>
+              {displayIcon && <span style={{ fontSize:18 }}>{displayIcon}</span>}
+              <div style={{ fontFamily:MONO, fontSize:15,
+                color: revMode==='scene' ? T.amber : T.txt,
+                lineHeight:1.9, textAlign:'center' }}>
+                {displayText}
               </div>
+              {revMode === 'scene' && cur.sceneDesc && cur.zh && (
+                <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, marginTop:4 }}>
+                  {cur.zh}
+                </div>
+              )}
             </div>
+
+            {/* 閉眼提示 */}
+            {!revFlip && (
+              <div style={{ background:T.surf, border:`1px solid ${T.bdr}`,
+                borderRadius:12, padding:'12px 16px', display:'flex', gap:10, alignItems:'flex-start' }}>
+                <span style={{ fontSize:16, flexShrink:0 }}>🧠</span>
+                <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
+                  <span style={{ fontFamily:MONO, fontSize:10, color:T.txt, fontWeight:700 }}>
+                    翻牌前，先閉眼 2 秒
+                  </span>
+                  <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
+                    想一下這句話的電影畫面
+                  </span>
+                  <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3, fontStyle:'italic' }}>
+                    語言 × 視覺同時觸發 → 大腦建立神經連結
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* 翻牌 */}
             {revFlip ? (
               <div style={{ background:T.amberD, border:`1px solid ${T.amber}50`,
                 borderRadius:16, padding:'24px 22px' }} className="fadeUp">
@@ -13856,17 +13935,17 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
                 點此翻牌看英文 →
               </div>
             )}
+
+            {/* 上一句 / 下一句 */}
             <div style={{ display:'flex', gap:8 }}>
               <div onClick={() => { setRevIdx(i => Math.max(0,i-1)); setRevFlip(false) }}
                 style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt2,
-                  padding:'11px', background:T.surf2, borderRadius:10, border:`1px solid ${T.bdr}`, textAlign:'center' }}>
-                ◀ 上一句
-              </div>
+                  padding:'11px', background:T.surf2, borderRadius:10,
+                  border:`1px solid ${T.bdr}`, textAlign:'center' }}>◀ 上一句</div>
               <div onClick={() => { setRevIdx(i => Math.min(activePhrases.length-1,i+1)); setRevFlip(false) }}
                 style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt2,
-                  padding:'11px', background:T.surf2, borderRadius:10, border:`1px solid ${T.bdr}`, textAlign:'center' }}>
-                下一句 ▶
-              </div>
+                  padding:'11px', background:T.surf2, borderRadius:10,
+                  border:`1px solid ${T.bdr}`, textAlign:'center' }}>下一句 ▶</div>
             </div>
           </>
         )}
@@ -14062,6 +14141,47 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
               </div>
             ) : null}
 
+            {/* ── 畫面描述（🎬）顯示區 ── */}
+            {editingSceneDescId === p.id ? (
+              <div style={{ display:'flex', flexDirection:'column', gap:6, paddingRight:70, marginTop:4 }}>
+                <textarea
+                  autoFocus
+                  value={editingSceneDescText}
+                  onChange={e => setEditingSceneDescText(e.target.value)}
+                  rows={2}
+                  placeholder="描述這句話的電影畫面情境…"
+                  style={{ fontFamily:MONO, fontSize:10, color:T.txt, background:T.surf2,
+                    border:`1px solid ${T.amber}80`, borderRadius:7, padding:'6px 9px',
+                    outline:'none', resize:'none', lineHeight:1.6 }}/>
+                <div style={{ display:'flex', gap:6 }}>
+                  <div onClick={() => saveSceneDesc(p.id, editingSceneDescText)}
+                    style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:9,
+                      color:T.bg, padding:'5px', background:T.amber,
+                      borderRadius:6, textAlign:'center', fontWeight:700 }}>✓ 儲存</div>
+                  <div onClick={() => autoGenSceneDesc(p.id, p.en)}
+                    style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:9,
+                      color:T.amber, padding:'5px', background:T.amberD,
+                      borderRadius:6, textAlign:'center',
+                      border:`1px solid ${T.amber}50`,
+                      opacity: autoGenSceneBusy === p.id ? 0.5 : 1 }}>
+                    {autoGenSceneBusy === p.id ? 'AI中…' : '✨ AI生成'}
+                  </div>
+                  <div onClick={() => setEditingSceneDescId(null)}
+                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
+                      padding:'5px 8px', background:T.surf2, borderRadius:6,
+                      border:`1px solid ${T.bdr}` }}>✕</div>
+                </div>
+              </div>
+            ) : p.sceneDesc ? (
+              <div onClick={() => { setEditingSceneDescId(p.id); setEditingSceneDescText(p.sceneDesc) }}
+                style={{ display:'flex', alignItems:'flex-start', gap:5, paddingRight:70,
+                  marginTop:4, cursor:'pointer' }}>
+                <span style={{ fontSize:10, flexShrink:0, marginTop:1 }}>🎬</span>
+                <span style={{ fontFamily:MONO, fontSize:10, color:T.amber,
+                  lineHeight:1.7 }}>{p.sceneDesc}</span>
+              </div>
+            ) : null}
+
             {/* ── 行內單字查詢結果（出現在句子卡片內）── */}
             {inlineLookup?.phraseId === p.id && (
               <div style={{ marginTop:8, background:T.surf2,
@@ -14142,7 +14262,7 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
                         padding:'2px 5px', background:T.surf2, borderRadius:5,
                         border:`1px solid ${T.bdr}` }}>✕</div>
                   </div>
-                  {/* Row 2: 🔊 | 📝 */}
+                  {/* Row 2: 🔊 | 📝 | 🎬 */}
                   <div style={{ display:'flex', gap:5, alignItems:'center' }}>
                     <div onClick={() => speakPhrase(p.id, p.en)}
                       style={{ cursor:'pointer', width:26, height:26, borderRadius:6,
@@ -14152,16 +14272,21 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
                         transition:'all 0.15s' }}>
                       <span style={{ fontSize:13 }}>{playingPhraseId===p.id ? '⏹' : '🔊'}</span>
                     </div>
-                    <div onClick={() => {
-                        setEditingNoteId(p.id)
-                        setEditingNoteText(p.note ?? '')
-                      }}
+                    <div onClick={() => { setEditingNoteId(p.id); setEditingNoteText(p.note ?? '') }}
                       style={{ cursor:'pointer', width:26, height:26, borderRadius:6,
                         display:'flex', alignItems:'center', justifyContent:'center',
                         background: p.note ? T.blueD : T.surf2,
                         border:`1px solid ${p.note ? T.blue+'60' : T.bdr}`,
                         transition:'all 0.15s' }}>
                       <span style={{ fontSize:13 }}>📝</span>
+                    </div>
+                    <div onClick={() => { setEditingSceneDescId(p.id); setEditingSceneDescText(p.sceneDesc ?? '') }}
+                      style={{ cursor:'pointer', width:26, height:26, borderRadius:6,
+                        display:'flex', alignItems:'center', justifyContent:'center',
+                        background: p.sceneDesc ? T.amberD : T.surf2,
+                        border:`1px solid ${p.sceneDesc ? T.amber+'60' : T.bdr}`,
+                        transition:'all 0.15s' }}>
+                      <span style={{ fontSize:13 }}>🎬</span>
                     </div>
                   </div>
                 </>
@@ -15388,7 +15513,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.40</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.41</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
