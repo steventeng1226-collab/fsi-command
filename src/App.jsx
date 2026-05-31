@@ -7072,7 +7072,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.38</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.39</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -12989,6 +12989,10 @@ function MovieTab() {
   const [editingNoteId,   setEditingNoteId]   = useState(null)
   const [editingNoteText, setEditingNoteText] = useState('')
   const [wordModal,       setWordModal]       = useState(null)
+  // ── 行內單字查詢（取代 modal，在句子卡內展開）──
+  const [inlineLookup,    setInlineLookup]    = useState(null) // {phraseId, word, sentence}
+  const tapTimerRef  = useRef(null)
+  const tapStartRef  = useRef(null)
   const [movieSyncing,    setMovieSyncing]    = useState(false)
   const [movieSyncMsg,    setMovieSyncMsg]    = useState("")
   const [wordBusy,   setWordBusy]   = useState(false)
@@ -13131,15 +13135,20 @@ function MovieTab() {
   }, [view, playing, playIdx])
 
   // ── word lookup ───────────────────────────────────────────────
-  async function lookupWord(word, sentence) {
-    setWordModal({ word, sentence }); setWordBusy(true); setWordInfo(null)
+  async function lookupWord(phraseId, word, sentence) {
+    setInlineLookup({ phraseId, word, sentence, busy: true, info: null })
+    setWordBusy(true); setWordInfo(null)
     try {
       const prompt = `For the English word/phrase "${word}" used in: "${sentence}"
 Return ONLY a JSON object, no markdown:
 {"phonetic":"/IPA/","zh":"中文意思（3~5字）","example":"${sentence}"}`
       const raw = await callAI([{ role:'user', content:prompt }])
-      setWordInfo(JSON.parse(raw.replace(/```json|```/g,'').trim()))
-    } catch { setWordInfo({ phonetic:'', zh:'查詢失敗', example:sentence }) }
+      const info = JSON.parse(raw.replace(/```json|```/g,'').trim())
+      setInlineLookup(prev => prev?.word === word ? { ...prev, busy: false, info } : prev)
+      setWordInfo(info)
+    } catch {
+      setInlineLookup(prev => prev?.word === word ? { ...prev, busy: false, info: { phonetic:'', zh:'查詢失敗', example:sentence } } : prev)
+    }
     finally { setWordBusy(false) }
   }
 
@@ -13862,47 +13871,6 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
     const pct = phrases.length ? Math.round((playedCount / phrases.length) * 100) : 0
     return (
       <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
-        {/* Word modal overlay */}
-        {wordModal && (
-          <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', zIndex:9999,
-            display:'flex', alignItems:'center', justifyContent:'center', padding:'24px' }}
-            onClick={() => setWordModal(null)}>
-            <div onClick={e => e.stopPropagation()}
-              style={{ background:T.surf, borderRadius:18, padding:'24px 22px',
-                width:'100%', maxWidth:420, display:'flex', flexDirection:'column', gap:14,
-                border:`1px solid ${T.bdr2}`, boxShadow:'0 12px 48px rgba(0,0,0,0.5)' }}>
-              <div style={{ display:'flex', alignItems:'baseline', gap:10 }}>
-                <span style={{ fontFamily:MONO, fontSize:20, color:T.amber, fontWeight:700 }}>{wordModal.word}</span>
-                {wordBusy && <span style={{ display:'inline-block', width:10, height:10,
-                  border:'2px solid transparent', borderTopColor:T.txt3,
-                  borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>}
-                {wordInfo && <span style={{ fontFamily:MONO, fontSize:12, color:T.txt3 }}>{wordInfo.phonetic}</span>}
-              </div>
-              {wordInfo && (
-                <>
-                  <div style={{ fontFamily:MONO, fontSize:14, color:T.txt2 }}>{wordInfo.zh}</div>
-                  <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, fontStyle:'italic', lineHeight:1.7 }}>{wordInfo.example}</div>
-                  <div style={{ display:'flex', gap:8 }}>
-                    <div onClick={() => {
-                        addToVocab(wordModal.word, wordInfo.phonetic, wordInfo.zh, wordInfo.example)
-                        setWordModal(null)
-                      }}
-                      style={{ flex:1, cursor:'pointer', background:T.blue, borderRadius:10, padding:'12px',
-                        textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700, color:'#fff' }}>
-                      + 加入單字庫
-                    </div>
-                    <div onClick={() => setWordModal(null)}
-                      style={{ flex:1, cursor:'pointer', background:T.surf2, borderRadius:10, padding:'12px',
-                        textAlign:'center', fontFamily:MONO, fontSize:11, color:T.txt3, border:`1px solid ${T.bdr}` }}>
-                      關閉
-                    </div>
-                  </div>
-                </>
-              )}
-              {wordBusy && <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, textAlign:'center' }}>AI 查詢中…</div>}
-            </div>
-          </div>
-        )}
         {/* Header */}
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <BackBtn to="list"/>
@@ -13967,22 +13935,46 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
           <div key={p.id} style={{ background:T.surf,
             border:`1px solid ${p.starred ? T.amber+'60' : p.played ? T.amber+'25' : T.bdr}`,
             borderRadius:12, padding:'14px 16px', position:'relative' }}>
-            {/* EN tokens */}
-            <div style={{ marginBottom:7, lineHeight:2.1, display:'flex', flexWrap:'wrap', gap:1,
-              paddingRight:70, userSelect:'none', WebkitUserSelect:'none' }}>
+            {/* EN tokens — 長按 1 秒觸發查詢，滑動自動取消 */}
+            <div
+              onPointerMove={e => {
+                if (!tapStartRef.current) return
+                const dx = Math.abs(e.clientX - tapStartRef.current.x)
+                const dy = Math.abs(e.clientY - tapStartRef.current.y)
+                if (dx > 8 || dy > 8) { clearTimeout(tapTimerRef.current); tapStartRef.current = null }
+              }}
+              onPointerUp={() => { clearTimeout(tapTimerRef.current); tapStartRef.current = null }}
+              onPointerCancel={() => { clearTimeout(tapTimerRef.current); tapStartRef.current = null }}
+              style={{ marginBottom:7, lineHeight:2.1, display:'flex', flexWrap:'wrap', gap:1,
+                paddingRight:70, userSelect:'none', WebkitUserSelect:'none' }}>
               {p.en.split(/(\b)/).filter(Boolean).map((tok, j) => {
                 const isWord = /^[a-zA-Z']+$/.test(tok)
+                const cleanWord = tok.replace(/[^a-zA-Z']/g,'')
+                const isActive = inlineLookup?.phraseId === p.id && inlineLookup?.word === cleanWord
                 return (
                   <span key={j}
                     onPointerDown={e => {
                       if (!isWord) return
-                      e.preventDefault()
-                      e.stopPropagation()
-                      lookupWord(tok.replace(/[^a-zA-Z']/g,''), p.en)
+                      e.preventDefault(); e.stopPropagation()
+                      // 關閉已開啟的查詢
+                      if (inlineLookup?.phraseId === p.id && inlineLookup?.word === cleanWord) {
+                        setInlineLookup(null); return
+                      }
+                      tapStartRef.current = { x: e.clientX, y: e.clientY }
+                      clearTimeout(tapTimerRef.current)
+                      tapTimerRef.current = setTimeout(() => {
+                        lookupWord(p.id, cleanWord, p.en)
+                        tapStartRef.current = null
+                      }, 1000)
                     }}
-                    style={{ fontFamily:MONO, fontSize:13, color: isWord ? T.txt : T.txt3,
-                      fontWeight: isWord ? 500 : 400, cursor: isWord ? 'pointer' : 'default',
-                      borderBottom: isWord ? `1px dashed ${T.bdr2}` : 'none', padding:'0 2px',
+                    style={{ fontFamily:MONO, fontSize:13,
+                      color: isActive ? T.amber : isWord ? T.txt : T.txt3,
+                      fontWeight: isWord ? 500 : 400,
+                      cursor: isWord ? 'pointer' : 'default',
+                      background: isActive ? T.amberD : 'transparent',
+                      borderRadius: isActive ? 4 : 0,
+                      borderBottom: isWord && !isActive ? `1px dashed ${T.bdr2}` : 'none',
+                      padding:'0 2px',
                       userSelect:'none', WebkitUserSelect:'none', touchAction:'manipulation' }}>
                     {tok}
                   </span>
@@ -14059,6 +14051,56 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
                   fontStyle:'italic', lineHeight:1.7 }}>{p.note}</span>
               </div>
             ) : null}
+
+            {/* ── 行內單字查詢結果（出現在句子卡片內）── */}
+            {inlineLookup?.phraseId === p.id && (
+              <div style={{ marginTop:8, background:T.surf2,
+                border:`1px solid ${T.amber}50`, borderRadius:10,
+                padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }}
+                className="fadeUp">
+                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  <span style={{ fontFamily:MONO, fontSize:15, color:T.amber, fontWeight:700 }}>
+                    {inlineLookup.word}
+                  </span>
+                  {inlineLookup.info && (
+                    <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>
+                      {inlineLookup.info.phonetic}
+                    </span>
+                  )}
+                  {inlineLookup.busy && (
+                    <span style={{ display:'inline-block', width:8, height:8,
+                      border:'1.5px solid transparent', borderTopColor:T.amber,
+                      borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>
+                  )}
+                  <span onClick={() => setInlineLookup(null)}
+                    style={{ marginLeft:'auto', cursor:'pointer', fontFamily:MONO,
+                      fontSize:9, color:T.txt3, padding:'1px 6px',
+                      background:T.surf, borderRadius:5, border:`1px solid ${T.bdr}` }}>✕</span>
+                </div>
+                {inlineLookup.info && (
+                  <>
+                    <div style={{ fontFamily:MONO, fontSize:12, color:T.txt2 }}>
+                      {inlineLookup.info.zh}
+                    </div>
+                    <div onClick={() => {
+                        addToVocab(inlineLookup.word, inlineLookup.info.phonetic,
+                          inlineLookup.info.zh, inlineLookup.info.example)
+                        setInlineLookup(null)
+                      }}
+                      style={{ cursor:'pointer', background:T.blue, borderRadius:8,
+                        padding:'9px', textAlign:'center',
+                        fontFamily:MONO, fontSize:10, fontWeight:700, color:'#fff' }}>
+                      + 加入單字庫
+                    </div>
+                  </>
+                )}
+                {inlineLookup.busy && (
+                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, textAlign:'center' }}>
+                    AI 查詢中…
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* 右側按鈕欄：⭐|✕ 上，🔊|📝 下 */}
             <div style={{ position:'absolute', top:10, right:10,
@@ -15336,7 +15378,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.38</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.39</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
