@@ -7072,7 +7072,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.41</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.42</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -12981,7 +12981,12 @@ function MovieTab() {
   const [sleepSecs,  setSleepSecs]  = useState(null)   // 倒數秒數
   const [revIdx,     setRevIdx]     = useState(0)
   const [revFlip,    setRevFlip]    = useState(false)
-  const [revMode,    setRevMode]    = useState('zh')   // 'zh' | 'scene'
+  const [revMode,    setRevMode]    = useState('zh')
+  const [flipCountdown, setFlipCountdown] = useState(null) // null | 2 | 1 | 0
+  const [hintOpen, setHintOpen] = useState(() => {
+    const s = localStorage.getItem('fsi:movie:hintOpen')
+    return s === null ? true : s === 'true' // 第一次自動展開
+  })
   const [editingSceneDescId,   setEditingSceneDescId]   = useState(null)
   const [editingSceneDescText, setEditingSceneDescText] = useState('')
   const [autoGenSceneBusy, setAutoGenSceneBusy] = useState(false)
@@ -13101,6 +13106,29 @@ function MovieTab() {
     return true
   }
   function deleteVocab(vid) { saveDb({ ...db, vocab: db.vocab.filter(v => v.id !== vid) }) }
+
+  // ── 反向練習：換句子時啟動 2 秒倒數 ─────────────────────────
+  useEffect(() => {
+    if (view !== 'reverse') return
+    setRevFlip(false)
+    setFlipCountdown(2)
+  }, [revIdx, view])
+
+  useEffect(() => {
+    if (flipCountdown === null || flipCountdown <= 0) return
+    const t = setTimeout(() => setFlipCountdown(c => c - 1), 1000)
+    return () => clearTimeout(t)
+  }, [flipCountdown])
+
+  function toggleHint() {
+    const next = !hintOpen
+    setHintOpen(next)
+    localStorage.setItem('fsi:movie:hintOpen', String(next))
+  }
+  function retryPhrase() {
+    setRevFlip(false)
+    setFlipCountdown(2)
+  }
 
   // ── 睡眠計時器倒數 ────────────────────────────────────────────
   useEffect(() => {
@@ -13839,15 +13867,17 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
   }
 
   // ══════════════════════════════════════════════════════════════
-  // REVERSE VIEW
+
+  // REVERSE VIEW — v3.42 with countdown + quality check + collapsible hint
   // ══════════════════════════════════════════════════════════════
   if (view === 'reverse') {
     const cur = activePhrases[revIdx]
     const hasScene = activePhrases.some(p => p.sceneDesc)
     const displayText = revMode === 'scene' && cur?.sceneDesc ? cur.sceneDesc : cur?.zh
-    const displayIcon = revMode === 'scene' ? '🎬' : null
+
     return (
       <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
+
         {/* Header */}
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <BackBtn label="← 返回句子" to="scene"/>
@@ -13859,7 +13889,7 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
 
         {/* 模式切換 */}
         <div style={{ display:'flex', gap:6 }}>
-          {[{id:'zh',label:'🈵 中文模式'},{id:'scene',label:'🎬 畫面模式'}].map(m => (
+          {[{id:'zh',label:'🈵 中文'},{id:'scene',label:'🎬 畫面'}].map(m => (
             <div key={m.id} onClick={() => setRevMode(m.id)}
               style={{ flex:1, cursor:'pointer', textAlign:'center', padding:'7px 8px',
                 borderRadius:9, fontFamily:MONO, fontSize:10, fontWeight: revMode===m.id ? 700 : 400,
@@ -13872,22 +13902,57 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
           ))}
         </div>
 
-        {/* 畫面模式提示 */}
-        {revMode === 'scene' && !hasScene && (
-          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, background:T.surf,
-            borderRadius:9, padding:'8px 12px', textAlign:'center' }}>
-            尚無畫面描述，請先在句子頁面點 🎬 新增
+        {/* ── 聯想 + 動作提示（可收起）── */}
+        <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:13, overflow:'hidden' }}>
+          {/* 標題列（點擊展開/收起）*/}
+          <div onClick={toggleHint}
+            style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+              padding:'10px 14px', cursor:'pointer' }}>
+            <span style={{ fontFamily:MONO, fontSize:10, color:T.txt2, fontWeight:700 }}>
+              🧠 聯想 + 動作提示
+            </span>
+            <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>
+              {hintOpen ? '▲ 收起' : '▼ 展開'}
+            </span>
           </div>
-        )}
+          {/* 提示內容 */}
+          {hintOpen && (
+            <div style={{ padding:'0 14px 14px', display:'flex', flexDirection:'column', gap:7,
+              borderTop:`1px solid ${T.bdr}` }}>
+              {[
+                { icon:'🎬', bold:'想電影畫面',   sub:'回到那個場景' },
+                { icon:'🧠', bold:'閉眼 2 秒',    sub:'想阿湯哥的神情與眼神' },
+                { icon:'💨', bold:'深吸一口氣',   sub:'讓身體準備好' },
+                { icon:'🏋', bold:'挺直肩膀',     sub:'加上手勢，進入角色' },
+                { icon:'👄', bold:'翻牌，說出來', sub:'對著空氣，帶語調說' },
+                { icon:'🔊', bold:'語速 0.6x 起', sub:'熟悉後升 1.0x' },
+              ].map((s,i) => (
+                <div key={i} style={{ display:'flex', gap:10, alignItems:'flex-start', paddingTop: i===0?10:0 }}>
+                  <span style={{ fontSize:14, flexShrink:0, marginTop:1 }}>{s.icon}</span>
+                  <div>
+                    <span style={{ fontFamily:MONO, fontSize:10, color:T.txt, fontWeight:700 }}>{s.bold}</span>
+                    <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginLeft:6 }}>{s.sub}</span>
+                  </div>
+                </div>
+              ))}
+              {/* 神經連結說明 */}
+              <div style={{ marginTop:4, padding:'8px 10px', background:T.surf2,
+                borderRadius:8, fontFamily:MONO, fontSize:9, color:T.txt3, fontStyle:'italic', lineHeight:1.7 }}>
+                語言 × 視覺 × 身體 × 情緒 同時啟動<br/>
+                → 大腦建立更深的神經連結，不是死背，是真正記住
+              </div>
+            </div>
+          )}
+        </div>
 
         {cur && (
           <>
-            {/* 提示卡：顯示中文或畫面描述 */}
+            {/* 提示卡 */}
             <div style={{ background:T.surf, border:`1px solid ${revMode==='scene' ? T.amber+'40' : T.bdr2}`,
-              borderRadius:16, padding:'28px 22px', minHeight:110,
+              borderRadius:16, padding:'28px 22px', minHeight:100,
               display:'flex', flexDirection:'column', alignItems:'center',
-              justifyContent:'center', gap:8, transition:'border-color 0.2s' }}>
-              {displayIcon && <span style={{ fontSize:18 }}>{displayIcon}</span>}
+              justifyContent:'center', gap:8 }}>
+              {revMode === 'scene' && <span style={{ fontSize:18 }}>🎬</span>}
               <div style={{ fontFamily:MONO, fontSize:15,
                 color: revMode==='scene' ? T.amber : T.txt,
                 lineHeight:1.9, textAlign:'center' }}>
@@ -13900,53 +13965,82 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
               )}
             </div>
 
-            {/* 閉眼提示 */}
+            {/* 2 秒倒數 / 翻牌按鈕 */}
             {!revFlip && (
-              <div style={{ background:T.surf, border:`1px solid ${T.bdr}`,
-                borderRadius:12, padding:'12px 16px', display:'flex', gap:10, alignItems:'flex-start' }}>
-                <span style={{ fontSize:16, flexShrink:0 }}>🧠</span>
-                <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
-                  <span style={{ fontFamily:MONO, fontSize:10, color:T.txt, fontWeight:700 }}>
-                    翻牌前，先閉眼 2 秒
-                  </span>
-                  <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
-                    想一下這句話的電影畫面
-                  </span>
-                  <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3, fontStyle:'italic' }}>
-                    語言 × 視覺同時觸發 → 大腦建立神經連結
-                  </span>
+              flipCountdown > 0 ? (
+                <div style={{ background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:12,
+                  padding:'18px', textAlign:'center', display:'flex', flexDirection:'column', gap:6 }}>
+                  <div style={{ fontFamily:DISP, fontSize:28, color:T.amber, fontWeight:700 }}>
+                    {flipCountdown}
+                  </div>
+                  <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>
+                    閉眼…想畫面…
+                  </div>
+                </div>
+              ) : (
+                <div onClick={() => setRevFlip(true)}
+                  style={{ background:T.surf2, border:`1px solid ${T.bdr2}`, borderRadius:12,
+                    padding:'18px', textAlign:'center', cursor:'pointer',
+                    fontFamily:MONO, fontSize:11, color:T.txt, fontWeight:700 }}>
+                  準備好了 → 翻牌看英文
+                </div>
+              )
+            )}
+
+            {/* 翻牌後：英文 + 品質自評 */}
+            {revFlip && (
+              <div style={{ display:'flex', flexDirection:'column', gap:10 }} className="fadeUp">
+                <div style={{ background:T.amberD, border:`1px solid ${T.amber}50`,
+                  borderRadius:16, padding:'24px 22px' }}>
+                  <div style={{ fontFamily:MONO, fontSize:15, color:T.amber, lineHeight:1.9, fontWeight:500 }}>
+                    {cur.en}
+                  </div>
+                  {/* 播放按鈕 */}
+                  <div style={{ display:'flex', gap:8, marginTop:12 }}>
+                    {[{rate:0.6,label:'🔊 0.6x'},{rate:1.0,label:'🔊 1.0x'}].map(({rate,label}) => (
+                      <div key={rate} onClick={() => speakPhrase('rev_'+rate, cur.en)}
+                        style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.amber,
+                          padding:'7px', background:T.surf, borderRadius:8,
+                          border:`1px solid ${T.amber}40`, textAlign:'center' }}>
+                        {label}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 品質自評 */}
+                <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:12,
+                  padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }}>
+                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, textAlign:'center' }}>
+                    這次有帶入畫面說出來嗎？
+                  </div>
+                  <div style={{ display:'flex', gap:8 }}>
+                    <div onClick={() => { setRevIdx(i => Math.min(activePhrases.length-1,i+1)) }}
+                      style={{ flex:2, cursor:'pointer', background:T.grnD,
+                        border:`1px solid ${T.grn}50`, borderRadius:10, padding:'11px',
+                        textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700, color:T.grn }}>
+                      ✓ 有，下一句
+                    </div>
+                    <div onClick={retryPhrase}
+                      style={{ flex:1, cursor:'pointer', background:T.surf2,
+                        border:`1px solid ${T.bdr}`, borderRadius:10, padding:'11px',
+                        textAlign:'center', fontFamily:MONO, fontSize:10, color:T.txt3 }}>
+                      ↺ 再來
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* 翻牌 */}
-            {revFlip ? (
-              <div style={{ background:T.amberD, border:`1px solid ${T.amber}50`,
-                borderRadius:16, padding:'24px 22px' }} className="fadeUp">
-                <div style={{ fontFamily:MONO, fontSize:15, color:T.amber, lineHeight:1.9, fontWeight:500 }}>
-                  {cur.en}
-                </div>
-              </div>
-            ) : (
-              <div onClick={() => setRevFlip(true)}
-                style={{ background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:12,
-                  padding:'18px', textAlign:'center', cursor:'pointer',
-                  fontFamily:MONO, fontSize:11, color:T.txt3 }}>
-                點此翻牌看英文 →
+            {/* 上一句（只在未翻牌時顯示）*/}
+            {!revFlip && flipCountdown === 0 && (
+              <div onClick={() => setRevIdx(i => Math.max(0,i-1))}
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt3,
+                  padding:'8px', background:T.surf2, borderRadius:10,
+                  border:`1px solid ${T.bdr}`, textAlign:'center' }}>
+                ◀ 上一句
               </div>
             )}
-
-            {/* 上一句 / 下一句 */}
-            <div style={{ display:'flex', gap:8 }}>
-              <div onClick={() => { setRevIdx(i => Math.max(0,i-1)); setRevFlip(false) }}
-                style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt2,
-                  padding:'11px', background:T.surf2, borderRadius:10,
-                  border:`1px solid ${T.bdr}`, textAlign:'center' }}>◀ 上一句</div>
-              <div onClick={() => { setRevIdx(i => Math.min(activePhrases.length-1,i+1)); setRevFlip(false) }}
-                style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt2,
-                  padding:'11px', background:T.surf2, borderRadius:10,
-                  border:`1px solid ${T.bdr}`, textAlign:'center' }}>下一句 ▶</div>
-            </div>
           </>
         )}
       </div>
@@ -15513,7 +15607,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.41</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.42</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
