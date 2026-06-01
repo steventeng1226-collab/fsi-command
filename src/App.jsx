@@ -7073,7 +7073,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.50</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.51</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -13374,6 +13374,32 @@ Return ONLY a JSON object, no markdown:
     )})
   }
 
+  function deduplicateTranscript() {
+    const raw = movie?.transcript ?? ''
+    if (!raw) return 0
+    const normalized = normalizeSRT(raw)
+    const blocks = normalized.split(/\n{2,}/)
+    const seen = new Map() // timestamp → block text
+    for (const block of blocks) {
+      const blines = block.trim().split('\n')
+      const tsLine = blines.find(l => /\d{2}:\d{2}:\d{2},\d+\s*-->\s*\d{2}:\d{2}:\d{2},\d+/.test(l))
+      if (!tsLine) continue
+      const [tsStart] = tsLine.split('-->')
+      const key = tsStart.trim()
+      if (!seen.has(key)) seen.set(key, block.trim())
+    }
+    // 依時間排序
+    const sorted = [...seen.entries()]
+      .sort((a, b) => timeToSecs(a[0]) - timeToSecs(b[0]))
+      .map(([, v]) => v)
+    const cleaned = sorted.join('\n\n')
+    const removed = blocks.filter(b => b.trim()).length - sorted.length
+    saveDb({ ...db, movies: db.movies.map(m =>
+      m.id !== movieId ? m : { ...m, transcript: cleaned }
+    )})
+    return removed
+  }
+
   // ── SRT 格式正規化（支援 → / -> / --> / 空格時間碼）──────────
   function normalizeSRT(raw) {
     return raw
@@ -13823,7 +13849,20 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
     <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
         <BackBtn label="← 返回" to="addScene"/>
-        <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>📄 儲存逐字稿</span>
+        <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+          {movie?.transcript && (
+            <div onClick={() => {
+                const n = deduplicateTranscript()
+                alert(n > 0 ? `✅ 已清除 ${n} 個重複段落，逐字稿已整理完成` : '✓ 逐字稿無重複，已按時間排序')
+              }}
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.blue,
+                padding:'4px 11px', background:T.blueD, borderRadius:7,
+                border:`1px solid ${T.blue}50` }}>
+              🧹 去除重複
+            </div>
+          )}
+          <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>📄 儲存逐字稿</span>
+        </div>
       </div>
       <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.8 }}>
         貼上完整 SRT 逐字稿，儲存後新增場景只需填時間範圍。<br/>
@@ -15904,7 +15943,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.50</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.51</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
