@@ -7073,7 +7073,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.51</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.52</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -13011,6 +13011,9 @@ function MovieTab() {
     () => localStorage.getItem('fsi:movie:audioName') ?? ''
   )
   const [audioReady, setAudioReady] = useState(false)
+  const [audioMode, setAudioMode] = useState(
+    () => localStorage.getItem('fsi:movie:audioMode') ?? 'original'
+  ) // 'original' | 'tts'
   const [scenePlaying, setScenePlaying] = useState(false)
   const [scenePlayPos,  setScenePlayPos]  = useState(0)
   const [sceneRate,     setSceneRate]     = useState(0.6) // 0~1 進度
@@ -13049,6 +13052,66 @@ function MovieTab() {
     window.addEventListener('storage', onStorage)
     return () => window.removeEventListener('storage', onStorage)
   }, [])
+
+  // ── File System Access API: 自動恢復上次 MP3 ──────────────────
+  useEffect(() => {
+    async function restoreAudioHandle() {
+      if (!('showOpenFilePicker' in window)) return
+      try {
+        const req = indexedDB.open('fsi_audio', 1)
+        req.onupgradeneeded = e => e.target.result.createObjectStore('handles')
+        req.onsuccess = async e => {
+          const db2 = e.target.result
+          const tx  = db2.transaction('handles', 'readonly')
+          const store = tx.objectStore('handles')
+          const getReq = store.get('mp3')
+          getReq.onsuccess = async ev => {
+            const handle = ev.target.result
+            if (!handle) return
+            try {
+              const perm = await handle.queryPermission({ mode:'read' })
+              if (perm === 'granted') {
+                const file = await handle.getFile()
+                loadAudioFile(file)
+              }
+            } catch {}
+          }
+        }
+      } catch {}
+    }
+    restoreAudioHandle()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function saveAudioHandle(handle) {
+    if (!handle) return
+    try {
+      const req = indexedDB.open('fsi_audio', 1)
+      req.onupgradeneeded = e => e.target.result.createObjectStore('handles')
+      req.onsuccess = e => {
+        const db2 = e.target.result
+        const tx = db2.transaction('handles', 'readwrite')
+        tx.objectStore('handles').put(handle, 'mp3')
+      }
+    } catch {}
+  }
+
+  async function pickAudioFile() {
+    if ('showOpenFilePicker' in window) {
+      try {
+        const [handle] = await window.showOpenFilePicker({
+          types:[{ description:'Audio', accept:{'audio/*':['.mp3','.m4a','.aac','.wav','.ogg']} }]
+        })
+        const file = await handle.getFile()
+        await saveAudioHandle(handle)
+        loadAudioFile(file)
+      } catch(e) {
+        if (e.name !== 'AbortError') console.error(e)
+      }
+    } else {
+      // fallback: 傳統 input[type=file]（由 UI 呼叫）
+      document.getElementById('fsi-audio-input')?.click()
+    }
+  }
 
   function saveDb(nd) { setDb(nd); localStorage.setItem('fsi:movie:db', JSON.stringify(nd)) }
 
@@ -13147,8 +13210,8 @@ function MovieTab() {
     const phrase = phrases.find(p => p.id === pid)
     const hasTimestamp = phrase && (phrase.startSecs > 0 || phrase.endSecs > 0)
 
-    // 優先用電影原音
-    if (audioElRef.current && audioReady && hasTimestamp) {
+    // 優先用電影原音（audioMode === 'original' 且 MP3 已載入且有時間碼）
+    if (audioMode === 'original' && audioElRef.current && audioReady && hasTimestamp) {
       const el = audioElRef.current
       el.playbackRate = rate
       el.currentTime = phrase.startSecs
@@ -13219,6 +13282,11 @@ function MovieTab() {
     setScenePlaying(false); setScenePlayPos(0)
   }
   function deleteScene(sid) {
+    const scene = db.movies.find(m => m.id === movieId)?.scenes.find(s => s.id === sid)
+    if (!scene) return
+    const phraseCount = scene.phrases?.length ?? 0
+    const confirmed = window.confirm(`刪除「${scene.name}」？\n此場景共 ${phraseCount} 句將全部刪除，無法復原。`)
+    if (!confirmed) return
     saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : {
       ...m, scenes: m.scenes.filter(s => s.id !== sid)
     })})
@@ -13468,16 +13536,18 @@ Return ONLY a JSON object, no markdown:
       }
       const lines = lineObjects.map(l => l.text)
 
-      // 2. AI 只負責：取場景名 + 每行翻中文（改用 | 分隔格式，避免 JSON 引號問題）
+      // 2. AI 只負責：取場景名 + 每行翻中文 + 標記推薦句（改用 | 分隔格式，避免 JSON 引號問題）
       const prompt = `給你 ${lines.length} 句英文字幕。
 第一行回傳中文場景名（6~10字，只有場景名，沒有其他文字）。
-之後每行格式：序號|中文翻譯
+之後每行格式：序號|中文翻譯|推薦(1或0)
+推薦標準：日常高頻、可套用句型、情緒表達地道、口語實用。數量不限，依句子品質判斷。
 不要合併句子，不要增刪，不要其他說明。
 
 範例格式：
 使命宣言的誕生
-1|我討厭我自己。
-2|然後事情發生了。
+1|我討厭我自己。|1
+2|然後事情發生了。|0
+3|我開始寫一份使命宣言。|1
 
 字幕：
 ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
@@ -13488,15 +13558,25 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
       const rawLines = raw.trim().split('\n').filter(l => l.trim())
       const nameLine = rawLines[0]?.trim() ?? '電影場景'
       const translations = {}
+      const recommended = {}
       rawLines.slice(1).forEach(l => {
-        const m = l.match(/^(\d+)\|(.+)$/)
-        if (m) translations[parseInt(m[1]) - 1] = m[2].trim()
+        const m = l.match(/^(\d+)\|(.+?)\|([01])$/)
+        if (m) {
+          const idx = parseInt(m[1]) - 1
+          translations[idx] = m[2].trim()
+          recommended[idx] = m[3] === '1'
+        } else {
+          // 兼容舊格式（無推薦欄位）
+          const m2 = l.match(/^(\d+)\|(.+)$/)
+          if (m2) translations[parseInt(m2[1]) - 1] = m2[2].trim()
+        }
       })
 
       const result = {
         name: nameLine.replace(/^\d+[\.|]/, '').trim(),
         phrases: lines.map((en, i) => ({
           en, zh: translations[i] ?? '',
+          starred: recommended[i] ?? false,
           startSecs: lineObjects[i]?.startSecs ?? 0,
           endSecs:   lineObjects[i]?.endSecs   ?? 0,
         }))
@@ -13512,7 +13592,7 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
     const ns = {
       id: 'scene_'+Date.now(), timeRange:`${startTime} ~ ${endTime}`,
       name: addPreview.name,
-      phrases: addPreview.phrases.map((p,i) => ({ id:'ph_'+Date.now()+'_'+i, en:p.en, zh:p.zh, played:false, starred:false, startSecs: p.startSecs??0, endSecs: p.endSecs??0 }))
+      phrases: addPreview.phrases.map((p,i) => ({ id:'ph_'+Date.now()+'_'+i, en:p.en, zh:p.zh, played:false, starred: p.starred ?? false, startSecs: p.startSecs??0, endSecs: p.endSecs??0 }))
     }
     saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : { ...m, scenes:[...m.scenes, ns] }) })
     setSrtText(''); setStartTime(''); setEndTime(''); setAddPreview(null); setView('list')
@@ -13775,9 +13855,9 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
       <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:12,
         padding:'12px 16px', display:'flex', flexDirection:'column', gap:8 }}>
         <span style={{ fontFamily:MONO, fontSize:10, color:T.txt2, fontWeight:700 }}>② 選取時間範圍</span>
-        <div style={{ display:'flex', gap:8 }}>
+        <div style={{ display:'flex', gap:8, alignItems:'flex-end' }}>
           {[['開始','05:57',startTime,setStartTime],['結束','07:59',endTime,setEndTime]].map(([lbl,ph,val,set]) => (
-            <div key={lbl} style={{ flex:1, display:'flex', flexDirection:'column', gap:3 }}>
+            <div key={lbl} style={{ display:'flex', flexDirection:'column', gap:3 }}>
               <span style={{ fontFamily:MONO, fontSize:9, color: val ? T.grn : T.txt3 }}>
                 {lbl}{val ? ' ✓' : '（必填）'}
               </span>
@@ -13785,7 +13865,8 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
                 placeholder={ph}
                 style={{ fontFamily:MONO, fontSize:12, background:T.surf2,
                   border:`1px solid ${val ? T.grn+'60' : T.bdr}`,
-                  borderRadius:8, padding:'8px 10px', color:T.txt, outline:'none' }}/>
+                  borderRadius:8, padding:'8px 10px', color:T.txt, outline:'none',
+                  width:110 }}/>
             </div>
           ))}
         </div>
@@ -13801,12 +13882,21 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
         <div style={{ display:'flex', flexDirection:'column', gap:8 }} className="fadeUp">
           <div style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>
             「{addPreview.name}」· {addPreview.phrases.length} 句
+            {addPreview.phrases.filter(p=>p.starred).length > 0 && (
+              <span style={{ color:T.txt3, marginLeft:8 }}>
+                ⭐ {addPreview.phrases.filter(p=>p.starred).length} 句 AI 推薦已標星
+              </span>
+            )}
           </div>
           <div style={{ maxHeight:220, overflowY:'auto', display:'flex', flexDirection:'column', gap:6,
             border:`1px solid ${T.bdr}`, borderRadius:10, padding:10 }}>
             {addPreview.phrases.map((p,i) => (
-              <div key={i} style={{ background:T.surf, borderRadius:8, padding:'8px 12px' }}>
-                <div style={{ fontFamily:MONO, fontSize:11, color:T.txt, marginBottom:3 }}>{p.en}</div>
+              <div key={i} style={{ background:T.surf, borderRadius:8, padding:'8px 12px',
+                border:`1px solid ${p.starred ? T.amber+'50' : 'transparent'}` }}>
+                <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:3 }}>
+                  {p.starred && <span style={{ fontSize:12, color:T.amber }}>⭐</span>}
+                  <div style={{ fontFamily:MONO, fontSize:11, color:T.txt }}>{p.en}</div>
+                </div>
                 <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>{p.zh}</div>
               </div>
             ))}
@@ -14699,6 +14789,12 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
             <div style={{ fontFamily:DISP, fontSize:16, color:T.txt }}>{movie?.title}</div>
             <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>{movie?.titleEn} · {movie?.year}</div>
           </div>
+          <div onClick={() => { setAddPreview(null); setAddErr(''); setView('addScene') }}
+            style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+              color:T.amber, background:T.amberD, border:`1px solid ${T.amber}50`,
+              borderRadius:8, padding:'5px 10px', whiteSpace:'nowrap' }}>
+            ＋ 新增場景
+          </div>
         </div>
         <div style={{ background:T.bdr, borderRadius:4, height:6, overflow:'hidden', marginBottom:6 }}>
           <div style={{ width:`${totalPct}%`, height:'100%',
@@ -14749,16 +14845,7 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
           </div>
         )
       })}
-      {/* Add scene */}
-      <div onClick={() => { setAddPreview(null); setAddErr(''); setView('addScene') }}
-        style={{ border:`1.5px dashed ${T.bdr2}`, borderRadius:12, padding:'15px',
-          textAlign:'center', cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.txt3,
-          display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
-        ＋ 新增場景
-        {movie?.transcript
-          ? <span style={{ fontFamily:MONO, fontSize:9, color:T.grn }}>（逐字稿已存，只需填時間）</span>
-          : <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>（貼逐字稿）</span>}
-      </div>
+      {/* Add scene moved to movie header */}
       {/* Vocab shortcut */}
       <div onClick={() => setView('vocab')}
         style={{ border:`1px solid ${T.bdr}`, borderRadius:12, padding:'13px',
@@ -14779,6 +14866,28 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
             <span style={{ fontFamily:MONO, fontSize:9, color:T.grn }}>✓ 已載入</span>
           )}
         </div>
+        {/* 雙音軌切換 */}
+        <div style={{ display:'flex', gap:6 }}>
+          {[['original','🎬 電影原音'],['tts','🔊 系統音']].map(([mode, label]) => (
+            <div key={mode} onClick={() => {
+                setAudioMode(mode)
+                localStorage.setItem('fsi:movie:audioMode', mode)
+              }}
+              style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                textAlign:'center', padding:'7px 4px', borderRadius:8,
+                background: audioMode === mode ? (mode==='original' ? T.amberD : T.blueD) : T.surf2,
+                border:`1px solid ${audioMode === mode ? (mode==='original' ? T.amber+'60' : T.blue+'60') : T.bdr}`,
+                color: audioMode === mode ? (mode==='original' ? T.amber : T.blue) : T.txt3,
+                transition:'all 0.15s' }}>
+              {label}
+            </div>
+          ))}
+        </div>
+        {audioMode === 'tts' && (
+          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
+            使用系統 TTS 播放，不需 MP3 檔案
+          </div>
+        )}
         {audioFileName ? (
           <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
             {audioReady ? `✅ ${audioFileName}` : `⏳ 載入中… ${audioFileName}`}
@@ -14789,14 +14898,16 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
             未選擇時自動用 TTS 播放
           </div>
         )}
-        <label style={{ cursor:'pointer', display:'flex', alignItems:'center',
-          justifyContent:'center', gap:8, padding:'10px', borderRadius:9,
-          background: T.blueD, border:`1px solid ${T.blue}50`,
-          fontFamily:MONO, fontSize:10, fontWeight:700, color:T.blue }}>
-          📁 {audioFileName ? '更換音訊檔案' : '選擇 MP3 檔案'}
-          <input type="file" accept="audio/*" style={{ display:'none' }}
-            onChange={e => e.target.files[0] && loadAudioFile(e.target.files[0])}/>
-        </label>
+        <div onClick={pickAudioFile}
+          style={{ cursor:'pointer', display:'flex', alignItems:'center',
+            justifyContent:'center', gap:8, padding:'10px', borderRadius:9,
+            background: T.blueD, border:`1px solid ${T.blue}50`,
+            fontFamily:MONO, fontSize:10, fontWeight:700, color:T.blue }}>
+          📁 {audioFileName ? '重新選擇 MP3' : '選擇 MP3 檔案'}
+        </div>
+        {/* fallback input for browsers without File System Access API */}
+        <input id="fsi-audio-input" type="file" accept="audio/*" style={{ display:'none' }}
+          onChange={e => e.target.files[0] && loadAudioFile(e.target.files[0])}/>
       </div>
 
       {/* ── 電影資料同步 ── */}
@@ -15943,7 +16054,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.51</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.52</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
