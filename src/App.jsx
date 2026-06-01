@@ -7073,7 +7073,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.48</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.50</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -13534,7 +13534,10 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
 
   const BackBtn = ({ label='← 返回', to='list' }) => (
     <span onClick={() => goBack(to)}
-      style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt3, display:'inline-flex', alignItems:'center', gap:3 }}>
+      style={{ cursor:'pointer', fontFamily:MONO, fontSize:13, fontWeight:700,
+        color:T.amber, display:'inline-flex', alignItems:'center', gap:4,
+        padding:'6px 12px', background:T.amberD, borderRadius:9,
+        border:`1px solid ${T.amber}50` }}>
       {label}
     </span>
   )
@@ -14024,6 +14027,38 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
     const cur = activePhrases[revIdx]
     const hasScene = activePhrases.some(p => p.sceneDesc)
     const displayText = revMode === 'scene' && cur?.sceneDesc ? cur.sceneDesc : cur?.zh
+    const isDone = revIdx >= activePhrases.length
+
+    // ── 完成畫面 ──
+    if (isDone) return (
+      <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:16 }} className="fadeUp">
+        <BackBtn label="← 返回句子" to="scene"/>
+        <div style={{ background:T.surf, border:`1px solid ${T.grn}50`,
+          borderRadius:18, padding:'36px 22px', display:'flex', flexDirection:'column',
+          alignItems:'center', gap:16 }}>
+          <span style={{ fontSize:40 }}>🎉</span>
+          <div style={{ fontFamily:DISP, fontSize:18, color:T.grn, textAlign:'center' }}>
+            本輪練習完成！
+          </div>
+          <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, textAlign:'center', lineHeight:1.8 }}>
+            {activePhrases.length} 句全部說過一遍<br/>
+            語言 × 視覺 × 身體都啟動了
+          </div>
+        </div>
+        <div onClick={() => { setRevIdx(0); setRevFlip(false) }}
+          style={{ cursor:'pointer', background:T.amberD, border:`1px solid ${T.amber}60`,
+            borderRadius:12, padding:'13px', textAlign:'center',
+            fontFamily:MONO, fontSize:11, fontWeight:700, color:T.amber }}>
+          🔄 再練一輪
+        </div>
+        <div onClick={() => goBack('scene')}
+          style={{ cursor:'pointer', background:T.surf2, border:`1px solid ${T.bdr}`,
+            borderRadius:12, padding:'13px', textAlign:'center',
+            fontFamily:MONO, fontSize:11, color:T.txt3 }}>
+          ← 返回句子列表
+        </div>
+      </div>
+    )
 
     return (
       <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
@@ -14165,11 +14200,20 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
                     這次有帶入畫面說出來嗎？
                   </div>
                   <div style={{ display:'flex', gap:8 }}>
-                    <div onClick={() => { setRevIdx(i => Math.min(activePhrases.length-1,i+1)) }}
+                    <div onClick={() => {
+                        const isLast = revIdx >= activePhrases.length - 1
+                        if (isLast) {
+                          // 最後一句完成 → 顯示完成畫面
+                          setRevIdx(activePhrases.length) // 超出範圍作為完成標記
+                          setRevFlip(false)
+                        } else {
+                          setRevIdx(i => i + 1)
+                        }
+                      }}
                       style={{ flex:2, cursor:'pointer', background:T.grnD,
                         border:`1px solid ${T.grn}50`, borderRadius:10, padding:'11px',
                         textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700, color:T.grn }}>
-                      ✓ 有，下一句
+                      {revIdx >= activePhrases.length - 1 ? '✓ 完成練習' : '✓ 有，下一句'}
                     </div>
                     <div onClick={retryPhrase}
                       style={{ flex:1, cursor:'pointer', background:T.surf2,
@@ -15764,6 +15808,21 @@ export default function App() {
   const [earned, setEarned]   = useState(null)
   const [ready, setReady]     = useState(false)
 
+  // ── 離開確認（避免誤觸關閉 App）──────────────────────────────
+  useEffect(() => {
+    const handler = e => {
+      e.preventDefault()
+      e.returnValue = '確定要離開嗎？離開後需重新選擇 MP3 檔案。'
+      return e.returnValue
+    }
+    window.addEventListener('beforeunload', handler)
+    // ── Service Worker 註冊（離線快取）──
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {})
+    }
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [])
+
   useEffect(() => {
     Promise.all([
       stor.get('fsi:s'), stor.get('fsi:v'), stor.get('fsi:st'),
@@ -15845,7 +15904,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.48</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.50</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
