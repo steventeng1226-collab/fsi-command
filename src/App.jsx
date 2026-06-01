@@ -7073,7 +7073,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.52</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.53</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -13034,6 +13034,7 @@ function MovieTab() {
   const [addBusy,    setAddBusy]    = useState(false)
   const [addErr,     setAddErr]     = useState('')
   const [addPreview, setAddPreview] = useState(null)
+  const [aiStarBusy, setAiStarBusy] = useState(false)
 
   const movie   = db.movies.find(m => m.id === movieId)
   const scene   = sceneId ? movie?.scenes.find(s => s.id === sceneId) : null
@@ -13291,6 +13292,33 @@ function MovieTab() {
       ...m, scenes: m.scenes.filter(s => s.id !== sid)
     })})
     if (sceneId === sid) { setSceneId(null); setView('list') }
+  }
+
+  async function aiRecommendStars() {
+    if (!scene || phrases.length === 0) return
+    setAiStarBusy(true)
+    try {
+      const lines = phrases.map((p, i) => `${i+1}. ${p.en}`)
+      const prompt = `以下是電影台詞，請推薦日常高頻、可套用、情緒地道、口語實用的句子。
+只回傳推薦的序號，用逗號分隔，不要其他文字。
+例如：1,3,5,8
+
+台詞：
+${lines.join('\n')}`
+      const raw = await callAI([{ role:'user', content:prompt }])
+      const recommended = new Set(
+        raw.replace(/[^0-9,]/g, '').split(',').map(n => parseInt(n.trim()) - 1).filter(n => !isNaN(n))
+      )
+      updateScenePhrases(ps => ps.map((p, i) =>
+        recommended.has(i) ? { ...p, starred: true } : p
+      ))
+      const count = recommended.size
+      alert(`✅ AI 推薦完成，共標星 ${count} 句（已有星星的保留不變）`)
+    } catch(e) {
+      alert('AI 推薦失敗：' + e.message)
+    } finally {
+      setAiStarBusy(false)
+    }
   }
   function addToVocab(word, phonetic, zh, example) {
     if (db.vocab.find(v => v.word.toLowerCase() === word.toLowerCase())) return false
@@ -13938,7 +13966,7 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
   if (view === 'manageTranscript') return (
     <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-        <BackBtn label="← 返回" to="addScene"/>
+        <BackBtn label="← 返回" to="list"/>
         <div style={{ display:'flex', gap:8, alignItems:'center' }}>
           {movie?.transcript && (
             <div onClick={() => {
@@ -14023,10 +14051,88 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
       {movie?.transcript && (
         <div onClick={() => {
             saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : { ...m, transcript: '' }) })
-            setView('addScene')
+            setView('list')
           }}
           style={{ textAlign:'center', fontFamily:MONO, fontSize:9, color:T.red, cursor:'pointer' }}>
           刪除已儲存的逐字稿
+        </div>
+      )}
+
+      {/* ── 時間範圍 + AI 解析（逐字稿已存才顯示）── */}
+      {movie?.transcript && (
+        <div style={{ background:T.surf, border:`1px solid ${T.amber}30`, borderRadius:13,
+          padding:'14px 16px', display:'flex', flexDirection:'column', gap:10 }}>
+          <div style={{ fontFamily:MONO, fontSize:10, color:T.amber, fontWeight:700 }}>
+            ⚡ 選取時間範圍 → AI 解析新場景
+          </div>
+          <div style={{ display:'flex', gap:8, alignItems:'flex-end' }}>
+            {[['開始','05:57',startTime,setStartTime],['結束','07:59',endTime,setEndTime]].map(([lbl,ph,val,set]) => (
+              <div key={lbl} style={{ display:'flex', flexDirection:'column', gap:3 }}>
+                <span style={{ fontFamily:MONO, fontSize:9, color: val ? T.grn : T.txt3 }}>
+                  {lbl}{val ? ' ✓' : ''}
+                </span>
+                <input value={val} onChange={e => { set(e.target.value); setAddErr('') }}
+                  placeholder={ph}
+                  style={{ fontFamily:MONO, fontSize:12, background:T.surf2,
+                    border:`1px solid ${val ? T.grn+'60' : T.bdr}`,
+                    borderRadius:8, padding:'8px 10px', color:T.txt, outline:'none',
+                    width:110 }}/>
+              </div>
+            ))}
+          </div>
+          {addErr && (
+            <div style={{ fontFamily:MONO, fontSize:10, color:T.red, background:T.redD,
+              borderRadius:8, padding:'7px 10px' }}>{addErr}</div>
+          )}
+          {/* 預覽結果 */}
+          {addPreview && (
+            <div style={{ display:'flex', flexDirection:'column', gap:8 }} className="fadeUp">
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>
+                「{addPreview.name}」· {addPreview.phrases.length} 句
+                {addPreview.phrases.filter(p=>p.starred).length > 0 && (
+                  <span style={{ color:T.txt3, marginLeft:8 }}>
+                    ⭐ {addPreview.phrases.filter(p=>p.starred).length} 句 AI 推薦已標星
+                  </span>
+                )}
+              </div>
+              <div style={{ maxHeight:200, overflowY:'auto', display:'flex', flexDirection:'column', gap:5,
+                border:`1px solid ${T.bdr}`, borderRadius:10, padding:10 }}>
+                {addPreview.phrases.map((p,i) => (
+                  <div key={i} style={{ background:T.surf2, borderRadius:8, padding:'7px 10px',
+                    border:`1px solid ${p.starred ? T.amber+'50' : 'transparent'}` }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:2 }}>
+                      {p.starred && <span style={{ fontSize:11, color:T.amber }}>⭐</span>}
+                      <div style={{ fontFamily:MONO, fontSize:11, color:T.txt }}>{p.en}</div>
+                    </div>
+                    <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>{p.zh}</div>
+                  </div>
+                ))}
+              </div>
+              <div onClick={confirmAddScene}
+                style={{ background:T.amber, borderRadius:10, padding:'11px', textAlign:'center',
+                  fontFamily:MONO, fontSize:12, fontWeight:700, color:T.bg, cursor:'pointer' }}>
+                ✓ 確認加入場景
+              </div>
+              <div onClick={() => setAddPreview(null)}
+                style={{ textAlign:'center', fontFamily:MONO, fontSize:10, color:T.txt3, cursor:'pointer' }}>
+                重新解析
+              </div>
+            </div>
+          )}
+          {!addPreview && (
+            <div onClick={addBusy ? undefined : parseScene}
+              style={{ background: addBusy ? T.surf2 : (startTime && endTime) ? T.amber : T.surf2,
+                borderRadius:10, padding:'11px', textAlign:'center',
+                fontFamily:MONO, fontSize:11, fontWeight:700,
+                color: addBusy ? T.txt3 : (startTime && endTime) ? T.bg : T.txt3,
+                cursor: (addBusy || !startTime || !endTime) ? 'default' : 'pointer',
+                display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+              {addBusy && <span style={{ display:'inline-block', width:10, height:10,
+                border:'2px solid transparent', borderTopColor:T.txt3,
+                borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>}
+              {addBusy ? 'AI 解析中…' : (!startTime || !endTime) ? '請填入時間範圍' : '⚡ AI 解析'}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -14392,7 +14498,7 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
           </div>
           <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>已練習 {playedCount}/{activePhrases.length} · {pct}%</div>
         </div>
-        {/* Star filter toggle */}
+        {/* Star filter toggle + AI推薦 */}
         <div style={{ display:'flex', gap:6 }}>
           <div onClick={() => setStarFilter(false)}
             style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, textAlign:'center',
@@ -14409,6 +14515,20 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
               border:`1px solid ${starFilter ? T.amber+'60' : T.bdr}`,
               color: starFilter ? T.amber : T.txt3 }}>
             ⭐ 重點 ({starredCount})
+          </div>
+          <div onClick={aiStarBusy ? undefined : aiRecommendStars}
+            style={{ cursor: aiStarBusy ? 'default' : 'pointer',
+              fontFamily:MONO, fontSize:10, textAlign:'center',
+              padding:'8px 10px', borderRadius:10, transition:'all 0.13s',
+              background: T.surf2, border:`1px solid ${T.bdr}`,
+              color: aiStarBusy ? T.txt3 : T.txt2,
+              display:'flex', alignItems:'center', gap:4 }}>
+            {aiStarBusy
+              ? <span style={{ display:'inline-block', width:9, height:9,
+                  border:'1.5px solid transparent', borderTopColor:T.txt3,
+                  borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>
+              : '✨'}
+            {aiStarBusy ? '推薦中…' : 'AI 推薦'}
           </div>
         </div>
 
@@ -16054,7 +16174,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.52</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.53</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
