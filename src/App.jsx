@@ -7234,7 +7234,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.72
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.73
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13514,20 +13514,22 @@ function MovieTab() {
         const numbered = chunk.map((l, i) => l).join('\n')
         const total = lines.length
         const max5 = Math.max(1, Math.floor(total * 0.2))
+        const max45 = Math.max(2, Math.floor(total * 0.4))
         return `以下是電影台詞，請翻譯並評分。
 每行格式：序號|推薦(1或0)|評分(1-5)|理由(10字內)|繁體中文翻譯
 
-評分標準（請嚴格執行）：
-5=必背：完整實用句，能直接套用於真實對話。單字、感嘆詞、稱謂一律不得給5。整場景★5不超過20%（共${total}句，最多${max5}句）。
-4=推薦：有學習價值，句型可延伸使用
-3=普通：劇情推進句、單字、短語、感嘆詞（Wow/Hey/OK等）
+評分標準（嚴格執行，大多數句子應為3星）：
+5=必背：完整句，日常對話可直接套用。整場景★5不超過20%（最多${max5}句）。
+4=推薦：有學習價值，句型可延伸。★4+★5合計不超過40%（最多${max45}句）。
+3=普通：以下一律給3星 → 打招呼/感嘆詞(Wow/Hey/OK/Hi)/稱謂/單字/純劇情推進/短句
 
 只回傳格式內容，不要其他說明。
 
 範例：
 ${offset+1}|1|5|完整句型可套用|我討厭我自己。
-${offset+2}|0|3|感嘆詞不適合必背|哇。
+${offset+2}|0|3|打招呼不適合必背|你好，泰森。
 ${offset+3}|1|4|值得學習的表達|我開始寫一份使命宣言。
+${offset+4}|0|3|感嘆詞|哇。
 
 台詞：
 ${numbered}`
@@ -13880,15 +13882,16 @@ ${lines.slice(0,5).map((l,i)=>`${i+1}. ${l}`).join('\n')}`
         return `翻譯以下英文字幕為繁體中文，並評分。
 每行格式：序號|中文翻譯|推薦(1或0)|評分(1-5)|理由(10字內)
 
-評分標準（請嚴格執行）：
-5=必背：完整實用句，能直接套用於真實對話。單字、感嘆詞、稱謂一律不得給5。★5不超過20%。
-4=推薦：有學習價值，句型可延伸
-3=普通：劇情推進、單字、短語、感嘆詞（Wow/Hey/OK等）
+評分標準（嚴格執行，大多數句子應為3星）：
+5=必背：完整句，日常對話可直接套用。★5不超過20%。
+4=推薦：有學習價值，句型可延伸。★4+★5合計不超過40%。
+3=普通：打招呼/感嘆詞/稱謂/單字/純劇情推進一律給3星
 只回傳格式，不要其他說明。
 
 範例：
 ${offset+1}|我討厭我自己。|1|5|高頻情感表達
 ${offset+2}|然後事情發生了。|0|3|純劇情推進
+${offset+3}|你好，泰森。|0|3|打招呼
 
 字幕：
 ${numbered}`
@@ -16720,7 +16723,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.72</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.73</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
