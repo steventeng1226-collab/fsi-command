@@ -7073,7 +7073,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.53</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.54</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -13017,6 +13017,7 @@ function MovieTab() {
   const [scenePlaying, setScenePlaying] = useState(false)
   const [scenePlayPos,  setScenePlayPos]  = useState(0)
   const [sceneRate,     setSceneRate]     = useState(0.6) // 0~1 進度
+  const [sceneLoop,     setSceneLoop]     = useState(false)
   const [movieSyncing,    setMovieSyncing]    = useState(false)
   const [movieSyncMsg,    setMovieSyncMsg]    = useState("")
   const [wordBusy,   setWordBusy]   = useState(false)
@@ -13064,24 +13065,50 @@ function MovieTab() {
         req.onsuccess = async e => {
           const db2 = e.target.result
           const tx  = db2.transaction('handles', 'readonly')
-          const store = tx.objectStore('handles')
-          const getReq = store.get('mp3')
+          const getReq = tx.objectStore('handles').get('mp3')
           getReq.onsuccess = async ev => {
             const handle = ev.target.result
             if (!handle) return
             try {
-              const perm = await handle.queryPermission({ mode:'read' })
-              if (perm === 'granted') {
-                const file = await handle.getFile()
-                loadAudioFile(file)
+              // timeout 保護：5秒內未完成視為失敗
+              const timeoutId = setTimeout(() => {
+                setAudioFileName('')
+                clearAudioHandle()
+              }, 5000)
+              let perm = await handle.queryPermission({ mode:'read' })
+              if (perm === 'prompt') {
+                perm = await handle.requestPermission({ mode:'read' })
               }
-            } catch {}
+              if (perm !== 'granted') {
+                clearTimeout(timeoutId)
+                clearAudioHandle()
+                return
+              }
+              const file = await handle.getFile()
+              clearTimeout(timeoutId)
+              loadAudioFile(file)
+            } catch {
+              clearAudioHandle()
+            }
           }
         }
       } catch {}
     }
     restoreAudioHandle()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function clearAudioHandle() {
+    try {
+      const req = indexedDB.open('fsi_audio', 1)
+      req.onsuccess = e => {
+        const db2 = e.target.result
+        const tx = db2.transaction('handles', 'readwrite')
+        tx.objectStore('handles').delete('mp3')
+      }
+    } catch {}
+    setAudioFileName('')
+    setAudioReady(false)
+  }
 
   async function saveAudioHandle(handle) {
     if (!handle) return
@@ -13243,8 +13270,18 @@ function MovieTab() {
     // 整段播放進度追蹤
     el.ontimeupdate = () => {
       if (el._sceneEnd && el.currentTime >= el._sceneEnd) {
-        el.pause(); el._sceneEnd = null
-        setScenePlaying(false); setScenePlayPos(0)
+        if (el._sceneLoop) {
+          // 循環：回到起點重播
+          el.currentTime = el._sceneStart ?? 0
+          el.play().catch(() => { setScenePlaying(false); setScenePlayPos(0) })
+          setScenePlayPos(0)
+        } else {
+          // 單次：停止
+          el.pause(); el._sceneEnd = null
+          setScenePlaying(false); setScenePlayPos(0)
+          // 睡眠計時也一起停
+          setSleepMins(null); setSleepSecs(null)
+        }
       } else if (el._sceneStart !== undefined && el._sceneEnd) {
         const pos = (el.currentTime - el._sceneStart) / (el._sceneEnd - el._sceneStart)
         setScenePlayPos(Math.min(1, Math.max(0, pos)))
@@ -13269,7 +13306,7 @@ function MovieTab() {
     window.speechSynthesis?.cancel()
     setPlayingPhraseId(null)
     const el = audioElRef.current
-    el._sceneStart = start; el._sceneEnd = end
+    el._sceneStart = start; el._sceneEnd = end; el._sceneLoop = sceneLoop
     el.playbackRate = sceneRate
     el.currentTime = start
     el.play().catch(() => setScenePlaying(false))
@@ -13356,6 +13393,13 @@ ${lines.join('\n')}`
     if (sleepSecs <= 0) {
       setPlaying(false)
       window.speechSynthesis?.cancel()
+      // 停止整段原聲循環
+      if (audioElRef.current) {
+        audioElRef.current.pause()
+        audioElRef.current._sceneEnd = null
+        audioElRef.current._sceneLoop = false
+      }
+      setScenePlaying(false); setScenePlayPos(0)
       setSleepMins(null)
       setSleepSecs(null)
       return
@@ -13983,8 +14027,10 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
         </div>
       </div>
       <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.8 }}>
-        貼上完整 SRT 逐字稿，儲存後新增場景只需填時間範圍。<br/>
-        支援格式：<span style={{color:T.txt2}}>--&gt;</span>、<span style={{color:T.txt2}}>→</span>、<span style={{color:T.txt2}}>-&gt;</span> 均可。
+        {movie?.transcript
+          ? <>逐字稿已存 <span style={{color:T.grn}}>✓ {movie.transcript.length.toLocaleString()} 字元</span>，可直接填時間範圍解析新場景，或貼上新內容附加／取代。</>
+          : <>貼上完整 SRT 逐字稿，儲存後新增場景只需填時間範圍。<br/>支援格式：<span style={{color:T.txt2}}>--&gt;</span>、<span style={{color:T.txt2}}>→</span>、<span style={{color:T.txt2}}>-&gt;</span> 均可。</>
+        }
       </div>
       {/* 說明字元數 + 現有狀態 */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
@@ -14532,45 +14578,109 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
           </div>
         </div>
 
-        {/* ── 整段原聲播放（有 MP3 時顯示）── */}
-        {audioReady && (
+        {/* ── 整段原聲播放 ── */}
+        {(audioReady || audioMode === 'tts') && (
           <div style={{ background:T.surf, border:`1px solid ${scenePlaying ? T.amber+'60' : T.bdr}`,
-            borderRadius:12, padding:'12px 14px', display:'flex', flexDirection:'column', gap:8,
+            borderRadius:12, padding:'12px 14px', display:'flex', flexDirection:'column', gap:10,
             transition:'border-color 0.2s' }}>
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-              <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
-                🎬 整段原聲 · {scene.timeRange}
-              </span>
-              {/* 速度切換 */}
-              <div style={{ display:'flex', gap:5 }}>
-                {[0.6, 1.0].map(r => (
-                  <div key={r} onClick={() => {
-                      setSceneRate(r)
-                      if (scenePlaying && audioElRef.current) audioElRef.current.playbackRate = r
-                    }}
-                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
-                      padding:'2px 9px', borderRadius:7,
-                      background: sceneRate===r ? T.amberD : T.surf2,
-                      border:`1px solid ${sceneRate===r ? T.amber+'60' : T.bdr}`,
-                      color: sceneRate===r ? T.amber : T.txt3 }}>
-                    {r === 0.6 ? '0.6x' : '1.0x'}
-                  </div>
-                ))}
+
+            {/* 標題列 */}
+            <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+              🎬 整段原聲 · {scene.timeRange}
+            </div>
+
+            {/* 音軌切換 */}
+            <div style={{ display:'flex', gap:6 }}>
+              {[['original','🎬 電影原音'],['tts','🔊 系統音']].map(([mode, label]) => (
+                <div key={mode} onClick={() => {
+                    if (scenePlaying) stopSceneAudio()
+                    setAudioMode(mode)
+                    localStorage.setItem('fsi:movie:audioMode', mode)
+                  }}
+                  style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                    textAlign:'center', padding:'6px 4px', borderRadius:8,
+                    background: audioMode === mode ? (mode==='original' ? T.amberD : T.blueD) : T.surf2,
+                    border:`1px solid ${audioMode === mode ? (mode==='original' ? T.amber+'60' : T.blue+'60') : T.bdr}`,
+                    color: audioMode === mode ? (mode==='original' ? T.amber : T.blue) : T.txt3,
+                    transition:'all 0.15s' }}>
+                  {label}
+                </div>
+              ))}
+            </div>
+
+            {/* 速度 + 單次/循環 */}
+            <div style={{ display:'flex', gap:6 }}>
+              {[0.6, 1.0].map(r => (
+                <div key={r} onClick={() => {
+                    setSceneRate(r)
+                    if (scenePlaying && audioElRef.current) audioElRef.current.playbackRate = r
+                  }}
+                  style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                    padding:'5px', borderRadius:7, textAlign:'center',
+                    background: sceneRate===r ? T.amberD : T.surf2,
+                    border:`1px solid ${sceneRate===r ? T.amber+'60' : T.bdr}`,
+                    color: sceneRate===r ? T.amber : T.txt3 }}>
+                  {r === 0.6 ? '0.6x' : '1.0x'}
+                </div>
+              ))}
+              <div style={{ width:8 }}/>
+              {[['single','▶ 單次'],['loop','🔁 循環']].map(([mode, label]) => (
+                <div key={mode} onClick={() => {
+                    const isLoop = mode === 'loop'
+                    setSceneLoop(isLoop)
+                    if (audioElRef.current) audioElRef.current._sceneLoop = isLoop
+                  }}
+                  style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                    padding:'5px', borderRadius:7, textAlign:'center',
+                    background: (sceneLoop ? 'loop' : 'single') === mode ? T.blueD : T.surf2,
+                    border:`1px solid ${(sceneLoop ? 'loop' : 'single') === mode ? T.blue+'60' : T.bdr}`,
+                    color: (sceneLoop ? 'loop' : 'single') === mode ? T.blue : T.txt3 }}>
+                  {label}
+                </div>
+              ))}
+            </div>
+
+            {/* 進度條（電影原音時顯示）*/}
+            {audioMode === 'original' && (
+              <div style={{ background:T.bdr, borderRadius:4, height:5, overflow:'hidden' }}>
+                <div style={{ width:`${scenePlayPos*100}%`, height:'100%',
+                  background:T.amber, transition:'width 0.3s' }}/>
               </div>
-            </div>
-            {/* 進度條 */}
-            <div style={{ background:T.bdr, borderRadius:4, height:5, overflow:'hidden' }}>
-              <div style={{ width:`${scenePlayPos*100}%`, height:'100%',
-                background:T.amber, transition:'width 0.3s' }}/>
-            </div>
-            {/* 播放 / 停止 */}
+            )}
+
+            {/* 播放/停止按鈕 */}
             <div onClick={scenePlaying ? stopSceneAudio : playSceneAudio}
               style={{ cursor:'pointer', background: scenePlaying ? T.surf2 : T.amberD,
                 border:`1px solid ${T.amber}60`, borderRadius:9, padding:'10px',
-                textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
-                color:T.amber }}>
-              {scenePlaying ? '⏹ 停止' : `🎬 播放整段原聲 ${sceneRate}x`}
+                textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700, color:T.amber }}>
+              {scenePlaying ? '⏹ 停止' : `🎬 播放整段 ${sceneRate}x ${sceneLoop ? '🔁' : '▶'}`}
             </div>
+
+            {/* 睡眠計時 */}
+            <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+              <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>⏰ 睡眠：</span>
+              {[10,20,30].map(m => {
+                const active = sleepMins === m
+                return (
+                  <div key={m} onClick={() => {
+                      if (active) { setSleepMins(null); setSleepSecs(null) }
+                      else startSleep(m)
+                    }}
+                    style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                      padding:'5px', borderRadius:7, textAlign:'center',
+                      background: active ? T.blueD : T.surf2,
+                      border:`1px solid ${active ? T.blue+'60' : T.bdr}`,
+                      color: active ? T.blue : T.txt3 }}>
+                    {active && sleepSecs !== null ? fmtSleep(sleepSecs) : `${m}分`}
+                  </div>
+                )
+              })}
+            </div>
+            {sleepMins && sleepSecs !== null && (
+              <div style={{ fontFamily:MONO, fontSize:9, color:T.blue, textAlign:'center' }}>
+                {fmtSleep(sleepSecs)} 後自動停止
+              </div>
+            )}
           </div>
         )}
 
@@ -14909,7 +15019,7 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
             <div style={{ fontFamily:DISP, fontSize:16, color:T.txt }}>{movie?.title}</div>
             <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>{movie?.titleEn} · {movie?.year}</div>
           </div>
-          <div onClick={() => { setAddPreview(null); setAddErr(''); setView('addScene') }}
+          <div onClick={() => { setTranscriptDraft(''); setStartTime(''); setEndTime(''); setAddPreview(null); setAddErr(''); setView('manageTranscript') }}
             style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
               color:T.amber, background:T.amberD, border:`1px solid ${T.amber}50`,
               borderRadius:8, padding:'5px 10px', whiteSpace:'nowrap' }}>
@@ -16174,7 +16284,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.53</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.54</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
@@ -16191,7 +16301,9 @@ export default function App() {
         {tab==='drill'    && <DrillTab    {...P}/>}
         {tab==='vocab'    && <VocabTab    {...P}/>}
         {tab==='email'    && <EmailTab    {...P}/>}
-        {tab==='movie'    && <MovieTab/>}
+        <div style={{display: tab==='movie' ? 'flex' : 'none', flexDirection:'column', flex:1, minHeight:0}}>
+          <MovieTab/>
+        </div>
         {tab==='settings' && <SettingsTab {...P}/>}
       </div>
       <BottomNav tab={tab} setTab={setTab}/>
