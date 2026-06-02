@@ -393,15 +393,29 @@ async function callAIRaw(messages, system = '', debugMode = false) {
   if (system) msgs.push({ role:'system', content: system })
   messages.forEach(m => msgs.push({ role: m.role, content: m.content }))
 
-  const r = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({ model: 'gpt-5', max_completion_tokens: 8000, messages: msgs })
-  })
-  const d = await r.json()
+  // AbortController：55 秒超時保護
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 55000)
+
+  let r, d
+  try {
+    r = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({ model: 'gpt-5', max_completion_tokens: 8000, messages: msgs }),
+      signal: controller.signal
+    })
+    d = await r.json()
+  } catch(e) {
+    if (e.name === 'AbortError') throw new Error('請求超時（55秒），請重試')
+    throw new Error('網路錯誤：' + e.message)
+  } finally {
+    clearTimeout(timeoutId)
+  }
+
   console.log('[callAIRaw full response]', JSON.stringify(d, null, 2))
   if (!r.ok) throw new Error(d.error?.message ?? 'OpenAI error ' + r.status)
 
@@ -428,7 +442,6 @@ async function callAIRaw(messages, system = '', debugMode = false) {
     msgKeys.forEach(k => {
       allValues[`choices[0].message.${k}`] = JSON.stringify(choice.message[k]).slice(0, 200)
     })
-    // 也掃 usage
     Object.keys(usage).forEach(k => {
       allValues[`usage.${k}`] = String(usage[k])
     })
@@ -500,8 +513,14 @@ async function callAIChunked(lines, promptBuilder, lineParser, chunkSize = 10) {
         break
       } catch(e) {
         attempts++
+        if (e.message?.includes('超時') && currentChunkSize > 3) {
+          // 超時：縮小 chunk 重試
+          currentChunkSize = Math.max(3, Math.floor(currentChunkSize / 2))
+          console.warn(`超時，縮小 chunk 到 ${currentChunkSize} 句重試`)
+          continue
+        }
         if (attempts >= 3) throw e
-        await new Promise(res => setTimeout(res, 1000 * attempts))
+        await new Promise(res => setTimeout(res, 1500 * attempts))
       }
     }
 
@@ -511,8 +530,8 @@ async function callAIChunked(lines, promptBuilder, lineParser, chunkSize = 10) {
     }
 
     i += currentChunkSize
-    // 批次間稍作停頓避免 rate limit
-    if (i < lines.length) await new Promise(res => setTimeout(res, 300))
+    // 批次間停頓：避免 rate limit 和讓 gpt-5 推理有喘息空間
+    if (i < lines.length) await new Promise(res => setTimeout(res, 800))
   }
 
   console.log('[callAIChunked debug]', debugInfo)
@@ -7215,7 +7234,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.70
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.71
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -16701,7 +16720,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.70</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.71</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
