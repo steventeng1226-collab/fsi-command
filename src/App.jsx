@@ -7073,7 +7073,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.55</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.56</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -13566,6 +13566,37 @@ Return ONLY a JSON object, no markdown:
     return 0
   }
 
+  function secsToTimeStr(s) {
+    const h = Math.floor(s / 3600)
+    const m = Math.floor((s % 3600) / 60)
+    const sec = Math.floor(s % 60)
+    const hh = String(h).padStart(2,'0')
+    const mm = String(m).padStart(2,'0')
+    const ss = String(sec).padStart(2,'0')
+    return h > 0 ? `${hh}:${mm}:${ss}` : `${mm}:${ss}`
+  }
+
+  function copySceneTranscript() {
+    const savedTranscript = movie?.transcript ?? ''
+    if (!savedTranscript.trim()) { alert('請先儲存逐字稿'); return }
+    if (!startTime || !endTime)  { alert('請填入時間範圍'); return }
+    const lines = extractSRTLines(savedTranscript, startTime, endTime)
+    if (lines.length === 0) { alert('此時間範圍內找不到字幕'); return }
+    const text = lines.map(l => `${secsToTimeStr(l.startSecs)}  ${l.text}`).join('\n')
+    navigator.clipboard.writeText(text).then(() => {
+      alert(`✅ 已複製 ${lines.length} 行（含時間碼），可貼至 ChatGPT`)
+    }).catch(() => {
+      // fallback
+      const el = document.createElement('textarea')
+      el.value = text
+      document.body.appendChild(el)
+      el.select()
+      document.execCommand('copy')
+      document.body.removeChild(el)
+      alert(`✅ 已複製 ${lines.length} 行（含時間碼）`)
+    })
+  }
+
   // ── 直接從 SRT 取出指定時間範圍的每一行（不合併）─────────────
   function extractSRTLines(raw, startTime, endTime) {
     const normalized = normalizeSRT(raw)
@@ -13967,7 +13998,23 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
                   borderRadius:8, padding:'8px 10px', color:T.txt, outline:'none', width:110 }}/>
             </div>
           ))}
+          {/* 複製此段逐字稿 */}
+          {startTime && endTime && movie?.transcript && (
+            <div onClick={copySceneTranscript}
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                color:T.blue, padding:'8px 10px', background:T.blueD,
+                borderRadius:8, border:`1px solid ${T.blue}50`,
+                display:'flex', alignItems:'center', gap:4, whiteSpace:'nowrap',
+                alignSelf:'flex-end' }}>
+              📋 複製
+            </div>
+          )}
         </div>
+        {startTime && endTime && movie?.transcript && (
+          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+            📋 複製後可貼至 ChatGPT 分析此段台詞
+          </div>
+        )}
 
         {addErr && (
           <div style={{ fontFamily:MONO, fontSize:10, color:T.red, background:T.redD,
@@ -16147,7 +16194,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.55</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.56</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
