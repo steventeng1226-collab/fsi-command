@@ -370,11 +370,25 @@ async function callAI(messages, system = '', _unused) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({ model: 'gpt-5', max_completion_tokens: 1000, messages: msgs })
+      body: JSON.stringify({ model: 'gpt-5', max_completion_tokens: 2000, messages: msgs })
     })
     const d = await r.json()
+    console.log('[OpenAI raw response]', JSON.stringify(d, null, 2))
     if (!r.ok) throw new Error(d.error?.message ?? 'OpenAI error ' + r.status)
-    return d.choices?.[0]?.message?.content ?? ''
+
+    // 嘗試所有已知回傳路徑
+    const text =
+      d.choices?.[0]?.message?.content ||
+      d.choices?.[0]?.text ||
+      d.output_text ||
+      d.output?.[0]?.content?.[0]?.text ||
+      d.output?.[0]?.content ||
+      null
+
+    if (text) return text
+
+    // 全部找不到：把完整 JSON 丟給呼叫者看
+    throw new Error('無法解析回傳，完整 JSON：\n' + JSON.stringify(d, null, 2).slice(0, 800))
 
   } else {
     // Anthropic（預設）
@@ -7092,7 +7106,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.62
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.64
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13420,7 +13434,9 @@ ${lines.join('\n')}`
       const star4 = Object.values(updates).filter(u=>Number(u.rating)===4).length
       alert(`✅ AI 評分完成（${parsed}/${phrases.length} 句）\n★5 必背：${star5} 句\n★4 推薦：${star4} 句`)
     } catch(e) {
-      alert('AI 評分失敗：' + e.message)
+      // 顯示完整錯誤，方便 debug
+      const msg = e.message ?? String(e)
+      alert('AI 評分失敗：\n' + msg)
     } finally {
       setAiStarBusy(false)
     }
@@ -16503,7 +16519,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.62</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.64</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
