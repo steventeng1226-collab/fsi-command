@@ -7092,7 +7092,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.59
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.60
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13375,25 +13375,46 @@ function MovieTab() {
 4=推薦（實用，值得學習）
 3=普通（一般劇情台詞）
 
-不要其他說明。
+只回傳格式內容，不要其他說明，不要標題，不要空行。
+
+範例：
+1|1|5|高頻口語可套用
+2|0|3|一般劇情台詞
+3|1|4|值得學習的表達
 
 台詞：
 ${lines.join('\n')}`
       const raw = await callAI([{ role:'user', content:prompt }])
+
+      // 放寬 regex：允許空格、句點、多種分隔
       const updates = {}
+      let parsed = 0
       raw.trim().split('\n').forEach(l => {
-        const m = l.match(/^(\d+)\|([01])\|([1-5])\|(.+)$/)
+        const clean = l.trim().replace(/\s+/g, '')
+        // 格式：數字|0或1|1-5|任意文字
+        const m = clean.match(/^(\d+)\|([01])\|([1-5])\|(.+)$/)
         if (m) {
           const idx = parseInt(m[1]) - 1
-          updates[idx] = { starred: m[2]==='1', rating: parseInt(m[3]), reason: m[4].trim() }
+          if (idx >= 0 && idx < phrases.length) {
+            updates[idx] = { starred: m[2]==='1', rating: parseInt(m[3]), reason: m[4].trim() }
+            parsed++
+          }
         }
       })
+
+      if (parsed === 0) {
+        // 顯示原始回傳幫助 debug
+        alert(`⚠ 無法解析 AI 回傳（共 ${raw.split('\n').length} 行）\n\n前3行：\n${raw.split('\n').slice(0,3).join('\n')}`)
+        return
+      }
+
       updateScenePhrases(ps => ps.map((p, i) =>
-        updates[i] ? { ...p, ...updates[i] } : p
+        updates[i] !== undefined ? { ...p, ...updates[i] } : p
       ))
+
       const star5 = Object.values(updates).filter(u=>u.rating===5).length
       const star4 = Object.values(updates).filter(u=>u.rating===4).length
-      alert(`✅ AI 評分完成\n★5 必背：${star5} 句\n★4 推薦：${star4} 句`)
+      alert(`✅ AI 評分完成（${parsed}/${phrases.length} 句）\n★5 必背：${star5} 句\n★4 推薦：${star4} 句`)
     } catch(e) {
       alert('AI 評分失敗：' + e.message)
     } finally {
@@ -13706,7 +13727,7 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
 
       const raw = await callAI([{ role:'user', content:prompt }])
 
-      // 解析 pipe 格式（序號|翻譯|推薦|評分|理由）
+      // 解析 pipe 格式（序號|翻譯|推薦|評分|理由），放寬允許空格
       const rawLines = raw.trim().split('\n').filter(l => l.trim())
       const nameLine = rawLines[0]?.trim() ?? '電影場景'
       const translations = {}
@@ -13714,7 +13735,9 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
       const ratings = {}
       const reasons = {}
       rawLines.slice(1).forEach(l => {
-        const m = l.match(/^(\d+)\|(.+?)\|([01])\|([1-5])\|(.+)$/)
+        const clean = l.trim()
+        // 完整格式：序號|翻譯|推薦|評分|理由
+        const m = clean.match(/^(\d+)\s*\|\s*(.+?)\s*\|\s*([01])\s*\|\s*([1-5])\s*\|\s*(.+)$/)
         if (m) {
           const idx = parseInt(m[1]) - 1
           translations[idx] = m[2].trim()
@@ -13722,14 +13745,15 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
           ratings[idx] = parseInt(m[4])
           reasons[idx] = m[5].trim()
         } else {
-          // 兼容舊格式
-          const m2 = l.match(/^(\d+)\|(.+?)\|([01])$/)
+          // 兼容舊格式：序號|翻譯|推薦
+          const m2 = clean.match(/^(\d+)\s*\|\s*(.+?)\s*\|\s*([01])$/)
           if (m2) {
             const idx = parseInt(m2[1]) - 1
             translations[idx] = m2[2].trim()
             recommended[idx] = m2[3] === '1'
           } else {
-            const m3 = l.match(/^(\d+)\|(.+)$/)
+            // 最簡格式：序號|翻譯
+            const m3 = clean.match(/^(\d+)\s*\|\s*(.+)$/)
             if (m3) translations[parseInt(m3[1]) - 1] = m3[2].trim()
           }
         }
@@ -15787,7 +15811,7 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
         <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
           {[
             { id:'anthropic', label:'Anthropic Claude', sub:'claude-haiku',      color:T.amber },
-            { id:'openai',    label:'OpenAI ChatGPT',   sub:'gpt-4o-mini',       color:'#10a37f' },
+            { id:'openai',    label:'OpenAI ChatGPT',   sub:'gpt-5',       color:'#10a37f' },
             { id:'gemini',    label:'Google Gemini',    sub:'gemini-2.5-flash',  color:'#4285f4' },
           ].map(p => {
             const active = aiProvider === p.id
@@ -15834,7 +15858,7 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
           </button>
         </div>
         <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
-          <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer" style={{color:'#10a37f'}}>platform.openai.com</a> → API Keys（使用 gpt-4o-mini）
+          <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer" style={{color:'#10a37f'}}>platform.openai.com</a> → API Keys（使用 gpt-5）
         </span>
       </div>
 
@@ -16483,7 +16507,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.59</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.60</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
