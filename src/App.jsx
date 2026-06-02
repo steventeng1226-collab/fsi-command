@@ -357,6 +357,25 @@ async function callAI(messages, system = '', _unused) {
     const d = await r.json()
     if (!r.ok) throw new Error(d.error?.message ?? 'Gemini error ' + r.status)
     return d.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+
+  } else if (provider === 'openai') {
+    const apiKey = se.openaiKey || ''
+    if (!apiKey) throw new Error('請先在 Setup 設定 OpenAI API Key')
+    const msgs = []
+    if (system) msgs.push({ role:'system', content: system })
+    messages.forEach(m => msgs.push({ role: m.role, content: m.content }))
+    const r = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({ model: 'gpt-4o-mini', max_tokens: 1000, messages: msgs })
+    })
+    const d = await r.json()
+    if (!r.ok) throw new Error(d.error?.message ?? 'OpenAI error ' + r.status)
+    return d.choices?.[0]?.message?.content ?? ''
+
   } else {
     // Anthropic（預設）
     const apiKey = se.apiKey || ''
@@ -7073,7 +7092,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.57</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.58</div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -7274,7 +7293,7 @@ const BOSS_FOLLOWUP = {
 // ── AI 產生 BOSS 追問（有 API Key 時使用）────────────────────
 async function generateBossFollowup(card, answer) {
   const se = getAISettings()
-  const hasKey = se.aiProvider === 'gemini' ? !!se.geminiKey : !!se.apiKey
+  const hasKey = se.aiProvider === 'gemini' ? !!se.geminiKey : se.aiProvider === 'openai' ? !!se.openaiKey : !!se.apiKey
   if (!hasKey) return null
   try {
     const prompt = `You are a senior manager in a manufacturing/electronics company.
@@ -7323,7 +7342,7 @@ async function generateQuestions(card) {
   const fallback = Q_TEMPLATES[type]
 
   const se = getAISettings()
-  const hasKey = se.aiProvider === 'gemini' ? !!se.geminiKey : !!se.apiKey
+  const hasKey = se.aiProvider === 'gemini' ? !!se.geminiKey : se.aiProvider === 'openai' ? !!se.openaiKey : !!se.apiKey
   if (!hasKey) return fallback
 
   try {
@@ -7711,7 +7730,7 @@ function DrillTab({ sentences, vocab, settings }) {
 
     // Try AI in background
     const se = getAISettings()
-    const hasKey = se.aiProvider === 'gemini' ? !!se.geminiKey : !!se.apiKey
+    const hasKey = se.aiProvider === 'gemini' ? !!se.geminiKey : se.aiProvider === 'openai' ? !!se.openaiKey : !!se.apiKey
     if (hasKey) {
       setBossLoading(true)
       generateBossFollowup(card, filledAns).then(aiQs => {
@@ -15213,6 +15232,9 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
   const [geminiKey, setGeminiKey] = useState(() => {
     try { return JSON.parse(localStorage.getItem('fsi:se') || '{}')?.geminiKey ?? '' } catch { return '' }
   })
+  const [openaiKey, setOpenaiKey] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('fsi:se') || '{}')?.openaiKey ?? '' } catch { return '' }
+  })
   const [aiProvider, setAiProvider] = useState(() => {
     try { return JSON.parse(localStorage.getItem('fsi:se') || '{}')?.aiProvider ?? 'anthropic' } catch { return 'anthropic' }
   })
@@ -15220,12 +15242,14 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
     try { return JSON.parse(localStorage.getItem('fsi:se') || '{}')?.elevenKey ?? '' } catch { return '' }
   })
   const [showGeminiKey, setShowGeminiKey] = useState(false)
+  const [showOpenaiKey, setShowOpenaiKey] = useState(false)
   useEffect(() => {
     if (settings?.apiKey)    setKey(settings.apiKey)
     if (settings?.geminiKey) setGeminiKey(settings.geminiKey)
+    if (settings?.openaiKey) setOpenaiKey(settings.openaiKey)
     if (settings?.aiProvider) setAiProvider(settings.aiProvider)
     if (settings?.elevenKey) setElevenKey(settings.elevenKey)
-  }, [settings?.apiKey, settings?.geminiKey, settings?.aiProvider, settings?.elevenKey])
+  }, [settings?.apiKey, settings?.geminiKey, settings?.openaiKey, settings?.aiProvider, settings?.elevenKey])
   const [showKey, setShowKey] = useState(false)
   const [showElevenKey, setShowElevenKey] = useState(false)
   const [syncing, setSyncing] = useState(false)
@@ -15408,7 +15432,7 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
   }
 
   function save() {
-    const newSettings = { apiKey: key.trim(), geminiKey: geminiKey.trim(), aiProvider, elevenKey: elevenKey.trim() }
+    const newSettings = { apiKey: key.trim(), geminiKey: geminiKey.trim(), openaiKey: openaiKey.trim(), aiProvider, elevenKey: elevenKey.trim() }
     try { localStorage.setItem('fsi:se', JSON.stringify(newSettings)) } catch(e) {}
     updateSettings(() => newSettings)
     flash('✓ API Keys 已儲存')
@@ -15507,15 +15531,16 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
       {/* ── AI 供應商切換 ── */}
       <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
         <label style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>🤖 AI 供應商</label>
-        <div style={{ display:'flex', gap:8 }}>
+        <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
           {[
-            { id:'anthropic', label:'Anthropic Claude', sub:'claude-haiku', color:T.amber },
-            { id:'gemini',    label:'Google Gemini',   sub:'gemini-2.5-flash', color:'#4285f4' },
+            { id:'anthropic', label:'Anthropic Claude', sub:'claude-haiku',      color:T.amber },
+            { id:'openai',    label:'OpenAI ChatGPT',   sub:'gpt-4o-mini',       color:'#10a37f' },
+            { id:'gemini',    label:'Google Gemini',    sub:'gemini-2.5-flash',  color:'#4285f4' },
           ].map(p => {
             const active = aiProvider === p.id
             return (
               <div key={p.id} onClick={() => setAiProvider(p.id)}
-                style={{ flex:1, padding:'10px 12px', borderRadius:12, cursor:'pointer',
+                style={{ flex:1, minWidth:90, padding:'10px 12px', borderRadius:12, cursor:'pointer',
                   background: active ? p.color+'18' : T.surf2,
                   border:`2px solid ${active ? p.color+'90' : T.bdr}`,
                   display:'flex', flexDirection:'column', gap:3, transition:'all 0.14s' }}>
@@ -15531,7 +15556,7 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
       {/* Anthropic API Key */}
       <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
         <label style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>
-          ANTHROPIC API KEY {aiProvider === 'anthropic' && <span style={{color:T.grn}}>★ 使用中</span>}
+          ANTHROPIC API KEY {aiProvider === 'anthropic' && <span style={{color:T.amber}}>★ 使用中</span>}
         </label>
         <div style={{ display:'flex', gap:8 }}>
           <input type={showKey ? 'text' : 'password'} value={key} onChange={e=>setKey(e.target.value)} placeholder="sk-ant-api03-…" style={{ flex:1 }}/>
@@ -15541,6 +15566,22 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
         </div>
         <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
           免費版：<a href="https://console.anthropic.com" target="_blank" rel="noreferrer" style={{color:T.amber}}>console.anthropic.com</a> → API Keys
+        </span>
+      </div>
+
+      {/* OpenAI API Key */}
+      <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
+        <label style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>
+          OPENAI API KEY {aiProvider === 'openai' && <span style={{color:'#10a37f'}}>★ 使用中</span>}
+        </label>
+        <div style={{ display:'flex', gap:8 }}>
+          <input type={showOpenaiKey ? 'text' : 'password'} value={openaiKey} onChange={e=>setOpenaiKey(e.target.value)} placeholder="sk-proj-…" style={{ flex:1 }}/>
+          <button className="btn" onClick={()=>setShowOpenaiKey(s=>!s)} style={{ background:T.bdr, color:T.txt2, padding:'10px 13px', fontSize:13 }}>
+            {showOpenaiKey ? '🙈' : '👁'}
+          </button>
+        </div>
+        <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+          <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer" style={{color:'#10a37f'}}>platform.openai.com</a> → API Keys（使用 gpt-4o-mini）
         </span>
       </div>
 
@@ -16186,7 +16227,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.57</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.58</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
