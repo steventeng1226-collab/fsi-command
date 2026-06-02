@@ -359,36 +359,8 @@ async function callAI(messages, system = '', _unused) {
     return d.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
 
   } else if (provider === 'openai') {
-    const apiKey = se.openaiKey || ''
-    if (!apiKey) throw new Error('請先在 Setup 設定 OpenAI API Key')
-    const msgs = []
-    if (system) msgs.push({ role:'system', content: system })
-    messages.forEach(m => msgs.push({ role: m.role, content: m.content }))
-    const r = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({ model: 'gpt-5', max_completion_tokens: 2000, messages: msgs })
-    })
-    const d = await r.json()
-    console.log('[OpenAI raw response]', JSON.stringify(d, null, 2))
-    if (!r.ok) throw new Error(d.error?.message ?? 'OpenAI error ' + r.status)
-
-    // 嘗試所有已知回傳路徑
-    const text =
-      d.choices?.[0]?.message?.content ||
-      d.choices?.[0]?.text ||
-      d.output_text ||
-      d.output?.[0]?.content?.[0]?.text ||
-      d.output?.[0]?.content ||
-      null
-
-    if (text) return text
-
-    // 全部找不到：把完整 JSON 丟給呼叫者看
-    throw new Error('無法解析回傳，完整 JSON：\n' + JSON.stringify(d, null, 2).slice(0, 800))
+    const raw = await callAIRaw(messages, system)
+    return raw.text
 
   } else {
     // Anthropic（預設）
@@ -408,6 +380,113 @@ async function callAI(messages, system = '', _unused) {
     if (!r.ok) throw new Error(d.error?.message ?? 'API error ' + r.status)
     return d.content?.[0]?.text ?? ''
   }
+}
+
+// ── callAIRaw：回傳完整 { text, finish_reason, usage } ──────────
+async function callAIRaw(messages, system = '') {
+  if (!navigator.onLine) throw new Error('目前離線，AI 功能需要網路連線')
+  const se = getAISettings()
+  const apiKey = se.openaiKey || ''
+  if (!apiKey) throw new Error('請先在 Setup 設定 OpenAI API Key')
+
+  const msgs = []
+  if (system) msgs.push({ role:'system', content: system })
+  messages.forEach(m => msgs.push({ role: m.role, content: m.content }))
+
+  const r = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({ model: 'gpt-5', max_completion_tokens: 1000, messages: msgs })
+  })
+  const d = await r.json()
+  console.log('[callAIRaw]', JSON.stringify(d, null, 2))
+  if (!r.ok) throw new Error(d.error?.message ?? 'OpenAI error ' + r.status)
+
+  const choice = d.choices?.[0]
+  const finish_reason = choice?.finish_reason ?? 'unknown'
+  const usage = d.usage ?? {}
+
+  // 嘗試所有已知回傳路徑
+  const text =
+    choice?.message?.content ||
+    choice?.text ||
+    d.output_text ||
+    d.output?.[0]?.content?.[0]?.text ||
+    d.output?.[0]?.content ||
+    null
+
+  if (!text && text !== '') {
+    throw new Error('無法解析回傳，完整 JSON：\n' + JSON.stringify(d, null, 2).slice(0, 800))
+  }
+
+  return { text: text ?? '', finish_reason, usage }
+}
+
+// ── callAIChunked：自動分批處理，合併結果 ─────────────────────
+// promptBuilder(lines) → prompt string
+// lineParser(raw, offset) → object mapping { [globalIdx]: parsedData }
+async function callAIChunked(lines, promptBuilder, lineParser, chunkSize = 10) {
+  const results = {}
+  const debugInfo = []
+  let i = 0
+
+  while (i < lines.length) {
+    const chunk = lines.slice(i, i + chunkSize)
+    const prompt = promptBuilder(chunk, i)
+
+    let raw = null
+    let attempts = 0
+    let currentChunkSize = chunkSize
+
+    while (attempts < 3) {
+      try {
+        const se = getAISettings()
+        const provider = se.aiProvider || 'anthropic'
+
+        if (provider === 'openai') {
+          const result = await callAIRaw([{ role:'user', content: prompt }])
+          debugInfo.push({
+            chunk: `${i+1}-${i+currentChunkSize}`,
+            finish_reason: result.finish_reason,
+            usage: result.usage
+          })
+          console.log(`[Chunk ${i+1}-${i+currentChunkSize}] finish_reason=${result.finish_reason}`, result.usage)
+
+          if (result.finish_reason === 'length' && currentChunkSize > 5) {
+            // token 不夠：縮小到 5 句重試
+            console.warn(`Chunk ${i} finish_reason=length，縮小到 5 句重試`)
+            currentChunkSize = 5
+            attempts++
+            continue
+          }
+          raw = result.text
+        } else {
+          // Gemini / Anthropic 不需要分批（token 夠用）
+          raw = await callAI([{ role:'user', content: prompt }])
+        }
+        break
+      } catch(e) {
+        attempts++
+        if (attempts >= 3) throw e
+        await new Promise(res => setTimeout(res, 1000 * attempts))
+      }
+    }
+
+    if (raw) {
+      const parsed = lineParser(raw, i)
+      Object.assign(results, parsed)
+    }
+
+    i += currentChunkSize
+    // 批次間稍作停頓避免 rate limit
+    if (i < lines.length) await new Promise(res => setTimeout(res, 300))
+  }
+
+  console.log('[callAIChunked debug]', debugInfo)
+  return { results, debugInfo }
 }
 
 // 舊名稱相容（所有 callClaude 呼叫自動走 callAI）
@@ -7106,7 +7185,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.64
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.65
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13381,7 +13460,10 @@ function MovieTab() {
     setAiStarBusy(true)
     try {
       const lines = phrases.map((p, i) => `${i+1}. ${p.en}`)
-      const prompt = `以下是電影台詞，請評分並推薦收藏。
+
+      const promptBuilder = (chunk, offset) => {
+        const numbered = chunk.map((l, i) => l).join('\n')
+        return `以下是電影台詞，請評分並推薦收藏。
 每行格式：序號|推薦(1或0)|評分(1-5)|理由(10字內)
 
 評分標準：
@@ -13389,54 +13471,57 @@ function MovieTab() {
 4=推薦（實用，值得學習）
 3=普通（一般劇情台詞）
 
-只回傳格式內容，不要其他說明，不要標題，不要空行。
+只回傳格式內容，不要其他說明。
 
 範例：
-1|1|5|高頻口語可套用
-2|0|3|一般劇情台詞
-3|1|4|值得學習的表達
+${offset+1}|1|5|高頻口語可套用
+${offset+2}|0|3|一般劇情台詞
 
 台詞：
-${lines.join('\n')}`
-      const raw = await callAI([{ role:'user', content:prompt }])
+${numbered}`
+      }
 
-      // 放寬 regex：允許空格、句點、多種分隔
-      const updates = {}
-      let parsed = 0
-      raw.trim().split('\n').forEach(l => {
-        const clean = l.trim().replace(/\s+/g, '')
-        // 格式：數字|0或1|1-5|任意文字
-        const m = clean.match(/^(\d+)\|([01])\|([1-5])\|(.+)$/)
-        if (m) {
-          const idx = parseInt(m[1]) - 1
-          if (idx >= 0 && idx < phrases.length) {
-            updates[idx] = { starred: m[2]==='1', rating: parseInt(m[3]), reason: m[4].trim() }
-            parsed++
+      const lineParser = (raw, offset) => {
+        const parsed = {}
+        raw.trim().split('\n').forEach(l => {
+          const clean = l.trim().replace(/\s+/g, '')
+          const m = clean.match(/^(\d+)\|([01])\|([1-5])\|(.+)$/)
+          if (m) {
+            const globalIdx = parseInt(m[1]) - 1
+            if (globalIdx >= 0 && globalIdx < phrases.length) {
+              parsed[globalIdx] = {
+                starred: m[2] === '1',
+                rating: Number(m[3]),
+                reason: m[4].trim()
+              }
+            }
           }
-        }
-      })
+        })
+        return parsed
+      }
 
+      const { results, debugInfo } = await callAIChunked(lines, promptBuilder, lineParser, 8)
+
+      const parsed = Object.keys(results).length
       if (parsed === 0) {
-        // 顯示原始回傳幫助 debug
-        alert(`⚠ 無法解析 AI 回傳（共 ${raw.split('\n').length} 行）\n\n前3行：\n${raw.split('\n').slice(0,3).join('\n')}`)
+        alert(`⚠ 無法解析任何結果\ndebug: ${JSON.stringify(debugInfo)}`)
         return
       }
 
       updateScenePhrases(ps => ps.map((p, i) =>
-        updates[i] !== undefined ? { ...p,
-          starred: updates[i].starred,
-          rating: Number(updates[i].rating),
-          reason: updates[i].reason
+        results[i] !== undefined ? { ...p,
+          starred: results[i].starred,
+          rating: Number(results[i].rating),
+          reason: results[i].reason
         } : p
       ))
 
-      const star5 = Object.values(updates).filter(u=>Number(u.rating)===5).length
-      const star4 = Object.values(updates).filter(u=>Number(u.rating)===4).length
-      alert(`✅ AI 評分完成（${parsed}/${phrases.length} 句）\n★5 必背：${star5} 句\n★4 推薦：${star4} 句`)
+      const star5 = Object.values(results).filter(u => Number(u.rating) === 5).length
+      const star4 = Object.values(results).filter(u => Number(u.rating) === 4).length
+      const debugSummary = debugInfo.map(d => `${d.chunk}: ${d.finish_reason} (${d.usage?.completion_tokens ?? '?'}tok)`).join('\n')
+      alert(`✅ AI 評分完成（${parsed}/${phrases.length} 句）\n★5 必背：${star5} 句\n★4 推薦：${star4} 句\n\n${debugSummary}`)
     } catch(e) {
-      // 顯示完整錯誤，方便 debug
-      const msg = e.message ?? String(e)
-      alert('AI 評分失敗：\n' + msg)
+      alert('AI 評分失敗：\n' + (e.message ?? String(e)))
     } finally {
       setAiStarBusy(false)
     }
@@ -13705,7 +13790,7 @@ Return ONLY a JSON object, no markdown:
     return lines
   }
 
-  // ── parse SRT scene（client-side 取行，AI 只翻譯）────────────
+  // ── parse SRT scene（Chunk Mode）────────────────────────────
   async function parseScene() {
     const savedTranscript = movie?.transcript ?? ''
     const activeTranscript = savedTranscript || srtText
@@ -13715,74 +13800,89 @@ Return ONLY a JSON object, no markdown:
 
     setAddBusy(true); setAddErr(''); setAddPreview(null)
     try {
-      // 1. 用程式直接取出每一行（不靠 AI 合併）
+      // 1. 取出字幕行
       const lineObjects = extractSRTLines(activeTranscript, startTime, endTime)
       if (lineObjects.length === 0) {
-        setAddErr(`在 ${startTime}～${endTime} 範圍內找不到字幕行。請確認時間格式（例：08:02 或 00:08:02）與逐字稿是否匹配。`)
+        setAddErr(`在 ${startTime}～${endTime} 範圍內找不到字幕行。`)
         setAddBusy(false); return
       }
       const lines = lineObjects.map(l => l.text)
 
-      // 2. AI：場景名 + 翻譯 + 推薦 + 評分 + 理由
-      const prompt = `給你 ${lines.length} 句英文字幕。
-第一行回傳中文場景名（6~10字，只有場景名，沒有其他文字）。
-之後每行格式：序號|中文翻譯|推薦(1或0)|評分(1-5)|理由(10字內)
+      // 2. 第一批：取場景名（只用前5句）
+      const namePrompt = `給你以下英文字幕，只回傳一個中文場景名（6~10字，不要其他文字）：
+${lines.slice(0,5).map((l,i)=>`${i+1}. ${l}`).join('\n')}`
+      const nameRaw = await callAI([{ role:'user', content: namePrompt }])
+      const sceneName = nameRaw.trim().replace(/^\d+[\.|]/, '').trim() || '電影場景'
 
-評分標準：
-5=必背（高頻口語，日常可直接套用）
-4=推薦（實用，值得學習）
-3=普通（一般劇情台詞）
-
-推薦標準：日常高頻、可套用句型、情緒表達地道、口語實用。數量不限。
-不要合併句子，不要增刪，不要其他說明。
-
-範例格式：
-使命宣言的誕生
-1|我討厭我自己。|1|5|高頻情感表達可套用
-2|然後事情發生了。|0|3|純劇情推進
-3|我開始寫一份使命宣言。|1|4|值得學習的表達
-
-字幕：
-${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
-
-      const raw = await callAI([{ role:'user', content:prompt }])
-
-      // 解析 pipe 格式（序號|翻譯|推薦|評分|理由），放寬允許空格
-      const rawLines = raw.trim().split('\n').filter(l => l.trim())
-      const nameLine = rawLines[0]?.trim() ?? '電影場景'
+      // 3. Chunk Mode：翻譯 + 評分 + 推薦
       const translations = {}
       const recommended = {}
       const ratings = {}
       const reasons = {}
-      rawLines.slice(1).forEach(l => {
-        const clean = l.trim()
-        // 完整格式：序號|翻譯|推薦|評分|理由
-        const m = clean.match(/^(\d+)\s*\|\s*(.+?)\s*\|\s*([01])\s*\|\s*([1-5])\s*\|\s*(.+)$/)
-        if (m) {
-          const idx = parseInt(m[1]) - 1
-          translations[idx] = m[2].trim()
-          recommended[idx] = m[3] === '1'
-          ratings[idx] = parseInt(m[4])
-          reasons[idx] = m[5].trim()
-        } else {
-          // 兼容舊格式：序號|翻譯|推薦
-          const m2 = clean.match(/^(\d+)\s*\|\s*(.+?)\s*\|\s*([01])$/)
-          if (m2) {
-            const idx = parseInt(m2[1]) - 1
-            translations[idx] = m2[2].trim()
-            recommended[idx] = m2[3] === '1'
+
+      const promptBuilder = (chunk, offset) => {
+        const numbered = chunk.map((l, i) => `${offset + i + 1}. ${l}`).join('\n')
+        return `翻譯以下英文字幕為繁體中文，並評分。
+每行格式：序號|中文翻譯|推薦(1或0)|評分(1-5)|理由(10字內)
+
+評分：5=必背 4=推薦 3=普通
+只回傳格式，不要其他說明。
+
+範例：
+${offset+1}|我討厭我自己。|1|5|高頻情感表達
+${offset+2}|然後事情發生了。|0|3|純劇情推進
+
+字幕：
+${numbered}`
+      }
+
+      const lineParser = (raw, offset) => {
+        const parsed = {}
+        raw.trim().split('\n').forEach(l => {
+          const clean = l.trim()
+          const m = clean.match(/^(\d+)\s*\|\s*(.+?)\s*\|\s*([01])\s*\|\s*([1-5])\s*\|\s*(.+)$/)
+          if (m) {
+            const idx = parseInt(m[1]) - 1
+            if (idx >= 0 && idx < lines.length) {
+              parsed[idx] = {
+                zh: m[2].trim(),
+                starred: m[3] === '1',
+                rating: Number(m[4]),
+                reason: m[5].trim()
+              }
+            }
           } else {
-            // 最簡格式：序號|翻譯
-            const m3 = clean.match(/^(\d+)\s*\|\s*(.+)$/)
-            if (m3) translations[parseInt(m3[1]) - 1] = m3[2].trim()
+            // 兼容簡化格式：序號|翻譯
+            const m2 = clean.match(/^(\d+)\s*\|\s*(.+)$/)
+            if (m2) {
+              const idx = parseInt(m2[1]) - 1
+              if (idx >= 0 && idx < lines.length && !parsed[idx]) {
+                parsed[idx] = { zh: m2[2].trim(), starred: false, rating: 3, reason: '' }
+              }
+            }
           }
+        })
+        return parsed
+      }
+
+      const { results, debugInfo } = await callAIChunked(lines, promptBuilder, lineParser, 8)
+      console.log('[parseScene debug]', debugInfo)
+
+      // 合併結果
+      lines.forEach((_, i) => {
+        if (results[i]) {
+          translations[i] = results[i].zh ?? ''
+          recommended[i] = results[i].starred ?? false
+          ratings[i] = results[i].rating ?? 3
+          reasons[i] = results[i].reason ?? ''
         }
       })
 
       const result = {
-        name: nameLine.replace(/^\d+[\.|]/, '').trim(),
+        name: sceneName,
         phrases: lines.map((en, i) => ({
-          en, zh: translations[i] ?? '',
+          en,
+          zh: translations[i] ?? '',
           starred: recommended[i] ?? false,
           rating: ratings[i] ?? 3,
           reason: reasons[i] ?? '',
@@ -16519,7 +16619,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.64</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.65</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
