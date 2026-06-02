@@ -370,7 +370,7 @@ async function callAI(messages, system = '', _unused) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({ model: 'gpt-4o-mini', max_tokens: 1000, messages: msgs })
+      body: JSON.stringify({ model: 'gpt-5', max_tokens: 1000, messages: msgs })
     })
     const d = await r.json()
     if (!r.ok) throw new Error(d.error?.message ?? 'OpenAI error ' + r.status)
@@ -7092,7 +7092,17 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1 }}>FSI COMMAND v3.58</div>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.59
+          {(() => {
+            const se = getAISettings()
+            const p = se.aiProvider || 'anthropic'
+            const label = p === 'openai' ? 'GPT' : p === 'gemini' ? 'Gemini' : 'Claude'
+            const color = p === 'openai' ? '#10a37f' : p === 'gemini' ? '#4285f4' : T.amber
+            return <span style={{ fontFamily:MONO, fontSize:8, color, background:color+'18',
+              border:`1px solid ${color}50`, borderRadius:5, padding:'1px 6px',
+              letterSpacing:'0.06em', fontWeight:700 }}>{label}</span>
+          })()}
+        </div>
         <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
           <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
@@ -13056,6 +13066,7 @@ function MovieTab() {
   const [addErr,     setAddErr]     = useState('')
   const [addPreview, setAddPreview] = useState(null)
   const [aiStarBusy, setAiStarBusy] = useState(false)
+  const [memoryFilter, setMemoryFilter] = useState('5') // '5'|'4'|'all'
 
   const movie   = db.movies.find(m => m.id === movieId)
   const scene   = sceneId ? movie?.scenes.find(s => s.id === sceneId) : null
@@ -13351,28 +13362,40 @@ function MovieTab() {
     if (sceneId === sid) { setSceneId(null); setView('list') }
   }
 
-  async function aiRecommendStars() {
+  async function aiRateScene() {
     if (!scene || phrases.length === 0) return
     setAiStarBusy(true)
     try {
       const lines = phrases.map((p, i) => `${i+1}. ${p.en}`)
-      const prompt = `以下是電影台詞，請推薦日常高頻、可套用、情緒地道、口語實用的句子。
-只回傳推薦的序號，用逗號分隔，不要其他文字。
-例如：1,3,5,8
+      const prompt = `以下是電影台詞，請評分並推薦收藏。
+每行格式：序號|推薦(1或0)|評分(1-5)|理由(10字內)
+
+評分標準：
+5=必背（高頻口語，日常可直接套用）
+4=推薦（實用，值得學習）
+3=普通（一般劇情台詞）
+
+不要其他說明。
 
 台詞：
 ${lines.join('\n')}`
       const raw = await callAI([{ role:'user', content:prompt }])
-      const recommended = new Set(
-        raw.replace(/[^0-9,]/g, '').split(',').map(n => parseInt(n.trim()) - 1).filter(n => !isNaN(n))
-      )
+      const updates = {}
+      raw.trim().split('\n').forEach(l => {
+        const m = l.match(/^(\d+)\|([01])\|([1-5])\|(.+)$/)
+        if (m) {
+          const idx = parseInt(m[1]) - 1
+          updates[idx] = { starred: m[2]==='1', rating: parseInt(m[3]), reason: m[4].trim() }
+        }
+      })
       updateScenePhrases(ps => ps.map((p, i) =>
-        recommended.has(i) ? { ...p, starred: true } : p
+        updates[i] ? { ...p, ...updates[i] } : p
       ))
-      const count = recommended.size
-      alert(`✅ AI 推薦完成，共標星 ${count} 句（已有星星的保留不變）`)
+      const star5 = Object.values(updates).filter(u=>u.rating===5).length
+      const star4 = Object.values(updates).filter(u=>u.rating===4).length
+      alert(`✅ AI 評分完成\n★5 必背：${star5} 句\n★4 推薦：${star4} 句`)
     } catch(e) {
-      alert('AI 推薦失敗：' + e.message)
+      alert('AI 評分失敗：' + e.message)
     } finally {
       setAiStarBusy(false)
     }
@@ -13659,39 +13682,56 @@ Return ONLY a JSON object, no markdown:
       }
       const lines = lineObjects.map(l => l.text)
 
-      // 2. AI 只負責：取場景名 + 每行翻中文 + 標記推薦句（改用 | 分隔格式，避免 JSON 引號問題）
+      // 2. AI：場景名 + 翻譯 + 推薦 + 評分 + 理由
       const prompt = `給你 ${lines.length} 句英文字幕。
 第一行回傳中文場景名（6~10字，只有場景名，沒有其他文字）。
-之後每行格式：序號|中文翻譯|推薦(1或0)
-推薦標準：日常高頻、可套用句型、情緒表達地道、口語實用。數量不限，依句子品質判斷。
+之後每行格式：序號|中文翻譯|推薦(1或0)|評分(1-5)|理由(10字內)
+
+評分標準：
+5=必背（高頻口語，日常可直接套用）
+4=推薦（實用，值得學習）
+3=普通（一般劇情台詞）
+
+推薦標準：日常高頻、可套用句型、情緒表達地道、口語實用。數量不限。
 不要合併句子，不要增刪，不要其他說明。
 
 範例格式：
 使命宣言的誕生
-1|我討厭我自己。|1
-2|然後事情發生了。|0
-3|我開始寫一份使命宣言。|1
+1|我討厭我自己。|1|5|高頻情感表達可套用
+2|然後事情發生了。|0|3|純劇情推進
+3|我開始寫一份使命宣言。|1|4|值得學習的表達
 
 字幕：
 ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
 
       const raw = await callAI([{ role:'user', content:prompt }])
 
-      // 解析 pipe 格式
+      // 解析 pipe 格式（序號|翻譯|推薦|評分|理由）
       const rawLines = raw.trim().split('\n').filter(l => l.trim())
       const nameLine = rawLines[0]?.trim() ?? '電影場景'
       const translations = {}
       const recommended = {}
+      const ratings = {}
+      const reasons = {}
       rawLines.slice(1).forEach(l => {
-        const m = l.match(/^(\d+)\|(.+?)\|([01])$/)
+        const m = l.match(/^(\d+)\|(.+?)\|([01])\|([1-5])\|(.+)$/)
         if (m) {
           const idx = parseInt(m[1]) - 1
           translations[idx] = m[2].trim()
           recommended[idx] = m[3] === '1'
+          ratings[idx] = parseInt(m[4])
+          reasons[idx] = m[5].trim()
         } else {
-          // 兼容舊格式（無推薦欄位）
-          const m2 = l.match(/^(\d+)\|(.+)$/)
-          if (m2) translations[parseInt(m2[1]) - 1] = m2[2].trim()
+          // 兼容舊格式
+          const m2 = l.match(/^(\d+)\|(.+?)\|([01])$/)
+          if (m2) {
+            const idx = parseInt(m2[1]) - 1
+            translations[idx] = m2[2].trim()
+            recommended[idx] = m2[3] === '1'
+          } else {
+            const m3 = l.match(/^(\d+)\|(.+)$/)
+            if (m3) translations[parseInt(m3[1]) - 1] = m3[2].trim()
+          }
         }
       })
 
@@ -13700,6 +13740,8 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
         phrases: lines.map((en, i) => ({
           en, zh: translations[i] ?? '',
           starred: recommended[i] ?? false,
+          rating: ratings[i] ?? 3,
+          reason: reasons[i] ?? '',
           startSecs: lineObjects[i]?.startSecs ?? 0,
           endSecs:   lineObjects[i]?.endSecs   ?? 0,
         }))
@@ -13715,7 +13757,7 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
     const ns = {
       id: 'scene_'+Date.now(), timeRange:`${startTime} ~ ${endTime}`,
       name: addPreview.name,
-      phrases: addPreview.phrases.map((p,i) => ({ id:'ph_'+Date.now()+'_'+i, en:p.en, zh:p.zh, played:false, starred: p.starred ?? false, startSecs: p.startSecs??0, endSecs: p.endSecs??0 }))
+      phrases: addPreview.phrases.map((p,i) => ({ id:'ph_'+Date.now()+'_'+i, en:p.en, zh:p.zh, played:false, starred: p.starred ?? false, rating: p.rating ?? 3, reason: p.reason ?? '', startSecs: p.startSecs??0, endSecs: p.endSecs??0 }))
     }
     saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : { ...m, scenes:[...m.scenes, ns] }) })
     setSrtText(''); setStartTime(''); setEndTime(''); setAddPreview(null); setView('list')
@@ -14507,7 +14549,7 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
               color: starFilter ? T.amber : T.txt3 }}>
             ⭐ 重點 ({starredCount})
           </div>
-          <div onClick={aiStarBusy ? undefined : aiRecommendStars}
+          <div onClick={aiStarBusy ? undefined : aiRateScene}
             style={{ cursor: aiStarBusy ? 'default' : 'pointer',
               fontFamily:MONO, fontSize:10, textAlign:'center',
               padding:'8px 10px', borderRadius:10, transition:'all 0.13s',
@@ -14519,7 +14561,7 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
                   border:'1.5px solid transparent', borderTopColor:T.txt3,
                   borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>
               : '✨'}
-            {aiStarBusy ? '推薦中…' : 'AI 推薦'}
+            {aiStarBusy ? '評分中…' : '🌟 AI 評分'}
           </div>
         </div>
 
@@ -14756,6 +14798,21 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
                   opacity:0.5, marginLeft:5 }}>✎</span>
               </div>
             )}
+            {/* 評分標籤（★5/★4 才顯示）*/}
+            {(p.rating === 5 || p.rating === 4) && (
+              <div style={{ display:'flex', alignItems:'center', gap:5, marginTop:3 }}>
+                <span style={{ fontFamily:MONO, fontSize:9, fontWeight:700,
+                  color: p.rating === 5 ? T.amber : '#c9a227',
+                  background: p.rating === 5 ? T.amberD : '#c9a22718',
+                  border:`1px solid ${p.rating === 5 ? T.amber+'60' : '#c9a22750'}`,
+                  borderRadius:5, padding:'1px 7px' }}>
+                  {p.rating === 5 ? '★5 必背' : '★4 推薦'}
+                </span>
+                {p.reason && (
+                  <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>{p.reason}</span>
+                )}
+              </div>
+            )}
             {/* 備註（📝）顯示區 */}
             {editingNoteId === p.id ? (
               <div style={{ display:'flex', gap:6, alignItems:'center', paddingRight:70, marginTop:4 }}>
@@ -14948,6 +15005,93 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
   }
 
   // ══════════════════════════════════════════════════════════════
+  // MEMORY VIEW（背誦庫）
+  // ══════════════════════════════════════════════════════════════
+  if (view === 'memory') {
+    const allScenes = db.movies.flatMap(m => m.scenes ?? [])
+    const allPhrases = allScenes.flatMap(s =>
+      (s.phrases ?? []).map(p => ({ ...p, sceneName: s.name }))
+    )
+    const memPhrases = allPhrases.filter(p =>
+      memoryFilter === '5' ? p.rating === 5 :
+      memoryFilter === '4' ? (p.rating === 5 || p.rating === 4) :
+      (p.rating === 5 || p.rating === 4 || p.starred)
+    )
+    return (
+      <div style={{ padding:'16px 16px 80px', display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <BackBtn label="← 返回" to="list"/>
+          <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>📚 背誦庫</span>
+        </div>
+        {/* 篩選 */}
+        <div style={{ display:'flex', gap:6 }}>
+          {[['5','★5 必背'],['4','★4 以上'],['all','全部收藏']].map(([val, label]) => (
+            <div key={val} onClick={() => setMemoryFilter(val)}
+              style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                textAlign:'center', padding:'8px 4px', borderRadius:9,
+                background: memoryFilter===val ? T.amberD : T.surf2,
+                border:`1px solid ${memoryFilter===val ? T.amber+'60' : T.bdr}`,
+                color: memoryFilter===val ? T.amber : T.txt3 }}>
+              {label}
+            </div>
+          ))}
+        </div>
+        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+          共 {memPhrases.length} 句
+        </div>
+        {memPhrases.length === 0 ? (
+          <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, textAlign:'center',
+            padding:'40px 20px', background:T.surf, borderRadius:13 }}>
+            尚無符合條件的句子<br/>
+            <span style={{ fontSize:9 }}>請先用「🌟 AI 評分」為場景評分</span>
+          </div>
+        ) : (
+          <>
+            {/* 反向練習入口 */}
+            <div onClick={() => {
+                setRevIdx(0); setRevFlip(false)
+                setActivePhrases(memPhrases)
+                setView('reverse')
+              }}
+              style={{ background:T.amber, borderRadius:11, padding:'12px',
+                textAlign:'center', cursor:'pointer',
+                fontFamily:MONO, fontSize:12, fontWeight:700, color:T.bg }}>
+              🔄 開始反向練習（{memPhrases.length} 句）
+            </div>
+            {/* 句子列表 */}
+            {memPhrases.map((p, i) => (
+              <div key={p.id ?? i} style={{ background:T.surf, borderRadius:12,
+                padding:'12px 14px', border:`1px solid ${p.rating===5 ? T.amber+'40' : T.bdr}` }}>
+                <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:4 }}>
+                  {p.sceneName}
+                </div>
+                <div style={{ fontFamily:MONO, fontSize:12, color:T.txt, lineHeight:1.7, marginBottom:4 }}>
+                  {p.en}
+                </div>
+                <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, marginBottom:6 }}>
+                  {p.zh}
+                </div>
+                <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                  <span style={{ fontFamily:MONO, fontSize:9, fontWeight:700,
+                    color: p.rating===5 ? T.amber : '#c9a227',
+                    background: p.rating===5 ? T.amberD : '#c9a22718',
+                    border:`1px solid ${p.rating===5 ? T.amber+'60' : '#c9a22750'}`,
+                    borderRadius:5, padding:'1px 7px' }}>
+                    {p.rating===5 ? '★5 必背' : '★4 推薦'}
+                  </span>
+                  {p.reason && (
+                    <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>{p.reason}</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+    )
+  }
+
+  // ══════════════════════════════════════════════════════════════
   // LIST VIEW (default — scene list)
   // ══════════════════════════════════════════════════════════════
   const totalPhrases = movie?.scenes.reduce((a,s) => a+s.phrases.length, 0) ?? 0
@@ -15007,13 +15151,28 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
           </span>
         </div>
       </div>
-      {/* 單字庫（移到最上方）*/}
-      <div onClick={() => setView('vocab')}
-        style={{ border:`1px solid ${db.vocab.length ? T.blue+'50' : T.bdr}`, borderRadius:12, padding:'13px',
-          display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer',
-          background: db.vocab.length ? T.blueD : T.surf }}>
-        <span style={{ fontFamily:MONO, fontSize:11, color: db.vocab.length ? T.blue : T.txt2 }}>📖 單字庫</span>
-        <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>{db.vocab.length} 個 →</span>
+      {/* 單字庫 + 背誦庫 並排 */}
+      <div style={{ display:'flex', gap:8 }}>
+        <div onClick={() => setView('vocab')}
+          style={{ flex:1, border:`1px solid ${db.vocab.length ? T.blue+'50' : T.bdr}`, borderRadius:12, padding:'13px',
+            display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer',
+            background: db.vocab.length ? T.blueD : T.surf }}>
+          <span style={{ fontFamily:MONO, fontSize:11, color: db.vocab.length ? T.blue : T.txt2 }}>📖 單字庫</span>
+          <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>{db.vocab.length} →</span>
+        </div>
+        {(() => {
+          const allPhrases = (db.movies ?? []).flatMap(m => (m.scenes ?? []).flatMap(s => s.phrases ?? []))
+          const memCount = allPhrases.filter(p => p.rating === 5 || p.rating === 4).length
+          return (
+            <div onClick={() => setView('memory')}
+              style={{ flex:1, border:`1px solid ${memCount ? T.amber+'50' : T.bdr}`, borderRadius:12, padding:'13px',
+                display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer',
+                background: memCount ? T.amberD : T.surf }}>
+              <span style={{ fontFamily:MONO, fontSize:11, color: memCount ? T.amber : T.txt2 }}>📚 背誦庫</span>
+              <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>{memCount} →</span>
+            </div>
+          )
+        })()}
       </div>
       {/* Scene cards（最新在最上面）*/}
       {[...(movie?.scenes ?? [])].reverse().map(s => {
@@ -15224,6 +15383,100 @@ function AchieveTab({ stats, earned, sentences, vocab }) {
 // ═══════════════════════════════════════════════════════════════
 // SETTINGS TAB
 // ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// TRANSLATE TEST COMPONENT
+// ═══════════════════════════════════════════════════════════════
+function TranslateTest() {
+  const [open, setOpen] = useState(false)
+  const [input, setInput] = useState('')
+  const [results, setResults] = useState({}) // { anthropic, openai, gemini }
+  const [busy, setBusy] = useState({})
+
+  async function testOne(provider) {
+    if (!input.trim()) return
+    setBusy(b => ({ ...b, [provider]: true }))
+    setResults(r => ({ ...r, [provider]: '...' }))
+    const se = getAISettings()
+    const origProvider = se.aiProvider
+    try {
+      // 暫時覆蓋 provider
+      const tempSe = { ...se, aiProvider: provider }
+      localStorage.setItem('fsi:se', JSON.stringify(tempSe))
+      const prompt = `翻譯以下英文句子為自然流暢的繁體中文，只回傳翻譯結果，不要其他說明：\n${input.trim()}`
+      const result = await callAI([{ role:'user', content:prompt }])
+      setResults(r => ({ ...r, [provider]: result.trim() }))
+    } catch(e) {
+      setResults(r => ({ ...r, [provider]: `❌ ${e.message}` }))
+    } finally {
+      // 還原原本 provider
+      const tempSe = { ...se, aiProvider: origProvider }
+      localStorage.setItem('fsi:se', JSON.stringify(tempSe))
+      setBusy(b => ({ ...b, [provider]: false }))
+    }
+  }
+
+  async function testAll() {
+    await Promise.all(['anthropic','openai','gemini'].map(p => testOne(p)))
+  }
+
+  const T = window._T || { surf:'#1a1d21', surf2:'#22262b', bdr:'#2e3338', txt:'#e8eaed', txt2:'#b0b8c4', txt3:'#6b7785', amber:'#f5a623', amberD:'#f5a62320', blue:'#4a9eff', blueD:'#4a9eff20', bg:'#12151a', grn:'#4caf84', grnD:'#4caf8420' }
+  const MONO = "'JetBrains Mono',monospace"
+
+  const providers = [
+    { id:'anthropic', label:'Claude',  color:'#f5a623' },
+    { id:'openai',    label:'GPT',     color:'#10a37f' },
+    { id:'gemini',    label:'Gemini',  color:'#4285f4' },
+  ]
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:0 }}>
+      <div onClick={() => setOpen(o => !o)}
+        style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#6b7785',
+          padding:'8px 0', display:'flex', alignItems:'center', gap:6,
+          borderTop:'1px solid #2e3338', marginTop:8 }}>
+        <span>{open ? '▲' : '▼'}</span>
+        <span>🧪 翻譯比較測試</span>
+      </div>
+      {open && (
+        <div style={{ display:'flex', flexDirection:'column', gap:10,
+          background:'#1a1d21', borderRadius:12, padding:'14px',
+          border:'1px solid #2e3338' }}>
+          <textarea
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            rows={2}
+            placeholder="輸入英文句子，例：He can't be alone."
+            style={{ fontFamily:MONO, fontSize:11, background:'#22262b',
+              border:'1px solid #2e3338', borderRadius:8, padding:'9px 11px',
+              color:'#e8eaed', resize:'none', outline:'none',
+              lineHeight:1.6, width:'100%', boxSizing:'border-box' }}
+          />
+          <div onClick={testAll}
+            style={{ cursor:'pointer', background:'#f5a623', borderRadius:8,
+              padding:'10px', textAlign:'center',
+              fontFamily:MONO, fontSize:11, fontWeight:700, color:'#12151a' }}>
+            ⚡ 三家同時翻譯
+          </div>
+          {providers.map(p => (
+            <div key={p.id} style={{ background:'#22262b', borderRadius:10,
+              padding:'10px 12px', border:`1px solid ${results[p.id] ? p.color+'40' : '#2e3338'}` }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:5 }}>
+                <span style={{ fontFamily:MONO, fontSize:9, fontWeight:700, color:p.color }}>{p.label}</span>
+                {busy[p.id] && <span style={{ display:'inline-block', width:8, height:8,
+                  border:'1.5px solid transparent', borderTopColor:p.color,
+                  borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>}
+              </div>
+              <div style={{ fontFamily:MONO, fontSize:11, color:'#e8eaed', lineHeight:1.7, minHeight:20 }}>
+                {results[p.id] || <span style={{ color:'#6b7785' }}>—</span>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings, updateSettings, stats, earned }) {
   // 直接從 localStorage 讀取，避免 settings prop 非同步初始化問題
   const [key, setKey] = useState(() => {
@@ -16113,6 +16366,9 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
         {(sentences??[]).length} sentences in practice library
       </div>
 
+      {/* ── 翻譯測試（預設收合）── */}
+      <TranslateTest />
+
       {/* ── Goals / Achievements (moved from tab) ── */}
       <AchieveTab stats={stats} earned={earned} sentences={sentences} vocab={vocab}/>
     </div>
@@ -16227,7 +16483,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.58</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.59</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
