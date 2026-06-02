@@ -7215,7 +7215,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.68
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.70
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13493,19 +13493,22 @@ function MovieTab() {
 
       const promptBuilder = (chunk, offset) => {
         const numbered = chunk.map((l, i) => l).join('\n')
-        return `以下是電影台詞，請評分並推薦收藏。
-每行格式：序號|推薦(1或0)|評分(1-5)|理由(10字內)
+        const total = lines.length
+        const max5 = Math.max(1, Math.floor(total * 0.2))
+        return `以下是電影台詞，請翻譯並評分。
+每行格式：序號|推薦(1或0)|評分(1-5)|理由(10字內)|繁體中文翻譯
 
-評分標準：
-5=必背（高頻口語，日常可直接套用）
-4=推薦（實用，值得學習）
-3=普通（一般劇情台詞）
+評分標準（請嚴格執行）：
+5=必背：完整實用句，能直接套用於真實對話。單字、感嘆詞、稱謂一律不得給5。整場景★5不超過20%（共${total}句，最多${max5}句）。
+4=推薦：有學習價值，句型可延伸使用
+3=普通：劇情推進句、單字、短語、感嘆詞（Wow/Hey/OK等）
 
 只回傳格式內容，不要其他說明。
 
 範例：
-${offset+1}|1|5|高頻口語可套用
-${offset+2}|0|3|一般劇情台詞
+${offset+1}|1|5|完整句型可套用|我討厭我自己。
+${offset+2}|0|3|感嘆詞不適合必背|哇。
+${offset+3}|1|4|值得學習的表達|我開始寫一份使命宣言。
 
 台詞：
 ${numbered}`
@@ -13514,15 +13517,17 @@ ${numbered}`
       const lineParser = (raw, offset) => {
         const parsed = {}
         raw.trim().split('\n').forEach(l => {
-          const clean = l.trim().replace(/\s+/g, '')
-          const m = clean.match(/^(\d+)\|([01])\|([1-5])\|(.+)$/)
+          const clean = l.trim().replace(/\s+/g, ' ')
+          // 格式：序號|推薦|評分|理由|翻譯
+          const m = clean.match(/^(\d+)\s*\|\s*([01])\s*\|\s*([1-5])\s*\|\s*(.+?)\s*\|\s*(.+)$/)
           if (m) {
             const globalIdx = parseInt(m[1]) - 1
             if (globalIdx >= 0 && globalIdx < phrases.length) {
               parsed[globalIdx] = {
                 starred: m[2] === '1',
                 rating: Number(m[3]),
-                reason: m[4].trim()
+                reason: m[4].trim(),
+                zh: m[5].trim()
               }
             }
           }
@@ -13542,7 +13547,8 @@ ${numbered}`
         results[i] !== undefined ? { ...p,
           starred: results[i].starred,
           rating: Number(results[i].rating),
-          reason: results[i].reason
+          reason: results[i].reason,
+          zh: results[i].zh || p.zh  // 有新翻譯就更新，否則保留原有
         } : p
       ))
 
@@ -13855,7 +13861,10 @@ ${lines.slice(0,5).map((l,i)=>`${i+1}. ${l}`).join('\n')}`
         return `翻譯以下英文字幕為繁體中文，並評分。
 每行格式：序號|中文翻譯|推薦(1或0)|評分(1-5)|理由(10字內)
 
-評分：5=必背 4=推薦 3=普通
+評分標準（請嚴格執行）：
+5=必背：完整實用句，能直接套用於真實對話。單字、感嘆詞、稱謂一律不得給5。★5不超過20%。
+4=推薦：有學習價值，句型可延伸
+3=普通：劇情推進、單字、短語、感嘆詞（Wow/Hey/OK等）
 只回傳格式，不要其他說明。
 
 範例：
@@ -15183,9 +15192,9 @@ ${numbered}`
       (s.phrases ?? []).map(p => ({ ...p, sceneName: s.name }))
     )
     const memPhrases = allPhrases.filter(p =>
-      memoryFilter === '5' ? p.rating === 5 :
-      memoryFilter === '4' ? (p.rating === 5 || p.rating === 4) :
-      (p.rating === 5 || p.rating === 4 || p.starred)
+      memoryFilter === '5' ? Number(p.rating) === 5 :
+      memoryFilter === '4' ? Number(p.rating) === 4 :
+      (Number(p.rating) === 4 || Number(p.rating) === 5)
     )
     return (
       <div style={{ padding:'16px 16px 80px', display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
@@ -15195,7 +15204,7 @@ ${numbered}`
         </div>
         {/* 篩選 */}
         <div style={{ display:'flex', gap:6 }}>
-          {[['5','★5 必背'],['4','★4 以上'],['all','全部收藏']].map(([val, label]) => (
+          {[['5','★5 必背'],['4','★4 推薦'],['all','全部 4+5']].map(([val, label]) => (
             <div key={val} onClick={() => setMemoryFilter(val)}
               style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
                 textAlign:'center', padding:'8px 4px', borderRadius:9,
@@ -15328,7 +15337,7 @@ ${numbered}`
         </div>
         {(() => {
           const allPhrases = (db.movies ?? []).flatMap(m => (m.scenes ?? []).flatMap(s => s.phrases ?? []))
-          const memCount = allPhrases.filter(p => p.rating === 5 || p.rating === 4).length
+          const memCount = allPhrases.filter(p => Number(p.rating) === 4 || Number(p.rating) === 5).length
           return (
             <div onClick={() => setView('memory')}
               style={{ flex:1, border:`1px solid ${memCount ? T.amber+'50' : T.bdr}`, borderRadius:12, padding:'13px',
@@ -16692,7 +16701,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.68</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.70</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
