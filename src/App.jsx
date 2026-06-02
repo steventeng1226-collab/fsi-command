@@ -393,9 +393,9 @@ async function callAIRaw(messages, system = '', debugMode = false) {
   if (system) msgs.push({ role:'system', content: system })
   messages.forEach(m => msgs.push({ role: m.role, content: m.content }))
 
-  // AbortController：55 秒超時保護
+  // AbortController：30 秒超時保護
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 55000)
+  const timeoutId = setTimeout(() => controller.abort(), 30000)
 
   let r, d
   try {
@@ -405,12 +405,12 @@ async function callAIRaw(messages, system = '', debugMode = false) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({ model: 'gpt-5', max_completion_tokens: 8000, messages: msgs }),
+      body: JSON.stringify({ model: 'gpt-4o-mini', max_tokens: 2000, messages: msgs }),
       signal: controller.signal
     })
     d = await r.json()
   } catch(e) {
-    if (e.name === 'AbortError') throw new Error('請求超時（55秒），請重試')
+    if (e.name === 'AbortError') throw new Error('請求超時（30秒），請重試')
     throw new Error('網路錯誤：' + e.message)
   } finally {
     clearTimeout(timeoutId)
@@ -530,8 +530,8 @@ async function callAIChunked(lines, promptBuilder, lineParser, chunkSize = 10) {
     }
 
     i += currentChunkSize
-    // 批次間停頓：避免 rate limit 和讓 gpt-5 推理有喘息空間
-    if (i < lines.length) await new Promise(res => setTimeout(res, 800))
+    // 批次間停頓：避免 rate limit 和避免 rate limit
+    if (i < lines.length) await new Promise(res => setTimeout(res, 200))
   }
 
   console.log('[callAIChunked debug]', debugInfo)
@@ -7234,7 +7234,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.71
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.72
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -16021,7 +16021,7 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
         <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
           {[
             { id:'anthropic', label:'Anthropic Claude', sub:'claude-haiku',      color:T.amber },
-            { id:'openai',    label:'OpenAI ChatGPT',   sub:'gpt-5',       color:'#10a37f' },
+            { id:'openai',    label:'OpenAI ChatGPT',   sub:'gpt-4o-mini (fast)',       color:'#10a37f' },
             { id:'gemini',    label:'Google Gemini',    sub:'gemini-2.5-flash',  color:'#4285f4' },
           ].map(p => {
             const active = aiProvider === p.id
@@ -16068,7 +16068,7 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
           </button>
         </div>
         <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
-          <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer" style={{color:'#10a37f'}}>platform.openai.com</a> → API Keys（使用 gpt-5）
+          <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer" style={{color:'#10a37f'}}>platform.openai.com</a> → API Keys（使用 gpt-4o-mini）
         </span>
       </div>
 
@@ -16720,7 +16720,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.71</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.72</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
