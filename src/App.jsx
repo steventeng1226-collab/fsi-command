@@ -7092,7 +7092,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.60
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.61
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13409,11 +13409,15 @@ ${lines.join('\n')}`
       }
 
       updateScenePhrases(ps => ps.map((p, i) =>
-        updates[i] !== undefined ? { ...p, ...updates[i] } : p
+        updates[i] !== undefined ? { ...p,
+          starred: updates[i].starred,
+          rating: Number(updates[i].rating),
+          reason: updates[i].reason
+        } : p
       ))
 
-      const star5 = Object.values(updates).filter(u=>u.rating===5).length
-      const star4 = Object.values(updates).filter(u=>u.rating===4).length
+      const star5 = Object.values(updates).filter(u=>Number(u.rating)===5).length
+      const star4 = Object.values(updates).filter(u=>Number(u.rating)===4).length
       alert(`✅ AI 評分完成（${parsed}/${phrases.length} 句）\n★5 必背：${star5} 句\n★4 推薦：${star4} 句`)
     } catch(e) {
       alert('AI 評分失敗：' + e.message)
@@ -14822,15 +14826,11 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
                   opacity:0.5, marginLeft:5 }}>✎</span>
               </div>
             )}
-            {/* 評分標籤（★5/★4 才顯示）*/}
-            {(p.rating === 5 || p.rating === 4) && (
+            {/* 評分星星（★4以上才顯示，放在翻譯下方）*/}
+            {(Number(p.rating) >= 4) && (
               <div style={{ display:'flex', alignItems:'center', gap:5, marginTop:3 }}>
-                <span style={{ fontFamily:MONO, fontSize:9, fontWeight:700,
-                  color: p.rating === 5 ? T.amber : '#c9a227',
-                  background: p.rating === 5 ? T.amberD : '#c9a22718',
-                  border:`1px solid ${p.rating === 5 ? T.amber+'60' : '#c9a22750'}`,
-                  borderRadius:5, padding:'1px 7px' }}>
-                  {p.rating === 5 ? '★5 必背' : '★4 推薦'}
+                <span style={{ fontSize:13, letterSpacing:1 }}>
+                  {'⭐'.repeat(Number(p.rating))}
                 </span>
                 {p.reason && (
                   <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>{p.reason}</span>
@@ -15096,12 +15096,8 @@ ${lines.map((l,i)=>`${i+1}. ${l}`).join('\n')}`
                   {p.zh}
                 </div>
                 <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                  <span style={{ fontFamily:MONO, fontSize:9, fontWeight:700,
-                    color: p.rating===5 ? T.amber : '#c9a227',
-                    background: p.rating===5 ? T.amberD : '#c9a22718',
-                    border:`1px solid ${p.rating===5 ? T.amber+'60' : '#c9a22750'}`,
-                    borderRadius:5, padding:'1px 7px' }}>
-                    {p.rating===5 ? '★5 必背' : '★4 推薦'}
+                  <span style={{ fontSize:13, letterSpacing:1 }}>
+                    {'⭐'.repeat(Number(p.rating) || 4)}
                   </span>
                   {p.reason && (
                     <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>{p.reason}</span>
@@ -16507,7 +16503,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.60</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.61</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
