@@ -382,8 +382,8 @@ async function callAI(messages, system = '', _unused) {
   }
 }
 
-// ── callAIRaw：回傳完整 { text, finish_reason, usage } ──────────
-async function callAIRaw(messages, system = '') {
+// ── callAIRaw：回傳完整 { text, finish_reason, usage, _raw } ──
+async function callAIRaw(messages, system = '', debugMode = false) {
   if (!navigator.onLine) throw new Error('目前離線，AI 功能需要網路連線')
   const se = getAISettings()
   const apiKey = se.openaiKey || ''
@@ -402,27 +402,57 @@ async function callAIRaw(messages, system = '') {
     body: JSON.stringify({ model: 'gpt-5', max_completion_tokens: 1000, messages: msgs })
   })
   const d = await r.json()
-  console.log('[callAIRaw]', JSON.stringify(d, null, 2))
+  console.log('[callAIRaw full response]', JSON.stringify(d, null, 2))
   if (!r.ok) throw new Error(d.error?.message ?? 'OpenAI error ' + r.status)
 
   const choice = d.choices?.[0]
   const finish_reason = choice?.finish_reason ?? 'unknown'
   const usage = d.usage ?? {}
 
+  // 診斷模式：列出所有 top-level keys 和 choices[0] keys
+  if (debugMode) {
+    const topKeys = Object.keys(d)
+    const choiceKeys = choice ? Object.keys(choice) : []
+    const msgKeys = choice?.message ? Object.keys(choice.message) : []
+    const allValues = {}
+    topKeys.forEach(k => {
+      if (k !== 'choices' && k !== 'usage') {
+        allValues[`root.${k}`] = String(d[k]).slice(0, 100)
+      }
+    })
+    choiceKeys.forEach(k => {
+      if (k !== 'message') {
+        allValues[`choices[0].${k}`] = String(choice[k]).slice(0, 100)
+      }
+    })
+    msgKeys.forEach(k => {
+      allValues[`choices[0].message.${k}`] = JSON.stringify(choice.message[k]).slice(0, 200)
+    })
+    // 也掃 usage
+    Object.keys(usage).forEach(k => {
+      allValues[`usage.${k}`] = String(usage[k])
+    })
+    throw new Error('=== 完整 keys ===\n' + Object.entries(allValues).map(([k,v]) => `${k}: ${v}`).join('\n'))
+  }
+
   // 嘗試所有已知回傳路徑
   const text =
     choice?.message?.content ||
+    choice?.message?.reasoning ||
+    choice?.message?.reasoning_content ||
     choice?.text ||
     d.output_text ||
     d.output?.[0]?.content?.[0]?.text ||
     d.output?.[0]?.content ||
+    d.text ||
+    d.summary ||
     null
 
   if (!text && text !== '') {
     throw new Error('無法解析回傳，完整 JSON：\n' + JSON.stringify(d, null, 2).slice(0, 800))
   }
 
-  return { text: text ?? '', finish_reason, usage }
+  return { text: text ?? '', finish_reason, usage, _raw: d }
 }
 
 // ── callAIChunked：自動分批處理，合併結果 ─────────────────────
@@ -7185,7 +7215,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.65
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.66
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -15522,6 +15552,46 @@ function AchieveTab({ stats, earned, sentences, vocab }) {
 // ═══════════════════════════════════════════════════════════════
 // TRANSLATE TEST COMPONENT
 // ═══════════════════════════════════════════════════════════════
+function GPT5Diagnose() {
+  const [busy, setBusy] = React.useState(false)
+  const MONO = "'JetBrains Mono',monospace"
+
+  async function runDiagnose() {
+    setBusy(true)
+    try {
+      await callAIRaw(
+        [{ role:'user', content:'Say: OK' }],
+        '',
+        true  // debugMode=true → 列出所有 keys
+      )
+    } catch(e) {
+      alert(e.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:0 }}>
+      <div style={{ fontFamily:MONO, fontSize:9, color:'#6b7785',
+        padding:'8px 0', borderTop:'1px solid #2e3338', marginTop:8 }}>
+        🔍 GPT-5 Response 診斷
+      </div>
+      <div onClick={busy ? undefined : runDiagnose}
+        style={{ cursor: busy ? 'default' : 'pointer',
+          background:'#22262b', borderRadius:10, padding:'10px',
+          textAlign:'center', fontFamily:MONO, fontSize:10,
+          fontWeight:700, color: busy ? '#6b7785' : '#10a37f',
+          border:'1px solid #10a37f40' }}>
+        {busy ? '診斷中…' : '🔍 列出所有 Response Keys'}
+      </div>
+      <div style={{ fontFamily:MONO, fontSize:9, color:'#6b7785', marginTop:4 }}>
+        點後看 alert，找 gpt-5 實際輸出欄位
+      </div>
+    </div>
+  )
+}
+
 function TranslateTest() {
   const [open, setOpen] = useState(false)
   const [input, setInput] = useState('')
@@ -16502,6 +16572,9 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
         {(sentences??[]).length} sentences in practice library
       </div>
 
+      {/* ── GPT-5 診斷 ── */}
+      <GPT5Diagnose />
+
       {/* ── 翻譯測試（預設收合）── */}
       <TranslateTest />
 
@@ -16619,7 +16692,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.65</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.66</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
