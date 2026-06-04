@@ -7243,7 +7243,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.81
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.82
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14937,25 +14937,6 @@ ${numbered}`
               🎬 整段原聲 · {scene.timeRange}
             </div>
 
-            {/* 音軌切換 */}
-            <div style={{ display:'flex', gap:6 }}>
-              {[['original','🎬 電影原音'],['tts','🔊 系統音']].map(([mode, label]) => (
-                <div key={mode} onClick={() => {
-                    if (scenePlaying) stopSceneAudio()
-                    setAudioMode(mode)
-                    localStorage.setItem('fsi:movie:audioMode', mode)
-                  }}
-                  style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
-                    textAlign:'center', padding:'6px 4px', borderRadius:8,
-                    background: audioMode === mode ? (mode==='original' ? T.amberD : T.blueD) : T.surf2,
-                    border:`1px solid ${audioMode === mode ? (mode==='original' ? T.amber+'60' : T.blue+'60') : T.bdr}`,
-                    color: audioMode === mode ? (mode==='original' ? T.amber : T.blue) : T.txt3,
-                    transition:'all 0.15s' }}>
-                  {label}
-                </div>
-              ))}
-            </div>
-
             {/* 速度 + 單次/循環 */}
             <div style={{ display:'flex', gap:6 }}>
               {[0.6, 1.0].map(r => (
@@ -16937,7 +16918,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.81</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.82</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
