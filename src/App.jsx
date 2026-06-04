@@ -7225,7 +7225,7 @@ function AppIcon({ size = 36 }) {
 // ═══════════════════════════════════════════════════════════════
 // HEADER
 // ═══════════════════════════════════════════════════════════════
-function Header({ stats }) {
+function Header({ stats, audioMode, toggleAudioMode }) {
   const xp = stats?.xp ?? 0
   const lvl = [...LEVELS].reverse().find(l => xp >= l.min) ?? LEVELS[0]
   const nxt = LEVELS[LEVELS.indexOf(lvl) + 1]
@@ -7234,7 +7234,7 @@ function Header({ stats }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.73
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.76
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -7253,6 +7253,17 @@ function Header({ stats }) {
           <span style={{ fontFamily:MONO, fontSize:9, color:T.amber, whiteSpace:'nowrap' }}>{xp} XP</span>
         </div>
       </div>
+      {/* 全域音軌切換 🎬 / 🔊 */}
+      {toggleAudioMode && (
+        <div onClick={toggleAudioMode}
+          title={audioMode === 'original' ? '切換為系統音' : '切換為電影原音'}
+          style={{ cursor:'pointer', fontSize:16, padding:'5px 8px', borderRadius:8,
+            background: audioMode === 'original' ? T.amberD : T.surf2,
+            border:`1px solid ${audioMode === 'original' ? T.amber+'60' : T.bdr}`,
+            transition:'all 0.15s', flexShrink:0, userSelect:'none' }}>
+          {audioMode === 'original' ? '🎬' : '🔊'}
+        </div>
+      )}
     </header>
   )
 }
@@ -13138,7 +13149,7 @@ const DEFAULT_MOVIE_DB = {
   vocab: []
 }
 
-function MovieTab() {
+function MovieTab({ audioMode, setAudioMode }) {
   const [db, setDb] = useState(() => {
     try { const s = localStorage.getItem('fsi:movie:db'); return s ? JSON.parse(s) : DEFAULT_MOVIE_DB }
     catch { return DEFAULT_MOVIE_DB }
@@ -13182,15 +13193,51 @@ function MovieTab() {
     () => localStorage.getItem('fsi:movie:audioName') ?? ''
   )
   const [audioReady, setAudioReady] = useState(false)
-  const [audioMode, setAudioMode] = useState(
-    () => localStorage.getItem('fsi:movie:audioMode') ?? 'original'
-  ) // 'original' | 'tts'
+  const [cloudAudioUrl, setCloudAudioUrl] = useState(
+    () => localStorage.getItem('fsi:movie:cloudUrl') ?? 'https://drive.google.com/uc?export=download&id=11eOTSctYIP10tHZJAtakOnIOYMSd4PVs'
+  )
+
+  // ── 開 App 自動載入雲端 MP3 ───────────────────────────────
+  useEffect(() => {
+    const url = localStorage.getItem('fsi:movie:cloudUrl')
+      ?? 'https://drive.google.com/uc?export=download&id=11eOTSctYIP10tHZJAtakOnIOYMSd4PVs'
+    if (url && audioMode === 'original') {
+      loadAudioUrl(url, '征服情海.mp3')
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps // 'original' | 'tts'
   const [scenePlaying, setScenePlaying] = useState(false)
   const [scenePlayPos,  setScenePlayPos]  = useState(0)
   const [sceneRate,     setSceneRate]     = useState(0.6) // 0~1 進度
   const [sceneLoop,     setSceneLoop]     = useState(false)
   const [movieSyncing,    setMovieSyncing]    = useState(false)
   const [movieSyncMsg,    setMovieSyncMsg]    = useState("")
+  const [autoSyncStatus,  setAutoSyncStatus]  = useState('idle') // 'idle'|'syncing'|'ok'|'err'
+
+  // ── 開 App 自動從 Sheets 讀入（背景靜默執行）──────────────
+  useEffect(() => {
+    async function autoInit() {
+      if (!navigator.onLine) return
+      setAutoSyncStatus('syncing')
+      try {
+        const r    = await fetch(APPS_SCRIPT_URL)
+        const json = await r.json()
+        if (!json.ok || !json.movieDB) { setAutoSyncStatus('idle'); return }
+        const sheetsDb  = json.movieDB
+        const sheetsAt  = sheetsDb.updatedAt ?? 0
+        const localAt   = db.updatedAt ?? 0
+        if (sheetsAt > localAt) {
+          // Sheets 較新 → 更新本機
+          setDb(sheetsDb)
+          localStorage.setItem('fsi:movie:db', JSON.stringify(sheetsDb))
+          setAutoSyncStatus('ok')
+          setMovieSyncMsg('✓ 已自動同步最新資料')
+        } else {
+          setAutoSyncStatus('ok')
+        }
+      } catch { setAutoSyncStatus('idle') }
+    }
+    autoInit()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const [wordBusy,   setWordBusy]   = useState(false)
   const [wordInfo,   setWordInfo]   = useState(null)
   // ── 手動新增單字 ──
@@ -13314,7 +13361,27 @@ function MovieTab() {
     }
   }
 
-  function saveDb(nd) { setDb(nd); localStorage.setItem('fsi:movie:db', JSON.stringify(nd)) }
+  // ── auto push debounce ref ───────────────────────────────────
+  const autoPushTimer = useRef(null)
+
+  function saveDb(nd) {
+    // 加入時間戳
+    const ndWithTs = { ...nd, updatedAt: Date.now() }
+    setDb(ndWithTs)
+    localStorage.setItem('fsi:movie:db', JSON.stringify(ndWithTs))
+    // debounce 自動推送：3秒內多次修改只推送一次
+    if (autoPushTimer.current) clearTimeout(autoPushTimer.current)
+    autoPushTimer.current = setTimeout(() => autoPush(ndWithTs), 3000)
+  }
+
+  async function autoPush(ndWithTs) {
+    if (!navigator.onLine) return
+    try {
+      const form = new FormData()
+      form.append('data', JSON.stringify({ movieDB: ndWithTs }))
+      await fetch(APPS_SCRIPT_URL, { method:'POST', mode:'no-cors', body:form })
+    } catch { /* 靜默失敗，下次再試 */ }
+  }
 
   function updateScenePhrases(fn) {
     saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : {
@@ -13444,15 +13511,12 @@ function MovieTab() {
     el.ontimeupdate = () => {
       if (el._sceneEnd && el.currentTime >= el._sceneEnd) {
         if (el._sceneLoop) {
-          // 循環：回到起點重播
           el.currentTime = el._sceneStart ?? 0
           el.play().catch(() => { setScenePlaying(false); setScenePlayPos(0) })
           setScenePlayPos(0)
         } else {
-          // 單次：停止
           el.pause(); el._sceneEnd = null
           setScenePlaying(false); setScenePlayPos(0)
-          // 睡眠計時也一起停
           setSleepMins(null); setSleepSecs(null)
         }
       } else if (el._sceneStart !== undefined && el._sceneEnd) {
@@ -13463,6 +13527,35 @@ function MovieTab() {
     setAudioFileName(file.name)
     localStorage.setItem('fsi:movie:audioName', file.name)
     setAudioReady(false)
+  }
+
+  function loadAudioUrl(url, label) {
+    if (!url) return
+    if (!audioElRef.current) audioElRef.current = new Audio()
+    const el = audioElRef.current
+    el.src = url
+    el.crossOrigin = 'anonymous'
+    el.oncanplay = () => setAudioReady(true)
+    el.onerror   = () => { setAudioReady(false); setAudioFileName('') }
+    el.ontimeupdate = () => {
+      if (el._sceneEnd && el.currentTime >= el._sceneEnd) {
+        if (el._sceneLoop) {
+          el.currentTime = el._sceneStart ?? 0
+          el.play().catch(() => { setScenePlaying(false); setScenePlayPos(0) })
+          setScenePlayPos(0)
+        } else {
+          el.pause(); el._sceneEnd = null
+          setScenePlaying(false); setScenePlayPos(0)
+          setSleepMins(null); setSleepSecs(null)
+        }
+      } else if (el._sceneStart !== undefined && el._sceneEnd) {
+        const pos = (el.currentTime - el._sceneStart) / (el._sceneEnd - el._sceneStart)
+        setScenePlayPos(Math.min(1, Math.max(0, pos)))
+      }
+    }
+    setAudioFileName(label || url.slice(-30))
+    setAudioReady(false)
+    el.load()
   }
 
   function parseSceneTimeRange(timeRange) {
@@ -15305,6 +15398,13 @@ ${numbered}`
             <div style={{ fontFamily:DISP, fontSize:16, color:T.txt }}>{movie?.title}</div>
             <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>{movie?.titleEn} · {movie?.year}</div>
           </div>
+          {/* 自動同步狀態 */}
+          <div style={{ fontFamily:MONO, fontSize:8, color:
+            autoSyncStatus === 'syncing' ? T.amber :
+            autoSyncStatus === 'ok' ? T.grn : T.txt3 }}>
+            {autoSyncStatus === 'syncing' ? '⟳ 同步中' :
+             autoSyncStatus === 'ok' ? '✓ 已同步' : ''}
+          </div>
           <div onClick={() => { setTranscriptDraft(''); setTranscriptEditMode(false); setStartTime(''); setEndTime(''); setAddPreview(null); setAddErr(''); setView('manageTranscript') }}
             style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
               color:T.amber, background:T.amberD, border:`1px solid ${T.amber}50`,
@@ -15319,14 +15419,23 @@ ${numbered}`
           <span style={{ fontFamily:MONO, fontSize:9, flex:1, overflow:'hidden',
             textOverflow:'ellipsis', whiteSpace:'nowrap',
             color: audioReady ? T.grn : T.txt3 }}>
-            {audioReady ? `✅ ${audioFileName}` : audioFileName ? `⏳ ${audioFileName}` : '🎵 未載入 MP3'}
+            {audioReady ? `✅ ${audioFileName}` : audioFileName ? `⏳ 載入中…` : '🎵 未載入 MP3'}
           </span>
-          <div onClick={pickAudioFile}
-            style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
-              color:T.blue, padding:'4px 10px', background:T.blueD,
-              borderRadius:7, border:`1px solid ${T.blue}50`, whiteSpace:'nowrap', flexShrink:0 }}>
-            📁 {audioFileName ? '重新選擇' : '選擇 MP3'}
-          </div>
+          {cloudAudioUrl ? (
+            <div onClick={() => loadAudioUrl(cloudAudioUrl, '征服情海.mp3')}
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                color:T.grn, padding:'4px 10px', background:T.grnD,
+                borderRadius:7, border:`1px solid ${T.grn}50`, whiteSpace:'nowrap', flexShrink:0 }}>
+              ↺ 重新載入
+            </div>
+          ) : (
+            <div onClick={pickAudioFile}
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                color:T.blue, padding:'4px 10px', background:T.blueD,
+                borderRadius:7, border:`1px solid ${T.blue}50`, whiteSpace:'nowrap', flexShrink:0 }}>
+              📁 選擇 MP3
+            </div>
+          )}
           <input id="fsi-audio-input" type="file" accept="audio/*" style={{ display:'none' }}
             onChange={e => e.target.files[0] && loadAudioFile(e.target.files[0])}/>
         </div>
@@ -15417,6 +15526,48 @@ ${numbered}`
           </div>
         )
       })}
+            {/* ── 雲端 MP3 設定 ── */}
+      <div style={{ display:'flex', flexDirection:'column', gap:8,
+        background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:13, padding:'14px 16px' }}>
+        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>
+          ☁️ 雲端 MP3（Google Drive）
+        </div>
+        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.7 }}>
+          設定後開 App 自動載入，不需每次選檔案
+        </div>
+        <input
+          value={cloudAudioUrl}
+          onChange={e => setCloudAudioUrl(e.target.value)}
+          placeholder="https://drive.google.com/uc?export=download&id=..."
+          style={{ fontFamily:MONO, fontSize:9, background:T.surf2,
+            border:`1px solid ${cloudAudioUrl ? T.grn+'60' : T.bdr}`,
+            borderRadius:8, padding:'8px 10px', color:T.txt, outline:'none',
+            width:'100%', boxSizing:'border-box' }}
+        />
+        <div style={{ display:'flex', gap:8 }}>
+          <div onClick={() => {
+              localStorage.setItem('fsi:movie:cloudUrl', cloudAudioUrl)
+              loadAudioUrl(cloudAudioUrl, '征服情海.mp3')
+            }}
+            style={{ flex:2, cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+              color:T.grn, padding:'9px', background:T.grnD,
+              borderRadius:8, border:`1px solid ${T.grn}50`, textAlign:'center' }}>
+            💾 儲存並載入
+          </div>
+          <div onClick={pickAudioFile}
+            style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:9,
+              color:T.txt3, padding:'9px', background:T.surf2,
+              borderRadius:8, border:`1px solid ${T.bdr}`, textAlign:'center' }}>
+            📁 本機選檔
+          </div>
+        </div>
+        {audioReady && (
+          <div style={{ fontFamily:MONO, fontSize:9, color:T.grn }}>
+            ✅ {audioFileName} 已載入
+          </div>
+        )}
+      </div>
+
             {/* ── 電影資料同步 ── */}
       <div style={{ display:'flex', flexDirection:'column', gap:8,
         background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:13, padding:'14px 16px' }}>
@@ -16626,6 +16777,15 @@ export default function App() {
   const [settings, setSettings] = useState(null)
   const [earned, setEarned]   = useState(null)
   const [ready, setReady]     = useState(false)
+  const [audioMode, setAudioMode] = useState(
+    () => localStorage.getItem('fsi:movie:audioMode') ?? 'original'
+  )
+
+  function toggleAudioMode() {
+    const next = audioMode === 'original' ? 'tts' : 'original'
+    setAudioMode(next)
+    localStorage.setItem('fsi:movie:audioMode', next)
+  }
 
   // ── 離開確認（避免誤觸關閉 App）──────────────────────────────
   useEffect(() => {
@@ -16723,7 +16883,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.73</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.76</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
@@ -16733,7 +16893,7 @@ export default function App() {
   return (
     <div style={{ background:T.bg, minHeight:'100vh', maxWidth:480, margin:'0 auto', display:'flex', flexDirection:'column', position:'relative' }}>
       <style>{G}</style>
-      <Header stats={stats}/>
+      <Header stats={stats} audioMode={audioMode} toggleAudioMode={toggleAudioMode}/>
       <div style={{ flex:1, overflowY:'auto', paddingBottom:'calc(110px + env(safe-area-inset-bottom, 20px))' }}>
         {tab==='phrase'   && <PhraseTab   settings={settings}/>}
         {tab==='practice' && <PracticeTab {...P}/>}
@@ -16741,7 +16901,7 @@ export default function App() {
         {tab==='vocab'    && <VocabTab    {...P}/>}
         {tab==='email'    && <EmailTab    {...P}/>}
         <div style={{display: tab==='movie' ? 'flex' : 'none', flexDirection:'column', flex:1, minHeight:0}}>
-          <MovieTab/>
+          <MovieTab audioMode={audioMode} setAudioMode={setAudioMode}/>
         </div>
         {tab==='settings' && <SettingsTab {...P}/>}
       </div>
