@@ -7243,7 +7243,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.88
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.89
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14148,25 +14148,42 @@ ${numbered}`
     setMovieSyncing(true); setMovieSyncMsg('推送中…')
     try {
       const form = new FormData()
-      form.append('data', JSON.stringify({ movieDB: db }))
-      await fetch(APPS_SCRIPT_URL, { method:'POST', mode:'no-cors', body:form })
-      await new Promise(r => setTimeout(r, 2000))
+      form.append('data', JSON.stringify({ movieDB: { ...db, updatedAt: Date.now() } }))
+      // 推送（no-cors，60秒timeout）
+      const ctrl1 = new AbortController()
+      const t1 = setTimeout(() => ctrl1.abort(), 60000)
       try {
-        const check = await fetch(APPS_SCRIPT_URL)
+        await fetch(APPS_SCRIPT_URL, { method:'POST', mode:'no-cors', body:form, signal: ctrl1.signal })
+      } finally { clearTimeout(t1) }
+      await new Promise(r => setTimeout(r, 2000))
+      // 確認推送結果（30秒timeout）
+      const ctrl2 = new AbortController()
+      const t2 = setTimeout(() => ctrl2.abort(), 30000)
+      try {
+        const check = await fetch(APPS_SCRIPT_URL, { signal: ctrl2.signal })
         const json  = await check.json()
         const mc = json.movieDB?.movies?.length ?? 0
         const vc = json.movieDB?.vocab?.length  ?? 0
         setMovieSyncMsg(mc > 0 ? `✓ 已推送：${mc} 部電影 · 單字庫 ${vc} 個` : '✓ 已推送（請至 Sheets 確認）')
       } catch { setMovieSyncMsg('✓ 已推送（請至 Sheets 確認）') }
-    } catch(e) { setMovieSyncMsg('✗ ' + (e.message ?? '網路錯誤')) }
+      finally { clearTimeout(t2) }
+    } catch(e) {
+      if (e.name === 'AbortError') setMovieSyncMsg('✗ 推送超時，請重試')
+      else setMovieSyncMsg('✗ ' + (e.message ?? '網路錯誤'))
+    }
     finally { setMovieSyncing(false) }
   }
 
   async function pullMovieDB() {
     setMovieSyncing(true); setMovieSyncMsg('讀取中…')
     try {
-      const r    = await fetch(APPS_SCRIPT_URL)
-      const json = await r.json()
+      const ctrl = new AbortController()
+      const t = setTimeout(() => ctrl.abort(), 30000)
+      let json
+      try {
+        const r = await fetch(APPS_SCRIPT_URL, { signal: ctrl.signal })
+        json = await r.json()
+      } finally { clearTimeout(t) }
       if (!json.ok) throw new Error(json.error ?? 'Sync failed')
       if (!json.movieDB) throw new Error('Sheets 尚無電影資料，請先推送。')
       const nd = json.movieDB
@@ -14176,7 +14193,10 @@ ${numbered}`
       const sc = nd.movies?.reduce((a,m) => a + (m.scenes?.length ?? 0), 0) ?? 0
       const vc = nd.vocab?.length ?? 0
       setMovieSyncMsg(`✓ 已還原：${mc} 部 · ${sc} 場景 · 單字庫 ${vc} 個`)
-    } catch(e) { setMovieSyncMsg('✗ ' + (e.message ?? 'Sync failed')) }
+    } catch(e) {
+      if (e.name === 'AbortError') setMovieSyncMsg('✗ 讀取超時，請重試')
+      else setMovieSyncMsg('✗ ' + (e.message ?? 'Sync failed'))
+    }
     finally { setMovieSyncing(false) }
   }
 
@@ -16939,7 +16959,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.88</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.89</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
