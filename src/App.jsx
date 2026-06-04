@@ -7243,7 +7243,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.82
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.84
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13890,9 +13890,24 @@ Return ONLY a JSON object, no markdown:
   }
   function appendTranscript(text) {
     const existing = movie?.transcript ?? ''
-    const merged = existing ? existing + '\n' + text.trim() : text.trim()
+    const merged = existing ? existing + '\n\n' + text.trim() : text.trim()
+    // 附加後自動排序去重
+    const normalized = normalizeSRT(merged)
+    const blocks = normalized.split(/\n{2,}/)
+    const seen = new Map()
+    for (const block of blocks) {
+      const blines = block.trim().split('\n')
+      const tsLine = blines.find(l => /\d{2}:\d{2}:\d{2},\d+\s*-->\s*\d{2}:\d{2}:\d{2},\d+/.test(l))
+      if (!tsLine) continue
+      const key = tsLine.split('-->')[0].trim()
+      if (!seen.has(key)) seen.set(key, block.trim())
+    }
+    const sorted = [...seen.entries()]
+      .sort((a, b) => timeToSecs(a[0]) - timeToSecs(b[0]))
+      .map(([, v]) => v)
+    const cleaned = sorted.join('\n\n')
     saveDb({ ...db, movies: db.movies.map(m =>
-      m.id !== movieId ? m : { ...m, transcript: merged }
+      m.id !== movieId ? m : { ...m, transcript: cleaned }
     )})
   }
 
@@ -14450,6 +14465,11 @@ ${numbered}`
               </span>
               <input value={val} onChange={e => { set(e.target.value); setAddErr('') }}
                 placeholder={ph}
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck="false"
+                inputMode="decimal"
                 style={{ fontFamily:MONO, fontSize:12, background:T.surf2,
                   border:`1px solid ${val ? T.grn+'60' : T.bdr}`,
                   borderRadius:8, padding:'8px 10px', color:T.txt, outline:'none', width:110 }}/>
@@ -16918,7 +16938,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.82</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.84</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
