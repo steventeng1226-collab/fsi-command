@@ -7243,7 +7243,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.94
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.95
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13407,7 +13407,7 @@ function MovieTab({ audioMode, setAudioMode }) {
         })) ?? []
       const form = new FormData()
       form.append('data', JSON.stringify({ movieDB: dbToSync, transcriptDB }))
-      await fetch(APPS_SCRIPT_URL, { method:'POST', body:form })
+      await fetch(APPS_SCRIPT_URL, { method:'POST', mode:'no-cors', body:form })
     } catch { /* 靜默失敗，下次再試 */ }
   }
 
@@ -14162,7 +14162,6 @@ ${numbered}`
   async function pushMovieDB() {
     setPushSyncing(true); setMovieSyncMsg('推送中…')
     try {
-      // 場景資料移除 transcript（避免超過 Sheets 50K 限制）
       const dbToSync = {
         ...db,
         updatedAt: Date.now(),
@@ -14171,30 +14170,47 @@ ${numbered}`
           return rest
         })
       }
-      // 逐字稿獨立推送到 TranscriptDB
       const transcriptDB = db.movies
         .filter(m => m.transcript)
         .map(m => ({
           movieId: m.id,
           transcript: m.transcript,
-          updatedAt: Date.now()
+          updatedAt: m.transcriptUpdatedAt ?? Date.now()
         }))
 
-      const ctrl = new AbortController()
-      const t = setTimeout(() => ctrl.abort(), 60000)
-      let json
+      // 推送用 no-cors（手機 Chrome 安全限制）
+      const form = new FormData()
+      form.append('data', JSON.stringify({ movieDB: dbToSync, transcriptDB }))
+      const ctrl1 = new AbortController()
+      const t1 = setTimeout(() => ctrl1.abort(), 60000)
       try {
-        const form = new FormData()
-        form.append('data', JSON.stringify({ movieDB: dbToSync, transcriptDB }))
-        const r = await fetch(APPS_SCRIPT_URL, { method:'POST', body:form, signal: ctrl.signal })
-        json = await r.json()
-      } finally { clearTimeout(t) }
-      if (json?.ok === false) throw new Error(json.error ?? '推送失敗')
-      const mc = db.movies?.length ?? 0
-      const sc = db.movies?.reduce((a,m) => a + (m.scenes?.length ?? 0), 0) ?? 0
-      const vc = db.vocab?.length ?? 0
-      const dataSize = JSON.stringify(dbToSync).length
-      setMovieSyncMsg(`✓ 已推送：${mc} 部 · ${sc} 場景 · 單字庫 ${vc} 個 (${Math.round(dataSize/1000)}KB)`)
+        await fetch(APPS_SCRIPT_URL, { method:'POST', mode:'no-cors', body:form, signal: ctrl1.signal })
+      } catch(e) {
+        if (e.name === 'AbortError') throw new Error('推送超時，請重試')
+        throw e
+      } finally { clearTimeout(t1) }
+
+      // 等 2 秒後 GET 確認
+      setMovieSyncMsg('確認中…')
+      await new Promise(r => setTimeout(r, 2000))
+      const ctrl2 = new AbortController()
+      const t2 = setTimeout(() => ctrl2.abort(), 30000)
+      try {
+        const r = await fetch(APPS_SCRIPT_URL, { signal: ctrl2.signal })
+        const json = await r.json()
+        if (json.movieDB) {
+          const mc = db.movies?.length ?? 0
+          const sc = db.movies?.reduce((a,m) => a + (m.scenes?.length ?? 0), 0) ?? 0
+          const vc = db.vocab?.length ?? 0
+          const dataSize = JSON.stringify(dbToSync).length
+          setMovieSyncMsg(`✓ 已推送：${mc} 部 · ${sc} 場景 · 單字庫 ${vc} 個 (${Math.round(dataSize/1000)}KB)`)
+        } else {
+          setMovieSyncMsg('⚠ 已送出，請至 Sheets 確認')
+        }
+      } catch {
+        setMovieSyncMsg('⚠ 已送出，無法確認（請至 Sheets 確認）')
+      } finally { clearTimeout(t2) }
+
     } catch(e) {
       if (e.name === 'AbortError') setMovieSyncMsg('✗ 推送超時，請重試')
       else setMovieSyncMsg('✗ ' + (e.message ?? '網路錯誤'))
@@ -16188,13 +16204,18 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
       const ctrl = new AbortController()
       const t = setTimeout(() => ctrl.abort(), 60000)
       try {
-        const r = await fetch(APPS_SCRIPT_URL, { method:'POST', body:form, signal: ctrl.signal })
-        const json = await r.json()
-        if (json?.ok === false) throw new Error(json.error ?? '推送失敗')
+        await fetch(APPS_SCRIPT_URL, { method:'POST', mode:'no-cors', body:form, signal: ctrl.signal })
+      } finally { clearTimeout(t) }
+      await new Promise(r => setTimeout(r, 2000))
+      try {
+        const check = await fetch(APPS_SCRIPT_URL)
+        const json = await check.json()
         const sc = (json.sentences ?? []).length || (sentences??[]).length
         const vc = (json.vocab ?? []).length || (vocab??[]).length
         flash(`✓ 已推送（${sc} 句 + ${vc} 字）`)
-      } finally { clearTimeout(t) }
+      } catch {
+        flash('✓ 已送出（請至 Sheets 確認）')
+      }
     } catch(e) {
       flash('✗ ' + (e.message ?? '網路錯誤'))
     } finally { setSyncing(false) }
@@ -17011,7 +17032,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.94</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.95</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
