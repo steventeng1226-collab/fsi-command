@@ -7234,7 +7234,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.76
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.77
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13193,6 +13193,7 @@ function MovieTab({ audioMode, setAudioMode }) {
     () => localStorage.getItem('fsi:movie:audioName') ?? ''
   )
   const [audioReady, setAudioReady] = useState(false)
+  const [audioSource, setAudioSource] = useState('none') // 'none' | 'cloud' | 'local'
   const [cloudAudioUrl, setCloudAudioUrl] = useState(
     () => localStorage.getItem('fsi:movie:cloudUrl') ?? 'https://drive.google.com/uc?export=download&id=11eOTSctYIP10tHZJAtakOnIOYMSd4PVs'
   )
@@ -13526,6 +13527,7 @@ function MovieTab({ audioMode, setAudioMode }) {
     }
     setAudioFileName(file.name)
     localStorage.setItem('fsi:movie:audioName', file.name)
+    setAudioSource('local')
     setAudioReady(false)
   }
 
@@ -13554,6 +13556,7 @@ function MovieTab({ audioMode, setAudioMode }) {
       }
     }
     setAudioFileName(label || url.slice(-30))
+    setAudioSource('cloud')
     setAudioReady(false)
     el.load()
   }
@@ -15419,7 +15422,11 @@ ${numbered}`
           <span style={{ fontFamily:MONO, fontSize:9, flex:1, overflow:'hidden',
             textOverflow:'ellipsis', whiteSpace:'nowrap',
             color: audioReady ? T.grn : T.txt3 }}>
-            {audioReady ? `✅ ${audioFileName}` : audioFileName ? `⏳ 載入中…` : '🎵 未載入 MP3'}
+            {audioReady
+              ? `${audioSource === 'cloud' ? '☁️' : '📁'} ${audioFileName} ✅ ${audioSource === 'cloud' ? '雲端' : '本機'}已載入`
+              : audioFileName
+                ? `⏳ 載入中… ${audioSource === 'cloud' ? '☁️ 雲端' : '📁 本機'}`
+                : '🎵 未載入 MP3'}
           </span>
           {cloudAudioUrl ? (
             <div onClick={() => loadAudioUrl(cloudAudioUrl, '征服情海.mp3')}
@@ -15563,7 +15570,7 @@ ${numbered}`
         </div>
         {audioReady && (
           <div style={{ fontFamily:MONO, fontSize:9, color:T.grn }}>
-            ✅ {audioFileName} 已載入
+            {audioSource === 'cloud' ? '☁️ 雲端' : '📁 本機'} · {audioFileName} ✅ 已載入
           </div>
         )}
       </div>
@@ -16883,7 +16890,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.76</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.77</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
