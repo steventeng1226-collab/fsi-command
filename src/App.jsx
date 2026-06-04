@@ -7243,7 +7243,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.93
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.94
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14478,10 +14478,12 @@ ${numbered}`
         {/* 編輯模式：貼新內容附加或取代 */}
         {transcriptEditMode && (
           <>
-            <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
-              已存 {movie.transcript.length.toLocaleString()} 字元
-              {transcriptDraft.trim() ? `　本頁 ${transcriptDraft.length.toLocaleString()} 字元` : ''}
-            </div>
+            {hasSaved && (
+              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                已存 {(movie.transcript?.length ?? 0).toLocaleString()} 字元
+                {transcriptDraft.trim() ? `　本頁 ${transcriptDraft.length.toLocaleString()} 字元` : ''}
+              </div>
+            )}
             <textarea
               value={transcriptDraft}
               onChange={e => setTranscriptDraft(e.target.value)}
@@ -14494,17 +14496,21 @@ ${numbered}`
             />
             {transcriptDraft.trim() && (
               <div style={{ display:'flex', gap:8 }}>
-                <div onClick={() => { appendTranscript(transcriptDraft); setTranscriptDraft(''); setTranscriptEditMode(false) }}
-                  style={{ flex:2, cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
-                    color:T.grn, padding:'9px', background:T.grnD,
-                    borderRadius:8, border:`1px solid ${T.grn}50`, textAlign:'center' }}>
-                  ＋ 附加（合計 {(movie.transcript.length + transcriptDraft.length).toLocaleString()} 字）
-                </div>
+                {hasSaved && (
+                  <div onClick={() => { appendTranscript(transcriptDraft); setTranscriptDraft(''); setTranscriptEditMode(false) }}
+                    style={{ flex:2, cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                      color:T.grn, padding:'9px', background:T.grnD,
+                      borderRadius:8, border:`1px solid ${T.grn}50`, textAlign:'center' }}>
+                    ＋ 附加（合計 {((movie.transcript?.length ?? 0) + transcriptDraft.length).toLocaleString()} 字）
+                  </div>
+                )}
                 <div onClick={() => { saveTranscript(transcriptDraft); setTranscriptDraft(''); setTranscriptEditMode(false) }}
                   style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
-                    color:T.red, padding:'9px', background:T.redD,
-                    borderRadius:8, border:`1px solid ${T.red}40`, textAlign:'center' }}>
-                  ↺ 取代
+                    color: hasSaved ? T.red : T.bg, padding:'9px',
+                    background: hasSaved ? T.redD : T.amber,
+                    borderRadius:8, border:`1px solid ${hasSaved ? T.red+'40' : 'transparent'}`,
+                    textAlign:'center' }}>
+                  {hasSaved ? '↺ 取代' : '💾 儲存'}
                 </div>
               </div>
             )}
@@ -17005,7 +17011,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.93</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.94</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
