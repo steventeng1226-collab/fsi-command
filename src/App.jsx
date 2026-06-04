@@ -7243,7 +7243,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.90
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.91
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13222,7 +13222,8 @@ function MovieTab({ audioMode, setAudioMode }) {
   const [playRate, setPlayRate] = useState(
     () => parseFloat(localStorage.getItem('fsi:movie:playRate') ?? '0.6')
   )
-  const [movieSyncing,    setMovieSyncing]    = useState(false)
+  const [pushSyncing,     setPushSyncing]     = useState(false)
+  const [pullSyncing,     setPullSyncing]     = useState(false)
   const [movieSyncMsg,    setMovieSyncMsg]    = useState("")
   const [autoSyncStatus,  setAutoSyncStatus]  = useState('idle') // 'idle'|'syncing'|'ok'|'err'
 
@@ -14145,7 +14146,7 @@ ${numbered}`
   // ── helpers ───────────────────────────────────────────────────
   // ── 電影資料獨立同步 ──────────────────────────────────────────
   async function pushMovieDB() {
-    setMovieSyncing(true); setMovieSyncMsg('推送中…')
+    setPushSyncing(true); setMovieSyncMsg('推送中…')
     try {
       const ctrl = new AbortController()
       const t = setTimeout(() => ctrl.abort(), 60000)
@@ -14164,11 +14165,11 @@ ${numbered}`
       if (e.name === 'AbortError') setMovieSyncMsg('✗ 推送超時，請重試')
       else setMovieSyncMsg('✗ ' + (e.message ?? '網路錯誤'))
     }
-    finally { setMovieSyncing(false) }
+    finally { setPushSyncing(false) }
   }
 
   async function pullMovieDB() {
-    setMovieSyncing(true); setMovieSyncMsg('讀取中…')
+    setPullSyncing(true); setMovieSyncMsg('讀取中…')
     try {
       const ctrl = new AbortController()
       const t = setTimeout(() => ctrl.abort(), 30000)
@@ -14190,7 +14191,7 @@ ${numbered}`
       if (e.name === 'AbortError') setMovieSyncMsg('✗ 讀取超時，請重試')
       else setMovieSyncMsg('✗ ' + (e.message ?? 'Sync failed'))
     }
-    finally { setMovieSyncing(false) }
+    finally { setPullSyncing(false) }
   }
 
   function goBack(to='list') { setView(to); setPlaying(false); window.speechSynthesis?.cancel() }
@@ -15647,27 +15648,27 @@ ${numbered}`
           同步範圍：場景、句子、⭐收藏、單字庫
         </div>
         <div style={{ display:'flex', gap:8 }}>
-          <div onClick={movieSyncing ? undefined : pushMovieDB}
-            style={{ flex:1, cursor: movieSyncing ? 'default' : 'pointer',
-              background: movieSyncing ? T.surf2 : T.blueD,
-              border:`1px solid ${movieSyncing ? T.bdr : T.blue+'50'}`,
+          <div onClick={pushSyncing ? undefined : pushMovieDB}
+            style={{ flex:1, cursor: pushSyncing ? 'default' : 'pointer',
+              background: pushSyncing ? T.surf2 : T.blueD,
+              border:`1px solid ${pushSyncing ? T.bdr : T.blue+'50'}`,
               borderRadius:9, padding:'10px', textAlign:'center',
-              fontFamily:MONO, fontSize:10, color: movieSyncing ? T.txt3 : T.blue,
+              fontFamily:MONO, fontSize:10, color: pushSyncing ? T.txt3 : T.blue,
               display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
-            {movieSyncing && <span style={{ display:'inline-block', width:8, height:8,
-              border:'1.5px solid transparent', borderTopColor:T.txt3,
+            {pushSyncing && <span style={{ display:'inline-block', width:8, height:8,
+              border:'1.5px solid transparent', borderTopColor:T.blue,
               borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>}
             ☁ 推送到 Sheets
           </div>
-          <div onClick={movieSyncing ? undefined : pullMovieDB}
-            style={{ flex:1, cursor: movieSyncing ? 'default' : 'pointer',
-              background: movieSyncing ? T.surf2 : T.grnD,
-              border:`1px solid ${movieSyncing ? T.bdr : T.grn+'50'}`,
+          <div onClick={pullSyncing ? undefined : pullMovieDB}
+            style={{ flex:1, cursor: pullSyncing ? 'default' : 'pointer',
+              background: pullSyncing ? T.surf2 : T.grnD,
+              border:`1px solid ${pullSyncing ? T.bdr : T.grn+'50'}`,
               borderRadius:9, padding:'10px', textAlign:'center',
-              fontFamily:MONO, fontSize:10, color: movieSyncing ? T.txt3 : T.grn,
+              fontFamily:MONO, fontSize:10, color: pullSyncing ? T.txt3 : T.grn,
               display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
-            {movieSyncing && <span style={{ display:'inline-block', width:8, height:8,
-              border:'1.5px solid transparent', borderTopColor:T.txt3,
+            {pullSyncing && <span style={{ display:'inline-block', width:8, height:8,
+              border:'1.5px solid transparent', borderTopColor:T.grn,
               borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>}
             ⟳ 從 Sheets 讀入
           </div>
@@ -16949,7 +16950,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.90</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.91</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
