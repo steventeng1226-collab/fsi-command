@@ -7243,7 +7243,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.86
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.87
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14899,40 +14899,65 @@ ${numbered}`
   if (view === 'scene' && scene) {
     const pct = phrases.length ? Math.round((playedCount / phrases.length) * 100) : 0
     return (
-      <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
-        {/* Header：返回鍵 + 語速 */}
-        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+      <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:10 }} className="fadeUp">
+
+        {/* 第一行：← 返回 + 語速 + 🌟AI評分 */}
+        <div style={{ display:'flex', alignItems:'center', gap:6 }}>
           <BackBtn to="list"/>
           <div style={{ display:'flex', gap:5, marginLeft:'auto' }}>
             {[0.6, 0.8, 1.0].map(r => (
               <div key={r} onClick={() => {
-                  setPlayRate(r)
-                  setSceneRate(r)
+                  setPlayRate(r); setSceneRate(r)
                   localStorage.setItem('fsi:movie:playRate', String(r))
                   if (scenePlaying && audioElRef.current) audioElRef.current.playbackRate = r
                 }}
                 style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
-                  padding:'5px 10px', borderRadius:8,
+                  padding:'5px 9px', borderRadius:8,
                   background: playRate===r ? T.amberD : T.surf2,
                   border:`1px solid ${playRate===r ? T.amber+'60' : T.bdr}`,
                   color: playRate===r ? T.amber : T.txt3 }}>
                 {r === 0.6 ? '0.6x' : r === 0.8 ? '0.8x' : '1.0x'}
               </div>
             ))}
+            <div onClick={aiStarBusy ? undefined : aiRateScene}
+              style={{ cursor: aiStarBusy ? 'default' : 'pointer',
+                fontFamily:MONO, fontSize:10, padding:'5px 9px', borderRadius:8,
+                background: T.surf2, border:`1px solid ${T.bdr}`,
+                color: aiStarBusy ? T.txt3 : T.txt2,
+                display:'flex', alignItems:'center', gap:3 }}>
+              {aiStarBusy
+                ? <span style={{ display:'inline-block', width:9, height:9,
+                    border:'1.5px solid transparent', borderTopColor:T.txt3,
+                    borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>
+                : '✨'}
+              {aiStarBusy ? '評分中…' : 'AI評分'}
+            </div>
           </div>
         </div>
+
         {/* Scene info card */}
-        <div style={{ background:T.surf, borderRadius:14, padding:'16px 18px' }}>
-          <div style={{ fontFamily:MONO, fontSize:13, color:T.amber, fontWeight:700, marginBottom:3 }}>{scene.name}</div>
-          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:10 }}>
+        <div style={{ background:T.surf, borderRadius:14, padding:'14px 16px' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:3 }}>
+            <div style={{ fontFamily:MONO, fontSize:13, color:T.amber, fontWeight:700, flex:1 }}>{scene.name}</div>
+            <div onClick={() => setView('vocab')}
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:10,
+                color: db.vocab.length ? T.blue : T.txt3,
+                background: db.vocab.length ? T.blueD : T.surf2,
+                border:`1px solid ${db.vocab.length ? T.blue+'50' : T.bdr}`,
+                borderRadius:7, padding:'3px 9px' }}>
+              📖 {db.vocab.length}
+            </div>
+          </div>
+          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:8 }}>
             {scene.timeRange} · {phrases.length} 句 · ⭐ {starredCount} 重點
           </div>
-          <div style={{ background:T.bdr, borderRadius:4, height:5, overflow:'hidden', marginBottom:6 }}>
+          <div style={{ background:T.bdr, borderRadius:4, height:4, overflow:'hidden', marginBottom:5 }}>
             <div style={{ width:`${pct}%`, height:'100%', background:T.amber, transition:'width 0.3s' }}/>
           </div>
           <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>已練習 {playedCount}/{activePhrases.length} · {pct}%</div>
         </div>
-        {/* Star filter toggle + AI推薦 */}
+
+        {/* 第二行：全部 + ⭐重點 + 🔄反向 */}
         <div style={{ display:'flex', gap:6 }}>
           <div onClick={() => setStarFilter(false)}
             style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, textAlign:'center',
@@ -14950,29 +14975,33 @@ ${numbered}`
               color: starFilter ? T.amber : T.txt3 }}>
             ⭐ 重點 ({starredCount})
           </div>
-          <div onClick={aiStarBusy ? undefined : aiRateScene}
-            style={{ cursor: aiStarBusy ? 'default' : 'pointer',
-              fontFamily:MONO, fontSize:10, textAlign:'center',
-              padding:'8px 10px', borderRadius:10, transition:'all 0.13s',
-              background: T.surf2, border:`1px solid ${T.bdr}`,
-              color: aiStarBusy ? T.txt3 : T.txt2,
-              display:'flex', alignItems:'center', gap:4 }}>
-            {aiStarBusy
-              ? <span style={{ display:'inline-block', width:9, height:9,
-                  border:'1.5px solid transparent', borderTopColor:T.txt3,
-                  borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>
-              : '✨'}
-            {aiStarBusy ? '評分中…' : '🌟 AI 評分'}
+          <div onClick={() => { setRevIdx(0); setRevFlip(false); setView('reverse') }}
+            style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, textAlign:'center',
+              padding:'8px', borderRadius:10, transition:'all 0.13s',
+              background: T.surf2, border:`1px solid ${T.bdr2}`, color:T.txt2 }}>
+            🔄 反向
           </div>
         </div>
 
-        {/* ── 整段原聲播放 ── */}
-        {(audioReady || audioMode === 'tts') && (
-          <div style={{ background:T.surf, border:`1px solid ${scenePlaying ? T.amber+'60' : T.bdr}`,
-            borderRadius:12, padding:'12px 14px', display:'flex', flexDirection:'column', gap:8,
-            transition:'border-color 0.2s' }}>
+        {/* 補充時間碼提示 */}
+        {audioReady && phrases.every(p => !p.startSecs) && movie?.transcript && (
+          <div onClick={() => {
+              const n = patchTimestamps()
+              if (n > 0) alert(`✅ 已為 ${n} 句補充時間碼，現在可用電影原音！`)
+              else alert('⚠ 無法比對，請確認逐字稿與場景是否對應')
+            }}
+            style={{ background:T.blueD, border:`1px solid ${T.blue}50`, borderRadius:11,
+              padding:'10px', textAlign:'center', cursor:'pointer',
+              fontFamily:MONO, fontSize:10, color:T.blue, fontWeight:700 }}>
+            🎵 補充時間碼（啟用電影原音）
+          </div>
+        )}
 
-            {/* 播放整段 + 單次/循環 + 停止 同一行 */}
+        {/* 第三行：播放整段 + 單次 + 循環 + 逐句 */}
+        {(audioReady || audioMode === 'tts') && (
+          <div style={{ display:'flex', flexDirection:'column', gap:8,
+            background:T.surf, border:`1px solid ${scenePlaying || playing ? T.amber+'50' : T.bdr}`,
+            borderRadius:12, padding:'10px 12px', transition:'border-color 0.2s' }}>
             <div style={{ display:'flex', gap:6 }}>
               <div onClick={scenePlaying ? stopSceneAudio : playSceneAudio}
                 style={{ flex:2, cursor:'pointer', background: scenePlaying ? T.surf2 : T.amberD,
@@ -14994,9 +15023,15 @@ ${numbered}`
                   {label}
                 </div>
               ))}
+              <div onClick={() => { setPlayIdx(0); setPlaying(false); setView('play') }}
+                style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                  padding:'9px 4px', borderRadius:9, textAlign:'center',
+                  background: T.amberD, border:`1px solid ${T.amber}50`, color:T.amber }}>
+                ▶ 逐句
+              </div>
             </div>
 
-            {/* 進度條（電影原音時顯示）*/}
+            {/* 進度條（播放中才顯示）*/}
             {audioMode === 'original' && scenePlaying && (
               <div style={{ background:T.bdr, borderRadius:4, height:4, overflow:'hidden' }}>
                 <div style={{ width:`${scenePlayPos*100}%`, height:'100%',
@@ -15004,7 +15039,7 @@ ${numbered}`
               </div>
             )}
 
-            {/* 睡眠計時 */}
+            {/* 第四行：睡眠計時 */}
             <div style={{ display:'flex', alignItems:'center', gap:6 }}>
               <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>⏰</span>
               {[10,20,30].map(m => {
@@ -15031,43 +15066,6 @@ ${numbered}`
             )}
           </div>
         )}
-
-        {/* Practice buttons — 三個並排 */}
-        {/* 補充時間碼提示：有音訊但無時間碼時顯示 */}
-        {audioReady && phrases.every(p => !p.startSecs) && movie?.transcript && (
-          <div onClick={() => {
-              const n = patchTimestamps()
-              if (n > 0) alert(`✅ 已為 ${n} 句補充時間碼，現在可用電影原音！`)
-              else alert('⚠ 無法比對，請確認逐字稿與場景是否對應')
-            }}
-            style={{ background:T.blueD, border:`1px solid ${T.blue}50`, borderRadius:11,
-              padding:'10px', textAlign:'center', cursor:'pointer',
-              fontFamily:MONO, fontSize:10, color:T.blue, fontWeight:700 }}>
-            🎵 補充時間碼（啟用電影原音）
-          </div>
-        )}
-        <div style={{ display:'flex', gap:6 }}>
-          <div onClick={() => { setPlayIdx(0); setPlaying(false); setView('play') }}
-            style={{ flex:2, cursor:'pointer', background:T.amber, borderRadius:11,
-              padding:'12px 8px', textAlign:'center', fontFamily:MONO, fontSize:11,
-              fontWeight:700, color:T.bg }}>
-            ▶ 自動播放 0.6x
-          </div>
-          <div onClick={() => { setRevIdx(0); setRevFlip(false); setView('reverse') }}
-            style={{ flex:1, cursor:'pointer', background:T.surf2, border:`1px solid ${T.bdr2}`,
-              borderRadius:11, padding:'12px 4px', textAlign:'center',
-              fontFamily:MONO, fontSize:11, color:T.txt2 }}>
-            🔄 反向
-          </div>
-          <div onClick={() => setView('vocab')}
-            style={{ flex:1, cursor:'pointer', background:T.surf2,
-              border:`1px solid ${db.vocab.length ? T.blue+'50' : T.bdr}`,
-              borderRadius:11, padding:'12px 4px', textAlign:'center',
-              fontFamily:MONO, fontSize:11,
-              color: db.vocab.length ? T.blue : T.txt3 }}>
-            📖 {db.vocab.length > 0 ? db.vocab.length : '字'}
-          </div>
-        </div>
         {/* Hint */}
         <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>⭐ 收藏重點句 · 👆 點單字加入單字庫 · ✕ 刪除句子</div>
         {/* Sentence list */}
@@ -15126,6 +15124,10 @@ ${numbered}`
               <div style={{ display:'flex', gap:6, alignItems:'center', paddingRight:38, marginTop:2 }}>
                 <input
                   autoFocus
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck="false"
                   value={editingZhText}
                   onChange={e => setEditingZhText(e.target.value)}
                   onKeyDown={e => {
@@ -15175,6 +15177,10 @@ ${numbered}`
               <div style={{ display:'flex', gap:6, alignItems:'center', paddingRight:70, marginTop:4 }}>
                 <input
                   autoFocus
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck="false"
                   value={editingNoteText}
                   onChange={e => setEditingNoteText(e.target.value)}
                   onKeyDown={e => {
@@ -16932,7 +16938,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.86</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.87</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
