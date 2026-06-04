@@ -54,8 +54,8 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx_xBUsiWvvoF8Q
 
 // ── 電影音訊雙檔案設定 ────────────────────────────────────────
 const JERRY_MP3 = [
-  { url: 'https://226-collab.github.io/Jerry_1.mp3', start: 0,    end: 2400 }, // 0~40分
-  { url: 'https://226-collab.github.io/Jerry_2.mp3', start: 2400, end: 99999 }, // 40分~結尾
+  { url: 'https://steventeng1226-collab.github.io/fsi-command/Jerry_1.mp3', start: 0,    end: 2400 }, // 0~40分
+  { url: 'https://steventeng1226-collab.github.io/fsi-command/Jerry_2.mp3', start: 2400, end: 99999 }, // 40分~結尾
 ]
 function getJerryMp3(secs) {
   return JERRY_MP3.find(f => secs >= f.start && secs < f.end) ?? JERRY_MP3[0]
@@ -7243,7 +7243,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.79
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.81
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13209,6 +13209,8 @@ function MovieTab({ audioMode, setAudioMode }) {
 
   // ── 開 App 自動載入雲端 MP3 ───────────────────────────────
   useEffect(() => {
+    // 清除舊的 cloudUrl localStorage（避免舊 Google Drive URL 干擾）
+    localStorage.removeItem('fsi:movie:cloudUrl')
     if (audioMode === 'original') {
       loadAudioUrl(JERRY_MP3[0].url, '征服情海 Part 1')
     }
@@ -15593,31 +15595,23 @@ ${numbered}`
       })}
             {/* ── 雲端 MP3 設定 ── */}
       <div style={{ display:'flex', flexDirection:'column', gap:8,
-        background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:13, padding:'14px 16px' }}>
+        background:T.surf, border:`1px solid ${audioReady ? T.grn+'50' : T.bdr}`, borderRadius:13, padding:'14px 16px' }}>
         <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>
-          ☁️ 雲端 MP3（Google Drive）
+          ☁️ 電影原音（GitHub）
         </div>
-        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.7 }}>
-          設定後開 App 自動載入，不需每次選檔案
+        <div style={{ fontFamily:MONO, fontSize:9, color: audioReady ? T.grn : T.txt3 }}>
+          {audioReady
+            ? `✅ ${audioFileName} 已載入`
+            : audioFileName?.startsWith('❌')
+              ? audioFileName
+              : '⏳ 載入中…'}
         </div>
-        <input
-          value={cloudAudioUrl}
-          onChange={e => setCloudAudioUrl(e.target.value)}
-          placeholder="https://drive.google.com/uc?export=download&id=..."
-          style={{ fontFamily:MONO, fontSize:9, background:T.surf2,
-            border:`1px solid ${cloudAudioUrl ? T.grn+'60' : T.bdr}`,
-            borderRadius:8, padding:'8px 10px', color:T.txt, outline:'none',
-            width:'100%', boxSizing:'border-box' }}
-        />
         <div style={{ display:'flex', gap:8 }}>
-          <div onClick={() => {
-              localStorage.setItem('fsi:movie:cloudUrl', cloudAudioUrl)
-              loadAudioUrl(cloudAudioUrl, '征服情海.mp3')
-            }}
+          <div onClick={() => loadAudioUrl(JERRY_MP3[0].url, '征服情海 Part 1')}
             style={{ flex:2, cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
               color:T.grn, padding:'9px', background:T.grnD,
               borderRadius:8, border:`1px solid ${T.grn}50`, textAlign:'center' }}>
-            💾 儲存並載入
+            ↺ 重新載入雲端 MP3
           </div>
           <div onClick={pickAudioFile}
             style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:9,
@@ -15626,11 +15620,6 @@ ${numbered}`
             📁 本機選檔
           </div>
         </div>
-        {audioReady && (
-          <div style={{ fontFamily:MONO, fontSize:9, color:T.grn }}>
-            {audioSource === 'cloud' ? '☁️ 雲端' : '📁 本機'} · {audioFileName} ✅ 已載入
-          </div>
-        )}
       </div>
 
             {/* ── 電影資料同步 ── */}
@@ -16948,7 +16937,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.79</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.81</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
