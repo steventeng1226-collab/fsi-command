@@ -7243,7 +7243,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.91
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.92
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13391,8 +13391,16 @@ function MovieTab({ audioMode, setAudioMode }) {
   async function autoPush(ndWithTs) {
     if (!navigator.onLine) return
     try {
+      // 移除 transcript 避免超過 Sheets 限制
+      const dbToSync = {
+        ...ndWithTs,
+        movies: ndWithTs.movies?.map(m => {
+          const { transcript, ...rest } = m
+          return rest
+        }) ?? []
+      }
       const form = new FormData()
-      form.append('data', JSON.stringify({ movieDB: ndWithTs }))
+      form.append('data', JSON.stringify({ movieDB: dbToSync }))
       await fetch(APPS_SCRIPT_URL, { method:'POST', body:form })
     } catch { /* 靜默失敗，下次再試 */ }
   }
@@ -14148,19 +14156,29 @@ ${numbered}`
   async function pushMovieDB() {
     setPushSyncing(true); setMovieSyncMsg('推送中…')
     try {
+      // 推送時移除 transcript（太大會超過 Sheets 50K 限制）
+      const dbToSync = {
+        ...db,
+        updatedAt: Date.now(),
+        movies: db.movies.map(m => {
+          const { transcript, ...rest } = m
+          return rest
+        })
+      }
       const ctrl = new AbortController()
       const t = setTimeout(() => ctrl.abort(), 60000)
       let json
       try {
         const form = new FormData()
-        form.append('data', JSON.stringify({ movieDB: { ...db, updatedAt: Date.now() } }))
+        form.append('data', JSON.stringify({ movieDB: dbToSync }))
         const r = await fetch(APPS_SCRIPT_URL, { method:'POST', body:form, signal: ctrl.signal })
         json = await r.json()
       } finally { clearTimeout(t) }
       if (json?.ok === false) throw new Error(json.error ?? '推送失敗')
       const mc = db.movies?.length ?? 0
       const vc = db.vocab?.length ?? 0
-      setMovieSyncMsg(`✓ 已推送：${mc} 部電影 · 單字庫 ${vc} 個`)
+      const dataSize = JSON.stringify(dbToSync).length
+      setMovieSyncMsg(`✓ 已推送：${mc} 部電影 · 單字庫 ${vc} 個 (${Math.round(dataSize/1000)}KB)`)
     } catch(e) {
       if (e.name === 'AbortError') setMovieSyncMsg('✗ 推送超時，請重試')
       else setMovieSyncMsg('✗ ' + (e.message ?? '網路錯誤'))
@@ -14181,11 +14199,21 @@ ${numbered}`
       if (!json.ok) throw new Error(json.error ?? 'Sync failed')
       if (!json.movieDB) throw new Error('Sheets 尚無電影資料，請先推送。')
       const nd = json.movieDB
-      setDb(nd)
-      localStorage.setItem('fsi:movie:db', JSON.stringify(nd))
-      const mc = nd.movies?.length ?? 0
-      const sc = nd.movies?.reduce((a,m) => a + (m.scenes?.length ?? 0), 0) ?? 0
-      const vc = nd.vocab?.length ?? 0
+      // 讀入時保留本機的 transcript（推送時已排除）
+      const merged = {
+        ...nd,
+        movies: nd.movies?.map(m => {
+          const localMovie = db.movies?.find(lm => lm.id === m.id)
+          return localMovie?.transcript
+            ? { ...m, transcript: localMovie.transcript }
+            : m
+        }) ?? []
+      }
+      setDb(merged)
+      localStorage.setItem('fsi:movie:db', JSON.stringify(merged))
+      const mc = merged.movies?.length ?? 0
+      const sc = merged.movies?.reduce((a,m) => a + (m.scenes?.length ?? 0), 0) ?? 0
+      const vc = merged.vocab?.length ?? 0
       setMovieSyncMsg(`✓ 已還原：${mc} 部 · ${sc} 場景 · 單字庫 ${vc} 個`)
     } catch(e) {
       if (e.name === 'AbortError') setMovieSyncMsg('✗ 讀取超時，請重試')
@@ -16950,7 +16978,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.91</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.92</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
