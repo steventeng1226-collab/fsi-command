@@ -7243,7 +7243,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.92
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.93
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13182,7 +13182,7 @@ function MovieTab({ audioMode, setAudioMode }) {
   const [editingSceneDescId,   setEditingSceneDescId]   = useState(null)
   const [editingSceneDescText, setEditingSceneDescText] = useState('')
   const [autoGenSceneBusy, setAutoGenSceneBusy] = useState(false)
-  const [starFilter,      setStarFilter]      = useState(false)
+  const [starFilter,      setStarFilter]      = useState(true)
   const [playingPhraseId, setPlayingPhraseId] = useState(null)
   const [deletingPhraseId,setDeletingPhraseId]= useState(null)
   const [editingZhId,     setEditingZhId]     = useState(null)
@@ -13391,7 +13391,6 @@ function MovieTab({ audioMode, setAudioMode }) {
   async function autoPush(ndWithTs) {
     if (!navigator.onLine) return
     try {
-      // 移除 transcript 避免超過 Sheets 限制
       const dbToSync = {
         ...ndWithTs,
         movies: ndWithTs.movies?.map(m => {
@@ -13399,8 +13398,15 @@ function MovieTab({ audioMode, setAudioMode }) {
           return rest
         }) ?? []
       }
+      const transcriptDB = ndWithTs.movies
+        ?.filter(m => m.transcript)
+        .map(m => ({
+          movieId: m.id,
+          transcript: m.transcript,
+          updatedAt: m.transcriptUpdatedAt ?? Date.now()
+        })) ?? []
       const form = new FormData()
-      form.append('data', JSON.stringify({ movieDB: dbToSync }))
+      form.append('data', JSON.stringify({ movieDB: dbToSync, transcriptDB }))
       await fetch(APPS_SCRIPT_URL, { method:'POST', body:form })
     } catch { /* 靜默失敗，下次再試 */ }
   }
@@ -13897,7 +13903,7 @@ Return ONLY a JSON object, no markdown:
   // ── 儲存逐字稿到 movie 物件 ──────────────────────────────────
   function saveTranscript(text) {
     saveDb({ ...db, movies: db.movies.map(m =>
-      m.id !== movieId ? m : { ...m, transcript: text.trim() }
+      m.id !== movieId ? m : { ...m, transcript: text.trim(), transcriptUpdatedAt: Date.now() }
     )})
   }
   function appendTranscript(text) {
@@ -14156,7 +14162,7 @@ ${numbered}`
   async function pushMovieDB() {
     setPushSyncing(true); setMovieSyncMsg('推送中…')
     try {
-      // 推送時移除 transcript（太大會超過 Sheets 50K 限制）
+      // 場景資料移除 transcript（避免超過 Sheets 50K 限制）
       const dbToSync = {
         ...db,
         updatedAt: Date.now(),
@@ -14165,20 +14171,30 @@ ${numbered}`
           return rest
         })
       }
+      // 逐字稿獨立推送到 TranscriptDB
+      const transcriptDB = db.movies
+        .filter(m => m.transcript)
+        .map(m => ({
+          movieId: m.id,
+          transcript: m.transcript,
+          updatedAt: Date.now()
+        }))
+
       const ctrl = new AbortController()
       const t = setTimeout(() => ctrl.abort(), 60000)
       let json
       try {
         const form = new FormData()
-        form.append('data', JSON.stringify({ movieDB: dbToSync }))
+        form.append('data', JSON.stringify({ movieDB: dbToSync, transcriptDB }))
         const r = await fetch(APPS_SCRIPT_URL, { method:'POST', body:form, signal: ctrl.signal })
         json = await r.json()
       } finally { clearTimeout(t) }
       if (json?.ok === false) throw new Error(json.error ?? '推送失敗')
       const mc = db.movies?.length ?? 0
+      const sc = db.movies?.reduce((a,m) => a + (m.scenes?.length ?? 0), 0) ?? 0
       const vc = db.vocab?.length ?? 0
       const dataSize = JSON.stringify(dbToSync).length
-      setMovieSyncMsg(`✓ 已推送：${mc} 部電影 · 單字庫 ${vc} 個 (${Math.round(dataSize/1000)}KB)`)
+      setMovieSyncMsg(`✓ 已推送：${mc} 部 · ${sc} 場景 · 單字庫 ${vc} 個 (${Math.round(dataSize/1000)}KB)`)
     } catch(e) {
       if (e.name === 'AbortError') setMovieSyncMsg('✗ 推送超時，請重試')
       else setMovieSyncMsg('✗ ' + (e.message ?? '網路錯誤'))
@@ -14199,14 +14215,24 @@ ${numbered}`
       if (!json.ok) throw new Error(json.error ?? 'Sync failed')
       if (!json.movieDB) throw new Error('Sheets 尚無電影資料，請先推送。')
       const nd = json.movieDB
-      // 讀入時保留本機的 transcript（推送時已排除）
+      const transcriptDB = json.transcriptDB ?? []
+      // 合併逐字稿：比較時間戳，較新的為準
       const merged = {
         ...nd,
         movies: nd.movies?.map(m => {
-          const localMovie = db.movies?.find(lm => lm.id === m.id)
-          return localMovie?.transcript
-            ? { ...m, transcript: localMovie.transcript }
-            : m
+          const localMovie   = db.movies?.find(lm => lm.id === m.id)
+          const sheetsScript = transcriptDB.find(t => t.movieId === m.id)
+          const localTs  = localMovie?.transcriptUpdatedAt ?? 0
+          const sheetsTs = sheetsScript?.updatedAt ?? 0
+          // Sheets 較新或本機沒有 → 用 Sheets 的
+          if (sheetsScript && sheetsTs >= localTs) {
+            return { ...m, transcript: sheetsScript.transcript, transcriptUpdatedAt: sheetsTs }
+          }
+          // 本機較新 → 保留本機的
+          if (localMovie?.transcript) {
+            return { ...m, transcript: localMovie.transcript, transcriptUpdatedAt: localTs }
+          }
+          return m
         }) ?? []
       }
       setDb(merged)
@@ -14214,7 +14240,8 @@ ${numbered}`
       const mc = merged.movies?.length ?? 0
       const sc = merged.movies?.reduce((a,m) => a + (m.scenes?.length ?? 0), 0) ?? 0
       const vc = merged.vocab?.length ?? 0
-      setMovieSyncMsg(`✓ 已還原：${mc} 部 · ${sc} 場景 · 單字庫 ${vc} 個`)
+      const hasTranscript = merged.movies?.some(m => m.transcript) ? ' · 逐字稿已同步' : ''
+      setMovieSyncMsg(`✓ 已還原：${mc} 部 · ${sc} 場景 · 單字庫 ${vc} 個${hasTranscript}`)
     } catch(e) {
       if (e.name === 'AbortError') setMovieSyncMsg('✗ 讀取超時，請重試')
       else setMovieSyncMsg('✗ ' + (e.message ?? 'Sync failed'))
@@ -16978,7 +17005,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.92</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.93</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
