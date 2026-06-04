@@ -7243,7 +7243,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.78
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.79
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13562,9 +13562,12 @@ function MovieTab({ audioMode, setAudioMode }) {
     if (!audioElRef.current) audioElRef.current = new Audio()
     const el = audioElRef.current
     el.src = url
-    el.crossOrigin = 'anonymous'
-    el.oncanplay = () => setAudioReady(true)
-    el.onerror   = () => { setAudioReady(false); setAudioFileName('') }
+    el.oncanplay = () => { setAudioReady(true); setAudioFileName(label || url.split('/').pop()) }
+    el.onerror   = (e) => {
+      console.error('[loadAudioUrl error]', url, e)
+      setAudioReady(false)
+      setAudioFileName('❌ 載入失敗：' + url.split('/').pop())
+    }
     el.ontimeupdate = () => {
       if (el._sceneEnd && el.currentTime >= el._sceneEnd) {
         if (el._sceneLoop) {
@@ -13581,7 +13584,7 @@ function MovieTab({ audioMode, setAudioMode }) {
         setScenePlayPos(Math.min(1, Math.max(0, pos)))
       }
     }
-    setAudioFileName(label || url.slice(-30))
+    setAudioFileName(label || url.split('/').pop())
     setAudioSource('cloud')
     setAudioReady(false)
     el.load()
@@ -16945,7 +16948,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.78</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.79</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
