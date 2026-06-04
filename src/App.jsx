@@ -7243,7 +7243,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.84
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.86
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13219,6 +13219,9 @@ function MovieTab({ audioMode, setAudioMode }) {
   const [scenePlayPos,  setScenePlayPos]  = useState(0)
   const [sceneRate,     setSceneRate]     = useState(0.6) // 0~1 進度
   const [sceneLoop,     setSceneLoop]     = useState(false)
+  const [playRate, setPlayRate] = useState(
+    () => parseFloat(localStorage.getItem('fsi:movie:playRate') ?? '0.6')
+  )
   const [movieSyncing,    setMovieSyncing]    = useState(false)
   const [movieSyncMsg,    setMovieSyncMsg]    = useState("")
   const [autoSyncStatus,  setAutoSyncStatus]  = useState('idle') // 'idle'|'syncing'|'ok'|'err'
@@ -13471,7 +13474,7 @@ function MovieTab({ audioMode, setAudioMode }) {
   }
   function speakPhrase(pid, textOrRate, rateOverride) {
     const text = typeof textOrRate === 'string' ? textOrRate : ''
-    const rate = typeof rateOverride === 'number' ? rateOverride : 0.6
+    const rate = typeof rateOverride === 'number' ? rateOverride : playRate
 
     // 停止當前播放
     clearTimeout(audioStopRef.current)
@@ -13612,7 +13615,7 @@ function MovieTab({ audioMode, setAudioMode }) {
 
     function doPlay() {
       el._sceneStart = offsetStart; el._sceneEnd = offsetEnd; el._sceneLoop = sceneLoop
-      el.playbackRate = sceneRate
+      el.playbackRate = playRate
       el.currentTime = offsetStart
       el.play().catch(() => setScenePlaying(false))
       setScenePlaying(true); setScenePlayPos(0)
@@ -13818,10 +13821,10 @@ ${numbered}`
       const offsetSecs = p.startSecs - targetFile.start
 
       function playOffset() {
-        el.playbackRate = 0.6
+        el.playbackRate = playRate
         el.currentTime = offsetSecs
         el.play().catch(() => { if (!cancelled) setPlaying(false) })
-        const dur = Math.max(1, (p.endSecs - p.startSecs)) * 1000 / 0.6
+        const dur = Math.max(1, (p.endSecs - p.startSecs)) * 1000 / playRate
         audioStopRef.current = setTimeout(() => { el.pause(); advance() }, dur + 300)
       }
 
@@ -14897,9 +14900,26 @@ ${numbered}`
     const pct = phrases.length ? Math.round((playedCount / phrases.length) * 100) : 0
     return (
       <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
-        {/* Header */}
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        {/* Header：返回鍵 + 語速 */}
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
           <BackBtn to="list"/>
+          <div style={{ display:'flex', gap:5, marginLeft:'auto' }}>
+            {[0.6, 0.8, 1.0].map(r => (
+              <div key={r} onClick={() => {
+                  setPlayRate(r)
+                  setSceneRate(r)
+                  localStorage.setItem('fsi:movie:playRate', String(r))
+                  if (scenePlaying && audioElRef.current) audioElRef.current.playbackRate = r
+                }}
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                  padding:'5px 10px', borderRadius:8,
+                  background: playRate===r ? T.amberD : T.surf2,
+                  border:`1px solid ${playRate===r ? T.amber+'60' : T.bdr}`,
+                  color: playRate===r ? T.amber : T.txt3 }}>
+                {r === 0.6 ? '0.6x' : r === 0.8 ? '0.8x' : '1.0x'}
+              </div>
+            ))}
+          </div>
         </div>
         {/* Scene info card */}
         <div style={{ background:T.surf, borderRadius:14, padding:'16px 18px' }}>
@@ -14949,30 +14969,17 @@ ${numbered}`
         {/* ── 整段原聲播放 ── */}
         {(audioReady || audioMode === 'tts') && (
           <div style={{ background:T.surf, border:`1px solid ${scenePlaying ? T.amber+'60' : T.bdr}`,
-            borderRadius:12, padding:'12px 14px', display:'flex', flexDirection:'column', gap:10,
+            borderRadius:12, padding:'12px 14px', display:'flex', flexDirection:'column', gap:8,
             transition:'border-color 0.2s' }}>
 
-            {/* 標題列 */}
-            <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
-              🎬 整段原聲 · {scene.timeRange}
-            </div>
-
-            {/* 速度 + 單次/循環 */}
+            {/* 播放整段 + 單次/循環 + 停止 同一行 */}
             <div style={{ display:'flex', gap:6 }}>
-              {[0.6, 1.0].map(r => (
-                <div key={r} onClick={() => {
-                    setSceneRate(r)
-                    if (scenePlaying && audioElRef.current) audioElRef.current.playbackRate = r
-                  }}
-                  style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
-                    padding:'5px', borderRadius:7, textAlign:'center',
-                    background: sceneRate===r ? T.amberD : T.surf2,
-                    border:`1px solid ${sceneRate===r ? T.amber+'60' : T.bdr}`,
-                    color: sceneRate===r ? T.amber : T.txt3 }}>
-                  {r === 0.6 ? '0.6x' : '1.0x'}
-                </div>
-              ))}
-              <div style={{ width:8 }}/>
+              <div onClick={scenePlaying ? stopSceneAudio : playSceneAudio}
+                style={{ flex:2, cursor:'pointer', background: scenePlaying ? T.surf2 : T.amberD,
+                  border:`1px solid ${T.amber}60`, borderRadius:9, padding:'9px',
+                  textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700, color:T.amber }}>
+                {scenePlaying ? '⏹ 停止' : '🎬 播放整段'}
+              </div>
               {[['single','▶ 單次'],['loop','🔁 循環']].map(([mode, label]) => (
                 <div key={mode} onClick={() => {
                     const isLoop = mode === 'loop'
@@ -14980,7 +14987,7 @@ ${numbered}`
                     if (audioElRef.current) audioElRef.current._sceneLoop = isLoop
                   }}
                   style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
-                    padding:'5px', borderRadius:7, textAlign:'center',
+                    padding:'9px 4px', borderRadius:9, textAlign:'center',
                     background: (sceneLoop ? 'loop' : 'single') === mode ? T.blueD : T.surf2,
                     border:`1px solid ${(sceneLoop ? 'loop' : 'single') === mode ? T.blue+'60' : T.bdr}`,
                     color: (sceneLoop ? 'loop' : 'single') === mode ? T.blue : T.txt3 }}>
@@ -14990,24 +14997,16 @@ ${numbered}`
             </div>
 
             {/* 進度條（電影原音時顯示）*/}
-            {audioMode === 'original' && (
-              <div style={{ background:T.bdr, borderRadius:4, height:5, overflow:'hidden' }}>
+            {audioMode === 'original' && scenePlaying && (
+              <div style={{ background:T.bdr, borderRadius:4, height:4, overflow:'hidden' }}>
                 <div style={{ width:`${scenePlayPos*100}%`, height:'100%',
                   background:T.amber, transition:'width 0.3s' }}/>
               </div>
             )}
 
-            {/* 播放/停止按鈕 */}
-            <div onClick={scenePlaying ? stopSceneAudio : playSceneAudio}
-              style={{ cursor:'pointer', background: scenePlaying ? T.surf2 : T.amberD,
-                border:`1px solid ${T.amber}60`, borderRadius:9, padding:'10px',
-                textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700, color:T.amber }}>
-              {scenePlaying ? '⏹ 停止' : `🎬 播放整段 ${sceneRate}x ${sceneLoop ? '🔁' : '▶'}`}
-            </div>
-
             {/* 睡眠計時 */}
             <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-              <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>⏰ 睡眠：</span>
+              <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>⏰</span>
               {[10,20,30].map(m => {
                 const active = sleepMins === m
                 return (
@@ -15586,11 +15585,6 @@ ${numbered}`
                 ? <span style={{ color:T.grn, marginLeft:6 }}>✓ 訓練完畢</span>
                 : <span> · {sp}/{s.phrases.length} 已練</span>}
             </div>
-            {spc > 0 && !isDone && (
-              <div style={{ background:T.bdr, borderRadius:3, height:3, overflow:'hidden' }}>
-                <div style={{ width:`${spc}%`, height:'100%', background:T.amber }}/>
-              </div>
-            )}
           </div>
         )
       })}
@@ -16938,7 +16932,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.84</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.86</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
