@@ -7243,7 +7243,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.87
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.88
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14937,7 +14937,7 @@ ${numbered}`
 
         {/* Scene info card */}
         <div style={{ background:T.surf, borderRadius:14, padding:'14px 16px' }}>
-          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:3 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6 }}>
             <div style={{ fontFamily:MONO, fontSize:13, color:T.amber, fontWeight:700, flex:1 }}>{scene.name}</div>
             <div onClick={() => setView('vocab')}
               style={{ cursor:'pointer', fontFamily:MONO, fontSize:10,
@@ -14948,13 +14948,13 @@ ${numbered}`
               📖 {db.vocab.length}
             </div>
           </div>
-          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:8 }}>
-            {scene.timeRange} · {phrases.length} 句 · ⭐ {starredCount} 重點
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
+            <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>{scene.timeRange}</span>
+            <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>已練習 {playedCount}/{activePhrases.length} · {pct}%</span>
           </div>
-          <div style={{ background:T.bdr, borderRadius:4, height:4, overflow:'hidden', marginBottom:5 }}>
+          <div style={{ background:T.bdr, borderRadius:4, height:4, overflow:'hidden' }}>
             <div style={{ width:`${pct}%`, height:'100%', background:T.amber, transition:'width 0.3s' }}/>
           </div>
-          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>已練習 {playedCount}/{activePhrases.length} · {pct}%</div>
         </div>
 
         {/* 第二行：全部 + ⭐重點 + 🔄反向 */}
@@ -15300,7 +15300,7 @@ ${numbered}`
               </div>
             )}
 
-            {/* 右側按鈕欄：⭐|✕ 上，🔊|📝 下 */}
+            {/* 右側按鈕欄：⭐ ✕ 只在右上角 */}
             <div style={{ position:'absolute', top:10, right:10,
               display:'flex', flexDirection:'column', alignItems:'flex-end', gap:5 }}>
               {deletingPhraseId === p.id ? (
@@ -15317,49 +15317,50 @@ ${numbered}`
                   </div>
                 </div>
               ) : (
-                <>
-                  {/* Row 1: ⭐ | ✕ */}
-                  <div style={{ display:'flex', gap:5, alignItems:'center' }}>
-                    <div onClick={() => toggleStar(p.id)}
-                      style={{ cursor:'pointer', fontSize:14,
-                        opacity: p.starred ? 1 : 0.25,
-                        transition:'opacity 0.15s, transform 0.15s',
-                        transform: p.starred ? 'scale(1.15)' : 'scale(1)' }}>⭐</div>
-                    <div onClick={() => setDeletingPhraseId(p.id)}
-                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
-                        padding:'2px 5px', background:T.surf2, borderRadius:5,
-                        border:`1px solid ${T.bdr}` }}>✕</div>
-                  </div>
-                  {/* Row 2: 🔊 | 📝 | 🎬 */}
-                  <div style={{ display:'flex', gap:5, alignItems:'center' }}>
-                    <div onClick={() => speakPhrase(p.id, p.en)}
-                      style={{ cursor:'pointer', width:26, height:26, borderRadius:6,
-                        display:'flex', alignItems:'center', justifyContent:'center',
-                        background: playingPhraseId===p.id ? T.amber+'22' : T.surf2,
-                        border:`1px solid ${playingPhraseId===p.id ? T.amber : T.bdr}`,
-                        transition:'all 0.15s' }}>
-                      <span style={{ fontSize:13 }}>{playingPhraseId===p.id ? '⏹' : '🔊'}</span>
-                    </div>
-                    <div onClick={() => { setEditingNoteId(p.id); setEditingNoteText(p.note ?? '') }}
-                      style={{ cursor:'pointer', width:26, height:26, borderRadius:6,
-                        display:'flex', alignItems:'center', justifyContent:'center',
-                        background: p.note ? T.blueD : T.surf2,
-                        border:`1px solid ${p.note ? T.blue+'60' : T.bdr}`,
-                        transition:'all 0.15s' }}>
-                      <span style={{ fontSize:13 }}>📝</span>
-                    </div>
-                    <div onClick={() => { setEditingSceneDescId(p.id); setEditingSceneDescText(p.sceneDesc ?? '') }}
-                      style={{ cursor:'pointer', width:26, height:26, borderRadius:6,
-                        display:'flex', alignItems:'center', justifyContent:'center',
-                        background: p.sceneDesc ? T.amberD : T.surf2,
-                        border:`1px solid ${p.sceneDesc ? T.amber+'60' : T.bdr}`,
-                        transition:'all 0.15s' }}>
-                      <span style={{ fontSize:13 }}>🎬</span>
-                    </div>
-                  </div>
-                </>
+                <div style={{ display:'flex', gap:5, alignItems:'center' }}>
+                  <div onClick={() => toggleStar(p.id)}
+                    style={{ cursor:'pointer', fontSize:14,
+                      opacity: p.starred ? 1 : 0.25,
+                      transition:'opacity 0.15s, transform 0.15s',
+                      transform: p.starred ? 'scale(1.15)' : 'scale(1)' }}>⭐</div>
+                  <div onClick={() => setDeletingPhraseId(p.id)}
+                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
+                      padding:'2px 5px', background:T.surf2, borderRadius:5,
+                      border:`1px solid ${T.bdr}` }}>✕</div>
+                </div>
               )}
             </div>
+
+            {/* 底部按鈕列：📝 備註 | 🎬 畫面 | 🔊 播放 */}
+            {deletingPhraseId !== p.id && (
+              <div style={{ display:'flex', gap:6, marginTop:10, paddingRight:38 }}>
+                <div onClick={() => { setEditingNoteId(p.id); setEditingNoteText(p.note ?? '') }}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                    padding:'5px 10px', borderRadius:7, flex:1, textAlign:'center',
+                    background: p.note ? T.blueD : T.surf2,
+                    border:`1px solid ${p.note ? T.blue+'60' : T.bdr}`,
+                    color: p.note ? T.blue : T.txt3 }}>
+                  📝 備註
+                </div>
+                <div onClick={() => { setEditingSceneDescId(p.id); setEditingSceneDescText(p.sceneDesc ?? '') }}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                    padding:'5px 10px', borderRadius:7, flex:1, textAlign:'center',
+                    background: p.sceneDesc ? T.amberD : T.surf2,
+                    border:`1px solid ${p.sceneDesc ? T.amber+'60' : T.bdr}`,
+                    color: p.sceneDesc ? T.amber : T.txt3 }}>
+                  🎬 畫面
+                </div>
+                <div onClick={() => speakPhrase(p.id, p.en)}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                    padding:'5px 10px', borderRadius:7, flex:1, textAlign:'center',
+                    background: playingPhraseId===p.id ? T.amber+'22' : T.surf2,
+                    border:`1px solid ${playingPhraseId===p.id ? T.amber : T.bdr}`,
+                    color: playingPhraseId===p.id ? T.amber : T.txt3,
+                    transition:'all 0.15s' }}>
+                  {playingPhraseId===p.id ? '⏹' : '🔊'}
+                </div>
+              </div>
+            )}
             {p.played && <span style={{ position:'absolute', bottom:8, right:10, fontSize:9, color:T.txt3 }}>✅</span>}
           </div>
         ))}
@@ -16938,7 +16939,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.87</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.88</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
