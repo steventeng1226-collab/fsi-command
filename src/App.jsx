@@ -52,6 +52,15 @@ const SERIF = "'Crimson Pro',Georgia,serif"
 const DISP  = "'Cinzel',serif"
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx_xBUsiWvvoF8Qz9OczKniddNVENSz8W0ToTrzIw7VVCG3V0MlM85vl8Z1VmuNPS8STg/exec'
 
+// ── 電影音訊雙檔案設定 ────────────────────────────────────────
+const JERRY_MP3 = [
+  { url: 'https://226-collab.github.io/Jerry_1.mp3', start: 0,    end: 2400 }, // 0~40分
+  { url: 'https://226-collab.github.io/Jerry_2.mp3', start: 2400, end: 99999 }, // 40分~結尾
+]
+function getJerryMp3(secs) {
+  return JERRY_MP3.find(f => secs >= f.start && secs < f.end) ?? JERRY_MP3[0]
+}
+
 // ═══════════════════════════════════════════════════════════════
 // STORAGE  (localStorage — persists across sessions)
 // ═══════════════════════════════════════════════════════════════
@@ -7234,7 +7243,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.77
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.78
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13200,10 +13209,8 @@ function MovieTab({ audioMode, setAudioMode }) {
 
   // ── 開 App 自動載入雲端 MP3 ───────────────────────────────
   useEffect(() => {
-    const url = localStorage.getItem('fsi:movie:cloudUrl')
-      ?? 'https://drive.google.com/uc?export=download&id=11eOTSctYIP10tHZJAtakOnIOYMSd4PVs'
-    if (url && audioMode === 'original') {
-      loadAudioUrl(url, '征服情海.mp3')
+    if (audioMode === 'original') {
+      loadAudioUrl(JERRY_MP3[0].url, '征服情海 Part 1')
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps // 'original' | 'tts'
   const [scenePlaying, setScenePlaying] = useState(false)
@@ -13480,15 +13487,34 @@ function MovieTab({ audioMode, setAudioMode }) {
     const hasTimestamp = phrase && (phrase.startSecs > 0 || phrase.endSecs > 0)
 
     // 優先用電影原音（audioMode === 'original' 且 MP3 已載入且有時間碼）
-    if (audioMode === 'original' && audioElRef.current && audioReady && hasTimestamp) {
+    if (audioMode === 'original' && audioElRef.current && hasTimestamp) {
       const el = audioElRef.current
-      el.playbackRate = rate
-      el.currentTime = phrase.startSecs
-      el.play().catch(() => {})
-      const dur = Math.max(0.5, (phrase.endSecs - phrase.startSecs)) * 1000 / rate
-      audioStopRef.current = setTimeout(() => {
-        el.pause(); setPlayingPhraseId(null)
-      }, dur + 200)
+      const targetFile = getJerryMp3(phrase.startSecs)
+      const offsetSecs = phrase.startSecs - targetFile.start
+      // 如果需要切換檔案
+      if (el.src !== targetFile.url && !el.src.includes(targetFile.url.split('/').pop())) {
+        loadAudioUrl(targetFile.url, `征服情海 Part ${JERRY_MP3.indexOf(targetFile) + 1}`)
+        // 等待載入後播放
+        const onReady = () => {
+          el.playbackRate = rate
+          el.currentTime = offsetSecs
+          el.play().catch(() => {})
+          const dur = Math.max(0.5, (phrase.endSecs - phrase.startSecs)) * 1000 / rate
+          audioStopRef.current = setTimeout(() => {
+            el.pause(); setPlayingPhraseId(null)
+          }, dur + 200)
+          el.removeEventListener('canplay', onReady)
+        }
+        el.addEventListener('canplay', onReady)
+      } else {
+        el.playbackRate = rate
+        el.currentTime = offsetSecs
+        el.play().catch(() => {})
+        const dur = Math.max(0.5, (phrase.endSecs - phrase.startSecs)) * 1000 / rate
+        audioStopRef.current = setTimeout(() => {
+          el.pause(); setPlayingPhraseId(null)
+        }, dur + 200)
+      }
     } else {
       // fallback: TTS
       const u = new SpeechSynthesisUtterance(text)
@@ -13568,18 +13594,33 @@ function MovieTab({ audioMode, setAudioMode }) {
   }
 
   function playSceneAudio() {
-    if (!audioElRef.current || !audioReady || !scene) return
+    if (!audioElRef.current || !scene) return
     const { start, end } = parseSceneTimeRange(scene.timeRange)
     if (!end || end <= start) return
     clearTimeout(audioStopRef.current)
     window.speechSynthesis?.cancel()
     setPlayingPhraseId(null)
     const el = audioElRef.current
-    el._sceneStart = start; el._sceneEnd = end; el._sceneLoop = sceneLoop
-    el.playbackRate = sceneRate
-    el.currentTime = start
-    el.play().catch(() => setScenePlaying(false))
-    setScenePlaying(true); setScenePlayPos(0)
+    const targetFile = getJerryMp3(start)
+    const offsetStart = start - targetFile.start
+    const offsetEnd   = end   - targetFile.start
+
+    function doPlay() {
+      el._sceneStart = offsetStart; el._sceneEnd = offsetEnd; el._sceneLoop = sceneLoop
+      el.playbackRate = sceneRate
+      el.currentTime = offsetStart
+      el.play().catch(() => setScenePlaying(false))
+      setScenePlaying(true); setScenePlayPos(0)
+    }
+
+    const currentSrc = el.src || ''
+    if (!currentSrc.includes(targetFile.url.split('/').pop())) {
+      loadAudioUrl(targetFile.url, `征服情海 Part ${JERRY_MP3.indexOf(targetFile) + 1}`)
+      const onReady = () => { doPlay(); el.removeEventListener('canplay', onReady) }
+      el.addEventListener('canplay', onReady)
+    } else {
+      doPlay()
+    }
   }
 
   function stopSceneAudio() {
@@ -13765,14 +13806,28 @@ ${numbered}`
       }, 800)
     }
 
-    if (audioElRef.current && audioReady && hasTimestamp) {
-      // 電影原音
+    if (audioMode === 'original' && audioElRef.current && hasTimestamp) {
+      // 電影原音：自動切換正確檔案
       const el = audioElRef.current
-      el.playbackRate = 0.6
-      el.currentTime = p.startSecs
-      el.play().catch(() => { if (!cancelled) setPlaying(false) })
-      const dur = Math.max(1, (p.endSecs - p.startSecs)) * 1000 / 0.6
-      audioStopRef.current = setTimeout(() => { el.pause(); advance() }, dur + 300)
+      const targetFile = getJerryMp3(p.startSecs)
+      const offsetSecs = p.startSecs - targetFile.start
+
+      function playOffset() {
+        el.playbackRate = 0.6
+        el.currentTime = offsetSecs
+        el.play().catch(() => { if (!cancelled) setPlaying(false) })
+        const dur = Math.max(1, (p.endSecs - p.startSecs)) * 1000 / 0.6
+        audioStopRef.current = setTimeout(() => { el.pause(); advance() }, dur + 300)
+      }
+
+      const currentSrc = el.src || ''
+      if (!currentSrc.includes(targetFile.url.split('/').pop())) {
+        loadAudioUrl(targetFile.url, `征服情海 Part ${JERRY_MP3.indexOf(targetFile) + 1}`)
+        const onReady = () => { if (!cancelled) playOffset(); el.removeEventListener('canplay', onReady) }
+        el.addEventListener('canplay', onReady)
+      } else {
+        playOffset()
+      }
     } else {
       // TTS fallback
       const u = new SpeechSynthesisUtterance(p.en)
@@ -15423,10 +15478,10 @@ ${numbered}`
             textOverflow:'ellipsis', whiteSpace:'nowrap',
             color: audioReady ? T.grn : T.txt3 }}>
             {audioReady
-              ? `${audioSource === 'cloud' ? '☁️' : '📁'} ${audioFileName} ✅ ${audioSource === 'cloud' ? '雲端' : '本機'}已載入`
+              ? `☁️ ${audioFileName} ✅ 雲端已載入`
               : audioFileName
-                ? `⏳ 載入中… ${audioSource === 'cloud' ? '☁️ 雲端' : '📁 本機'}`
-                : '🎵 未載入 MP3'}
+                ? `⏳ 載入中… ☁️ ${audioFileName}`
+                : '⏳ 自動載入雲端 MP3…'}
           </span>
           {cloudAudioUrl ? (
             <div onClick={() => loadAudioUrl(cloudAudioUrl, '征服情海.mp3')}
@@ -16890,7 +16945,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.77</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.78</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
