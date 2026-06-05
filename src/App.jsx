@@ -13180,11 +13180,11 @@ function MovieTab({ audioMode, setAudioMode }) {
     return s === null ? true : s === 'true' // 第一次自動展開
   })
   const [editingSceneDescId,   setEditingSceneDescId]   = useState(null)
-  const [editingSceneNameId,   setEditingSceneNameId]   = useState(null)
-  const [editingSceneNameText, setEditingSceneNameText] = useState('')
   const [editingSceneDescText, setEditingSceneDescText] = useState('')
   const [autoGenSceneBusy, setAutoGenSceneBusy] = useState(false)
   const [starFilter,      setStarFilter]      = useState(true)
+  const [editingSceneNameId,   setEditingSceneNameId]   = useState(null)
+  const [editingSceneNameText, setEditingSceneNameText] = useState('')
   const [playingPhraseId, setPlayingPhraseId] = useState(null)
   const [deletingPhraseId,setDeletingPhraseId]= useState(null)
   const [editingZhId,     setEditingZhId]     = useState(null)
@@ -15684,7 +15684,7 @@ ${numbered}`
         const isDone = s.done === true
         const st  = isDone ? 'done' : spc===100 ? 'done' : spc>0 ? 'active' : 'new'
         return (
-          <div key={s.id} onClick={() => { if(editingSceneNameId===s.id) return; setSceneId(s.id); setView('scene') }}
+          <div key={s.id} onClick={() => { setSceneId(s.id); setView('scene') }}
             style={{ background:T.surf,
               border:`1px solid ${isDone ? T.grn+'60' : st==='active' ? T.amber+'60' : T.bdr}`,
               borderRadius:13, padding:'15px 16px', cursor:'pointer', transition:'border-color 0.15s' }}>
@@ -15700,7 +15700,6 @@ ${numbered}`
                   opacity: isDone ? 1 : 0.3, transition:'opacity 0.15s', userSelect:'none' }}>
                 {isDone ? '✅' : st==='active' ? '🟡' : '⭕'}
               </div>
-              {/* 場景名稱：點擊可編輯 */}
               {editingSceneNameId === s.id ? (
                 <input
                   autoFocus
@@ -15732,26 +15731,22 @@ ${numbered}`
                     borderRadius:7, padding:'3px 8px', outline:'none' }}
                 />
               ) : (
-                <span
-                  onClick={e => { e.stopPropagation(); setEditingSceneNameId(s.id); setEditingSceneNameText(s.name) }}
-                  title="點擊修改場景名稱"
-                  style={{ fontFamily:MONO, fontSize:12, color: isDone ? T.grn : T.txt,
-                    fontWeight:st==='active'?600:400, flex:1,
-                    textDecoration: isDone ? 'line-through' : 'none',
-                    cursor:'text' }}>
+                <span style={{ fontFamily:MONO, fontSize:12, color: isDone ? T.grn : T.txt,
+                  fontWeight:st==='active'?600:400, flex:1,
+                  textDecoration: isDone ? 'line-through' : 'none' }}>
                   {s.name}
                 </span>
               )}
+              <div onClick={e => { e.stopPropagation(); setEditingSceneNameId(s.id); setEditingSceneNameText(s.name) }}
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
+                  padding:'2px 6px', background:T.surf2, borderRadius:5, border:`1px solid ${T.bdr}`,
+                  marginRight:4 }}>✏️</div>
               <div onClick={e=>{e.stopPropagation();deleteScene(s.id)}}
                 style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
                   padding:'2px 6px', background:T.surf2, borderRadius:5, border:`1px solid ${T.bdr}` }}>✕</div>
             </div>
-            <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+            <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom: spc>0?7:0 }}>
               {s.timeRange} · {s.phrases.length} 句
-              {(() => {
-                const starCount = s.phrases.filter(p => p.starred || Number(p.rating) >= 4).length
-                return starCount > 0 ? <span style={{ color:T.amber, marginLeft:4 }}>· ⭐{starCount} 重點</span> : null
-              })()}
               {isDone
                 ? <span style={{ color:T.grn, marginLeft:6 }}>✓ 訓練完畢</span>
                 : <span> · {sp}/{s.phrases.length} 已練</span>}
