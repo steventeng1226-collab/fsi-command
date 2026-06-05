@@ -7243,7 +7243,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.95
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.98
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13189,6 +13189,7 @@ function MovieTab({ audioMode, setAudioMode }) {
   const [editingZhText,   setEditingZhText]   = useState('')
   const [editingNoteId,   setEditingNoteId]   = useState(null)
   const [editingNoteText, setEditingNoteText] = useState('')
+  const [retranslatingId, setRetranslatingId] = useState(null)
   const [wordModal,       setWordModal]       = useState(null)
   // ── 行內單字查詢（取代 modal，在句子卡內展開）──
   const [inlineLookup,    setInlineLookup]    = useState(null) // {phraseId, word, sentence}
@@ -13203,9 +13204,7 @@ function MovieTab({ audioMode, setAudioMode }) {
   )
   const [audioReady, setAudioReady] = useState(false)
   const [audioSource, setAudioSource] = useState('none') // 'none' | 'cloud' | 'local'
-  const [cloudAudioUrl, setCloudAudioUrl] = useState(
-    () => localStorage.getItem('fsi:movie:cloudUrl') ?? 'https://drive.google.com/uc?export=download&id=11eOTSctYIP10tHZJAtakOnIOYMSd4PVs'
-  )
+  const [cloudAudioUrl, setCloudAudioUrl] = useState('')
 
   // ── 開 App 自動載入雲端 MP3 ───────────────────────────────
   useEffect(() => {
@@ -13662,6 +13661,23 @@ function MovieTab({ audioMode, setAudioMode }) {
       ...m, scenes: m.scenes.filter(s => s.id !== sid)
     })})
     if (sceneId === sid) { setSceneId(null); setView('list') }
+  }
+
+  async function retranslatePhrase(phraseId, en) {
+    setRetranslatingId(phraseId)
+    try {
+      const prompt = `把以下英文翻譯成繁體中文，只回傳翻譯結果，不要其他說明：\n${en}`
+      const zh = await callAI([{ role:'user', content: prompt }])
+      if (zh?.trim()) {
+        updateScenePhrases(ps => ps.map(p =>
+          p.id === phraseId ? { ...p, zh: zh.trim() } : p
+        ))
+      }
+    } catch(e) {
+      alert('翻譯失敗：' + e.message)
+    } finally {
+      setRetranslatingId(null)
+    }
   }
 
   async function aiRateScene() {
@@ -14563,6 +14579,8 @@ ${numbered}`
                 autoCorrect="off"
                 autoCapitalize="off"
                 spellCheck="false"
+                data-form-type="other"
+                data-lpignore="true"
                 inputMode="decimal"
                 style={{ fontFamily:MONO, fontSize:12, background:T.surf2,
                   border:`1px solid ${val ? T.grn+'60' : T.bdr}`,
@@ -15219,6 +15237,8 @@ ${numbered}`
                   autoCorrect="off"
                   autoCapitalize="off"
                   spellCheck="false"
+                data-form-type="other"
+                data-lpignore="true"
                   value={editingZhText}
                   onChange={e => setEditingZhText(e.target.value)}
                   onKeyDown={e => {
@@ -15272,6 +15292,8 @@ ${numbered}`
                   autoCorrect="off"
                   autoCapitalize="off"
                   spellCheck="false"
+                data-form-type="other"
+                data-lpignore="true"
                   value={editingNoteText}
                   onChange={e => setEditingNoteText(e.target.value)}
                   onKeyDown={e => {
@@ -15422,7 +15444,7 @@ ${numbered}`
               )}
             </div>
 
-            {/* 底部按鈕列：📝 備註 | 🎬 畫面 | 🔊 播放 */}
+            {/* 底部按鈕列：📝 備註 | 🎬 畫面 | 🔄 重譯 | 🔊 播放 */}
             {deletingPhraseId !== p.id && (
               <div style={{ display:'flex', gap:6, marginTop:10, paddingRight:38 }}>
                 <div onClick={() => { setEditingNoteId(p.id); setEditingNoteText(p.note ?? '') }}
@@ -15440,6 +15462,21 @@ ${numbered}`
                     border:`1px solid ${p.sceneDesc ? T.amber+'60' : T.bdr}`,
                     color: p.sceneDesc ? T.amber : T.txt3 }}>
                   🎬 畫面
+                </div>
+                <div onClick={() => retranslatingId !== p.id && retranslatePhrase(p.id, p.en)}
+                  style={{ cursor: retranslatingId === p.id ? 'default' : 'pointer',
+                    fontFamily:MONO, fontSize:9, fontWeight:700,
+                    padding:'5px 10px', borderRadius:7, flex:1, textAlign:'center',
+                    background: T.surf2,
+                    border:`1px solid ${T.bdr}`,
+                    color: retranslatingId === p.id ? T.txt3 : T.grn,
+                    transition:'all 0.15s',
+                    display:'flex', alignItems:'center', justifyContent:'center', gap:3 }}>
+                  {retranslatingId === p.id
+                    ? <span style={{ display:'inline-block', width:8, height:8,
+                        border:'1.5px solid transparent', borderTopColor:T.txt3,
+                        borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>
+                    : '🔄'}
                 </div>
                 <div onClick={() => speakPhrase(p.id, p.en)}
                   style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
@@ -15582,25 +15619,18 @@ ${numbered}`
             color: audioReady ? T.grn : T.txt3 }}>
             {audioReady
               ? `☁️ ${audioFileName} ✅ 雲端已載入`
-              : audioFileName
-                ? `⏳ 載入中… ☁️ ${audioFileName}`
-                : '⏳ 自動載入雲端 MP3…'}
+              : audioFileName?.startsWith('❌')
+                ? '⚠️ 載入失敗，請重新載入'
+                : audioFileName
+                  ? `⏳ 載入中… ${audioFileName}`
+                  : '⏳ 自動載入雲端 MP3…'}
           </span>
-          {cloudAudioUrl ? (
-            <div onClick={() => loadAudioUrl(cloudAudioUrl, '征服情海.mp3')}
-              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
-                color:T.grn, padding:'4px 10px', background:T.grnD,
-                borderRadius:7, border:`1px solid ${T.grn}50`, whiteSpace:'nowrap', flexShrink:0 }}>
-              ↺ 重新載入
-            </div>
-          ) : (
-            <div onClick={pickAudioFile}
-              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
-                color:T.blue, padding:'4px 10px', background:T.blueD,
-                borderRadius:7, border:`1px solid ${T.blue}50`, whiteSpace:'nowrap', flexShrink:0 }}>
-              📁 選擇 MP3
-            </div>
-          )}
+          <div onClick={() => loadAudioUrl(JERRY_MP3[0].url, '征服情海 Part 1')}
+            style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+              color:T.grn, padding:'4px 10px', background:T.grnD,
+              borderRadius:7, border:`1px solid ${T.grn}50`, whiteSpace:'nowrap', flexShrink:0 }}>
+            ↺ 重新載入
+          </div>
           <input id="fsi-audio-input" type="file" accept="audio/*" style={{ display:'none' }}
             onChange={e => e.target.files[0] && loadAudioFile(e.target.files[0])}/>
         </div>
@@ -17032,7 +17062,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.95</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.98</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
