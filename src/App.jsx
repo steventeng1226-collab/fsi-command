@@ -7243,7 +7243,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.98
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.99
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13180,6 +13180,8 @@ function MovieTab({ audioMode, setAudioMode }) {
     return s === null ? true : s === 'true' // 第一次自動展開
   })
   const [editingSceneDescId,   setEditingSceneDescId]   = useState(null)
+  const [editingSceneNameId,   setEditingSceneNameId]   = useState(null)
+  const [editingSceneNameText, setEditingSceneNameText] = useState('')
   const [editingSceneDescText, setEditingSceneDescText] = useState('')
   const [autoGenSceneBusy, setAutoGenSceneBusy] = useState(false)
   const [starFilter,      setStarFilter]      = useState(true)
@@ -15682,7 +15684,7 @@ ${numbered}`
         const isDone = s.done === true
         const st  = isDone ? 'done' : spc===100 ? 'done' : spc>0 ? 'active' : 'new'
         return (
-          <div key={s.id} onClick={() => { setSceneId(s.id); setView('scene') }}
+          <div key={s.id} onClick={() => { if(editingSceneNameId===s.id) return; setSceneId(s.id); setView('scene') }}
             style={{ background:T.surf,
               border:`1px solid ${isDone ? T.grn+'60' : st==='active' ? T.amber+'60' : T.bdr}`,
               borderRadius:13, padding:'15px 16px', cursor:'pointer', transition:'border-color 0.15s' }}>
@@ -15698,17 +15700,58 @@ ${numbered}`
                   opacity: isDone ? 1 : 0.3, transition:'opacity 0.15s', userSelect:'none' }}>
                 {isDone ? '✅' : st==='active' ? '🟡' : '⭕'}
               </div>
-              <span style={{ fontFamily:MONO, fontSize:12, color: isDone ? T.grn : T.txt,
-                fontWeight:st==='active'?600:400, flex:1,
-                textDecoration: isDone ? 'line-through' : 'none' }}>
-                {s.name}
-              </span>
+              {/* 場景名稱：點擊可編輯 */}
+              {editingSceneNameId === s.id ? (
+                <input
+                  autoFocus
+                  autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck="false"
+                  value={editingSceneNameText}
+                  onChange={e => setEditingSceneNameText(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      if (editingSceneNameText.trim()) {
+                        saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : {
+                          ...m, scenes: m.scenes.map(sc => sc.id !== s.id ? sc : { ...sc, name: editingSceneNameText.trim() })
+                        })})
+                      }
+                      setEditingSceneNameId(null)
+                    }
+                    if (e.key === 'Escape') setEditingSceneNameId(null)
+                  }}
+                  onBlur={() => {
+                    if (editingSceneNameText.trim()) {
+                      saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : {
+                        ...m, scenes: m.scenes.map(sc => sc.id !== s.id ? sc : { ...sc, name: editingSceneNameText.trim() })
+                      })})
+                    }
+                    setEditingSceneNameId(null)
+                  }}
+                  onClick={e => e.stopPropagation()}
+                  style={{ flex:1, fontFamily:MONO, fontSize:12, color:T.txt,
+                    background:T.surf2, border:`1px solid ${T.amber}80`,
+                    borderRadius:7, padding:'3px 8px', outline:'none' }}
+                />
+              ) : (
+                <span
+                  onClick={e => { e.stopPropagation(); setEditingSceneNameId(s.id); setEditingSceneNameText(s.name) }}
+                  title="點擊修改場景名稱"
+                  style={{ fontFamily:MONO, fontSize:12, color: isDone ? T.grn : T.txt,
+                    fontWeight:st==='active'?600:400, flex:1,
+                    textDecoration: isDone ? 'line-through' : 'none',
+                    cursor:'text' }}>
+                  {s.name}
+                </span>
+              )}
               <div onClick={e=>{e.stopPropagation();deleteScene(s.id)}}
                 style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
                   padding:'2px 6px', background:T.surf2, borderRadius:5, border:`1px solid ${T.bdr}` }}>✕</div>
             </div>
-            <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom: spc>0?7:0 }}>
+            <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
               {s.timeRange} · {s.phrases.length} 句
+              {(() => {
+                const starCount = s.phrases.filter(p => p.starred || Number(p.rating) >= 4).length
+                return starCount > 0 ? <span style={{ color:T.amber, marginLeft:4 }}>· ⭐{starCount} 重點</span> : null
+              })()}
               {isDone
                 ? <span style={{ color:T.grn, marginLeft:6 }}>✓ 訓練完畢</span>
                 : <span> · {sp}/{s.phrases.length} 已練</span>}
@@ -17062,7 +17105,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.98</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.99</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
