@@ -13237,13 +13237,36 @@ function MovieTab({ audioMode, setAudioMode }) {
         const r    = await fetch(APPS_SCRIPT_URL)
         const json = await r.json()
         if (!json.ok || !json.movieDB) { setAutoSyncStatus('idle'); return }
-        const sheetsDb  = json.movieDB
-        const sheetsAt  = sheetsDb.updatedAt ?? 0
-        const localAt   = db.updatedAt ?? 0
+        const sheetsDb       = json.movieDB
+        const transcriptDB   = json.transcriptDB ?? []
+        const sheetsAt       = sheetsDb.updatedAt ?? 0
+        const localAt        = db.updatedAt ?? 0
         if (sheetsAt > localAt) {
-          // Sheets 較新 → 更新本機
-          setDb(sheetsDb)
-          localStorage.setItem('fsi:movie:db', JSON.stringify(sheetsDb))
+          // Sheets 較新 → 合併，但必須保護本機逐字稿不被覆蓋
+          const merged = {
+            ...sheetsDb,
+            movies: sheetsDb.movies?.map(m => {
+              const localMovie  = db.movies?.find(lm => lm.id === m.id)
+              const sheetsEntry = transcriptDB.find(tr => tr.movieId === m.id)
+              const localTs     = localMovie?.transcriptUpdatedAt ?? 0
+              const sheetsTs    = sheetsEntry?.updatedAt ?? 0
+
+              if (sheetsEntry?.transcript?.trim()) {
+                // Sheets 有逐字稿：用較新的
+                if (sheetsTs >= localTs || !localMovie?.transcript?.trim()) {
+                  return { ...m, transcript: sheetsEntry.transcript, transcriptUpdatedAt: sheetsTs }
+                }
+                return { ...m, transcript: localMovie.transcript, transcriptUpdatedAt: localTs }
+              }
+              // Sheets 沒有逐字稿：一定保留本機的（防止逐字稿消失）
+              if (localMovie?.transcript?.trim()) {
+                return { ...m, transcript: localMovie.transcript, transcriptUpdatedAt: localTs }
+              }
+              return m
+            }) ?? []
+          }
+          setDb(merged)
+          localStorage.setItem('fsi:movie:db', JSON.stringify(merged))
           setAutoSyncStatus('ok')
           setMovieSyncMsg('✓ 已自動同步最新資料')
         } else {
@@ -16464,9 +16487,31 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
         flash(`✓ 已從 Sheets 覆蓋：${cards.length} 句 + ${words.length} 單字 + ${extraFromSheet.length} AI Phrases`)
       }
 
-      // ── 電影資料：從 Sheets 還原 movieDB ──
+      // ── 電影資料：從 Sheets 還原 movieDB（保護本機逐字稿）──
       if (json.movieDB) {
-        localStorage.setItem('fsi:movie:db', JSON.stringify(json.movieDB))
+        const transcriptDB2 = json.transcriptDB ?? []
+        const localRaw = (() => { try { return JSON.parse(localStorage.getItem('fsi:movie:db') ?? 'null') } catch { return null } })()
+        const mergedMovieDB = {
+          ...json.movieDB,
+          movies: json.movieDB.movies?.map(m => {
+            const localMovie  = localRaw?.movies?.find(lm => lm.id === m.id)
+            const sheetsEntry = transcriptDB2.find(tr => tr.movieId === m.id)
+            const localTs     = localMovie?.transcriptUpdatedAt ?? 0
+            const sheetsTs    = sheetsEntry?.updatedAt ?? 0
+            if (sheetsEntry?.transcript?.trim()) {
+              if (sheetsTs >= localTs || !localMovie?.transcript?.trim()) {
+                return { ...m, transcript: sheetsEntry.transcript, transcriptUpdatedAt: sheetsTs }
+              }
+              return { ...m, transcript: localMovie.transcript, transcriptUpdatedAt: localTs }
+            }
+            // Sheets 沒有逐字稿 → 保留本機
+            if (localMovie?.transcript?.trim()) {
+              return { ...m, transcript: localMovie.transcript, transcriptUpdatedAt: localTs }
+            }
+            return m
+          }) ?? []
+        }
+        localStorage.setItem('fsi:movie:db', JSON.stringify(mergedMovieDB))
         flash(`✓ 已從 Sheets 還原：含電影資料 ${json.movieDB.movies?.length ?? 0} 部`)
         window.dispatchEvent(new StorageEvent('storage', { key:'fsi:movie:db' }))
       }
