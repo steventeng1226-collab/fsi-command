@@ -7243,7 +7243,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.99
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.101
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13266,6 +13266,7 @@ function MovieTab({ audioMode, setAudioMode }) {
   const [transcriptEditMode, setTranscriptEditMode] = useState(false) // false=唯讀顯示已存, true=編輯新內容
   const [startTime,  setStartTime]  = useState('')
   const [endTime,    setEndTime]    = useState('')
+  const [exportPreview, setExportPreview] = useState(null) // { lines, text } | null
   const [addBusy,    setAddBusy]    = useState(false)
   const [addErr,     setAddErr]     = useState('')
   const [addPreview, setAddPreview] = useState(null)
@@ -14009,25 +14010,50 @@ Return ONLY a JSON object, no markdown:
     return h > 0 ? `${hh}:${mm}:${ss}` : `${mm}:${ss}`
   }
 
-  function copySceneTranscript() {
+  function previewSceneTranscript() {
     const savedTranscript = movie?.transcript ?? ''
     if (!savedTranscript.trim()) { alert('請先儲存逐字稿'); return }
     if (!startTime || !endTime)  { alert('請填入時間範圍'); return }
     const lines = extractSRTLines(savedTranscript, startTime, endTime)
     if (lines.length === 0) { alert('此時間範圍內找不到字幕'); return }
-    const text = lines.map(l => `${secsToTimeStr(l.startSecs)}  ${l.text}`).join('\n')
-    navigator.clipboard.writeText(text).then(() => {
-      alert(`✅ 已複製 ${lines.length} 行（含時間碼），可貼至 ChatGPT`)
-    }).catch(() => {
-      // fallback
+    const text = lines.map(l => `[${secsToTimeStr(l.startSecs)}] ${l.text}`).join('\n')
+    setExportPreview({ lines, text })
+  }
+
+  function doCopy(content, label) {
+    const fallback = () => {
       const el = document.createElement('textarea')
-      el.value = text
+      el.value = content
       document.body.appendChild(el)
       el.select()
       document.execCommand('copy')
       document.body.removeChild(el)
-      alert(`✅ 已複製 ${lines.length} 行（含時間碼）`)
-    })
+      alert(`✅ ${label} 已複製，可貼至 ChatGPT`)
+    }
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(content)
+        .then(() => alert(`✅ ${label} 已複製，可貼至 ChatGPT`))
+        .catch(fallback)
+    } else { fallback() }
+  }
+
+  function copyTranscriptOnly() {
+    if (!exportPreview) return
+    doCopy(exportPreview.text, `${exportPreview.lines.length} 行逐字稿`)
+  }
+
+  function copyTranscriptWithPrompt() {
+    if (!exportPreview) return
+    const prompt = `以下是電影《征服情海》（Jerry Maguire）的一段英文台詞，請幫我分析：
+1. 重要單字與片語
+2. 值得學習的句型與語法
+3. 連音與口語說法
+4. 整段大意
+
+---
+${exportPreview.text}
+---`
+    doCopy(prompt, `逐字稿＋分析指令（${exportPreview.lines.length} 行）`)
   }
 
   // ── 直接從 SRT 取出指定時間範圍的每一行（不合併）─────────────
@@ -14589,21 +14615,69 @@ ${numbered}`
                   borderRadius:8, padding:'8px 10px', color:T.txt, outline:'none', width:110 }}/>
             </div>
           ))}
-          {/* 複製此段逐字稿 */}
+          {/* 預覽此段逐字稿 */}
           {startTime && endTime && hasSaved && (
-            <div onClick={copySceneTranscript}
+            <div onClick={previewSceneTranscript}
               style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
                 color:T.blue, padding:'8px 10px', background:T.blueD,
                 borderRadius:8, border:`1px solid ${T.blue}50`,
                 display:'flex', alignItems:'center', gap:4, whiteSpace:'nowrap',
                 alignSelf:'flex-end' }}>
-              📋 複製
+              🔍 預覽
             </div>
           )}
         </div>
         {startTime && endTime && hasSaved && (
           <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
-            📋 複製後可貼至 ChatGPT 分析此段台詞
+            🔍 預覽後可選擇複製方式，再貼至 ChatGPT
+          </div>
+        )}
+
+        {/* 逐字稿匯出預覽面板 */}
+        {exportPreview && (
+          <div style={{ display:'flex', flexDirection:'column', gap:8, background:T.surf2,
+            border:`1px solid ${T.blue}40`, borderRadius:12, padding:12 }} className="fadeUp">
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <span style={{ fontFamily:MONO, fontSize:10, color:T.blue, fontWeight:700 }}>
+                📄 {exportPreview.lines.length} 行 · {startTime} ~ {endTime}
+              </span>
+              <span onClick={() => setExportPreview(null)}
+                style={{ fontFamily:MONO, fontSize:10, color:T.txt3, cursor:'pointer', padding:'2px 6px' }}>✕</span>
+            </div>
+            {/* 文字預覽 */}
+            <div style={{ maxHeight:180, overflowY:'auto', background:T.bg,
+              borderRadius:8, padding:'8px 10px', border:`1px solid ${T.bdr}` }}>
+              {exportPreview.lines.map((l, i) => (
+                <div key={i} style={{ display:'flex', gap:8, marginBottom:4 }}>
+                  <span style={{ fontFamily:MONO, fontSize:9, color:T.amber, flexShrink:0, marginTop:1 }}>
+                    {secsToTimeStr(l.startSecs)}
+                  </span>
+                  <span style={{ fontFamily:MONO, fontSize:11, color:T.txt, lineHeight:1.5 }}>
+                    {l.text}
+                  </span>
+                </div>
+              ))}
+            </div>
+            {/* 複製按鈕 */}
+            <div style={{ display:'flex', gap:8 }}>
+              <div onClick={copyTranscriptOnly}
+                style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                  color:T.grn, padding:'9px 10px', background:T.grnD,
+                  borderRadius:8, border:`1px solid ${T.grn}50`,
+                  display:'flex', alignItems:'center', justifyContent:'center', gap:4 }}>
+                📋 純文字
+              </div>
+              <div onClick={copyTranscriptWithPrompt}
+                style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                  color:T.amber, padding:'9px 10px', background:T.amberD,
+                  borderRadius:8, border:`1px solid ${T.amber}50`,
+                  display:'flex', alignItems:'center', justifyContent:'center', gap:4 }}>
+                ✨ 含分析指令
+              </div>
+            </div>
+            <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+              純文字：只有台詞，自己下指令｜含分析指令：自動附上 Jerry Maguire 英文分析 prompt
+            </div>
           </div>
         )}
 
@@ -15747,9 +15821,13 @@ ${numbered}`
             </div>
             <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom: spc>0?7:0 }}>
               {s.timeRange} · {s.phrases.length} 句
-              {isDone
-                ? <span style={{ color:T.grn, marginLeft:6 }}>✓ 訓練完畢</span>
-                : <span> · {sp}/{s.phrases.length} 已練</span>}
+              {(() => {
+                const starCount = s.phrases.filter(p => p.starred || Number(p.rating) >= 4).length
+                return starCount > 0
+                  ? <span style={{ color:T.amber, marginLeft:4 }}>· ⭐{starCount} 重點</span>
+                  : null
+              })()}
+              {isDone && <span style={{ color:T.grn, marginLeft:6 }}>✓ 訓練完畢</span>}
             </div>
           </div>
         )
@@ -17100,7 +17178,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.99</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.101</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
