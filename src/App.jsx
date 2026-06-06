@@ -14276,32 +14276,46 @@ ${numbered}`
       if (!json.movieDB) throw new Error('Sheets 尚無電影資料，請先推送。')
       const nd = json.movieDB
       const transcriptDB = json.transcriptDB ?? []
-      // 合併逐字稿：比較時間戳，較新的為準
+
+      // 診斷 log
+      console.log('[pullMovieDB] transcriptDB from Sheets:', transcriptDB.length, '筆')
+      transcriptDB.forEach(tr => console.log(`  movieId=${tr.movieId} len=${tr.transcript?.length ?? 0}`))
+
+      // 合併逐字稿：Sheets 有就用 Sheets（同時間戳也用 Sheets），本機有但 Sheets 沒有才保留本機
       const merged = {
         ...nd,
         movies: nd.movies?.map(m => {
-          const localMovie   = db.movies?.find(lm => lm.id === m.id)
-          const sheetsScript = transcriptDB.find(t => t.movieId === m.id)
-          const localTs  = localMovie?.transcriptUpdatedAt ?? 0
-          const sheetsTs = sheetsScript?.updatedAt ?? 0
-          // Sheets 較新或本機沒有 → 用 Sheets 的
-          if (sheetsScript && sheetsTs >= localTs) {
-            return { ...m, transcript: sheetsScript.transcript, transcriptUpdatedAt: sheetsTs }
+          const localMovie  = db.movies?.find(lm => lm.id === m.id)
+          const sheetsEntry = transcriptDB.find(tr => tr.movieId === m.id)
+          const localTs     = localMovie?.transcriptUpdatedAt ?? 0
+          const sheetsTs    = sheetsEntry?.updatedAt ?? 0
+
+          if (sheetsEntry?.transcript?.trim()) {
+            // Sheets 有逐字稿：用較新的那個
+            if (sheetsTs >= localTs || !localMovie?.transcript?.trim()) {
+              return { ...m, transcript: sheetsEntry.transcript, transcriptUpdatedAt: sheetsTs }
+            }
+            // 本機較新
+            return { ...m, transcript: localMovie.transcript, transcriptUpdatedAt: localTs }
           }
-          // 本機較新 → 保留本機的
-          if (localMovie?.transcript) {
+          // Sheets 沒有逐字稿：保留本機的
+          if (localMovie?.transcript?.trim()) {
             return { ...m, transcript: localMovie.transcript, transcriptUpdatedAt: localTs }
           }
           return m
         }) ?? []
       }
+
       setDb(merged)
       localStorage.setItem('fsi:movie:db', JSON.stringify(merged))
       const mc = merged.movies?.length ?? 0
       const sc = merged.movies?.reduce((a,m) => a + (m.scenes?.length ?? 0), 0) ?? 0
       const vc = merged.vocab?.length ?? 0
-      const hasTranscript = merged.movies?.some(m => m.transcript) ? ' · 逐字稿已同步' : ''
-      setMovieSyncMsg(`✓ 已還原：${mc} 部 · ${sc} 場景 · 單字庫 ${vc} 個${hasTranscript}`)
+      const tCount = merged.movies?.filter(m => m.transcript?.trim()).length ?? 0
+      const tMsg = tCount > 0
+        ? ` · 逐字稿 ${tCount} 部已同步`
+        : (transcriptDB.length === 0 ? ' · ⚠ Sheets 無逐字稿（請先從有逐字稿的裝置推送）' : ' · 逐字稿同步中')
+      setMovieSyncMsg(`✓ 已還原：${mc} 部 · ${sc} 場景 · 單字庫 ${vc} 個${tMsg}`)
     } catch(e) {
       if (e.name === 'AbortError') setMovieSyncMsg('✗ 讀取超時，請重試')
       else setMovieSyncMsg('✗ ' + (e.message ?? 'Sync failed'))
@@ -15868,7 +15882,7 @@ ${numbered}`
           🎬 電影資料同步 (Google Sheets)
         </div>
         <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.7 }}>
-          同步範圍：場景、句子、⭐收藏、單字庫
+          同步範圍：場景、句子、⭐收藏、單字庫、逐字稿
         </div>
         <div style={{ display:'flex', gap:8 }}>
           <div onClick={pushSyncing ? undefined : pushMovieDB}
