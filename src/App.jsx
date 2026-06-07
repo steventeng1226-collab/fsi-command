@@ -7244,7 +7244,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.16
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.17
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14546,20 +14546,30 @@ Your response only:`
     const sceneDesc = scene?.title ?? 'a movie scene'
     const starred = (scene?.phrases ?? []).filter(p => p.starred)
     const keyPhrases = starred.slice(0, 5).map(p => p.en).join(' / ')
-    const prompt = `A Taiwanese adult English learner was asked to retell a scene from Jerry Maguire called "${sceneDesc}".
-Key phrases in the scene: ${keyPhrases || 'general'}.
+    const segList = retellSegments.map((s, i) => `${i+1}. "${s}"`).join('\n')
+    const prompt = `A Taiwanese adult English learner retold a Jerry Maguire scene called "${sceneDesc}".
+Key phrases from this scene: ${keyPhrases || 'general conversation'}.
 
-The learner said: "${allText}"
+The learner said (${retellSegments.length} segment(s)):
+${segList}
 
-Please evaluate and respond in JSON only:
-{"sentences": ${retellSegments.length}, "naturalness": 3, "coverage": 3, "suggestions": ["improved version of what they said"], "better_expressions": ["1-2 natural phrases they could use next time"], "comment": "one encouraging sentence"}`
+Please evaluate and respond in JSON only. Be specific — reference the learner's EXACT words in your corrections:
+{
+  "naturalness": <1-5>,
+  "coverage": <1-5>,
+  "corrections": [
+    {"original": "<exact words learner said>", "better": "<more natural version>", "tip": "<one short reason why, in simple English>"}
+  ],
+  "extra_phrases": ["<1-2 useful phrases from the scene they could add next time>"],
+  "comment": "<one encouraging sentence in English>"
+}`
     try {
-      const raw = await callAI('You are an English teacher. Return only valid JSON.', prompt)
+      const raw = await callAI('You are an encouraging English teacher. Return only valid JSON. Always fill corrections array with specific feedback on the learner exact words.', prompt)
       const clean = raw.replace(/```json|```/g, '').trim()
       const result = JSON.parse(clean)
       setRetellResult(result)
     } catch {
-      setRetellResult({ sentences: retellSegments.length, naturalness: 3, coverage: 3, suggestions: [], better_expressions: [], comment: 'Good effort! Keep practicing!' })
+      setRetellResult({ naturalness: 3, coverage: 3, corrections: [], extra_phrases: [], comment: 'Good effort! Keep practicing!' })
     }
     setRetellBusy(false)
   }
@@ -15735,8 +15745,9 @@ Please evaluate and respond in JSON only:
                   <>
                     <div style={{ fontFamily:MONO, fontSize:10, color:T.amber, fontWeight:700 }}>📊 重述結果</div>
                     <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>
-                      你說了 <span style={{ color:T.blue, fontWeight:700 }}>{retellResult.sentences}</span> 段
+                      你說了 <span style={{ color:T.blue, fontWeight:700 }}>{retellSegments.length}</span> 段
                     </div>
+                    {/* 星評 */}
                     <div style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
                       {[['自然度', retellResult.naturalness],['場景涵蓋', retellResult.coverage]].map(([label, score]) => (
                         <div key={label} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
@@ -15745,20 +15756,37 @@ Please evaluate and respond in JSON only:
                         </div>
                       ))}
                     </div>
-                    {retellResult.suggestions?.length > 0 && (
-                      <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
-                        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, fontWeight:700 }}>💡 更自然的說法：</div>
-                        {retellResult.suggestions.map((s, i) => (
-                          <div key={i} style={{ fontFamily:MONO, fontSize:10, color:T.blue,
-                            background:T.blueD, borderRadius:8, padding:'6px 10px',
-                            border:`1px solid ${T.blue}30` }}>{s}</div>
+                    {/* 逐句修改建議 */}
+                    {retellResult.corrections?.length > 0 && (
+                      <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, fontWeight:700 }}>✏️ 逐句修改建議：</div>
+                        {retellResult.corrections.map((c, i) => (
+                          <div key={i} style={{ display:'flex', flexDirection:'column', gap:4,
+                            background:T.bg, borderRadius:10, padding:'10px 12px',
+                            border:`1px solid ${T.bdr}` }}>
+                            <div style={{ display:'flex', gap:6, alignItems:'flex-start' }}>
+                              <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3, flexShrink:0, marginTop:2 }}>你說</span>
+                              <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3, lineHeight:1.5,
+                                textDecoration:'line-through' }}>{c.original}</span>
+                            </div>
+                            <div style={{ display:'flex', gap:6, alignItems:'flex-start' }}>
+                              <span style={{ fontFamily:MONO, fontSize:8, color:T.grn, flexShrink:0, marginTop:2 }}>更好</span>
+                              <span style={{ fontFamily:MONO, fontSize:11, color:T.grn, lineHeight:1.5,
+                                fontWeight:700 }}>{c.better}</span>
+                            </div>
+                            {c.tip && (
+                              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3,
+                                lineHeight:1.5, paddingLeft:2 }}>💡 {c.tip}</div>
+                            )}
+                          </div>
                         ))}
                       </div>
                     )}
-                    {retellResult.better_expressions?.length > 0 && (
+                    {/* 下次可以用的片語 */}
+                    {retellResult.extra_phrases?.length > 0 && (
                       <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
-                        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, fontWeight:700 }}>✨ 下次可以用：</div>
-                        {retellResult.better_expressions.map((s, i) => (
+                        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, fontWeight:700 }}>✨ 下次可以加進去：</div>
+                        {retellResult.extra_phrases.map((s, i) => (
                           <div key={i} style={{ fontFamily:MONO, fontSize:10, color:T.amber,
                             background:T.amberD, borderRadius:8, padding:'6px 10px',
                             border:`1px solid ${T.amber}30` }}>{s}</div>
@@ -17754,7 +17782,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.16</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.17</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
