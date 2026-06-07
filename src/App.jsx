@@ -7244,7 +7244,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.21
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.22
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14651,28 +14651,45 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
     // 隨機打亂
     const shuffled = [...pool].sort(() => Math.random() - 0.5)
 
-    // 篩選簡單句（10字以內）
-    const easy = shuffled.filter(p => p.en.split(' ').length <= 10).slice(0, 7)
-    const easySentences = easy.length >= 4 ? easy : shuffled.slice(0, 7)
-    // 進階句（較長或所有重點句）
+    // 🟢 簡單組：10字以內高頻短句，7句
+    const easyPool = shuffled.filter(p => p.en.split(' ').length <= 10)
+    const easySentences = easyPool.length >= 4 ? easyPool.slice(0, 7) : shuffled.slice(0, 7)
+    // 🟡 進階組：所有重點句，10句
     const advanced = shuffled.slice(0, 10)
 
-    const buildCourse = (phrases, level) => {
-      const nums = phrases.map((p, i) => `${i+1}. "${p.en}"`).join('\n')
-      return `Your role: Rod Tidwell, an NFL player.
-My role: Jerry Maguire, your sports agent.
-Situation: We are on a phone call about your contract for the scene "${sceneTitle}".
-
-STRICT RULE: You MUST say each phrase below exactly as written, one at a time, in order. Do NOT skip any. Do NOT change the topic. Keep each response to 1 sentence only.
-
-Key phrases (say them one by one):
-${nums}
-
-Start with phrase 1 now.`
+    // Speak 格式
+    const buildSpeak = (phrases) => {
+      const nums = phrases.map((p, i) => (i+1) + '. "' + p.en + '"').join('\n')
+      return 'We are on a phone call about Rod\'s contract. Scene: "' + sceneTitle + '".\n' +
+        'You are frustrated and want more money and respect.\n\n' +
+        'Your ONLY job each turn: say the next phrase from the list below exactly as written, then wait for my response. Do NOT end the conversation until ALL phrases are used. Do NOT ask questions. Do NOT add other topics. Do NOT say goodbye until the last phrase is done.\n\n' +
+        'Phrase list (say one per turn, in order):\n' +
+        nums + '\n\nStart with phrase 1 now.'
     }
 
-    const easyCourse   = buildCourse(easySentences, 'easy')
-    const advancedCourse = buildCourse(advanced, 'advanced')
+    // ChatGPT 格式
+    const buildChatGPT = (phrases) => {
+      const nums = phrases.map((p, i) => (i+1) + '. "' + p.en + '"').join('\n')
+      return 'You are my English conversation coach.\n' +
+        'I am studying the movie Jerry Maguire.\n\n' +
+        'Scene: "' + sceneTitle + '"\n' +
+        'Your role: Jerry Maguire, my sports agent\n' +
+        'My role: Rod Tidwell, an NFL player\n\n' +
+        'Rules:\n' +
+        '- Say each phrase below exactly as written, one at a time, in order\n' +
+        '- After I respond, correct my grammar naturally if needed\n' +
+        '- Then move to the next phrase\n' +
+        '- Do NOT skip any phrase\n' +
+        '- Do NOT end until all phrases are done\n' +
+        '- If I get stuck, give me a short hint in English\n\n' +
+        'Phrase list:\n' +
+        nums + '\n\nStart with phrase 1 now.'
+    }
+
+    const speakEasy       = buildSpeak(easySentences)
+    const speakAdvanced   = buildSpeak(advanced)
+    const chatgptEasy     = buildChatGPT(easySentences)
+    const chatgptAdvanced = buildChatGPT(advanced)
 
     // 存進場景資料
     saveDb({
@@ -14681,8 +14698,10 @@ Start with phrase 1 now.`
         ...m,
         scenes: m.scenes.map(s => s.id !== targetScene.id ? s : {
           ...s,
-          speakEasy: easyCourse,
-          speakAdvanced: advancedCourse
+          speakEasy,
+          speakAdvanced,
+          chatgptEasy,
+          chatgptAdvanced
         })
       })
     })
@@ -14690,7 +14709,13 @@ Start with phrase 1 now.`
   }
 
   function copySpeak(type) {
-    const text = type === 'easy' ? scene?.speakEasy : scene?.speakAdvanced
+    const textMap = {
+      easy:          scene?.speakEasy,
+      advanced:      scene?.speakAdvanced,
+      cgpt_easy:     scene?.chatgptEasy,
+      cgpt_advanced: scene?.chatgptAdvanced,
+    }
+    const text = textMap[type]
     if (!text) return
     const fallback = () => {
       const el = document.createElement('textarea'); el.value = text
@@ -15646,26 +15671,7 @@ Start with phrase 1 now.`
             )}
           </div>
         )}
-        {/* Hint */}
-        {/* ── 練習區：對話練習 + 場景重述 ── */}
-        <div style={{ display:'flex', gap:8 }}>
-          <div onClick={() => { resetConv(); startConvPractice() }}
-            style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
-              color:T.grn, padding:'10px', background:T.grnD,
-              borderRadius:10, border:`1px solid ${T.grn}50`,
-              display:'flex', alignItems:'center', justifyContent:'center', gap:5 }}>
-            🎤 對話練習
-          </div>
-          <div onClick={() => { resetRetell(); setRetellMode(true) }}
-            style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
-              color:T.blue, padding:'10px', background:T.blueD,
-              borderRadius:10, border:`1px solid ${T.blue}50`,
-              display:'flex', alignItems:'center', justifyContent:'center', gap:5 }}>
-            🗣️ 場景重述
-          </div>
-        </div>
-
-        {/* ── Speak 課程按鈕 ── */}
+        {/* ── Speak / ChatGPT 課程按鈕 ── */}
         <div onClick={() => {
             if (scene?.speakEasy) { setSpeakOpen(o => !o) }
             else { generateSpeakCourses() }
@@ -15674,77 +15680,70 @@ Start with phrase 1 now.`
             color:'#c084fc', padding:'10px', background:'#2d1a4a',
             borderRadius:10, border:'1px solid #c084fc50',
             display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
-          {speakBusy ? '⏳ 產生中…' : '📤 產生 Speak 課程'}
+          {speakBusy ? '⏳ 產生中…' : '📤 產生 Speak / ChatGPT 課程'}
         </div>
 
-        {/* ── Speak 課程面板 ── */}
+        {/* ── Speak / ChatGPT 課程面板 ── */}
         {speakOpen && (scene?.speakEasy || speakBusy) && (
-          <div style={{ display:'flex', flexDirection:'column', gap:10, background:T.surf,
+          <div style={{ display:'flex', flexDirection:'column', gap:10, background:'#1a1025',
             border:'1px solid #c084fc40', borderRadius:14, padding:14 }} className="fadeUp">
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
               <span style={{ fontFamily:MONO, fontSize:10, color:'#c084fc', fontWeight:700 }}>
-                📤 Speak 課程 · {scene?.name}
+                📤 Speak / ChatGPT 課程
               </span>
               <span onClick={() => setSpeakOpen(false)}
-                style={{ fontFamily:MONO, fontSize:10, color:T.txt3, cursor:'pointer', padding:'2px 8px' }}>✕</span>
+                style={{ fontFamily:MONO, fontSize:10, color:'#888', cursor:'pointer', padding:'2px 8px' }}>✕</span>
             </div>
             {speakBusy ? (
-              <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, textAlign:'center', padding:8 }}>
-                ⏳ AI 產生中…
+              <div style={{ fontFamily:MONO, fontSize:10, color:'#888', textAlign:'center', padding:8 }}>
+                ⏳ 產生中…
               </div>
             ) : (
-              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-                <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
-                  複製後貼到 Speak App「描述情境和主題」欄位
+              <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                <div style={{ fontFamily:MONO, fontSize:9, color:'#888', lineHeight:1.6 }}>
+                  複製後貼到對應 App 練習
                 </div>
-                {/* 簡單組 */}
-                <div style={{ display:'flex', flexDirection:'column', gap:6, background:T.bg,
-                  borderRadius:10, padding:'10px 12px', border:`1px solid ${T.grn}30` }}>
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                    <div>
-                      <span style={{ fontFamily:MONO, fontSize:10, color:T.grn, fontWeight:700 }}>🟢 簡單組</span>
-                      <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3, marginLeft:8 }}>高頻短句，早晨練習</span>
+
+                {/* Speak 簡單組 */}
+                {[
+                  { type:'easy',     label:'🟢 Speak 簡單組', sub:'高頻短句，早晨練習', color:T.grn,   bg:T.grnD },
+                  { type:'advanced', label:'🟡 Speak 進階組', sub:'完整重點句，挑戰用', color:T.amber, bg:T.amberD },
+                  { type:'cgpt_easy',     label:'🤖 ChatGPT 簡單組', sub:'含文法糾正，對話練習', color:'#60a5fa', bg:'#1a2a3a' },
+                  { type:'cgpt_advanced', label:'🤖 ChatGPT 進階組', sub:'完整版，含文法糾正',   color:'#60a5fa', bg:'#1a2a3a' },
+                ].map(({ type, label, sub, color, bg }) => {
+                  const textMap = { easy: scene?.speakEasy, advanced: scene?.speakAdvanced, cgpt_easy: scene?.chatgptEasy, cgpt_advanced: scene?.chatgptAdvanced }
+                  const txt = textMap[type]
+                  if (!txt) return null
+                  return (
+                    <div key={type} style={{ display:'flex', flexDirection:'column', gap:6, background:'#111',
+                      borderRadius:10, padding:'10px 12px', border:`1px solid ${color}30` }}>
+                      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                        <div>
+                          <span style={{ fontFamily:MONO, fontSize:10, color, fontWeight:700 }}>{label}</span>
+                          <span style={{ fontFamily:MONO, fontSize:8, color:'#888', marginLeft:8 }}>{sub}</span>
+                        </div>
+                        <div onClick={() => copySpeak(type)}
+                          style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                            color: speakCopied===type ? color : '#888',
+                            padding:'4px 10px', background: speakCopied===type ? bg : '#222',
+                            borderRadius:7, border:`1px solid ${speakCopied===type ? color+'60' : '#333'}`,
+                            whiteSpace:'nowrap' }}>
+                          {speakCopied===type ? '✅ 已複製' : '📋 複製'}
+                        </div>
+                      </div>
+                      <div style={{ fontFamily:MONO, fontSize:9, color:'#666', lineHeight:1.7,
+                        maxHeight:120, overflowY:'auto', whiteSpace:'pre-wrap',
+                        WebkitOverflowScrolling:'touch' }}>
+                        {txt.split('\n').slice(0, 6).join('\n')}…
+                      </div>
                     </div>
-                    <div onClick={() => copySpeak('easy')}
-                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
-                        color: speakCopied==='easy' ? T.grn : T.txt2,
-                        padding:'4px 10px', background: speakCopied==='easy' ? T.grnD : T.surf2,
-                        borderRadius:7, border:`1px solid ${speakCopied==='easy' ? T.grn+'60' : T.bdr}` }}>
-                      {speakCopied==='easy' ? '✅ 已複製' : '📋 複製'}
-                    </div>
-                  </div>
-                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.7,
-                    maxHeight:80, overflowY:'auto', whiteSpace:'pre-wrap' }}>
-                    {scene?.speakEasy?.split('\n').slice(0,4).join('\n')}…
-                  </div>
-                </div>
-                {/* 進階組 */}
-                <div style={{ display:'flex', flexDirection:'column', gap:6, background:T.bg,
-                  borderRadius:10, padding:'10px 12px', border:`1px solid ${T.amber}30` }}>
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                    <div>
-                      <span style={{ fontFamily:MONO, fontSize:10, color:T.amber, fontWeight:700 }}>🟡 進階組</span>
-                      <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3, marginLeft:8 }}>完整重點句挑戰</span>
-                    </div>
-                    <div onClick={() => copySpeak('advanced')}
-                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
-                        color: speakCopied==='advanced' ? T.amber : T.txt2,
-                        padding:'4px 10px', background: speakCopied==='advanced' ? T.amberD : T.surf2,
-                        borderRadius:7, border:`1px solid ${speakCopied==='advanced' ? T.amber+'60' : T.bdr}` }}>
-                      {speakCopied==='advanced' ? '✅ 已複製' : '📋 複製'}
-                    </div>
-                  </div>
-                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.7,
-                    maxHeight:80, overflowY:'auto', whiteSpace:'pre-wrap' }}>
-                    {scene?.speakAdvanced?.split('\\n').slice(0,4).join('\\n')}…
-')}…
-                  </div>
-                </div>
-                {/* 重新產生 */}
+                  )
+                })}
+
                 <div onClick={() => generateSpeakCourses()}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#888',
                     textAlign:'center', padding:'6px', borderRadius:8,
-                    background:T.surf2, border:`1px solid ${T.bdr}` }}>
+                    background:'#222', border:'1px solid #333' }}>
                   🔄 重新產生（隨機換句子）
                 </div>
               </div>
@@ -15752,265 +15751,6 @@ Start with phrase 1 now.`
           </div>
         )}
 
-        {/* ── 對話練習面板 ── */}
-        {convPractice && (
-          <div style={{ display:'flex', flexDirection:'column', gap:10, background:T.surf,
-            border:`1px solid ${T.grn}40`, borderRadius:14, padding:14 }} className="fadeUp">
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <span style={{ fontFamily:MONO, fontSize:10, color:T.grn, fontWeight:700 }}>
-                🎤 對話練習 · 第 {Math.min(convTurn+1,3)} / 3 輪
-              </span>
-              <span onClick={resetConv}
-                style={{ fontFamily:MONO, fontSize:10, color:T.txt3, cursor:'pointer', padding:'2px 8px' }}>✕</span>
-            </div>
-
-            {/* 對話歷史 */}
-            <div style={{ display:'flex', flexDirection:'column', gap:8, maxHeight:260, overflowY:'auto' }}>
-              {convHistory.map((h, i) => (
-                <div key={i} style={{ display:'flex', flexDirection:'column', gap:3,
-                  alignItems: h.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                  <div style={{ maxWidth:'85%', padding:'8px 12px', borderRadius:12,
-                    background: h.role === 'ai' ? T.surf2 : T.grnD,
-                    border:`1px solid ${h.role === 'ai' ? T.bdr : T.grn+'50'}`,
-                    fontFamily:MONO, fontSize:11, color: h.role === 'ai' ? T.txt : T.grn,
-                    lineHeight:1.6 }}>
-                    {h.text}
-                  </div>
-                  <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
-                    {h.role === 'ai' ? '🤖 AI' : '🎤 你'}
-                  </span>
-                </div>
-              ))}
-              {convBusy && (
-                <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, padding:'4px 8px' }}>
-                  🤖 AI 思考中…
-                </div>
-              )}
-            </div>
-
-            {/* 結束前輸入區 */}
-            {!convDone && !convBusy && convHistory.length > 0 && (
-              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-                <div style={{ display:'flex', gap:6 }}>
-                  <input value={convInput} onChange={e => setConvInput(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && submitConvTurn()}
-                    placeholder="輸入回應，或按麥克風說話..."
-                    data-form-type="off" autoComplete="off"
-                    style={{ flex:1, background:T.bg, border:`1px solid ${T.bdr2}`,
-                      borderRadius:9, padding:'9px 12px', fontFamily:MONO, fontSize:11,
-                      color:T.txt, outline:'none' }}/>
-                  <div onPointerDown={startConvListening} onPointerUp={stopConvListening}
-                    style={{ cursor:'pointer', padding:'9px 12px', borderRadius:9,
-                      background: convListening ? T.redD ?? '#3a1a1a' : T.surf2,
-                      border:`1px solid ${convListening ? '#ff6b6b' : T.bdr}`,
-                      fontFamily:MONO, fontSize:14, color: convListening ? '#ff6b6b' : T.txt3,
-                      display:'flex', alignItems:'center' }}>
-                    {convListening ? '🔴' : '🎤'}
-                  </div>
-                </div>
-                {convInput && (
-                  <div onClick={submitConvTurn}
-                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
-                      color:T.grn, padding:'10px', background:T.grnD,
-                      borderRadius:9, border:`1px solid ${T.grn}50`, textAlign:'center' }}>
-                    送出回應 →
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* 評分結果 */}
-            {convDone && convResult && (
-              <div style={{ display:'flex', flexDirection:'column', gap:8, background:T.bg,
-                borderRadius:10, padding:12, border:`1px solid ${T.bdr}` }} className="fadeUp">
-                <div style={{ fontFamily:MONO, fontSize:10, color:T.amber, fontWeight:700 }}>📊 練習結果</div>
-                <div style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
-                  {[['自然度', convResult.naturalness],['句子完整', convResult.completeness],['回應相關', convResult.relevance]].map(([label, score]) => (
-                    <div key={label} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
-                      <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>{label}</span>
-                      <span style={{ fontFamily:MONO, fontSize:13, color:T.amber }}>{'★'.repeat(score ?? 3)}{'☆'.repeat(5-(score??3))}</span>
-                    </div>
-                  ))}
-                </div>
-                {convResult.suggestions?.length > 0 && (
-                  <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-                    <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, fontWeight:700 }}>💡 更自然的說法：</div>
-                    {convResult.suggestions.map((s, i) => (
-                      <div key={i} style={{ fontFamily:MONO, fontSize:10, color:T.grn,
-                        background:T.grnD, borderRadius:8, padding:'6px 10px',
-                        border:`1px solid ${T.grn}30` }}>
-                        輪{i+1}：{s}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {convResult.comment && (
-                  <div style={{ fontFamily:MONO, fontSize:10, color:T.txt2, lineHeight:1.6,
-                    background:T.surf2, borderRadius:8, padding:'8px 10px' }}>
-                    🌟 {convResult.comment}
-                  </div>
-                )}
-                <div onClick={() => { resetConv(); startConvPractice() }}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
-                    color:T.grn, padding:'10px', background:T.grnD,
-                    borderRadius:9, border:`1px solid ${T.grn}50`, textAlign:'center' }}>
-                  🔄 再練一次
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── 場景重述面板 ── */}
-        {retellMode && (
-          <div style={{ display:'flex', flexDirection:'column', gap:10, background:T.surf,
-            border:`1px solid ${T.blue}40`, borderRadius:14, padding:14 }} className="fadeUp">
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <span style={{ fontFamily:MONO, fontSize:10, color:T.blue, fontWeight:700 }}>
-                🗣️ 場景重述 · {scene?.title ?? ''}
-              </span>
-              <span onClick={resetRetell}
-                style={{ fontFamily:MONO, fontSize:10, color:T.txt3, cursor:'pointer', padding:'2px 8px' }}>✕</span>
-            </div>
-            {!retellDone && (
-              <>
-                <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.7 }}>
-                  用自己的話描述這個場景，說幾句都可以。說完一段按「加入」，全部說完按「完成評分」。
-                </div>
-                {retellSegments.length > 0 && (
-                  <div style={{ display:'flex', flexDirection:'column', gap:4, maxHeight:140, overflowY:'auto' }}>
-                    {retellSegments.map((s, i) => (
-                      <div key={i} style={{ fontFamily:MONO, fontSize:10, color:T.txt,
-                        background:T.blueD, borderRadius:8, padding:'6px 10px',
-                        border:`1px solid ${T.blue}30` }}>
-                        {i+1}. {s}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <div style={{ display:'flex', gap:6 }}>
-                  <input value={retellInput} onChange={e => setRetellInput(e.target.value)}
-                    placeholder="輸入或按麥克風說話..."
-                    data-form-type="off" autoComplete="off"
-                    style={{ flex:1, background:T.bg, border:`1px solid ${T.bdr2}`,
-                      borderRadius:9, padding:'9px 12px', fontFamily:MONO, fontSize:11,
-                      color:T.txt, outline:'none' }}/>
-                  <div onClick={toggleRetellListening}
-                    style={{ cursor:'pointer', padding:'9px 14px', borderRadius:9,
-                      background: retellListening ? '#3a1a1a' : T.surf2,
-                      border:`1px solid ${retellListening ? '#ff6b6b50' : T.bdr}`,
-                      display:'flex', alignItems:'center', gap:5,
-                      boxShadow: retellListening ? '0 0 0 3px #ff6b6b30' : 'none',
-                      transition:'all 0.2s' }}>
-                    <span style={{ fontSize:14,
-                      animation: retellListening ? 'micPulse 1s ease-in-out infinite' : 'none' }}>
-                      {retellListening ? '🔴' : '🎤'}
-                    </span>
-                    <span style={{ fontFamily:MONO, fontSize:9,
-                      color: retellListening ? '#ff6b6b' : T.txt3 }}>
-                      {retellListening ? '停止' : '說話'}
-                    </span>
-                  </div>
-                </div>
-                <div style={{ display:'flex', gap:8 }}>
-                  <div onClick={addRetellSegment}
-                    style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
-                      color:T.blue, padding:'10px', background:T.blueD,
-                      borderRadius:9, border:`1px solid ${T.blue}50`, textAlign:'center' }}>
-                    ＋ 加入
-                  </div>
-                  <div onClick={finishRetell}
-                    style={{ flex:1, cursor: retellSegments.length === 0 ? 'default' : 'pointer',
-                      fontFamily:MONO, fontSize:10, fontWeight:700,
-                      color: retellSegments.length === 0 ? T.txt3 : T.amber,
-                      padding:'10px', background: retellSegments.length === 0 ? T.surf2 : T.amberD,
-                      borderRadius:9, border:`1px solid ${retellSegments.length === 0 ? T.bdr : T.amber+'50'}`,
-                      textAlign:'center' }}>
-                    ✓ 完成評分
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* 評分結果 */}
-            {retellDone && (
-              <div style={{ display:'flex', flexDirection:'column', gap:8 }} className="fadeUp">
-                {retellBusy ? (
-                  <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, textAlign:'center', padding:12 }}>
-                    🤖 AI 評分中…
-                  </div>
-                ) : retellResult ? (
-                  <>
-                    <div style={{ fontFamily:MONO, fontSize:10, color:T.amber, fontWeight:700 }}>📊 重述結果</div>
-                    <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>
-                      你說了 <span style={{ color:T.blue, fontWeight:700 }}>{retellSegments.length}</span> 段
-                    </div>
-                    {/* 星評 */}
-                    <div style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
-                      {[['自然度', retellResult.naturalness],['場景涵蓋', retellResult.coverage]].map(([label, score]) => (
-                        <div key={label} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
-                          <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>{label}</span>
-                          <span style={{ fontFamily:MONO, fontSize:13, color:T.amber }}>{'★'.repeat(score ?? 3)}{'☆'.repeat(5-(score??3))}</span>
-                        </div>
-                      ))}
-                    </div>
-                    {/* 逐句修改建議 */}
-                    {retellResult.corrections?.length > 0 && (
-                      <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-                        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, fontWeight:700 }}>✏️ 逐句修改建議：</div>
-                        {retellResult.corrections.map((c, i) => (
-                          <div key={i} style={{ display:'flex', flexDirection:'column', gap:4,
-                            background:T.bg, borderRadius:10, padding:'10px 12px',
-                            border:`1px solid ${T.bdr}` }}>
-                            <div style={{ display:'flex', gap:6, alignItems:'flex-start' }}>
-                              <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3, flexShrink:0, marginTop:2 }}>你說</span>
-                              <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3, lineHeight:1.5,
-                                textDecoration:'line-through' }}>{c.original}</span>
-                            </div>
-                            <div style={{ display:'flex', gap:6, alignItems:'flex-start' }}>
-                              <span style={{ fontFamily:MONO, fontSize:8, color:T.grn, flexShrink:0, marginTop:2 }}>更好</span>
-                              <span style={{ fontFamily:MONO, fontSize:11, color:T.grn, lineHeight:1.5,
-                                fontWeight:700 }}>{c.better}</span>
-                            </div>
-                            {c.tip && (
-                              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3,
-                                lineHeight:1.5, paddingLeft:2 }}>💡 {c.tip}</div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {/* 下次可以用的片語 */}
-                    {retellResult.extra_phrases?.length > 0 && (
-                      <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
-                        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, fontWeight:700 }}>✨ 下次可以加進去：</div>
-                        {retellResult.extra_phrases.map((s, i) => (
-                          <div key={i} style={{ fontFamily:MONO, fontSize:10, color:T.amber,
-                            background:T.amberD, borderRadius:8, padding:'6px 10px',
-                            border:`1px solid ${T.amber}30` }}>{s}</div>
-                        ))}
-                      </div>
-                    )}
-                    {retellResult.comment && (
-                      <div style={{ fontFamily:MONO, fontSize:10, color:T.txt2, lineHeight:1.6,
-                        background:T.surf2, borderRadius:8, padding:'8px 10px' }}>
-                        🌟 {retellResult.comment}
-                      </div>
-                    )}
-                    <div onClick={resetRetell}
-                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
-                        color:T.blue, padding:'10px', background:T.blueD,
-                        borderRadius:9, border:`1px solid ${T.blue}50`, textAlign:'center' }}>
-                      🔄 再述一次
-                    </div>
-                  </>
-                ) : null}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Hint */}
         <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>⭐ 收藏重點句 · 👆 點單字加入單字庫 · ✕ 刪除句子</div>
         {/* Sentence list */}
         {(starFilter ? phrases.filter(p=>p.starred) : phrases).map(p => (
@@ -17980,7 +17720,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.21</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.22</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
