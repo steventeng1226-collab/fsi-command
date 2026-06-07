@@ -7244,7 +7244,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.19
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.20
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14571,11 +14571,11 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
   "comment": "<one encouraging sentence in English>"
 }`
     try {
-      // 用 callAIRaw 並加大 max_tokens，避免 JSON 被截斷
       const se = getAISettings()
-      const apiKey = se.anthropicKey || se.openaiKey || se.geminiKey || ''
+      const sysPrompt = 'You are an encouraging English teacher. Return only valid JSON. Always include corrections array with specific feedback referencing the learner exact words.'
       let rawText = ''
       if ((se.aiProvider ?? 'anthropic') === 'anthropic' && se.anthropicKey) {
+        // 直接呼叫 Claude API，max_tokens 加大到 2000
         const r = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
           headers: {
@@ -14587,14 +14587,16 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           body: JSON.stringify({
             model: 'claude-haiku-4-5-20251001',
             max_tokens: 2000,
-            system: 'You are an encouraging English teacher. Return only valid JSON. Always fill corrections array with specific feedback on the learner exact words.',
+            system: sysPrompt,
             messages: [{ role: 'user', content: prompt }]
           })
         })
         const d = await r.json()
+        if (!r.ok) throw new Error(d.error?.message ?? 'API error ' + r.status)
         rawText = d.content?.[0]?.text ?? ''
       } else {
-        rawText = await callAI('You are an encouraging English teacher. Return only valid JSON. Always fill corrections array with specific feedback on the learner exact words.', prompt)
+        // Gemini / GPT fallback：system 在前，prompt 在後
+        rawText = await callAI(sysPrompt, prompt)
       }
       const clean = rawText.replace(/```json|```/g, '').trim()
       try {
@@ -17817,7 +17819,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.19</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.20</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
