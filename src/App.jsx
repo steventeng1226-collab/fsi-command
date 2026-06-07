@@ -7243,7 +7243,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.101
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.12
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13228,6 +13228,27 @@ function MovieTab({ audioMode, setAudioMode }) {
   const [movieSyncMsg,    setMovieSyncMsg]    = useState("")
   const [autoSyncStatus,  setAutoSyncStatus]  = useState('idle') // 'idle'|'syncing'|'ok'|'err'
 
+  // ── 對話練習 state ──────────────────────────────────────────
+  const [convPractice,    setConvPractice]    = useState(false)
+  const [convHistory,     setConvHistory]     = useState([])
+  const [convTurn,        setConvTurn]        = useState(0)
+  const [convDone,        setConvDone]        = useState(false)
+  const [convResult,      setConvResult]      = useState(null)
+  const [convBusy,        setConvBusy]        = useState(false)
+  const [convInput,       setConvInput]       = useState('')
+  const [convListening,   setConvListening]   = useState(false)
+  const convRecogRef = useRef(null)
+
+  // ── 場景重述 state ──────────────────────────────────────────
+  const [retellMode,      setRetellMode]      = useState(false)
+  const [retellSegments,  setRetellSegments]  = useState([])
+  const [retellListening, setRetellListening] = useState(false)
+  const [retellDone,      setRetellDone]      = useState(false)
+  const [retellResult,    setRetellResult]    = useState(null)
+  const [retellBusy,      setRetellBusy]      = useState(false)
+  const [retellInput,     setRetellInput]     = useState('')
+  const retellRecogRef = useRef(null)
+
   // ── 開 App 自動從 Sheets 讀入（背景靜默執行）──────────────
   useEffect(() => {
     async function autoInit() {
@@ -14346,6 +14367,199 @@ ${numbered}`
     finally { setPullSyncing(false) }
   }
 
+  // ══ 對話練習 ════════════════════════════════════════════════
+
+  function startConvPractice() {
+    const starred = (scene?.phrases ?? []).filter(p => p.starred)
+    const sceneDesc = scene?.title ?? 'this scene'
+    const keyPhrases = starred.slice(0, 5).map(p => p.en).join(' / ')
+    const systemPrompt = `You are an English conversation practice partner helping a Taiwanese adult learner improve their spoken English. 
+The learner is practicing a scene from the movie Jerry Maguire: "${sceneDesc}".
+Key phrases from this scene: ${keyPhrases || 'general conversation'}.
+
+Rules:
+- Start with a simple, friendly opening line related to the scene context
+- Adjust your language complexity based on the learner's responses:
+  * If they use short/simple sentences → keep your English simple and slow
+  * If they respond well → gradually use more natural expressions
+- Keep each response to 1-2 sentences max
+- Be encouraging and natural
+- This is turn 1 of 3 total turns`
+
+    setConvHistory([])
+    setConvTurn(0)
+    setConvDone(false)
+    setConvResult(null)
+    setConvInput('')
+    setConvBusy(true)
+    setConvPractice(true)
+
+    callAI(systemPrompt, 'Start the conversation with one simple opening line related to the scene. Just say the line, nothing else.')
+      .then(text => {
+        setConvHistory([{ role: 'ai', text: text.trim() }])
+        setConvBusy(false)
+      })
+      .catch(() => setConvBusy(false))
+  }
+
+  function startConvListening() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SpeechRecognition) { alert('此裝置不支援語音辨識，請用文字輸入'); return }
+    const recog = new SpeechRecognition()
+    recog.lang = 'en-US'
+    recog.interimResults = false
+    recog.maxAlternatives = 1
+    recog.onresult = e => {
+      const text = e.results[0][0].transcript
+      setConvInput(prev => (prev ? prev + ' ' + text : text))
+      setConvListening(false)
+    }
+    recog.onerror = () => setConvListening(false)
+    recog.onend = () => setConvListening(false)
+    convRecogRef.current = recog
+    recog.start()
+    setConvListening(true)
+  }
+
+  function stopConvListening() {
+    convRecogRef.current?.stop()
+    setConvListening(false)
+  }
+
+  async function submitConvTurn() {
+    if (!convInput.trim()) return
+    const userText = convInput.trim()
+    setConvInput('')
+    const newHistory = [...convHistory, { role: 'user', text: userText }]
+    setConvHistory(newHistory)
+    setConvBusy(true)
+    const nextTurn = convTurn + 1
+
+    if (nextTurn >= 3) {
+      // 最後一輪 → 請 AI 給評分
+      setConvTurn(nextTurn)
+      setConvDone(true)
+      const dialogue = newHistory.map(h => `${h.role === 'ai' ? 'AI' : 'Learner'}: ${h.text}`).join('\n')
+      const evalPrompt = `You evaluated an English conversation practice session. Here is the full dialogue:
+
+${dialogue}
+
+Please evaluate the learner's responses (not the AI's) and provide:
+1. A naturalness score from 1-5 stars
+2. A sentence completeness score from 1-5 stars  
+3. A relevance score from 1-5 stars
+4. For each of the learner's turns, suggest a more natural way to say it (keep suggestions simple and encouraging)
+5. One overall encouraging comment
+
+Respond in JSON format only:
+{"naturalness": 3, "completeness": 4, "relevance": 4, "suggestions": ["turn1 suggestion", "turn2 suggestion", "turn3 suggestion"], "comment": "..."}`
+      try {
+        const raw = await callAI('You are an English teacher evaluator. Return only valid JSON.', evalPrompt)
+        const clean = raw.replace(/```json|```/g, '').trim()
+        const result = JSON.parse(clean)
+        setConvResult(result)
+      } catch {
+        setConvResult({ naturalness: 3, completeness: 3, relevance: 3, suggestions: [], comment: 'Great effort! Keep practicing!' })
+      }
+      setConvBusy(false)
+    } else {
+      // 繼續對話
+      setConvTurn(nextTurn)
+      const prevResponses = newHistory.filter(h => h.role === 'user')
+      const complexity = prevResponses.length > 0 && prevResponses[prevResponses.length-1].text.split(' ').length > 8
+        ? 'intermediate' : 'simple'
+      const dialogue = newHistory.map(h => `${h.role === 'ai' ? 'AI' : 'Learner'}: ${h.text}`).join('\n')
+      try {
+        const reply = await callAI(
+          `You are a conversation practice partner. Use ${complexity} English. This is turn ${nextTurn + 1} of 3.`,
+          `Continue this conversation naturally with one short response (1-2 sentences):
+${dialogue}
+
+Your response only:`
+        )
+        setConvHistory([...newHistory, { role: 'ai', text: reply.trim() }])
+      } catch { /* silent */ }
+      setConvBusy(false)
+    }
+  }
+
+  // ══ 場景重述 ════════════════════════════════════════════════
+
+  function startRetellListening() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SpeechRecognition) { alert('此裝置不支援語音辨識，請用文字輸入'); return }
+    const recog = new SpeechRecognition()
+    recog.lang = 'en-US'
+    recog.interimResults = false
+    recog.maxAlternatives = 1
+    recog.onresult = e => {
+      const text = e.results[0][0].transcript
+      setRetellInput(prev => (prev ? prev + ' ' + text : text))
+      setRetellListening(false)
+    }
+    recog.onerror = () => setRetellListening(false)
+    recog.onend = () => setRetellListening(false)
+    retellRecogRef.current = recog
+    recog.start()
+    setRetellListening(true)
+  }
+
+  function stopRetellListening() {
+    retellRecogRef.current?.stop()
+    setRetellListening(false)
+  }
+
+  function addRetellSegment() {
+    if (!retellInput.trim()) return
+    setRetellSegments(prev => [...prev, retellInput.trim()])
+    setRetellInput('')
+  }
+
+  async function finishRetell() {
+    const allText = retellSegments.join(' ')
+    if (!allText.trim()) { alert('請先說幾句話再結束'); return }
+    setRetellDone(true)
+    setRetellBusy(true)
+    const sceneDesc = scene?.title ?? 'a movie scene'
+    const starred = (scene?.phrases ?? []).filter(p => p.starred)
+    const keyPhrases = starred.slice(0, 5).map(p => p.en).join(' / ')
+    const prompt = `A Taiwanese adult English learner was asked to retell a scene from Jerry Maguire called "${sceneDesc}".
+Key phrases in the scene: ${keyPhrases || 'general'}.
+
+The learner said: "${allText}"
+
+Please evaluate and respond in JSON only:
+{"sentences": ${retellSegments.length}, "naturalness": 3, "coverage": 3, "suggestions": ["improved version of what they said"], "better_expressions": ["1-2 natural phrases they could use next time"], "comment": "one encouraging sentence"}`
+    try {
+      const raw = await callAI('You are an English teacher. Return only valid JSON.', prompt)
+      const clean = raw.replace(/```json|```/g, '').trim()
+      const result = JSON.parse(clean)
+      setRetellResult(result)
+    } catch {
+      setRetellResult({ sentences: retellSegments.length, naturalness: 3, coverage: 3, suggestions: [], better_expressions: [], comment: 'Good effort! Keep practicing!' })
+    }
+    setRetellBusy(false)
+  }
+
+  function resetRetell() {
+    setRetellMode(false)
+    setRetellSegments([])
+    setRetellInput('')
+    setRetellDone(false)
+    setRetellResult(null)
+    setRetellBusy(false)
+  }
+
+  function resetConv() {
+    setConvPractice(false)
+    setConvHistory([])
+    setConvTurn(0)
+    setConvDone(false)
+    setConvResult(null)
+    setConvInput('')
+    setConvBusy(false)
+  }
+
   function goBack(to='list') { setView(to); setPlaying(false); window.speechSynthesis?.cancel() }
 
   const BackBtn = ({ label='← 返回', to='list' }) => (
@@ -15288,6 +15502,257 @@ ${numbered}`
             )}
           </div>
         )}
+        {/* Hint */}
+        {/* ── 練習區：對話練習 + 場景重述 ── */}
+        <div style={{ display:'flex', gap:8 }}>
+          <div onClick={() => { resetConv(); startConvPractice() }}
+            style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+              color:T.grn, padding:'10px', background:T.grnD,
+              borderRadius:10, border:`1px solid ${T.grn}50`,
+              display:'flex', alignItems:'center', justifyContent:'center', gap:5 }}>
+            🎤 對話練習
+          </div>
+          <div onClick={() => { resetRetell(); setRetellMode(true) }}
+            style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+              color:T.blue, padding:'10px', background:T.blueD,
+              borderRadius:10, border:`1px solid ${T.blue}50`,
+              display:'flex', alignItems:'center', justifyContent:'center', gap:5 }}>
+            🗣️ 場景重述
+          </div>
+        </div>
+
+        {/* ── 對話練習面板 ── */}
+        {convPractice && (
+          <div style={{ display:'flex', flexDirection:'column', gap:10, background:T.surf,
+            border:`1px solid ${T.grn}40`, borderRadius:14, padding:14 }} className="fadeUp">
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <span style={{ fontFamily:MONO, fontSize:10, color:T.grn, fontWeight:700 }}>
+                🎤 對話練習 · 第 {Math.min(convTurn+1,3)} / 3 輪
+              </span>
+              <span onClick={resetConv}
+                style={{ fontFamily:MONO, fontSize:10, color:T.txt3, cursor:'pointer', padding:'2px 8px' }}>✕</span>
+            </div>
+
+            {/* 對話歷史 */}
+            <div style={{ display:'flex', flexDirection:'column', gap:8, maxHeight:260, overflowY:'auto' }}>
+              {convHistory.map((h, i) => (
+                <div key={i} style={{ display:'flex', flexDirection:'column', gap:3,
+                  alignItems: h.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                  <div style={{ maxWidth:'85%', padding:'8px 12px', borderRadius:12,
+                    background: h.role === 'ai' ? T.surf2 : T.grnD,
+                    border:`1px solid ${h.role === 'ai' ? T.bdr : T.grn+'50'}`,
+                    fontFamily:MONO, fontSize:11, color: h.role === 'ai' ? T.txt : T.grn,
+                    lineHeight:1.6 }}>
+                    {h.text}
+                  </div>
+                  <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
+                    {h.role === 'ai' ? '🤖 AI' : '🎤 你'}
+                  </span>
+                </div>
+              ))}
+              {convBusy && (
+                <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, padding:'4px 8px' }}>
+                  🤖 AI 思考中…
+                </div>
+              )}
+            </div>
+
+            {/* 結束前輸入區 */}
+            {!convDone && !convBusy && convHistory.length > 0 && (
+              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                <div style={{ display:'flex', gap:6 }}>
+                  <input value={convInput} onChange={e => setConvInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && submitConvTurn()}
+                    placeholder="輸入回應，或按麥克風說話..."
+                    data-form-type="off" autoComplete="off"
+                    style={{ flex:1, background:T.bg, border:`1px solid ${T.bdr2}`,
+                      borderRadius:9, padding:'9px 12px', fontFamily:MONO, fontSize:11,
+                      color:T.txt, outline:'none' }}/>
+                  <div onPointerDown={startConvListening} onPointerUp={stopConvListening}
+                    style={{ cursor:'pointer', padding:'9px 12px', borderRadius:9,
+                      background: convListening ? T.redD ?? '#3a1a1a' : T.surf2,
+                      border:`1px solid ${convListening ? '#ff6b6b' : T.bdr}`,
+                      fontFamily:MONO, fontSize:14, color: convListening ? '#ff6b6b' : T.txt3,
+                      display:'flex', alignItems:'center' }}>
+                    {convListening ? '🔴' : '🎤'}
+                  </div>
+                </div>
+                {convInput && (
+                  <div onClick={submitConvTurn}
+                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                      color:T.grn, padding:'10px', background:T.grnD,
+                      borderRadius:9, border:`1px solid ${T.grn}50`, textAlign:'center' }}>
+                    送出回應 →
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 評分結果 */}
+            {convDone && convResult && (
+              <div style={{ display:'flex', flexDirection:'column', gap:8, background:T.bg,
+                borderRadius:10, padding:12, border:`1px solid ${T.bdr}` }} className="fadeUp">
+                <div style={{ fontFamily:MONO, fontSize:10, color:T.amber, fontWeight:700 }}>📊 練習結果</div>
+                <div style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
+                  {[['自然度', convResult.naturalness],['句子完整', convResult.completeness],['回應相關', convResult.relevance]].map(([label, score]) => (
+                    <div key={label} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
+                      <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>{label}</span>
+                      <span style={{ fontFamily:MONO, fontSize:13, color:T.amber }}>{'★'.repeat(score ?? 3)}{'☆'.repeat(5-(score??3))}</span>
+                    </div>
+                  ))}
+                </div>
+                {convResult.suggestions?.length > 0 && (
+                  <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                    <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, fontWeight:700 }}>💡 更自然的說法：</div>
+                    {convResult.suggestions.map((s, i) => (
+                      <div key={i} style={{ fontFamily:MONO, fontSize:10, color:T.grn,
+                        background:T.grnD, borderRadius:8, padding:'6px 10px',
+                        border:`1px solid ${T.grn}30` }}>
+                        輪{i+1}：{s}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {convResult.comment && (
+                  <div style={{ fontFamily:MONO, fontSize:10, color:T.txt2, lineHeight:1.6,
+                    background:T.surf2, borderRadius:8, padding:'8px 10px' }}>
+                    🌟 {convResult.comment}
+                  </div>
+                )}
+                <div onClick={() => { resetConv(); startConvPractice() }}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                    color:T.grn, padding:'10px', background:T.grnD,
+                    borderRadius:9, border:`1px solid ${T.grn}50`, textAlign:'center' }}>
+                  🔄 再練一次
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── 場景重述面板 ── */}
+        {retellMode && (
+          <div style={{ display:'flex', flexDirection:'column', gap:10, background:T.surf,
+            border:`1px solid ${T.blue}40`, borderRadius:14, padding:14 }} className="fadeUp">
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <span style={{ fontFamily:MONO, fontSize:10, color:T.blue, fontWeight:700 }}>
+                🗣️ 場景重述 · {scene?.title ?? ''}
+              </span>
+              <span onClick={resetRetell}
+                style={{ fontFamily:MONO, fontSize:10, color:T.txt3, cursor:'pointer', padding:'2px 8px' }}>✕</span>
+            </div>
+            {!retellDone && (
+              <>
+                <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.7 }}>
+                  用自己的話描述這個場景，說幾句都可以。說完一段按「加入」，全部說完按「完成評分」。
+                </div>
+                {retellSegments.length > 0 && (
+                  <div style={{ display:'flex', flexDirection:'column', gap:4, maxHeight:140, overflowY:'auto' }}>
+                    {retellSegments.map((s, i) => (
+                      <div key={i} style={{ fontFamily:MONO, fontSize:10, color:T.txt,
+                        background:T.blueD, borderRadius:8, padding:'6px 10px',
+                        border:`1px solid ${T.blue}30` }}>
+                        {i+1}. {s}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div style={{ display:'flex', gap:6 }}>
+                  <input value={retellInput} onChange={e => setRetellInput(e.target.value)}
+                    placeholder="輸入或按麥克風說話..."
+                    data-form-type="off" autoComplete="off"
+                    style={{ flex:1, background:T.bg, border:`1px solid ${T.bdr2}`,
+                      borderRadius:9, padding:'9px 12px', fontFamily:MONO, fontSize:11,
+                      color:T.txt, outline:'none' }}/>
+                  <div onPointerDown={startRetellListening} onPointerUp={stopRetellListening}
+                    style={{ cursor:'pointer', padding:'9px 12px', borderRadius:9,
+                      background: retellListening ? '#3a1a1a' : T.surf2,
+                      border:`1px solid ${retellListening ? '#ff6b6b' : T.bdr}`,
+                      fontFamily:MONO, fontSize:14, color: retellListening ? '#ff6b6b' : T.txt3,
+                      display:'flex', alignItems:'center' }}>
+                    {retellListening ? '🔴' : '🎤'}
+                  </div>
+                </div>
+                <div style={{ display:'flex', gap:8 }}>
+                  <div onClick={addRetellSegment}
+                    style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                      color:T.blue, padding:'10px', background:T.blueD,
+                      borderRadius:9, border:`1px solid ${T.blue}50`, textAlign:'center' }}>
+                    ＋ 加入
+                  </div>
+                  <div onClick={finishRetell}
+                    style={{ flex:1, cursor: retellSegments.length === 0 ? 'default' : 'pointer',
+                      fontFamily:MONO, fontSize:10, fontWeight:700,
+                      color: retellSegments.length === 0 ? T.txt3 : T.amber,
+                      padding:'10px', background: retellSegments.length === 0 ? T.surf2 : T.amberD,
+                      borderRadius:9, border:`1px solid ${retellSegments.length === 0 ? T.bdr : T.amber+'50'}`,
+                      textAlign:'center' }}>
+                    ✓ 完成評分
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* 評分結果 */}
+            {retellDone && (
+              <div style={{ display:'flex', flexDirection:'column', gap:8 }} className="fadeUp">
+                {retellBusy ? (
+                  <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, textAlign:'center', padding:12 }}>
+                    🤖 AI 評分中…
+                  </div>
+                ) : retellResult ? (
+                  <>
+                    <div style={{ fontFamily:MONO, fontSize:10, color:T.amber, fontWeight:700 }}>📊 重述結果</div>
+                    <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>
+                      你說了 <span style={{ color:T.blue, fontWeight:700 }}>{retellResult.sentences}</span> 段
+                    </div>
+                    <div style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
+                      {[['自然度', retellResult.naturalness],['場景涵蓋', retellResult.coverage]].map(([label, score]) => (
+                        <div key={label} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
+                          <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>{label}</span>
+                          <span style={{ fontFamily:MONO, fontSize:13, color:T.amber }}>{'★'.repeat(score ?? 3)}{'☆'.repeat(5-(score??3))}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {retellResult.suggestions?.length > 0 && (
+                      <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+                        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, fontWeight:700 }}>💡 更自然的說法：</div>
+                        {retellResult.suggestions.map((s, i) => (
+                          <div key={i} style={{ fontFamily:MONO, fontSize:10, color:T.blue,
+                            background:T.blueD, borderRadius:8, padding:'6px 10px',
+                            border:`1px solid ${T.blue}30` }}>{s}</div>
+                        ))}
+                      </div>
+                    )}
+                    {retellResult.better_expressions?.length > 0 && (
+                      <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+                        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, fontWeight:700 }}>✨ 下次可以用：</div>
+                        {retellResult.better_expressions.map((s, i) => (
+                          <div key={i} style={{ fontFamily:MONO, fontSize:10, color:T.amber,
+                            background:T.amberD, borderRadius:8, padding:'6px 10px',
+                            border:`1px solid ${T.amber}30` }}>{s}</div>
+                        ))}
+                      </div>
+                    )}
+                    {retellResult.comment && (
+                      <div style={{ fontFamily:MONO, fontSize:10, color:T.txt2, lineHeight:1.6,
+                        background:T.surf2, borderRadius:8, padding:'8px 10px' }}>
+                        🌟 {retellResult.comment}
+                      </div>
+                    )}
+                    <div onClick={resetRetell}
+                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                        color:T.blue, padding:'10px', background:T.blueD,
+                        borderRadius:9, border:`1px solid ${T.blue}50`, textAlign:'center' }}>
+                      🔄 再述一次
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Hint */}
         <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>⭐ 收藏重點句 · 👆 點單字加入單字庫 · ✕ 刪除句子</div>
         {/* Sentence list */}
@@ -17237,7 +17702,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.101</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.12</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
