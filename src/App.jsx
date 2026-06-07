@@ -7244,7 +7244,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.22
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.23
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14668,28 +14668,24 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
     }
 
     // ChatGPT 格式
-    const buildChatGPT = (phrases) => {
-      const nums = phrases.map((p, i) => (i+1) + '. "' + p.en + '"').join('\n')
-      return 'You are my English conversation coach.\n' +
-        'I am studying the movie Jerry Maguire.\n\n' +
-        'Scene: "' + sceneTitle + '"\n' +
-        'Your role: Jerry Maguire, my sports agent\n' +
-        'My role: Rod Tidwell, an NFL player\n\n' +
-        'Rules:\n' +
-        '- Say each phrase below exactly as written, one at a time, in order\n' +
-        '- After I respond, correct my grammar naturally if needed\n' +
-        '- Then move to the next phrase\n' +
-        '- Do NOT skip any phrase\n' +
-        '- Do NOT end until all phrases are done\n' +
-        '- If I get stuck, give me a short hint in English\n\n' +
-        'Phrase list:\n' +
-        nums + '\n\nStart with phrase 1 now.'
-    }
+    // ChatGPT 格式：場景導入陪練模式（不是句子清單）
+    // 一個指令就夠，讓 ChatGPT 自由追問
+    const keyPhrases = easySentences.slice(0, 5).map(p => p.en).join(', ')
+    const chatgptPrompt =
+      'You are my English coach. I am a Taiwanese adult learning English through the movie Jerry Maguire.\n\n' +
+      'I just studied this scene: "' + sceneTitle + '"\n\n' +
+      'Please do the following:\n' +
+      '1. First ask me: "What happened in this scene? Tell me in your own words."\n' +
+      '2. After I answer, ask 2-3 natural follow-up questions about the scene or characters.\n' +
+      '3. Then naturally bring these key phrases into the conversation (one at a time): ' + keyPhrases + '\n' +
+      '4. Correct my English naturally after each response — do not let errors pass.\n' +
+      '5. Keep the conversation going. Do NOT let me use Chinese.\n\n' +
+      'Start now with step 1.'
 
-    const speakEasy       = buildSpeak(easySentences)
-    const speakAdvanced   = buildSpeak(advanced)
-    const chatgptEasy     = buildChatGPT(easySentences)
-    const chatgptAdvanced = buildChatGPT(advanced)
+    const speakEasy     = buildSpeak(easySentences)
+    const speakAdvanced = buildSpeak(advanced)
+    const chatgptEasy   = chatgptPrompt
+    const chatgptAdvanced = chatgptPrompt  // 同一個 prompt，ChatGPT 會自動調整難度
 
     // 存進場景資料
     saveDb({
@@ -15708,8 +15704,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                 {[
                   { type:'easy',     label:'🟢 Speak 簡單組', sub:'高頻短句，早晨練習', color:T.grn,   bg:T.grnD },
                   { type:'advanced', label:'🟡 Speak 進階組', sub:'完整重點句，挑戰用', color:T.amber, bg:T.amberD },
-                  { type:'cgpt_easy',     label:'🤖 ChatGPT 簡單組', sub:'含文法糾正，對話練習', color:'#60a5fa', bg:'#1a2a3a' },
-                  { type:'cgpt_advanced', label:'🤖 ChatGPT 進階組', sub:'完整版，含文法糾正',   color:'#60a5fa', bg:'#1a2a3a' },
+                  { type:'cgpt_easy', label:'🤖 ChatGPT 陪練指令', sub:'場景導入，自由追問，糾正文法', color:'#60a5fa', bg:'#1a2a3a' },
                 ].map(({ type, label, sub, color, bg }) => {
                   const textMap = { easy: scene?.speakEasy, advanced: scene?.speakAdvanced, cgpt_easy: scene?.chatgptEasy, cgpt_advanced: scene?.chatgptAdvanced }
                   const txt = textMap[type]
@@ -17720,7 +17715,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.22</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.23</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
