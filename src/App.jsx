@@ -7244,7 +7244,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.17
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.19
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14539,18 +14539,25 @@ Your response only:`
   }
 
   async function finishRetell() {
-    const allText = retellSegments.join(' ')
+    // 自動把輸入框裡還沒按「加入」的文字也一起帶入
+    let segs = retellSegments
+    if (retellInput.trim()) {
+      segs = [...retellSegments, retellInput.trim()]
+      setRetellSegments(segs)
+      setRetellInput('')
+    }
+    const allText = segs.join(' ')
     if (!allText.trim()) { alert('請先說幾句話再結束'); return }
     setRetellDone(true)
     setRetellBusy(true)
     const sceneDesc = scene?.title ?? 'a movie scene'
     const starred = (scene?.phrases ?? []).filter(p => p.starred)
     const keyPhrases = starred.slice(0, 5).map(p => p.en).join(' / ')
-    const segList = retellSegments.map((s, i) => `${i+1}. "${s}"`).join('\n')
+    const segList = segs.map((s, i) => `${i+1}. "${s}"`).join('\n')
     const prompt = `A Taiwanese adult English learner retold a Jerry Maguire scene called "${sceneDesc}".
 Key phrases from this scene: ${keyPhrases || 'general conversation'}.
 
-The learner said (${retellSegments.length} segment(s)):
+The learner said (${segs.length} segment(s)):
 ${segList}
 
 Please evaluate and respond in JSON only. Be specific — reference the learner's EXACT words in your corrections:
@@ -14564,12 +14571,40 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
   "comment": "<one encouraging sentence in English>"
 }`
     try {
-      const raw = await callAI('You are an encouraging English teacher. Return only valid JSON. Always fill corrections array with specific feedback on the learner exact words.', prompt)
-      const clean = raw.replace(/```json|```/g, '').trim()
-      const result = JSON.parse(clean)
-      setRetellResult(result)
-    } catch {
-      setRetellResult({ naturalness: 3, coverage: 3, corrections: [], extra_phrases: [], comment: 'Good effort! Keep practicing!' })
+      // 用 callAIRaw 並加大 max_tokens，避免 JSON 被截斷
+      const se = getAISettings()
+      const apiKey = se.anthropicKey || se.openaiKey || se.geminiKey || ''
+      let rawText = ''
+      if ((se.aiProvider ?? 'anthropic') === 'anthropic' && se.anthropicKey) {
+        const r = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': se.anthropicKey,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true',
+          },
+          body: JSON.stringify({
+            model: 'claude-haiku-4-5-20251001',
+            max_tokens: 2000,
+            system: 'You are an encouraging English teacher. Return only valid JSON. Always fill corrections array with specific feedback on the learner exact words.',
+            messages: [{ role: 'user', content: prompt }]
+          })
+        })
+        const d = await r.json()
+        rawText = d.content?.[0]?.text ?? ''
+      } else {
+        rawText = await callAI('You are an encouraging English teacher. Return only valid JSON. Always fill corrections array with specific feedback on the learner exact words.', prompt)
+      }
+      const clean = rawText.replace(/```json|```/g, '').trim()
+      try {
+        const result = JSON.parse(clean)
+        setRetellResult(result)
+      } catch {
+        setRetellResult({ naturalness: 3, coverage: 3, corrections: [], extra_phrases: [], comment: '(parse error) ' + clean.slice(0, 200) })
+      }
+    } catch(e) {
+      setRetellResult({ naturalness: 0, coverage: 0, corrections: [], extra_phrases: [], comment: '⚠ 連線失敗：' + (e?.message ?? '請重試') })
     }
     setRetellBusy(false)
   }
@@ -17782,7 +17817,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.17</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.19</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
