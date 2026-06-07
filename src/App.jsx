@@ -7244,7 +7244,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.15
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.16
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14486,46 +14486,50 @@ Your response only:`
 
   // ══ 場景重述 ════════════════════════════════════════════════
 
-  const retellFinalRef = useRef('')  // 累積已確認的文字
+  const retellAccumRef = useRef('')   // 跨段累積文字
+  const retellActiveRef = useRef(false) // 是否應該繼續辨識
 
   function toggleRetellListening() {
     if (retellListening) {
+      // 使用者主動停止
+      retellActiveRef.current = false
       retellRecogRef.current?.stop()
       setRetellListening(false)
       return
     }
+    retellAccumRef.current = ''
+    retellActiveRef.current = true
+    setRetellInput('')
+    startOneRetellSession()
+    setRetellListening(true)
+  }
+
+  function startOneRetellSession() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
-    if (!SpeechRecognition) { alert('此裝置不支援語音辨識，請用文字輸入'); return }
-    retellFinalRef.current = ''  // 清空累積
+    if (!SpeechRecognition) return
     const recog = new SpeechRecognition()
     recog.lang = 'en-US'
-    recog.continuous = true
-    recog.interimResults = true
+    recog.continuous = false      // 每段獨立，避免 Android 重複 bug
+    recog.interimResults = false  // 只取 final，乾淨無重複
     recog.maxAlternatives = 1
     recog.onresult = e => {
-      // 只處理本次新增的 results（從 resultIndex 開始）
-      let newFinal = ''
-      let interim = ''
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) {
-          newFinal += e.results[i][0].transcript + ' '
-        } else {
-          interim += e.results[i][0].transcript
-        }
+      const text = e.results[0][0].transcript.trim()
+      if (text) {
+        retellAccumRef.current += (retellAccumRef.current ? ' ' : '') + text
+        setRetellInput(retellAccumRef.current)
       }
-      if (newFinal) {
-        retellFinalRef.current += newFinal
-      }
-      // 顯示：已確認部分 + 辨識中部分
-      setRetellInput((retellFinalRef.current + interim).trim())
     }
     recog.onerror = e => {
-      if (e.error !== 'aborted') setRetellListening(false)
+      if (e.error === 'aborted') return
+      // 其他錯誤（no-speech 等）→ 若仍在錄音中就自動重啟
+      if (retellActiveRef.current) setTimeout(startOneRetellSession, 300)
     }
-    recog.onend = () => setRetellListening(false)
+    recog.onend = () => {
+      // 自動重啟，直到使用者點停止
+      if (retellActiveRef.current) setTimeout(startOneRetellSession, 200)
+    }
     retellRecogRef.current = recog
     recog.start()
-    setRetellListening(true)
   }
 
   function addRetellSegment() {
@@ -17750,7 +17754,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.15</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.16</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
