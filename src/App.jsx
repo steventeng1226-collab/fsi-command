@@ -14658,8 +14658,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
     const advanced = shuffled.slice(0, 10)
 
     const buildCourse = (phrases, level) => {
-      const nums = phrases.map((p, i) => `${i+1}. "${p.en}"`).join('
-')
+      const nums = phrases.map((p, i) => `${i+1}. "${p.en}"`).join('\n')
       return `Your role: Rod Tidwell, an NFL player.
 My role: Jerry Maguire, your sports agent.
 Situation: We are on a phone call about your contract for the scene "${sceneTitle}".
@@ -15716,9 +15715,7 @@ Start with phrase 1 now.`
                   </div>
                   <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.7,
                     maxHeight:80, overflowY:'auto', whiteSpace:'pre-wrap' }}>
-                    {scene?.speakEasy?.split('
-').slice(0,4).join('
-')}…
+                    {scene?.speakEasy?.split('\n').slice(0,4).join('\n')}…
                   </div>
                 </div>
                 {/* 進階組 */}
@@ -15739,8 +15736,7 @@ Start with phrase 1 now.`
                   </div>
                   <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.7,
                     maxHeight:80, overflowY:'auto', whiteSpace:'pre-wrap' }}>
-                    {scene?.speakAdvanced?.split('
-').slice(0,4).join('
+                    {scene?.speakAdvanced?.split('\\n').slice(0,4).join('\\n')}…
 ')}…
                   </div>
                 </div>
