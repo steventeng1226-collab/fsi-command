@@ -7244,7 +7244,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.20
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.21
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13250,6 +13250,11 @@ function MovieTab({ audioMode, setAudioMode }) {
   const [retellInput,     setRetellInput]     = useState('')
   const retellRecogRef = useRef(null)
 
+  // ── Speak 課程 state ────────────────────────────────────────
+  const [speakOpen,   setSpeakOpen]   = useState(false)
+  const [speakBusy,   setSpeakBusy]   = useState(false)
+  const [speakCopied, setSpeakCopied] = useState(null)  // 'easy'|'advanced'|null
+
   // ── 開 App 自動從 Sheets 讀入（背景靜默執行）──────────────
   useEffect(() => {
     async function autoInit() {
@@ -14244,6 +14249,8 @@ ${numbered}`
     }
     saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : { ...m, scenes:[...m.scenes, ns] }) })
     setSrtText(''); setStartTime(''); setEndTime(''); setAddPreview(null); setView('list')
+    // 自動產生 Speak 課程
+    setTimeout(() => generateSpeakCourses(ns), 500)
   }
 
   // ── helpers ───────────────────────────────────────────────────
@@ -14628,6 +14635,74 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
     setConvResult(null)
     setConvInput('')
     setConvBusy(false)
+  }
+
+  // ══ Speak 課程產生 ══════════════════════════════════════════
+
+  async function generateSpeakCourses(sc) {
+    const targetScene = sc ?? scene
+    if (!targetScene) return
+    setSpeakBusy(true)
+    setSpeakOpen(true)
+    const sceneTitle = targetScene.name ?? targetScene.title ?? 'this scene'
+    const allPhrases = targetScene.phrases ?? []
+    const starred = allPhrases.filter(p => p.starred)
+    const pool = starred.length >= 5 ? starred : allPhrases
+    // 隨機打亂
+    const shuffled = [...pool].sort(() => Math.random() - 0.5)
+
+    // 篩選簡單句（10字以內）
+    const easy = shuffled.filter(p => p.en.split(' ').length <= 10).slice(0, 7)
+    const easySentences = easy.length >= 4 ? easy : shuffled.slice(0, 7)
+    // 進階句（較長或所有重點句）
+    const advanced = shuffled.slice(0, 10)
+
+    const buildCourse = (phrases, level) => {
+      const nums = phrases.map((p, i) => `${i+1}. "${p.en}"`).join('
+')
+      return `Your role: Rod Tidwell, an NFL player.
+My role: Jerry Maguire, your sports agent.
+Situation: We are on a phone call about your contract for the scene "${sceneTitle}".
+
+STRICT RULE: You MUST say each phrase below exactly as written, one at a time, in order. Do NOT skip any. Do NOT change the topic. Keep each response to 1 sentence only.
+
+Key phrases (say them one by one):
+${nums}
+
+Start with phrase 1 now.`
+    }
+
+    const easyCourse   = buildCourse(easySentences, 'easy')
+    const advancedCourse = buildCourse(advanced, 'advanced')
+
+    // 存進場景資料
+    saveDb({
+      ...db,
+      movies: db.movies.map(m => m.id !== movieId ? m : {
+        ...m,
+        scenes: m.scenes.map(s => s.id !== targetScene.id ? s : {
+          ...s,
+          speakEasy: easyCourse,
+          speakAdvanced: advancedCourse
+        })
+      })
+    })
+    setSpeakBusy(false)
+  }
+
+  function copySpeak(type) {
+    const text = type === 'easy' ? scene?.speakEasy : scene?.speakAdvanced
+    if (!text) return
+    const fallback = () => {
+      const el = document.createElement('textarea'); el.value = text
+      document.body.appendChild(el); el.select()
+      document.execCommand('copy'); document.body.removeChild(el)
+    }
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        setSpeakCopied(type); setTimeout(() => setSpeakCopied(null), 2000)
+      }).catch(fallback)
+    } else { fallback(); setSpeakCopied(type); setTimeout(() => setSpeakCopied(null), 2000) }
   }
 
   function goBack(to='list') { setView(to); setPlaying(false); window.speechSynthesis?.cancel() }
@@ -15590,6 +15665,96 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
             🗣️ 場景重述
           </div>
         </div>
+
+        {/* ── Speak 課程按鈕 ── */}
+        <div onClick={() => {
+            if (scene?.speakEasy) { setSpeakOpen(o => !o) }
+            else { generateSpeakCourses() }
+          }}
+          style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+            color:'#c084fc', padding:'10px', background:'#2d1a4a',
+            borderRadius:10, border:'1px solid #c084fc50',
+            display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+          {speakBusy ? '⏳ 產生中…' : '📤 產生 Speak 課程'}
+        </div>
+
+        {/* ── Speak 課程面板 ── */}
+        {speakOpen && (scene?.speakEasy || speakBusy) && (
+          <div style={{ display:'flex', flexDirection:'column', gap:10, background:T.surf,
+            border:'1px solid #c084fc40', borderRadius:14, padding:14 }} className="fadeUp">
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <span style={{ fontFamily:MONO, fontSize:10, color:'#c084fc', fontWeight:700 }}>
+                📤 Speak 課程 · {scene?.name}
+              </span>
+              <span onClick={() => setSpeakOpen(false)}
+                style={{ fontFamily:MONO, fontSize:10, color:T.txt3, cursor:'pointer', padding:'2px 8px' }}>✕</span>
+            </div>
+            {speakBusy ? (
+              <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, textAlign:'center', padding:8 }}>
+                ⏳ AI 產生中…
+              </div>
+            ) : (
+              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
+                  複製後貼到 Speak App「描述情境和主題」欄位
+                </div>
+                {/* 簡單組 */}
+                <div style={{ display:'flex', flexDirection:'column', gap:6, background:T.bg,
+                  borderRadius:10, padding:'10px 12px', border:`1px solid ${T.grn}30` }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                    <div>
+                      <span style={{ fontFamily:MONO, fontSize:10, color:T.grn, fontWeight:700 }}>🟢 簡單組</span>
+                      <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3, marginLeft:8 }}>高頻短句，早晨練習</span>
+                    </div>
+                    <div onClick={() => copySpeak('easy')}
+                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                        color: speakCopied==='easy' ? T.grn : T.txt2,
+                        padding:'4px 10px', background: speakCopied==='easy' ? T.grnD : T.surf2,
+                        borderRadius:7, border:`1px solid ${speakCopied==='easy' ? T.grn+'60' : T.bdr}` }}>
+                      {speakCopied==='easy' ? '✅ 已複製' : '📋 複製'}
+                    </div>
+                  </div>
+                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.7,
+                    maxHeight:80, overflowY:'auto', whiteSpace:'pre-wrap' }}>
+                    {scene?.speakEasy?.split('
+').slice(0,4).join('
+')}…
+                  </div>
+                </div>
+                {/* 進階組 */}
+                <div style={{ display:'flex', flexDirection:'column', gap:6, background:T.bg,
+                  borderRadius:10, padding:'10px 12px', border:`1px solid ${T.amber}30` }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                    <div>
+                      <span style={{ fontFamily:MONO, fontSize:10, color:T.amber, fontWeight:700 }}>🟡 進階組</span>
+                      <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3, marginLeft:8 }}>完整重點句挑戰</span>
+                    </div>
+                    <div onClick={() => copySpeak('advanced')}
+                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                        color: speakCopied==='advanced' ? T.amber : T.txt2,
+                        padding:'4px 10px', background: speakCopied==='advanced' ? T.amberD : T.surf2,
+                        borderRadius:7, border:`1px solid ${speakCopied==='advanced' ? T.amber+'60' : T.bdr}` }}>
+                      {speakCopied==='advanced' ? '✅ 已複製' : '📋 複製'}
+                    </div>
+                  </div>
+                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.7,
+                    maxHeight:80, overflowY:'auto', whiteSpace:'pre-wrap' }}>
+                    {scene?.speakAdvanced?.split('
+').slice(0,4).join('
+')}…
+                  </div>
+                </div>
+                {/* 重新產生 */}
+                <div onClick={() => generateSpeakCourses()}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
+                    textAlign:'center', padding:'6px', borderRadius:8,
+                    background:T.surf2, border:`1px solid ${T.bdr}` }}>
+                  🔄 重新產生（隨機換句子）
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ── 對話練習面板 ── */}
         {convPractice && (
@@ -17819,7 +17984,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.20</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.21</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
