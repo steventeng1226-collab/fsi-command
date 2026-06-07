@@ -7243,7 +7243,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.12
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.13
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -16009,6 +16009,27 @@ Please evaluate and respond in JSON only:
                 </div>
               ) : (
                 <div style={{ display:'flex', gap:5, alignItems:'center' }}>
+                  <div onClick={() => {
+                      const txt = p.en
+                      const copy = (t) => {
+                        if (navigator.clipboard?.writeText) {
+                          navigator.clipboard.writeText(t).catch(() => {
+                            const el = document.createElement('textarea'); el.value = t
+                            document.body.appendChild(el); el.select()
+                            document.execCommand('copy'); document.body.removeChild(el)
+                          })
+                        } else {
+                          const el = document.createElement('textarea'); el.value = t
+                          document.body.appendChild(el); el.select()
+                          document.execCommand('copy'); document.body.removeChild(el)
+                        }
+                        alert('✅ 已複製，可貼至 ChatGPT')
+                      }
+                      copy(txt)
+                    }}
+                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.blue,
+                      padding:'2px 5px', background:T.blueD, borderRadius:5,
+                      border:`1px solid ${T.blue}50` }}>📋</div>
                   <div onClick={() => toggleStar(p.id)}
                     style={{ cursor:'pointer', fontSize:14,
                       opacity: p.starred ? 1 : 0.25,
@@ -17702,7 +17723,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.12</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.13</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
