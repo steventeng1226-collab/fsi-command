@@ -7244,7 +7244,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.23
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.24
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14704,6 +14704,55 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
     setSpeakBusy(false)
   }
 
+  function copyChatGPTWithTranscript() {
+    const transcript = movie?.transcript ?? ''
+    if (!transcript.trim()) {
+      alert('請先儲存逐字稿（電影 Tab → 貼上新逐字稿）')
+      return
+    }
+    if (!scene?.timeRange) {
+      alert('此場景沒有時間範圍')
+      return
+    }
+    const { start, end } = parseSceneTimeRange(scene.timeRange)
+    const lines = extractSRTLines(transcript, secsToTimeStr(start), secsToTimeStr(end))
+    if (lines.length === 0) {
+      alert('此時間範圍找不到逐字稿內容，請確認逐字稿已儲存')
+      return
+    }
+    const transcriptText = lines.map(l => '[' + secsToTimeStr(l.startSecs) + '] ' + l.text).join('\n')
+    const starred = (scene?.phrases ?? []).filter(p => p.starred)
+    const keyPhrases = starred.slice(0, 5).map(p => p.en).join(', ')
+
+    const prompt =
+      'You are my English coach. I am a Taiwanese adult learning English through the movie Jerry Maguire.\n\n' +
+      'Scene: "' + (scene?.name ?? scene?.title ?? '') + '" (' + scene.timeRange + ')\n\n' +
+      'Here is the transcript of this scene:\n' +
+      '---\n' +
+      transcriptText + '\n' +
+      '---\n\n' +
+      'Key phrases I am studying: ' + (keyPhrases || 'see transcript above') + '\n\n' +
+      'Please do the following:\n' +
+      '1. Ask me: "What happened in this scene? Tell me in your own words."\n' +
+      '2. After I answer, ask 2-3 natural follow-up questions.\n' +
+      '3. Naturally bring the key phrases into our conversation one at a time.\n' +
+      '4. Correct my English naturally after each response.\n' +
+      '5. Keep the conversation going. Do NOT let me use Chinese.\n\n' +
+      'Start now with step 1.'
+
+    const fallback = () => {
+      const el = document.createElement('textarea'); el.value = prompt
+      document.body.appendChild(el); el.select()
+      document.execCommand('copy'); document.body.removeChild(el)
+      alert('✅ ChatGPT 陪練指令已複製（含逐字稿），可貼到 ChatGPT 語音')
+    }
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(prompt)
+        .then(() => { setSpeakCopied('cgpt_transcript'); setTimeout(() => setSpeakCopied(null), 2000) })
+        .catch(fallback)
+    } else { fallback() }
+  }
+
   function copySpeak(type) {
     const textMap = {
       easy:          scene?.speakEasy,
@@ -15698,6 +15747,32 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
                 <div style={{ fontFamily:MONO, fontSize:9, color:'#888', lineHeight:1.6 }}>
                   複製後貼到對應 App 練習
+                </div>
+
+                {/* ChatGPT 含逐字稿（最推薦） */}
+                <div style={{ display:'flex', flexDirection:'column', gap:6, background:'#0d1f35',
+                  borderRadius:10, padding:'10px 12px', border:'2px solid #60a5fa60' }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                    <div>
+                      <span style={{ fontFamily:MONO, fontSize:10, color:'#60a5fa', fontWeight:700 }}>
+                        🤖 ChatGPT 陪練（含逐字稿）
+                      </span>
+                      <span style={{ fontFamily:MONO, fontSize:8, color:'#888', marginLeft:6 }}>
+                        最完整・場景原文＋追問＋糾正
+                      </span>
+                    </div>
+                    <div onClick={copyChatGPTWithTranscript}
+                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                        color: speakCopied==='cgpt_transcript' ? '#60a5fa' : '#888',
+                        padding:'4px 10px', background: speakCopied==='cgpt_transcript' ? '#1a2a3a' : '#222',
+                        borderRadius:7, border:'1px solid ' + (speakCopied==='cgpt_transcript' ? '#60a5fa60' : '#333'),
+                        whiteSpace:'nowrap' }}>
+                      {speakCopied==='cgpt_transcript' ? '✅ 已複製' : '📋 複製'}
+                    </div>
+                  </div>
+                  <div style={{ fontFamily:MONO, fontSize:9, color:'#60a5fa80', lineHeight:1.6 }}>
+                    {movie?.transcript ? '✓ 逐字稿已存入，可直接複製' : '⚠ 請先儲存逐字稿'}
+                  </div>
                 </div>
 
                 {/* Speak 簡單組 */}
@@ -17715,7 +17790,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.23</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.24</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
