@@ -7244,7 +7244,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.24
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.25
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14658,6 +14658,9 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
     const advanced = shuffled.slice(0, 10)
 
     // Speak 格式
+    // Speak 三欄格式：你的角色、AI角色、情境描述分開
+    const speakMyRole  = 'Rod Tidwell, an NFL player'
+    const speakAIRole  = 'Jerry Maguire, my sports agent'
     const buildSpeak = (phrases) => {
       const nums = phrases.map((p, i) => (i+1) + '. "' + p.en + '"').join('\n')
       return 'We are on a phone call about Rod\'s contract. Scene: "' + sceneTitle + '".\n' +
@@ -14694,6 +14697,8 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
         ...m,
         scenes: m.scenes.map(s => s.id !== targetScene.id ? s : {
           ...s,
+          speakMyRole,
+          speakAIRole,
           speakEasy,
           speakAdvanced,
           chatgptEasy,
@@ -15775,40 +15780,79 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                   </div>
                 </div>
 
-                {/* Speak 簡單組 */}
+                {/* Speak 簡單組 + 進階組：三個獨立複製按鈕 */}
                 {[
                   { type:'easy',     label:'🟢 Speak 簡單組', sub:'高頻短句，早晨練習', color:T.grn,   bg:T.grnD },
                   { type:'advanced', label:'🟡 Speak 進階組', sub:'完整重點句，挑戰用', color:T.amber, bg:T.amberD },
-                  { type:'cgpt_easy', label:'🤖 ChatGPT 陪練指令', sub:'場景導入，自由追問，糾正文法', color:'#60a5fa', bg:'#1a2a3a' },
                 ].map(({ type, label, sub, color, bg }) => {
-                  const textMap = { easy: scene?.speakEasy, advanced: scene?.speakAdvanced, cgpt_easy: scene?.chatgptEasy, cgpt_advanced: scene?.chatgptAdvanced }
+                  const textMap = { easy: scene?.speakEasy, advanced: scene?.speakAdvanced }
                   const txt = textMap[type]
                   if (!txt) return null
                   return (
                     <div key={type} style={{ display:'flex', flexDirection:'column', gap:6, background:'#111',
                       borderRadius:10, padding:'10px 12px', border:`1px solid ${color}30` }}>
-                      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                        <div>
-                          <span style={{ fontFamily:MONO, fontSize:10, color, fontWeight:700 }}>{label}</span>
-                          <span style={{ fontFamily:MONO, fontSize:8, color:'#888', marginLeft:8 }}>{sub}</span>
-                        </div>
-                        <div onClick={() => copySpeak(type)}
-                          style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
-                            color: speakCopied===type ? color : '#888',
-                            padding:'4px 10px', background: speakCopied===type ? bg : '#222',
-                            borderRadius:7, border:`1px solid ${speakCopied===type ? color+'60' : '#333'}`,
-                            whiteSpace:'nowrap' }}>
-                          {speakCopied===type ? '✅ 已複製' : '📋 複製'}
-                        </div>
+                      {/* 標題 */}
+                      <div>
+                        <span style={{ fontFamily:MONO, fontSize:10, color, fontWeight:700 }}>{label}</span>
+                        <span style={{ fontFamily:MONO, fontSize:8, color:'#888', marginLeft:8 }}>{sub}</span>
                       </div>
+                      {/* 三個複製按鈕 */}
+                      <div style={{ display:'flex', gap:6 }}>
+                        {[
+                          { key:'my',  label:'你的角色', val: scene?.speakMyRole ?? 'Rod Tidwell, an NFL player' },
+                          { key:'ai',  label:'AI 角色',  val: scene?.speakAIRole ?? 'Jerry Maguire, your sports agent' },
+                          { key:'sit', label:'情境描述', val: txt },
+                        ].map(({ key, label: btnLabel, val }) => {
+                          const copyKey = type + '_' + key
+                          return (
+                            <div key={key} onClick={() => {
+                                const fallback = () => { const el = document.createElement('textarea'); el.value = val; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el) }
+                                if (navigator.clipboard?.writeText) { navigator.clipboard.writeText(val).catch(fallback) } else { fallback() }
+                                setSpeakCopied(copyKey); setTimeout(() => setSpeakCopied(null), 2000)
+                              }}
+                              style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                                color: speakCopied===copyKey ? color : '#888',
+                                padding:'6px 4px', background: speakCopied===copyKey ? bg : '#222',
+                                borderRadius:7, border:`1px solid ${speakCopied===copyKey ? color+'60' : '#333'}`,
+                                textAlign:'center', lineHeight:1.4 }}>
+                              {speakCopied===copyKey ? '✅' : '📋'}<br/>{btnLabel}
+                            </div>
+                          )
+                        })}
+                      </div>
+                      {/* 情境預覽 */}
                       <div style={{ fontFamily:MONO, fontSize:9, color:'#666', lineHeight:1.7,
-                        maxHeight:120, overflowY:'auto', whiteSpace:'pre-wrap',
+                        maxHeight:80, overflowY:'auto', whiteSpace:'pre-wrap',
                         WebkitOverflowScrolling:'touch' }}>
-                        {txt.split('\n').slice(0, 6).join('\n')}…
+                        {txt.split('\n').slice(0, 4).join('\n')}…
                       </div>
                     </div>
                   )
                 })}
+
+                {/* ChatGPT 陪練指令 */}
+                {scene?.chatgptEasy && (
+                  <div style={{ display:'flex', flexDirection:'column', gap:6, background:'#111',
+                    borderRadius:10, padding:'10px 12px', border:'1px solid #60a5fa30' }}>
+                    <div>
+                      <span style={{ fontFamily:MONO, fontSize:10, color:'#60a5fa', fontWeight:700 }}>🤖 ChatGPT 陪練指令</span>
+                      <span style={{ fontFamily:MONO, fontSize:8, color:'#888', marginLeft:8 }}>場景導入，自由追問，糾正文法</span>
+                    </div>
+                    <div onClick={() => copySpeak('cgpt_easy')}
+                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                        color: speakCopied==='cgpt_easy' ? '#60a5fa' : '#888',
+                        padding:'7px', background: speakCopied==='cgpt_easy' ? '#1a2a3a' : '#222',
+                        borderRadius:7, border:`1px solid ${speakCopied==='cgpt_easy' ? '#60a5fa60' : '#333'}`,
+                        textAlign:'center' }}>
+                      {speakCopied==='cgpt_easy' ? '✅ 已複製' : '📋 複製'}
+                    </div>
+                    <div style={{ fontFamily:MONO, fontSize:9, color:'#666', lineHeight:1.7,
+                      maxHeight:80, overflowY:'auto', whiteSpace:'pre-wrap',
+                      WebkitOverflowScrolling:'touch' }}>
+                      {scene?.chatgptEasy?.split('\n').slice(0, 4).join('\n')}…
+                    </div>
+                  </div>
+                )}
 
                 <div onClick={() => generateSpeakCourses()}
                   style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#888',
@@ -17790,7 +17834,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.24</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.25</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
