@@ -7244,7 +7244,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.25
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.26
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14247,10 +14247,12 @@ ${numbered}`
       name: addPreview.name,
       phrases: addPreview.phrases.map((p,i) => ({ id:'ph_'+Date.now()+'_'+i, en:p.en, zh:p.zh, played:false, starred: p.starred ?? false, rating: p.rating ?? 3, reason: p.reason ?? '', startSecs: p.startSecs??0, endSecs: p.endSecs??0 }))
     }
-    saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : { ...m, scenes:[...m.scenes, ns] }) })
+    // 同步產生 Speak 課程，避免 setTimeout 造成 db state 覆蓋問題
+    const newDb = { ...db, movies: db.movies.map(m => m.id !== movieId ? m : { ...m, scenes:[...m.scenes, ns] }) }
+    saveDb(newDb)
     setSrtText(''); setStartTime(''); setEndTime(''); setAddPreview(null); setView('list')
-    // 自動產生 Speak 課程
-    setTimeout(() => generateSpeakCourses(ns), 500)
+    // 在新 db 基礎上產生 Speak 課程（直接傳入 newDb，不依賴 React state）
+    setTimeout(() => generateSpeakCoursesWithDb(ns, newDb), 300)
   }
 
   // ── helpers ───────────────────────────────────────────────────
@@ -14639,7 +14641,60 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
 
   // ══ Speak 課程產生 ══════════════════════════════════════════
 
+  // generateSpeakCoursesWithDb：接受明確的 db 參數，避免 React state 競爭
+  async function generateSpeakCoursesWithDb(sc, explicitDb) {
+    const targetScene = sc ?? scene
+    if (!targetScene) return
+    setSpeakBusy(true)
+    setSpeakOpen(true)
+    const sceneTitle = targetScene.name ?? targetScene.title ?? 'this scene'
+    const allPhrases = targetScene.phrases ?? []
+    const starred = allPhrases.filter(p => p.starred)
+    const pool = starred.length >= 5 ? starred : allPhrases
+    const shuffled = [...pool].sort(() => Math.random() - 0.5)
+    const easyPool = shuffled.filter(p => p.en.split(' ').length <= 10)
+    const easySentences = easyPool.length >= 4 ? easyPool.slice(0, 7) : shuffled.slice(0, 7)
+    const advanced = shuffled.slice(0, 10)
+    const speakMyRole = 'Rod Tidwell, an NFL player'
+    const speakAIRole = 'Jerry Maguire, my sports agent'
+    const buildSpeak = (phrases) => {
+      const nums = phrases.map((p, i) => (i+1) + '. "' + p.en + '"').join('\n')
+      return 'We are in the scene "' + sceneTitle + '". You are frustrated and want more money and respect.\n\n' +
+        'IMPORTANT: Your ONLY job is to deliver the phrases below one at a time in order. After each phrase, wait for my response. Do NOT improvise. Do NOT ask questions. Do NOT change topic. Do NOT end until ALL phrases are delivered.\n\n' +
+        'Deliver one phrase per turn:\n' + nums + '\n\nBegin with phrase 1.'
+    }
+    const keyPhrases = easySentences.slice(0, 5).map(p => p.en).join(', ')
+    const chatgptPrompt =
+      'You are my English coach. I am studying Jerry Maguire.\n\n' +
+      'Scene: "' + sceneTitle + '"\n\n' +
+      '1. Ask me what happened in this scene.\n' +
+      '2. Ask 2-3 follow-up questions.\n' +
+      '3. Naturally use these phrases one at a time: ' + keyPhrases + '\n' +
+      '4. Correct my English after each response.\n' +
+      '5. Keep going. No Chinese.\n\nStart now.'
+    const speakEasy = buildSpeak(easySentences)
+    const speakAdvanced = buildSpeak(advanced)
+    const chatgptEasy = chatgptPrompt
+    const chatgptAdvanced = chatgptPrompt
+    const baseDb = explicitDb ?? db
+    saveDb({
+      ...baseDb,
+      movies: baseDb.movies.map(m => m.id !== movieId ? m : {
+        ...m,
+        scenes: m.scenes.map(s => s.id !== targetScene.id ? s : {
+          ...s, speakMyRole, speakAIRole, speakEasy, speakAdvanced, chatgptEasy, chatgptAdvanced
+        })
+      })
+    })
+    setSpeakBusy(false)
+  }
+
   async function generateSpeakCourses(sc) {
+    return generateSpeakCoursesWithDb(sc, null)
+  }
+
+
+  async function generateSpeakCourses_old(sc) {
     const targetScene = sc ?? scene
     if (!targetScene) return
     setSpeakBusy(true)
@@ -17834,7 +17889,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.25</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.26</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
