@@ -7244,7 +7244,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.27
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.28
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -16428,13 +16428,21 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
         </div>
         {(() => {
           const allPhrases = (db.movies ?? []).flatMap(m => (m.scenes ?? []).flatMap(s => s.phrases ?? []))
-          const memCount = allPhrases.filter(p => Number(p.rating) === 4 || Number(p.rating) === 5).length
+          const memCount   = allPhrases.filter(p => Number(p.rating) === 4 || Number(p.rating) === 5).length
+          const starCount  = allPhrases.filter(p => p.starred).length
           return (
             <div onClick={() => setView('memory')}
               style={{ flex:1, border:`1px solid ${memCount ? T.amber+'50' : T.bdr}`, borderRadius:12, padding:'13px',
                 display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer',
                 background: memCount ? T.amberD : T.surf }}>
-              <span style={{ fontFamily:MONO, fontSize:11, color: memCount ? T.amber : T.txt2 }}>📚 背誦庫</span>
+              <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
+                <span style={{ fontFamily:MONO, fontSize:11, color: memCount ? T.amber : T.txt2 }}>📚 背誦庫</span>
+                {starCount > 0 && (
+                  <span style={{ fontFamily:MONO, fontSize:9, color:T.amber, opacity:0.75 }}>
+                    ⭐ {starCount} 重點句
+                  </span>
+                )}
+              </div>
               <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>{memCount} →</span>
             </div>
           )
@@ -17889,7 +17897,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.27</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.28</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
