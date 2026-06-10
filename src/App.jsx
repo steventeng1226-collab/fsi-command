@@ -7244,7 +7244,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.28
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.29
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -16264,6 +16264,51 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
   // ══════════════════════════════════════════════════════════════
   // MEMORY VIEW（背誦庫）
   // ══════════════════════════════════════════════════════════════
+  // ── ⭐ 重點句 view ─────────────────────────────────────────
+  if (view === 'starred') {
+    const allScenes  = db.movies.flatMap(m => m.scenes ?? [])
+    const allPhrases = allScenes.flatMap(s =>
+      (s.phrases ?? []).filter(p => p.starred).map(p => ({ ...p, sceneName: s.name ?? s.title ?? '' }))
+    )
+    return (
+      <div style={{ padding:'16px 16px 80px', display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <BackBtn label="← 返回" to="list"/>
+          <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>⭐ 重點句 {allPhrases.length}</span>
+        </div>
+        {allPhrases.length === 0 ? (
+          <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, textAlign:'center', padding:32 }}>
+            還沒有收藏重點句，進入場景點 ⭐ 收藏
+          </div>
+        ) : allPhrases.map((p, i) => (
+          <div key={p.id ?? i} style={{ background:T.surf, borderRadius:12, padding:'12px 14px',
+            border:`1px solid ${T.amber}30`, display:'flex', flexDirection:'column', gap:6 }}>
+            <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, opacity:0.7 }}>{p.sceneName}</div>
+            <div style={{ fontFamily:DISP, fontSize:13, color:T.txt, lineHeight:1.6 }}>{p.en}</div>
+            {p.zh && <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, lineHeight:1.5 }}>{p.zh}</div>}
+            {p.reason && (
+              <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, opacity:0.8 }}>
+                {'★'.repeat(p.rating ?? 3)} {p.reason}
+              </div>
+            )}
+            <div style={{ display:'flex', gap:6, marginTop:2 }}>
+              <div onClick={() => {
+                  const txt = p.en
+                  if (navigator.clipboard?.writeText) { navigator.clipboard.writeText(txt).catch(() => {}) }
+                  else { const el = document.createElement('textarea'); el.value = txt; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el) }
+                  alert('✅ 已複製，可貼至 ChatGPT')
+                }}
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.blue,
+                  padding:'3px 8px', background:T.blueD, borderRadius:6, border:`1px solid ${T.blue}40` }}>
+                📋 複製
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
   if (view === 'memory') {
     const allScenes = db.movies.flatMap(m => m.scenes ?? [])
     const allPhrases = allScenes.flatMap(s =>
@@ -16431,20 +16476,22 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           const memCount   = allPhrases.filter(p => Number(p.rating) === 4 || Number(p.rating) === 5).length
           const starCount  = allPhrases.filter(p => p.starred).length
           return (
-            <div onClick={() => setView('memory')}
-              style={{ flex:1, border:`1px solid ${memCount ? T.amber+'50' : T.bdr}`, borderRadius:12, padding:'13px',
-                display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer',
-                background: memCount ? T.amberD : T.surf }}>
-              <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
+            <>
+              <div onClick={() => setView('memory')}
+                style={{ flex:1, border:`1px solid ${memCount ? T.amber+'50' : T.bdr}`, borderRadius:12, padding:'13px',
+                  display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer',
+                  background: memCount ? T.amberD : T.surf }}>
                 <span style={{ fontFamily:MONO, fontSize:11, color: memCount ? T.amber : T.txt2 }}>📚 背誦庫</span>
-                {starCount > 0 && (
-                  <span style={{ fontFamily:MONO, fontSize:9, color:T.amber, opacity:0.75 }}>
-                    ⭐ {starCount} 重點句
-                  </span>
-                )}
+                <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>{memCount} →</span>
               </div>
-              <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>{memCount} →</span>
-            </div>
+              <div onClick={() => setView('starred')}
+                style={{ flex:1, border:`1px solid ${starCount ? T.amber+'50' : T.bdr}`, borderRadius:12, padding:'13px',
+                  display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer',
+                  background: starCount ? T.amberD : T.surf }}>
+                <span style={{ fontFamily:MONO, fontSize:11, color: starCount ? T.amber : T.txt2 }}>⭐ 重點句</span>
+                <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>{starCount} →</span>
+              </div>
+            </>
           )
         })()}
       </div>
@@ -17897,7 +17944,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.28</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.29</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
