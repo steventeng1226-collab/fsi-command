@@ -7244,7 +7244,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.30
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.31
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13327,6 +13327,9 @@ function MovieTab({ audioMode, setAudioMode }) {
   const [starFlip,        setStarFlip]        = useState({})       // { [phraseId]: true } 已翻牌
   const [starFamiliar,    setStarFamiliar]    = useState({})       // { [phraseId]: true } 熟悉
   const [starCurrentIdx,  setStarCurrentIdx]  = useState(0)        // 練習模式當前索引
+  const [starLoopMode,    setStarLoopMode]    = useState(null)      // null | 'familiar' | 'unfamiliar'
+  const [starLoopIdx,     setStarLoopIdx]     = useState(0)
+  const starLoopRef = useRef(null)
 
   const movie   = db.movies.find(m => m.id === movieId)
   const scene   = sceneId ? movie?.scenes.find(s => s.id === sceneId) : null
@@ -16270,32 +16273,64 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
   // MEMORY VIEW（背誦庫）
   // ══════════════════════════════════════════════════════════════
   // ── ⭐ 重點句 view ─────────────────────────────────────────
+  // ── ⭐ 重點句 view ─────────────────────────────────────────
   if (view === 'starred') {
-    // 所有重點句，按時間序排列（startSecs）
     const allScenes  = db.movies.flatMap(m => m.scenes ?? [])
     const allPhrases = allScenes
       .flatMap(s => (s.phrases ?? []).filter(p => p.starred).map(p => ({
-        ...p,
-        sceneName: s.name ?? s.title ?? '',
-        sceneTimeRange: s.timeRange ?? ''
+        ...p, sceneName: s.name ?? s.title ?? '', sceneTimeRange: s.timeRange ?? ''
       })))
       .sort((a, b) => (a.startSecs ?? 0) - (b.startSecs ?? 0))
 
     const familiarList   = allPhrases.filter(p => starFamiliar[p.id])
     const unfamiliarList = allPhrases.filter(p => !starFamiliar[p.id])
+    const practiceList   = starMode === 'familiar'   ? familiarList :
+                           starMode === 'unfamiliar'  ? unfamiliarList : allPhrases
+    const isReverse      = starMode === 'reverse'
 
-    // 練習模式的句子列表
-    const practiceList = starMode === 'familiar'   ? familiarList :
-                         starMode === 'unfamiliar'  ? unfamiliarList : allPhrases
+    // 循環播放
+    const startStarLoop = (group) => {
+      const list = group === 'familiar' ? familiarList : unfamiliarList
+      if (list.length === 0) { alert(group === 'familiar' ? '還沒有熟悉的句子' : '所有句子都已熟悉！'); return }
+      clearTimeout(starLoopRef.current)
+      setStarLoopMode(group)
+      setStarLoopIdx(0)
+      playStarAt(list, 0, group)
+    }
 
-    // 播放單句
-    const playStarPhrase = (p) => {
+    const playStarAt = (list, idx, group) => {
+      if (!audioElRef.current || idx >= list.length) {
+        setStarLoopMode(null); return
+      }
+      const p = list[idx]
+      const secs = p.startSecs ?? 0
+      const end  = p.endSecs   ?? (secs + 4)
+      const dur  = ((end - secs) / playRate + 1.5) * 1000
+      const targetFile = getJerryMp3(secs)
+      const el = audioElRef.current
+      if (el.src !== targetFile.url) el.src = targetFile.url
+      el.currentTime = secs - targetFile.start
+      el.playbackRate = playRate
+      el.play()
+      setStarLoopIdx(idx)
+      starLoopRef.current = setTimeout(() => {
+        playStarAt(list, idx + 1, group)
+      }, dur)
+    }
+
+    const stopStarLoop = () => {
+      clearTimeout(starLoopRef.current)
+      audioElRef.current?.pause()
+      setStarLoopMode(null)
+    }
+
+    const playSingle = (p) => {
       if (!audioElRef.current) return
       const secs = p.startSecs ?? 0
       const end  = p.endSecs   ?? (secs + 4)
       const targetFile = getJerryMp3(secs)
       const el = audioElRef.current
-      if (el.src !== targetFile.url) { el.src = targetFile.url }
+      if (el.src !== targetFile.url) el.src = targetFile.url
       el.currentTime = secs - targetFile.start
       el.playbackRate = playRate
       el.play()
@@ -16303,92 +16338,44 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
       audioStopRef.current = setTimeout(() => el.pause(), (end - secs) * 1000 / playRate + 300)
     }
 
-    // 複製句子
-    const copyPhrase = (txt) => {
-      if (navigator.clipboard?.writeText) { navigator.clipboard.writeText(txt).catch(() => {}) }
+    const copyTxt = (txt) => {
+      if (navigator.clipboard?.writeText) navigator.clipboard.writeText(txt).catch(() => {})
       else { const el = document.createElement('textarea'); el.value = txt; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el) }
       alert('✅ 已複製，可貼至 ChatGPT')
     }
-
-    // 單句卡片（列表模式 + 熟悉/不熟悉模式）
-    const PhraseCard = ({ p, showReverse }) => {
-      const flipped = !!starFlip[p.id]
-      const isFamiliar = !!starFamiliar[p.id]
-      return (
-        <div style={{ background:T.surf, borderRadius:12, padding:'12px 14px',
-          border:`1px solid ${isFamiliar ? T.grn+'50' : T.amber+'30'}`,
-          display:'flex', flexDirection:'column', gap:6 }}>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-            <span style={{ fontFamily:MONO, fontSize:9, color:T.amber, opacity:0.7 }}>{p.sceneName}</span>
-            <div style={{ display:'flex', gap:6 }}>
-              <div onClick={() => playStarPhrase(p)}
-                style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt2,
-                  padding:'2px 7px', background:T.surf2, borderRadius:6, border:`1px solid ${T.bdr}` }}>
-                🔊
-              </div>
-              <div onClick={() => copyPhrase(p.en)}
-                style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.blue,
-                  padding:'2px 7px', background:T.blueD, borderRadius:6, border:`1px solid ${T.blue}40` }}>
-                📋
-              </div>
-            </div>
-          </div>
-          {/* 反向模式：先顯示中文，點翻牌看英文 */}
-          {showReverse ? (
-            <>
-              <div style={{ fontFamily:MONO, fontSize:12, color:T.txt, lineHeight:1.6 }}>{p.zh || p.en}</div>
-              {flipped ? (
-                <div style={{ fontFamily:DISP, fontSize:13, color:T.amber, lineHeight:1.6,
-                  background:T.amberD, borderRadius:8, padding:'8px 10px' }}>{p.en}</div>
-              ) : (
-                <div onClick={() => setStarFlip(f => ({ ...f, [p.id]: true }))}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt3,
-                    textAlign:'center', padding:'8px', background:T.surf2, borderRadius:8,
-                    border:`1px solid ${T.bdr}` }}>
-                  👆 點擊看英文
-                </div>
-              )}
-            </>
-          ) : (
-            <>
-              <div style={{ fontFamily:DISP, fontSize:13, color:T.txt, lineHeight:1.6 }}>{p.en}</div>
-              {p.zh && <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, lineHeight:1.5 }}>{p.zh}</div>}
-            </>
-          )}
-          {p.reason && (
-            <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, opacity:0.8 }}>
-              {'★'.repeat(p.rating ?? 3)} {p.reason}
-            </div>
-          )}
-          {/* 熟悉度標記 */}
-          <div style={{ display:'flex', gap:6, marginTop:2 }}>
-            <div onClick={() => setStarFamiliar(f => ({ ...f, [p.id]: true }))}
-              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
-                color: isFamiliar ? T.grn : T.txt3,
-                padding:'3px 8px', background: isFamiliar ? T.grnD : T.surf2,
-                borderRadius:6, border:`1px solid ${isFamiliar ? T.grn+'50' : T.bdr}` }}>
-              ✓ 熟悉
-            </div>
-            <div onClick={() => setStarFamiliar(f => ({ ...f, [p.id]: false }))}
-              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
-                color: !isFamiliar ? '#f87171' : T.txt3,
-                padding:'3px 8px', background: !isFamiliar ? '#3a1a1a' : T.surf2,
-                borderRadius:6, border:`1px solid ${!isFamiliar ? '#f87171'+'50' : T.bdr}` }}>
-              ✗ 加強
-            </div>
-          </div>
-        </div>
-      )
-    }
-
-    const isReverse = starMode === 'reverse'
 
     return (
       <div style={{ padding:'16px 16px 80px', display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
         {/* 標題列 */}
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <BackBtn label="← 返回" to="list"/>
-          <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>⭐ 重點句 {allPhrases.length}</span>
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            {/* 循環播放按鈕 */}
+            {starLoopMode ? (
+              <div onClick={stopStarLoop}
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                  color:'#f87171', padding:'5px 10px', background:'#3a1a1a',
+                  borderRadius:8, border:'1px solid #f8717150', animation:'micPulse 1s infinite' }}>
+                ⏹ 停止
+              </div>
+            ) : (
+              <div style={{ display:'flex', gap:5 }}>
+                <div onClick={() => startStarLoop('familiar')}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                    color:T.grn, padding:'5px 8px', background:T.grnD,
+                    borderRadius:8, border:`1px solid ${T.grn}50` }}>
+                  🔁 熟悉
+                </div>
+                <div onClick={() => startStarLoop('unfamiliar')}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                    color:'#f87171', padding:'5px 8px', background:'#3a1a1a',
+                    borderRadius:8, border:'1px solid #f8717150' }}>
+                  🔁 加強
+                </div>
+              </div>
+            )}
+            <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>⭐ {allPhrases.length}</span>
+          </div>
         </div>
 
         {/* 模式切換 */}
@@ -16410,17 +16397,101 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           ))}
         </div>
 
+        {/* 循環播放進度 */}
+        {starLoopMode && (
+          <div style={{ fontFamily:MONO, fontSize:9, color: starLoopMode==='familiar' ? T.grn : '#f87171',
+            textAlign:'center', padding:'6px', background:T.surf2, borderRadius:8 }}>
+            🔁 {starLoopMode==='familiar' ? '熟悉' : '加強'} 播放中
+            · 第 {starLoopIdx+1} / {(starLoopMode==='familiar' ? familiarList : unfamiliarList).length} 句
+          </div>
+        )}
+
         {allPhrases.length === 0 ? (
           <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, textAlign:'center', padding:32 }}>
             還沒有收藏重點句，進入場景點 ⭐ 收藏
           </div>
         ) : practiceList.length === 0 ? (
           <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, textAlign:'center', padding:32 }}>
-            {starMode === 'familiar' ? '還沒有標記熟悉的句子' : '所有句子都已標記熟悉！'}
+            {starMode === 'familiar' ? '還沒有標記熟悉的句子' : '所有句子都已熟悉！'}
           </div>
-        ) : practiceList.map((p, i) => (
-          <PhraseCard key={p.id ?? i} p={p} showReverse={isReverse} />
-        ))}
+        ) : practiceList.map((p, idx) => {
+          const flipped    = !!starFlip[p.id]
+          const isFamiliar = !!starFamiliar[p.id]
+          const isPlaying  = starLoopMode && starLoopIdx === (starLoopMode==='familiar' ? familiarList : unfamiliarList).findIndex(x => x.id === p.id)
+          return (
+            <div key={p.id ?? idx} style={{ background:T.surf, borderRadius:12, padding:'12px 14px',
+              border:`2px solid ${isPlaying ? T.amber : isFamiliar ? T.grn+'50' : T.amber+'30'}`,
+              display:'flex', flexDirection:'column', gap:6,
+              boxShadow: isPlaying ? `0 0 12px ${T.amber}40` : 'none' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <span style={{ fontFamily:MONO, fontSize:9, color:T.amber, opacity:0.7 }}>{p.sceneName}</span>
+                <div style={{ display:'flex', gap:5 }}>
+                  <div onClick={() => playSingle(p)}
+                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt2,
+                      padding:'2px 7px', background:T.surf2, borderRadius:6, border:`1px solid ${T.bdr}` }}>
+                    🔊
+                  </div>
+                  <div onClick={() => copyTxt(p.en)}
+                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.blue,
+                      padding:'2px 7px', background:T.blueD, borderRadius:6, border:`1px solid ${T.blue}40` }}>
+                    📋
+                  </div>
+                </div>
+              </div>
+
+              {/* 反向模式：先顯示中文，點翻牌看英文 */}
+              {isReverse ? (
+                <>
+                  <div style={{ fontFamily:MONO, fontSize:12, color:T.txt, lineHeight:1.6 }}>
+                    {p.zh || '（無中文）'}
+                  </div>
+                  {flipped ? (
+                    <div style={{ fontFamily:DISP, fontSize:13, color:T.amber, lineHeight:1.6,
+                      background:T.amberD, borderRadius:8, padding:'8px 10px' }}>
+                      {p.en}
+                    </div>
+                  ) : (
+                    <div onClick={() => setStarFlip(prev => ({ ...prev, [p.id]: true }))}
+                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt3,
+                        textAlign:'center', padding:'10px', background:T.surf2, borderRadius:8,
+                        border:`1px solid ${T.bdr}` }}>
+                      👆 點擊看英文
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div style={{ fontFamily:DISP, fontSize:13, color:T.txt, lineHeight:1.6 }}>{p.en}</div>
+                  {p.zh && <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, lineHeight:1.5 }}>{p.zh}</div>}
+                </>
+              )}
+
+              {p.reason && (
+                <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, opacity:0.8 }}>
+                  {'★'.repeat(p.rating ?? 3)} {p.reason}
+                </div>
+              )}
+
+              {/* 熟悉度標記 */}
+              <div style={{ display:'flex', gap:6, marginTop:2 }}>
+                <div onClick={() => setStarFamiliar(prev => ({ ...prev, [p.id]: true }))}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                    color: isFamiliar ? T.grn : T.txt3,
+                    padding:'4px 10px', background: isFamiliar ? T.grnD : T.surf2,
+                    borderRadius:6, border:`1px solid ${isFamiliar ? T.grn+'50' : T.bdr}` }}>
+                  ✓ 熟悉
+                </div>
+                <div onClick={() => setStarFamiliar(prev => ({ ...prev, [p.id]: false }))}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                    color: !isFamiliar ? '#f87171' : T.txt3,
+                    padding:'4px 10px', background: !isFamiliar ? '#3a1a1a' : T.surf2,
+                    borderRadius:6, border:`1px solid ${!isFamiliar ? '#f8717150' : T.bdr}` }}>
+                  ✗ 加強
+                </div>
+              </div>
+            </div>
+          )
+        })}
       </div>
     )
   }
@@ -18060,7 +18131,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.30</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.31</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
