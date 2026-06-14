@@ -7244,7 +7244,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.39
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.40
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -16349,28 +16349,39 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
 
       const el = audioElRef.current
       if (!el) return
-      const secs    = p.startSecs ?? 0
-      const endSecs = p.endSecs   ?? (secs + 4)
+      const secs     = p.startSecs ?? 0
+      const endSecs  = p.endSecs   ?? (secs + 4)
+      const phraseDur = endSecs - secs
       const targetFile = getJerryMp3(secs)
 
-      // 移除舊的 timeupdate
+      // 移除舊的 timeupdate handler
       if (starTimeUpdateRef.current) {
         el.removeEventListener('timeupdate', starTimeUpdateRef.current)
+        starTimeUpdateRef.current = null
       }
 
       const doPlay = () => {
+        if (!starLoopActiveRef.current) return
         el.currentTime = secs - targetFile.start
         el.playbackRate = playRate
         el.play()
 
-        // 用 timeupdate 精準偵測結束時間
+        // 雙保險：setTimeout + timeupdate
+        // setTimeout 作為備用（多加 1 秒緩衝）
+        clearTimeout(starLoopRef.current)
+        starLoopRef.current = setTimeout(() => {
+          if (starLoopActiveRef.current) playStarPhrase(list, realIdx + 1)
+        }, (phraseDur / playRate) * 1000 + 1000)
+
+        // timeupdate 作為主要觸發（到達 endSecs 前 0.05 秒）
         const handler = () => {
-          const currentOffset = el.currentTime + targetFile.start
-          if (currentOffset >= endSecs - 0.15) {
+          const pos = el.currentTime + targetFile.start
+          if (pos >= endSecs - 0.05) {
             el.removeEventListener('timeupdate', handler)
             starTimeUpdateRef.current = null
+            clearTimeout(starLoopRef.current)
             if (starLoopActiveRef.current) {
-              starLoopRef.current = setTimeout(() => playStarPhrase(list, realIdx + 1), 400)
+              starLoopRef.current = setTimeout(() => playStarPhrase(list, realIdx + 1), 300)
             }
           }
         }
@@ -18262,7 +18273,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.39</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.40</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
