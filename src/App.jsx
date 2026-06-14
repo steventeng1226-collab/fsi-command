@@ -7244,7 +7244,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.32
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.33
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -16303,10 +16303,21 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
     }
 
     const playStarAt = (list, idx, group) => {
-      if (!audioElRef.current || idx >= list.length) {
-        setStarLoopMode(null); return
-      }
+      if (idx >= list.length) { setStarLoopMode(null); return }
       const p = list[idx]
+      setStarLoopIdx(idx)
+      if (audioMode !== 'original') {
+        // TTS 循環模式
+        window.speechSynthesis?.cancel()
+        const utt = new SpeechSynthesisUtterance(p.en)
+        utt.lang = 'en-US'; utt.rate = playRate
+        utt.onend = () => {
+          starLoopRef.current = setTimeout(() => playStarAt(list, idx + 1, group), 800)
+        }
+        window.speechSynthesis?.speak(utt)
+        return
+      }
+      if (!audioElRef.current) { setStarLoopMode(null); return }
       const secs = p.startSecs ?? 0
       const end  = p.endSecs   ?? (secs + 4)
       const dur  = ((end - secs) / playRate + 1.5) * 1000
@@ -16316,7 +16327,6 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
       el.currentTime = secs - targetFile.start
       el.playbackRate = playRate
       el.play()
-      setStarLoopIdx(idx)
       starLoopRef.current = setTimeout(() => {
         playStarAt(list, idx + 1, group)
       }, dur)
@@ -16329,6 +16339,14 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
     }
 
     const playSingle = (p) => {
+      if (audioMode !== 'original') {
+        // TTS 模式
+        window.speechSynthesis?.cancel()
+        const utt = new SpeechSynthesisUtterance(p.en)
+        utt.lang = 'en-US'; utt.rate = playRate
+        window.speechSynthesis?.speak(utt)
+        return
+      }
       if (!audioElRef.current) return
       const secs = p.startSecs ?? 0
       const end  = p.endSecs   ?? (secs + 4)
@@ -18135,7 +18153,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.32</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.33</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
