@@ -7244,7 +7244,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.45
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.46
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13337,6 +13337,8 @@ function MovieTab({ audioMode, setAudioMode }) {
   const starTimeUpdateRef = useRef(null)  // ontimeupdate handler
   const starCardRefs      = useRef({})    // { [phraseId]: DOM element } 自動滾動用
   const [starScenePicker, setStarScenePicker] = useState(false)  // 場景選擇面板
+  const [starSleepMins,   setStarSleepMins]   = useState(0)      // 0=無限, 10/20/30=睡眠計時
+  const starSleepRef = useRef(null)                               // 睡眠計時器
 
   const movie   = db.movies.find(m => m.id === movieId)
   const scene   = sceneId ? movie?.scenes.find(s => s.id === sceneId) : null
@@ -16323,6 +16325,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
     const stopStarLoop = () => {
       starLoopActiveRef.current = false
       clearTimeout(starLoopRef.current)
+      clearTimeout(starSleepRef.current)
       // 移除 timeupdate 監聽
       if (audioElRef.current && starTimeUpdateRef.current) {
         audioElRef.current.removeEventListener('timeupdate', starTimeUpdateRef.current)
@@ -16428,6 +16431,13 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
       setStarLoopMode(group)
       setStarLoopIdx(0)
       playStarPhrase(list, 0)
+      // 睡眠計時器
+      clearTimeout(starSleepRef.current)
+      if (starSleepMins > 0) {
+        starSleepRef.current = setTimeout(() => {
+          stopStarLoop()
+        }, starSleepMins * 60 * 1000)
+      }
     }
 
     // 舊名稱相容
@@ -16612,6 +16622,21 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
             </div>
           )
         })()}
+
+        {/* 睡眠計時器 */}
+        <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+          <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>😴 睡眠計時：</span>
+          {[0, 10, 20, 30].map(m => (
+            <div key={m} onClick={() => setStarSleepMins(m)}
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                padding:'4px 8px', borderRadius:7,
+                color: starSleepMins===m ? T.blue : T.txt3,
+                background: starSleepMins===m ? T.blueD : T.surf2,
+                border:`1px solid ${starSleepMins===m ? T.blue+'60' : T.bdr}` }}>
+              {m === 0 ? '∞' : m+'分'}
+            </div>
+          ))}
+        </div>
 
         {/* 循環播放進度 */}
         {starLoopMode != null && (
@@ -18379,7 +18404,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.45</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.46</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
