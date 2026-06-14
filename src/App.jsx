@@ -7244,7 +7244,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.36
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.37
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -16311,8 +16311,13 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
 
     // 循環播放
     const startStarLoop = (group) => {
-      const list = group === 'familiar' ? familiarList : unfamiliarList
-      if (list.length === 0) { alert(group === 'familiar' ? '還沒有熟悉的句子' : '所有句子都已熟悉！'); return }
+      const list = group === 'familiar' ? familiarList :
+                   group === 'unfamiliar' ? unfamiliarList : allPhrases
+      if (list.length === 0) {
+        alert(group === 'familiar' ? '還沒有熟悉的句子' :
+              group === 'unfamiliar' ? '所有句子都已熟悉！' : '沒有重點句子')
+        return
+      }
       clearTimeout(starLoopRef.current)
       setStarLoopMode(group)
       setStarLoopIdx(0)
@@ -16399,6 +16404,12 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               </div>
             ) : (
               <div style={{ display:'flex', gap:5 }}>
+                <div onClick={() => startStarLoop('all')}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                    color:T.amber, padding:'5px 8px', background:T.amberD,
+                    borderRadius:8, border:`1px solid ${T.amber}50` }}>
+                  🔁 全部
+                </div>
                 <div onClick={() => startStarLoop('familiar')}
                   style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
                     color:T.grn, padding:'5px 8px', background:T.grnD,
@@ -16464,7 +16475,8 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
         ) : practiceList.map((p, idx) => {
           const flipped    = !!starFlip[p.id]
           const isFamiliar = !!starFamiliar[p.id]
-          const isPlaying  = starLoopMode && starLoopIdx === (starLoopMode==='familiar' ? familiarList : unfamiliarList).findIndex(x => x.id === p.id)
+          const loopList   = starLoopMode==='familiar' ? familiarList : starLoopMode==='unfamiliar' ? unfamiliarList : allPhrases
+          const isPlaying  = starLoopMode != null && starLoopIdx === loopList.findIndex(x => x.id === p.id)
           return (
             <div key={p.id ?? idx} style={{ background:T.surf, borderRadius:12, padding:'12px 14px',
               border:`2px solid ${isPlaying ? T.amber : isFamiliar ? T.grn+'50' : T.amber+'30'}`,
@@ -18202,7 +18214,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.36</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.37</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
