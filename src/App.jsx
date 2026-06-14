@@ -7244,7 +7244,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.44
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.45
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14684,6 +14684,8 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
       return 'You are my English conversation coach.\n' +
         'I am a 55-year-old Taiwanese adult. My level is intermediate-beginner.\n\n' +
         'IMPORTANT RULES:\n' +
+        '- Talk like you are speaking to someone learning English for the first time\\n' +
+        '- Speak very slowly, pause 3 seconds between each sentence\\n' +
         '- Speak slowly and pause between sentences\n' +
         '- Use simple, everyday vocabulary only\n' +
         '- Keep each response to 1-2 short sentences\n' +
@@ -14815,6 +14817,8 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
       'You are my English conversation coach.\n' +
       'I am a 55-year-old Taiwanese adult. My level is intermediate-beginner.\n\n' +
       'IMPORTANT RULES:\n' +
+      '- Talk like you are speaking to someone learning English for the first time\\n' +
+      '- Speak very slowly, pause 3 seconds between each sentence\\n' +
       '- Speak slowly and pause between sentences\n' +
       '- Use simple, everyday vocabulary only\n' +
       '- Keep each response to 1-2 short sentences\n' +
@@ -16537,6 +16541,8 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
             return 'You are my English conversation coach.\n' +
               'I am a 55-year-old Taiwanese adult. My level is intermediate-beginner.\n\n' +
               'IMPORTANT RULES:\n' +
+              '- Talk like you are speaking to someone learning English for the first time\\n' +
+              '- Speak very slowly, pause 3 seconds between each sentence\\n' +
               '- Speak slowly, pause between sentences\n' +
               '- Use simple vocabulary only\n' +
               '- Keep responses to 1-2 short sentences\n' +
@@ -16655,6 +16661,8 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                         'You are my English conversation coach.\n' +
                         'I am a 55-year-old Taiwanese adult. My level is intermediate-beginner.\n\n' +
                         'IMPORTANT RULES:\n' +
+                        '- Talk like you are speaking to someone learning English for the first time\\n' +
+                        '- Speak very slowly, pause 3 seconds between each sentence\\n' +
                         '- Speak slowly, pause between sentences\n' +
                         '- Use simple vocabulary only\n' +
                         '- Keep responses to 1-2 short sentences\n' +
@@ -18371,7 +18379,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.44</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.45</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
