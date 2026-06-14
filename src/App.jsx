@@ -7244,7 +7244,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.31
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.32
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -16276,11 +16276,15 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
   // ── ⭐ 重點句 view ─────────────────────────────────────────
   if (view === 'starred') {
     const allScenes  = db.movies.flatMap(m => m.scenes ?? [])
-    const allPhrases = allScenes
-      .flatMap(s => (s.phrases ?? []).filter(p => p.starred).map(p => ({
-        ...p, sceneName: s.name ?? s.title ?? '', sceneTimeRange: s.timeRange ?? ''
-      })))
-      .sort((a, b) => (a.startSecs ?? 0) - (b.startSecs ?? 0))
+    // 先按場景開始時間排，場景內按句子索引順序排
+    const sortedScenes = [...allScenes].sort((a, b) => {
+      const getStart = s => { try { return parseSceneTimeRange(s.timeRange).start ?? 0 } catch { return 0 } }
+      return getStart(a) - getStart(b)
+    })
+    const allPhrases = sortedScenes
+      .flatMap(s => (s.phrases ?? []).map((p, idx) => ({
+        ...p, sceneName: s.name ?? s.title ?? '', sceneTimeRange: s.timeRange ?? '', _sceneIdx: idx
+      })).filter(p => p.starred))
 
     const familiarList   = allPhrases.filter(p => starFamiliar[p.id])
     const unfamiliarList = allPhrases.filter(p => !starFamiliar[p.id])
@@ -18131,7 +18135,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.31</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.32</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
