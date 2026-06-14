@@ -7244,7 +7244,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.35
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.36
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14673,18 +14673,30 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
         'Deliver one phrase per turn:\n' + nums + '\n\nBegin with phrase 1.'
     }
     const keyPhrases = easySentences.slice(0, 5).map(p => p.en).join(', ')
-    const chatgptPrompt =
-      'You are my English coach. I am studying Jerry Maguire.\n\n' +
-      'Scene: "' + sceneTitle + '"\n\n' +
-      '1. Ask me what happened in this scene.\n' +
-      '2. Ask 2-3 follow-up questions.\n' +
-      '3. Naturally use these phrases one at a time: ' + keyPhrases + '\n' +
-      '4. Correct my English after each response.\n' +
-      '5. Keep going. No Chinese.\n\nStart now.'
+    const buildChatGPTPrompt = (phrases) => {
+      const nums = phrases.map((p, i) => (i+1) + '. "' + p.en + '"').join('\n')
+      return 'You are my English conversation coach.\n' +
+        'I am a 55-year-old Taiwanese adult. My level is intermediate-beginner.\n\n' +
+        'IMPORTANT RULES:\n' +
+        '- Speak slowly and pause between sentences\n' +
+        '- Use simple, everyday vocabulary only\n' +
+        '- Keep each response to 1-2 short sentences\n' +
+        '- After you finish speaking, WAIT for me to fully respond before continuing\n' +
+        '- Do NOT interrupt me while I am speaking\n' +
+        '- If I make a grammar mistake, gently say the correct version, then continue\n' +
+        '- Ask me ONE simple follow-up question each turn\n' +
+        '- Connect the conversation to my real life (work, family, Vietnam)\n\n' +
+        'Today we are practicing this scene from Jerry Maguire: "' + sceneTitle + '"\n\n' +
+        'Key phrases to practice (use them one at a time naturally):\n' +
+        nums + '\n\n' +
+        'Start by asking me slowly:\n' +
+        '"What happened in this scene? Tell me in your own words."\n' +
+        'Then wait for my answer. Do not rush.'
+    }
+    const chatgptEasy     = buildChatGPTPrompt(easySentences)
+    const chatgptAdvanced = buildChatGPTPrompt(advanced)
     const speakEasy = buildSpeak(easySentences)
     const speakAdvanced = buildSpeak(advanced)
-    const chatgptEasy = chatgptPrompt
-    const chatgptAdvanced = chatgptPrompt
     const baseDb = explicitDb ?? db
     saveDb({
       ...baseDb,
@@ -14794,20 +14806,24 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
     const keyPhrases = starred.slice(0, 5).map(p => p.en).join(', ')
 
     const prompt =
-      'You are my English coach. I am a Taiwanese adult learning English through the movie Jerry Maguire.\n\n' +
-      'Scene: "' + (scene?.name ?? scene?.title ?? '') + '" (' + scene.timeRange + ')\n\n' +
-      'Here is the transcript of this scene:\n' +
-      '---\n' +
-      transcriptText + '\n' +
-      '---\n\n' +
-      'Key phrases I am studying: ' + (keyPhrases || 'see transcript above') + '\n\n' +
-      'Please do the following:\n' +
-      '1. Ask me: "What happened in this scene? Tell me in your own words."\n' +
-      '2. After I answer, ask 2-3 natural follow-up questions.\n' +
-      '3. Naturally bring the key phrases into our conversation one at a time.\n' +
-      '4. Correct my English naturally after each response.\n' +
-      '5. Keep the conversation going. Do NOT let me use Chinese.\n\n' +
-      'Start now with step 1.'
+      'You are my English conversation coach.\n' +
+      'I am a 55-year-old Taiwanese adult. My level is intermediate-beginner.\n\n' +
+      'IMPORTANT RULES:\n' +
+      '- Speak slowly and pause between sentences\n' +
+      '- Use simple, everyday vocabulary only\n' +
+      '- Keep each response to 1-2 short sentences\n' +
+      '- After speaking, WAIT for me to fully respond before continuing\n' +
+      '- Do NOT interrupt me while I am speaking\n' +
+      '- Gently correct grammar mistakes, then continue\n' +
+      '- Ask me ONE simple follow-up question each turn\n' +
+      '- Connect the conversation to my real life when possible\n\n' +
+      'Scene: "' + (scene?.name ?? scene?.title ?? '') + '"\n\n' +
+      'Transcript:\n---\n' + transcriptText + '\n---\n\n' +
+      'Key phrases to practice naturally (one at a time):\n' +
+      (keyPhrases || 'see transcript above') + '\n\n' +
+      'Start by asking me slowly:\n' +
+      '"What happened in this scene? Tell me in your own words."\n' +
+      'Wait for my answer. Do not rush.'
 
     const fallback = () => {
       const el = document.createElement('textarea'); el.value = prompt
@@ -16466,6 +16482,30 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                     style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.blue,
                       padding:'2px 7px', background:T.blueD, borderRadius:6, border:`1px solid ${T.blue}40` }}>
                     📋
+                  </div>
+                  <div onClick={() => {
+                      const cgpt =
+                        'You are my English conversation coach.\n' +
+                        'I am a 55-year-old Taiwanese adult. My level is intermediate-beginner.\n\n' +
+                        'IMPORTANT RULES:\n' +
+                        '- Speak slowly, pause between sentences\n' +
+                        '- Use simple vocabulary only\n' +
+                        '- Keep responses to 1-2 short sentences\n' +
+                        '- WAIT for me to fully finish before responding\n' +
+                        '- Do NOT interrupt me\n' +
+                        '- Gently correct grammar mistakes, then continue\n' +
+                        '- Ask ONE simple follow-up question each turn\n' +
+                        '- Connect to my real life (work in Vietnam, family)\n\n' +
+                        'Today\'s key phrase from Jerry Maguire:\n' +
+                        '"' + p.en + '"\n\n' +
+                        'Start by asking me slowly:\n' +
+                        '"Can you use this phrase to tell me something about your own life?"\n' +
+                        'Wait for my answer. Speak slowly.'
+                      copyTxt(cgpt)
+                    }}
+                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#c084fc',
+                      padding:'2px 7px', background:'#2d1a4a', borderRadius:6, border:'1px solid #c084fc40' }}>
+                    📤
                   </div>
                 </div>
               </div>
@@ -18162,7 +18202,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.35</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.36</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
