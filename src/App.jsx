@@ -7244,7 +7244,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.34
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.35
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13327,6 +13327,7 @@ function MovieTab({ audioMode, setAudioMode }) {
   const [starFlip,        setStarFlip]        = useState({})       // { [phraseId]: true } 已翻牌
   const [starFamiliar,    setStarFamiliar]    = useState({})       // { [phraseId]: true } 熟悉
   const [starCurrentIdx,  setStarCurrentIdx]  = useState(0)        // 練習模式當前索引
+  const [starReverse,     setStarReverse]     = useState(false)     // 反向開關（獨立於模式）
   const [starLoopMode,    setStarLoopMode]    = useState(null)      // null | 'familiar' | 'unfamiliar'
   const [starLoopIdx,     setStarLoopIdx]     = useState(0)
   const starLoopRef = useRef(null)
@@ -16290,7 +16291,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
     const unfamiliarList = allPhrases.filter(p => !starFamiliar[p.id])
     const practiceList   = starMode === 'familiar'   ? familiarList :
                            starMode === 'unfamiliar'  ? unfamiliarList : allPhrases
-    const isReverse      = starMode === 'reverse'
+    const isReverse      = starReverse
 
     // 循環播放
     const startStarLoop = (group) => {
@@ -16404,7 +16405,6 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
         <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
           {[
             ['list',       '📋 全部'],
-            ['reverse',    '🔄 反向'],
             ['familiar',   `✓ 熟悉 (${familiarList.length})`],
             ['unfamiliar', `✗ 加強 (${unfamiliarList.length})`],
           ].map(([mode, label]) => (
@@ -16417,6 +16417,15 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               {label}
             </div>
           ))}
+          {/* 反向開關：可與任何模式組合 */}
+          <div onClick={() => { setStarReverse(r => !r); setStarFlip({}) }}
+            style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+              padding:'6px 10px', borderRadius:8,
+              color: starReverse ? T.blue : T.txt3,
+              background: starReverse ? T.blueD : T.surf2,
+              border:`1px solid ${starReverse ? T.blue+'60' : T.bdr}` }}>
+            🔄 反向{starReverse ? ' ON' : ''}
+          </div>
         </div>
 
         {/* 循環播放進度 */}
@@ -18153,7 +18162,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.34</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.35</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
