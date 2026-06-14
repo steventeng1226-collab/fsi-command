@@ -7244,7 +7244,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.42
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.43
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -16523,6 +16523,55 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           </div>
         </div>
 
+        {/* 場景 ChatGPT 指令按鈕 */}
+        {(() => {
+          const sceneList = db.movies.flatMap(m => m.scenes ?? [])
+          // 找目前頁面對應的場景（用 allPhrases 裡的 sceneName 最多的那個）
+          const sceneNameCount = {}
+          allPhrases.forEach(p => { sceneNameCount[p.sceneName] = (sceneNameCount[p.sceneName] ?? 0) + 1 })
+          const topScene = sceneList.find(s => (s.name ?? s.title) === Object.keys(sceneNameCount).sort((a,b) => sceneNameCount[b]-sceneNameCount[a])[0])
+          const starred = (topScene?.phrases ?? []).filter(p => p.starred)
+          if (starred.length === 0) return null
+          const sceneTitle = topScene?.name ?? topScene?.title ?? ''
+          const phraseList = starred.slice(0, 7).map((p, i) => (i+1) + '. "' + p.en + '"').join('\n')
+          const cgpt =
+            'You are my English conversation coach.\n' +
+            'I am a 55-year-old Taiwanese adult. My level is intermediate-beginner.\n\n' +
+            'IMPORTANT RULES:\n' +
+            '- Speak slowly, pause between sentences\n' +
+            '- Use simple vocabulary only\n' +
+            '- Keep responses to 1-2 short sentences\n' +
+            '- WAIT for me to fully finish before responding\n' +
+            '- Do NOT interrupt me\n' +
+            '- Gently correct grammar mistakes, then continue\n' +
+            '- Ask ONE simple follow-up question each turn\n' +
+            '- Connect to my real life (work in Vietnam, family)\n' +
+            '- If I speak Chinese, reply in English only and say: "Please try in English!"\n\n' +
+            'Today\'s key phrases from Jerry Maguire scene "' + sceneTitle + '":\n' +
+            phraseList + '\n\n' +
+            'Start by asking me slowly:\n' +
+            '"Can you use the first phrase to tell me something about your own life?"\n' +
+            'Then move to the next phrase naturally after I answer each one.\n' +
+            'Wait for my answer each time. Speak slowly.'
+          return (
+            <div onClick={() => {
+                if (navigator.clipboard?.writeText) {
+                  navigator.clipboard.writeText(cgpt).then(() => alert('✅ 場景 ChatGPT 指令已複製！貼到 ChatGPT 語音開始練習'))
+                  .catch(() => { const el = document.createElement('textarea'); el.value = cgpt; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); alert('✅ 已複製！') })
+                } else {
+                  const el = document.createElement('textarea'); el.value = cgpt; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); alert('✅ 已複製！')
+                }
+              }}
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                color:'#c084fc', padding:'9px 12px', background:'#2d1a4a',
+                borderRadius:10, border:'1px solid #c084fc50',
+                display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}>
+              <span>📤 場景重點句 ChatGPT 指令</span>
+              <span style={{ opacity:0.7 }}>{starred.slice(0,7).length} 句 · {sceneTitle.slice(0,12)}{sceneTitle.length>12?'…':''}</span>
+            </div>
+          )
+        })()}
+
         {/* 循環播放進度 */}
         {starLoopMode != null && (
           <div style={{ fontFamily:MONO, fontSize:9,
@@ -18287,7 +18336,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.42</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.43</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
