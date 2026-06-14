@@ -7244,7 +7244,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.37
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.39
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13330,7 +13330,11 @@ function MovieTab({ audioMode, setAudioMode }) {
   const [starReverse,     setStarReverse]     = useState(false)     // 反向開關（獨立於模式）
   const [starLoopMode,    setStarLoopMode]    = useState(null)      // null | 'familiar' | 'unfamiliar'
   const [starLoopIdx,     setStarLoopIdx]     = useState(0)
-  const starLoopRef = useRef(null)
+  const starLoopRef      = useRef(null)   // setTimeout handle
+  const starLoopListRef  = useRef([])     // 當前播放列表
+  const starLoopIdxRef   = useRef(0)      // 當前索引
+  const starLoopActiveRef = useRef(false) // 是否循環中
+  const starTimeUpdateRef = useRef(null)  // ontimeupdate handler
 
   const movie   = db.movies.find(m => m.id === movieId)
   const scene   = sceneId ? movie?.scenes.find(s => s.id === sceneId) : null
@@ -16310,55 +16314,98 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
     const isReverse      = starReverse
 
     // 循環播放
+    const stopStarLoop = () => {
+      starLoopActiveRef.current = false
+      clearTimeout(starLoopRef.current)
+      // 移除 timeupdate 監聽
+      if (audioElRef.current && starTimeUpdateRef.current) {
+        audioElRef.current.removeEventListener('timeupdate', starTimeUpdateRef.current)
+        starTimeUpdateRef.current = null
+        audioElRef.current.pause()
+      }
+      setStarLoopMode(null)
+    }
+
+    const playStarPhrase = (list, idx) => {
+      // 無限循環
+      const realIdx = idx >= list.length ? 0 : idx
+      const p = list[realIdx]
+      starLoopIdxRef.current = realIdx
+      setStarLoopIdx(realIdx)
+
+      if (audioMode !== 'original') {
+        // TTS 模式
+        window.speechSynthesis?.cancel()
+        const utt = new SpeechSynthesisUtterance(p.en)
+        utt.lang = 'en-US'; utt.rate = playRate
+        utt.onend = () => {
+          if (starLoopActiveRef.current) {
+            starLoopRef.current = setTimeout(() => playStarPhrase(list, realIdx + 1), 600)
+          }
+        }
+        window.speechSynthesis?.speak(utt)
+        return
+      }
+
+      const el = audioElRef.current
+      if (!el) return
+      const secs    = p.startSecs ?? 0
+      const endSecs = p.endSecs   ?? (secs + 4)
+      const targetFile = getJerryMp3(secs)
+
+      // 移除舊的 timeupdate
+      if (starTimeUpdateRef.current) {
+        el.removeEventListener('timeupdate', starTimeUpdateRef.current)
+      }
+
+      const doPlay = () => {
+        el.currentTime = secs - targetFile.start
+        el.playbackRate = playRate
+        el.play()
+
+        // 用 timeupdate 精準偵測結束時間
+        const handler = () => {
+          const currentOffset = el.currentTime + targetFile.start
+          if (currentOffset >= endSecs - 0.15) {
+            el.removeEventListener('timeupdate', handler)
+            starTimeUpdateRef.current = null
+            if (starLoopActiveRef.current) {
+              starLoopRef.current = setTimeout(() => playStarPhrase(list, realIdx + 1), 400)
+            }
+          }
+        }
+        starTimeUpdateRef.current = handler
+        el.addEventListener('timeupdate', handler)
+      }
+
+      if (el.src !== targetFile.url) {
+        el.pause()
+        el.src = targetFile.url
+        el.load()
+        el.addEventListener('canplay', doPlay, { once: true })
+      } else {
+        doPlay()
+      }
+    }
+
     const startStarLoop = (group) => {
-      const list = group === 'familiar' ? familiarList :
+      const list = group === 'familiar'   ? familiarList :
                    group === 'unfamiliar' ? unfamiliarList : allPhrases
       if (list.length === 0) {
         alert(group === 'familiar' ? '還沒有熟悉的句子' :
               group === 'unfamiliar' ? '所有句子都已熟悉！' : '沒有重點句子')
         return
       }
-      clearTimeout(starLoopRef.current)
+      stopStarLoop()
+      starLoopListRef.current = list
+      starLoopActiveRef.current = true
       setStarLoopMode(group)
       setStarLoopIdx(0)
-      playStarAt(list, 0, group)
+      playStarPhrase(list, 0)
     }
 
-    const playStarAt = (list, idx, group) => {
-      if (idx >= list.length) { setStarLoopMode(null); return }
-      const p = list[idx]
-      setStarLoopIdx(idx)
-      if (audioMode !== 'original') {
-        // TTS 循環模式
-        window.speechSynthesis?.cancel()
-        const utt = new SpeechSynthesisUtterance(p.en)
-        utt.lang = 'en-US'; utt.rate = playRate
-        utt.onend = () => {
-          starLoopRef.current = setTimeout(() => playStarAt(list, idx + 1, group), 800)
-        }
-        window.speechSynthesis?.speak(utt)
-        return
-      }
-      if (!audioElRef.current) { setStarLoopMode(null); return }
-      const secs = p.startSecs ?? 0
-      const end  = p.endSecs   ?? (secs + 4)
-      const dur  = ((end - secs) / playRate + 1.5) * 1000
-      const targetFile = getJerryMp3(secs)
-      const el = audioElRef.current
-      if (el.src !== targetFile.url) el.src = targetFile.url
-      el.currentTime = secs - targetFile.start
-      el.playbackRate = playRate
-      el.play()
-      starLoopRef.current = setTimeout(() => {
-        playStarAt(list, idx + 1, group)
-      }, dur)
-    }
-
-    const stopStarLoop = () => {
-      clearTimeout(starLoopRef.current)
-      audioElRef.current?.pause()
-      setStarLoopMode(null)
-    }
+    // 舊名稱相容
+    const playStarAt = playStarPhrase
 
     const playSingle = (p) => {
       if (audioMode !== 'original') {
@@ -16456,11 +16503,12 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
         </div>
 
         {/* 循環播放進度 */}
-        {starLoopMode && (
-          <div style={{ fontFamily:MONO, fontSize:9, color: starLoopMode==='familiar' ? T.grn : '#f87171',
+        {starLoopMode != null && (
+          <div style={{ fontFamily:MONO, fontSize:9,
+            color: starLoopMode==='familiar' ? T.grn : starLoopMode==='unfamiliar' ? '#f87171' : T.amber,
             textAlign:'center', padding:'6px', background:T.surf2, borderRadius:8 }}>
-            🔁 {starLoopMode==='familiar' ? '熟悉' : '加強'} 播放中
-            · 第 {starLoopIdx+1} / {(starLoopMode==='familiar' ? familiarList : unfamiliarList).length} 句
+            🔁 {starLoopMode==='familiar' ? '熟悉' : starLoopMode==='unfamiliar' ? '加強' : '全部'} 無限循環
+            · 第 {starLoopIdx+1} / {(starLoopMode==='familiar' ? familiarList : starLoopMode==='unfamiliar' ? unfamiliarList : allPhrases).length} 句
           </div>
         )}
 
@@ -18214,7 +18262,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.37</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.39</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
