@@ -7244,7 +7244,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.43
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.44
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13336,6 +13336,7 @@ function MovieTab({ audioMode, setAudioMode }) {
   const starLoopActiveRef = useRef(false) // 是否循環中
   const starTimeUpdateRef = useRef(null)  // ontimeupdate handler
   const starCardRefs      = useRef({})    // { [phraseId]: DOM element } 自動滾動用
+  const [starScenePicker, setStarScenePicker] = useState(false)  // 場景選擇面板
 
   const movie   = db.movies.find(m => m.id === movieId)
   const scene   = sceneId ? movie?.scenes.find(s => s.id === sceneId) : null
@@ -16523,51 +16524,85 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           </div>
         </div>
 
-        {/* 場景 ChatGPT 指令按鈕 */}
+        {/* 場景 ChatGPT 指令 - 場景選擇器 */}
         {(() => {
           const sceneList = db.movies.flatMap(m => m.scenes ?? [])
-          // 找目前頁面對應的場景（用 allPhrases 裡的 sceneName 最多的那個）
-          const sceneNameCount = {}
-          allPhrases.forEach(p => { sceneNameCount[p.sceneName] = (sceneNameCount[p.sceneName] ?? 0) + 1 })
-          const topScene = sceneList.find(s => (s.name ?? s.title) === Object.keys(sceneNameCount).sort((a,b) => sceneNameCount[b]-sceneNameCount[a])[0])
-          const starred = (topScene?.phrases ?? []).filter(p => p.starred)
-          if (starred.length === 0) return null
-          const sceneTitle = topScene?.name ?? topScene?.title ?? ''
-          const phraseList = starred.slice(0, 7).map((p, i) => (i+1) + '. "' + p.en + '"').join('\n')
-          const cgpt =
-            'You are my English conversation coach.\n' +
-            'I am a 55-year-old Taiwanese adult. My level is intermediate-beginner.\n\n' +
-            'IMPORTANT RULES:\n' +
-            '- Speak slowly, pause between sentences\n' +
-            '- Use simple vocabulary only\n' +
-            '- Keep responses to 1-2 short sentences\n' +
-            '- WAIT for me to fully finish before responding\n' +
-            '- Do NOT interrupt me\n' +
-            '- Gently correct grammar mistakes, then continue\n' +
-            '- Ask ONE simple follow-up question each turn\n' +
-            '- Connect to my real life (work in Vietnam, family)\n' +
-            '- If I speak Chinese, reply in English only and say: "Please try in English!"\n\n' +
-            'Today\'s key phrases from Jerry Maguire scene "' + sceneTitle + '":\n' +
-            phraseList + '\n\n' +
-            'Start by asking me slowly:\n' +
-            '"Can you use the first phrase to tell me something about your own life?"\n' +
-            'Then move to the next phrase naturally after I answer each one.\n' +
-            'Wait for my answer each time. Speak slowly.'
+          const scenesWithStar = sceneList.filter(s => (s.phrases ?? []).some(p => p.starred))
+          if (scenesWithStar.length === 0) return null
+
+          const makeCgpt = (sc) => {
+            const sceneTitle = sc.name ?? sc.title ?? ''
+            const starred = (sc.phrases ?? []).filter(p => p.starred)
+            const phraseList = starred.slice(0, 7).map((p, i) => (i+1) + '. "' + p.en + '"').join('\n')
+            return 'You are my English conversation coach.\n' +
+              'I am a 55-year-old Taiwanese adult. My level is intermediate-beginner.\n\n' +
+              'IMPORTANT RULES:\n' +
+              '- Speak slowly, pause between sentences\n' +
+              '- Use simple vocabulary only\n' +
+              '- Keep responses to 1-2 short sentences\n' +
+              '- WAIT for me to fully finish before responding\n' +
+              '- Do NOT interrupt me\n' +
+              '- Gently correct grammar mistakes, then continue\n' +
+              '- Ask ONE simple follow-up question each turn\n' +
+              '- Connect to my real life (work in Vietnam, family)\n' +
+              '- If I speak Chinese, reply in English only and say: "Please try in English!"\n\n' +
+              'Today\'s key phrases from Jerry Maguire scene "' + sceneTitle + '":\n' +
+              phraseList + '\n\n' +
+              'Start by asking me slowly:\n' +
+              '"Can you use the first phrase to tell me something about your own life?"\n' +
+              'Then move to the next phrase naturally after I answer each one.\n' +
+              'Wait for my answer each time. Speak slowly.'
+          }
+
+          const doCopy = (cgpt, sceneTitle) => {
+            const fallback = () => { const el = document.createElement('textarea'); el.value = cgpt; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el) }
+            if (navigator.clipboard?.writeText) navigator.clipboard.writeText(cgpt).then(() => {}).catch(fallback)
+            else fallback()
+            alert('✅ 「' + sceneTitle + '」ChatGPT 指令已複製！')
+            setStarScenePicker(false)
+          }
+
           return (
-            <div onClick={() => {
-                if (navigator.clipboard?.writeText) {
-                  navigator.clipboard.writeText(cgpt).then(() => alert('✅ 場景 ChatGPT 指令已複製！貼到 ChatGPT 語音開始練習'))
-                  .catch(() => { const el = document.createElement('textarea'); el.value = cgpt; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); alert('✅ 已複製！') })
-                } else {
-                  const el = document.createElement('textarea'); el.value = cgpt; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); alert('✅ 已複製！')
-                }
-              }}
-              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
-                color:'#c084fc', padding:'9px 12px', background:'#2d1a4a',
-                borderRadius:10, border:'1px solid #c084fc50',
-                display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}>
-              <span>📤 場景重點句 ChatGPT 指令</span>
-              <span style={{ opacity:0.7 }}>{starred.slice(0,7).length} 句 · {sceneTitle.slice(0,12)}{sceneTitle.length>12?'…':''}</span>
+            <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+              {/* 主按鈕 */}
+              <div onClick={() => setStarScenePicker(p => !p)}
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                  color:'#c084fc', padding:'9px 12px', background:'#2d1a4a',
+                  borderRadius:10, border:'1px solid #c084fc50',
+                  display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                <span>📤 場景重點句 ChatGPT 指令</span>
+                <span style={{ opacity:0.7 }}>{starScenePicker ? '▲' : '▼'} {scenesWithStar.length} 個場景</span>
+              </div>
+
+              {/* 場景列表 */}
+              {starScenePicker && (
+                <div style={{ display:'flex', flexDirection:'column', gap:5,
+                  background:'#1a1025', borderRadius:10, padding:'8px',
+                  border:'1px solid #c084fc30' }} className="fadeUp">
+                  {scenesWithStar.map((sc, i) => {
+                    const starCount = (sc.phrases ?? []).filter(p => p.starred).length
+                    const title = sc.name ?? sc.title ?? ''
+                    return (
+                      <div key={sc.id ?? i} onClick={() => doCopy(makeCgpt(sc), title)}
+                        style={{ cursor:'pointer', display:'flex', justifyContent:'space-between',
+                          alignItems:'center', padding:'8px 10px', borderRadius:8,
+                          background:'#2d1a4a', border:'1px solid #c084fc30' }}>
+                        <span style={{ fontFamily:MONO, fontSize:10, color:'#c084fc',
+                          flex:1, marginRight:8, lineHeight:1.4 }}>
+                          {title.length > 18 ? title.slice(0,18) + '…' : title}
+                        </span>
+                        <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
+                          <span style={{ fontFamily:MONO, fontSize:8, color:'#888' }}>⭐{starCount}句</span>
+                          <span style={{ fontFamily:MONO, fontSize:9, color:'#c084fc',
+                            padding:'2px 8px', background:'#3d2060', borderRadius:5 }}>
+                            📋 複製
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           )
         })()}
@@ -18336,7 +18371,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.43</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.44</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
