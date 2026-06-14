@@ -7244,7 +7244,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.40
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.41
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13335,6 +13335,7 @@ function MovieTab({ audioMode, setAudioMode }) {
   const starLoopIdxRef   = useRef(0)      // 當前索引
   const starLoopActiveRef = useRef(false) // 是否循環中
   const starTimeUpdateRef = useRef(null)  // ontimeupdate handler
+  const starCardRefs      = useRef({})    // { [phraseId]: DOM element } 自動滾動用
 
   const movie   = db.movies.find(m => m.id === movieId)
   const scene   = sceneId ? movie?.scenes.find(s => s.id === sceneId) : null
@@ -16333,8 +16334,18 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
       starLoopIdxRef.current = realIdx
       setStarLoopIdx(realIdx)
 
-      if (audioMode !== 'original') {
-        // TTS 模式
+      // 自動滾動到當前播放的卡片
+      setTimeout(() => {
+        const el = starCardRefs.current[p.id]
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }, 100)
+
+      // 如果 startSecs = 0（時間碼不準），改用 TTS
+      const secs = p.startSecs ?? 0
+      const useTTS = audioMode !== 'original' || secs === 0
+
+      if (useTTS) {
+        // TTS 模式（系統音 或 startSecs=0 時間碼不準）
         window.speechSynthesis?.cancel()
         const utt = new SpeechSynthesisUtterance(p.en)
         utt.lang = 'en-US'; utt.rate = playRate
@@ -16349,7 +16360,6 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
 
       const el = audioElRef.current
       if (!el) return
-      const secs     = p.startSecs ?? 0
       const endSecs  = p.endSecs   ?? (secs + 4)
       const phraseDur = endSecs - secs
       const targetFile = getJerryMp3(secs)
@@ -16537,7 +16547,9 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           const loopList   = starLoopMode==='familiar' ? familiarList : starLoopMode==='unfamiliar' ? unfamiliarList : allPhrases
           const isPlaying  = starLoopMode != null && starLoopIdx === loopList.findIndex(x => x.id === p.id)
           return (
-            <div key={p.id ?? idx} style={{ background:T.surf, borderRadius:12, padding:'12px 14px',
+            <div key={p.id ?? idx}
+              ref={el => { if (el) starCardRefs.current[p.id] = el }}
+              style={{ background:T.surf, borderRadius:12, padding:'12px 14px',
               border:`2px solid ${isPlaying ? T.amber : isFamiliar ? T.grn+'50' : T.amber+'30'}`,
               display:'flex', flexDirection:'column', gap:6,
               boxShadow: isPlaying ? `0 0 12px ${T.amber}40` : 'none' }}>
@@ -18273,7 +18285,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.40</div>
+      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.41</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
