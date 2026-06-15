@@ -7244,7 +7244,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.46
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.47
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14682,26 +14682,56 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
     }
     const keyPhrases = easySentences.slice(0, 5).map(p => p.en).join(', ')
     const buildChatGPTPrompt = (phrases) => {
-      const nums = phrases.map((p, i) => (i+1) + '. "' + p.en + '"').join('\n')
-      return 'You are my English conversation coach.\n' +
-        'I am a 55-year-old Taiwanese adult. My level is intermediate-beginner.\n\n' +
-        'IMPORTANT RULES:\n' +
-        '- Talk like you are speaking to someone learning English for the first time\\n' +
-        '- Speak very slowly, pause 3 seconds between each sentence\\n' +
-        '- Speak slowly and pause between sentences\n' +
-        '- Use simple, everyday vocabulary only\n' +
-        '- Keep each response to 1-2 short sentences\n' +
-        '- After you finish speaking, WAIT for me to fully respond before continuing\n' +
-        '- Do NOT interrupt me while I am speaking\n' +
-        '- If I make a grammar mistake, gently say the correct version, then continue\n' +
-        '- Ask me ONE simple follow-up question each turn\n' +
-        '- Connect the conversation to my real life (work, family, Vietnam)\n\n' +
-        'Today we are practicing this scene from Jerry Maguire: "' + sceneTitle + '"\n\n' +
-        'Key phrases to practice (use them one at a time naturally):\n' +
+      const nums = phrases.map((p, i) => (i+1) + '. ' + p.en).join('\n')
+      const firstPhrase = phrases.length > 0 ? phrases[0].en : ''
+      return 'You are my English conversation coach.\n\n' +
+        'I am a 55-year-old Taiwanese adult.\n\n' +
+        'My English level is intermediate-beginner.\n\n' +
+        'Please help me improve my speaking and responding skills.\n\n' +
+        'Rules:\n\n' +
+        '- Speak very slowly.\n' +
+        '- Use simple English only.\n' +
+        '- Use short sentences.\n' +
+        '- Ask only ONE question at a time.\n' +
+        '- Wait for my answer.\n' +
+        '- Do NOT interrupt me.\n' +
+        '- Please wait at least 10 seconds after I stop speaking before you respond.\n' +
+        '- If I pause, wait patiently.\n' +
+        '- Correct my English gently after I finish speaking.\n' +
+        '- Focus on communication, not perfection.\n' +
+        '- Encourage me to use my own ideas.\n' +
+        '- Connect questions to my work in Vietnam, my family, my life experiences, or my feelings.\n' +
+        '- If I speak Chinese, reply: "Please try in English!"\n\n' +
+        "Today's movie:\n\n" +
+        'Jerry Maguire\n\n' +
+        "Today's scene:\n\n" +
+        sceneTitle + '\n\n' +
+        'Key phrases:\n\n' +
         nums + '\n\n' +
-        'Start by asking me slowly:\n' +
-        '"What happened in this scene? Tell me in your own words."\n' +
-        'Then wait for my answer. Do not rush.'
+        'For each phrase:\n\n' +
+        'Step 1:\n' +
+        'Ask me what the phrase means.\n\n' +
+        'Step 2:\n' +
+        'Ask me to explain the movie scene in my own words.\n\n' +
+        'Step 3:\n' +
+        'Ask me to connect the phrase to my own life.\n\n' +
+        'Step 4:\n' +
+        'Ask one simple follow-up question.\n\n' +
+        'Step 5:\n' +
+        'Correct my English gently.\n\n' +
+        'Then move to the next phrase.\n\n' +
+        'Important:\n\n' +
+        'Do not give long explanations.\n\n' +
+        'Do not give grammar lectures.\n\n' +
+        'Do not ask multiple questions.\n\n' +
+        'Wait for me to finish speaking before responding.\n\n' +
+        'Keep the conversation relaxed and natural.\n\n' +
+        'Start by saying:\n\n' +
+        '"Hello Steven.\n\n' +
+        "Today we will talk about the movie scene '" + sceneTitle + ".'\n\n" +
+        "Let's start with the first phrase.\n\n" +
+        "'" + firstPhrase + "'\n\n" +
+        'What do you think this phrase means?"'
     }
     const chatgptEasy     = buildChatGPTPrompt(easySentences)
     const chatgptAdvanced = buildChatGPTPrompt(advanced)
