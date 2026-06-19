@@ -7244,7 +7244,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.47
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.48
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13330,10 +13330,12 @@ function MovieTab({ audioMode, setAudioMode }) {
   const [starReverse,     setStarReverse]     = useState(false)     // 反向開關（獨立於模式）
   const [starLoopMode,    setStarLoopMode]    = useState(null)      // null | 'familiar' | 'unfamiliar'
   const [starLoopIdx,     setStarLoopIdx]     = useState(0)
+  const [starLoopPaused,  setStarLoopPaused]  = useState(false)     // 暫停狀態
   const starLoopRef      = useRef(null)   // setTimeout handle
   const starLoopListRef  = useRef([])     // 當前播放列表
   const starLoopIdxRef   = useRef(0)      // 當前索引
   const starLoopActiveRef = useRef(false) // 是否循環中
+  const starLoopPausedRef = useRef(false) // 暫停 ref（供 callback 讀取）
   const starTimeUpdateRef = useRef(null)  // ontimeupdate handler
   const starCardRefs      = useRef({})    // { [phraseId]: DOM element } 自動滾動用
   const [starScenePicker, setStarScenePicker] = useState(false)  // 場景選擇面板
@@ -16354,6 +16356,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
     // 循環播放
     const stopStarLoop = () => {
       starLoopActiveRef.current = false
+      starLoopPausedRef.current = false
       clearTimeout(starLoopRef.current)
       clearTimeout(starSleepRef.current)
       // 移除 timeupdate 監聽
@@ -16363,9 +16366,28 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
         audioElRef.current.pause()
       }
       setStarLoopMode(null)
+      setStarLoopPaused(false)
+    }
+
+    const pauseStarLoop = () => {
+      if (!starLoopActiveRef.current) return
+      starLoopPausedRef.current = true
+      setStarLoopPaused(true)
+      clearTimeout(starLoopRef.current)
+      window.speechSynthesis?.cancel()
+      if (audioElRef.current) audioElRef.current.pause()
+    }
+
+    const resumeStarLoop = () => {
+      if (!starLoopPausedRef.current) return
+      starLoopPausedRef.current = false
+      setStarLoopPaused(false)
+      playStarPhrase(starLoopListRef.current, starLoopIdxRef.current)
     }
 
     const playStarPhrase = (list, idx) => {
+      // 如果暫停中，不繼續播放
+      if (starLoopPausedRef.current) return
       // 無限循環
       const realIdx = idx >= list.length ? 0 : idx
       const p = list[realIdx]
@@ -16577,27 +16599,57 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           const makeCgpt = (sc) => {
             const sceneTitle = sc.name ?? sc.title ?? ''
             const starred = (sc.phrases ?? []).filter(p => p.starred)
-            const phraseList = starred.slice(0, 7).map((p, i) => (i+1) + '. "' + p.en + '"').join('\n')
-            return 'You are my English conversation coach.\n' +
-              'I am a 55-year-old Taiwanese adult. My level is intermediate-beginner.\n\n' +
-              'IMPORTANT RULES:\n' +
-              '- Talk like you are speaking to someone learning English for the first time\\n' +
-              '- Speak very slowly, pause 3 seconds between each sentence\\n' +
-              '- Speak slowly, pause between sentences\n' +
-              '- Use simple vocabulary only\n' +
-              '- Keep responses to 1-2 short sentences\n' +
-              '- WAIT for me to fully finish before responding\n' +
-              '- Do NOT interrupt me\n' +
-              '- Gently correct grammar mistakes, then continue\n' +
-              '- Ask ONE simple follow-up question each turn\n' +
-              '- Connect to my real life (work in Vietnam, family)\n' +
-              '- If I speak Chinese, reply in English only and say: "Please try in English!"\n\n' +
-              'Today\'s key phrases from Jerry Maguire scene "' + sceneTitle + '":\n' +
+            const phraseList = starred.slice(0, 7).map((p, i) => (i+1) + '. ' + p.en).join('\n')
+            const firstPhrase = starred.length > 0 ? starred[0].en : ''
+            return 'You are my English conversation coach.\n\n' +
+              'I am a 55-year-old Taiwanese adult.\n' +
+              'My English level is intermediate-beginner.\n\n' +
+              'Your goal:\n' +
+              'Help me improve my English speaking, listening, and responding skills through movie scenes.\n\n' +
+              'Rules:\n\n' +
+              '- Speak very slowly.\n' +
+              '- Use simple English only.\n' +
+              '- Use short sentences.\n' +
+              '- Ask only ONE question at a time.\n' +
+              '- Wait for my answer before continuing.\n' +
+              '- Please wait at least 10 seconds after I stop speaking before you respond.\n' +
+              '- If I pause, wait patiently.\n' +
+              '- Correct my English gently after I finish speaking.\n' +
+              '- Focus on communication, not perfection.\n' +
+              '- Encourage me to use my own ideas.\n' +
+              '- Connect questions to my work in Vietnam, my family, my life experiences, or my feelings.\n' +
+              '- If I speak Chinese, reply only: \"Please try in English!\"\n\n' +
+              "Today's movie:\n" +
+              'Jerry Maguire\n\n' +
+              "Today's scene:\n" +
+              sceneTitle + '\n\n' +
+              'Key phrases:\n\n' +
               phraseList + '\n\n' +
-              'Start by asking me slowly:\n' +
-              '"Can you use the first phrase to tell me something about your own life?"\n' +
-              'Then move to the next phrase naturally after I answer each one.\n' +
-              'Wait for my answer each time. Speak slowly.'
+              'For each phrase:\n\n' +
+              'Step 1:\n' +
+              'Read the phrase slowly.\n' +
+              'Ask me to repeat it.\n\n' +
+              'Step 2:\n' +
+              'Give 3 substitution drills.\n' +
+              'Change one word each time. Wait for my answer each time.\n\n' +
+              'Step 3:\n' +
+              'Ask me what the phrase means.\n\n' +
+              'Step 4:\n' +
+              'Ask me to explain the movie scene.\n\n' +
+              'Step 5:\n' +
+              'Ask me to connect the phrase to my own life.\n\n' +
+              'Step 6:\n' +
+              'Ask one simple follow-up question.\n\n' +
+              'Step 7:\n' +
+              'Correct my English gently.\n' +
+              'Then move to the next phrase.\n\n' +
+              'Keep the lesson relaxed and natural.\n\n' +
+              'Start with:\n\n' +
+              '\"Hello Steven.\n\n' +
+              "Today we will talk about the movie scene '" + sceneTitle + ".'\n\n" +
+              "Let's start with the first phrase.\n\n" +
+              "'" + firstPhrase + "'\n\n" +
+              'Please repeat: ' + firstPhrase + '\"'
           }
 
           const doCopy = (cgpt, sceneTitle) => {
@@ -16793,6 +16845,24 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
             </div>
           )
         })}
+
+        {/* ── 浮動暫停/繼續按鈕 FAB（左下角，僅循環播放時顯示）── */}
+        {starLoopMode != null && (
+          <div
+            onClick={starLoopPaused ? resumeStarLoop : pauseStarLoop}
+            style={{
+              position:'fixed', bottom:80, left:20, zIndex:999,
+              width:56, height:56, borderRadius:'50%',
+              background: starLoopPaused ? T.grn : T.amber,
+              display:'flex', alignItems:'center', justifyContent:'center',
+              cursor:'pointer', boxShadow:`0 4px 16px ${starLoopPaused ? T.grn : T.amber}60`,
+              fontSize:22, userSelect:'none',
+              border:`2px solid ${starLoopPaused ? T.grn : T.amber}80`,
+              transition:'background 0.2s, box-shadow 0.2s'
+            }}>
+            {starLoopPaused ? '▶' : '⏸'}
+          </div>
+        )}
       </div>
     )
   }
@@ -17043,6 +17113,69 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                   {s.name}
                 </span>
               )}
+              <div onClick={e => {
+                  e.stopPropagation()
+                  const sceneTitle = s.name ?? s.title ?? ''
+                  const starred = (s.phrases ?? []).filter(p => p.starred)
+                  const phraseList = starred.slice(0, 7).map((p, i) => (i+1) + '. ' + p.en).join('\n')
+                  const firstPhrase = starred.length > 0 ? starred[0].en : (s.phrases?.[0]?.en ?? '')
+                  const gptPrompt = 'You are my English conversation coach.\n\n' +
+                    'I am a 55-year-old Taiwanese adult.\n' +
+                    'My English level is intermediate-beginner.\n\n' +
+                    'Your goal:\n' +
+                    'Help me improve my English speaking, listening, and responding skills through movie scenes.\n\n' +
+                    'Rules:\n\n' +
+                    '- Speak very slowly.\n' +
+                    '- Use simple English only.\n' +
+                    '- Use short sentences.\n' +
+                    '- Ask only ONE question at a time.\n' +
+                    '- Wait for my answer before continuing.\n' +
+                    '- Please wait at least 10 seconds after I stop speaking before you respond.\n' +
+                    '- If I pause, wait patiently.\n' +
+                    '- Correct my English gently after I finish speaking.\n' +
+                    '- Focus on communication, not perfection.\n' +
+                    '- Encourage me to use my own ideas.\n' +
+                    '- Connect questions to my work in Vietnam, my family, my life experiences, or my feelings.\n' +
+                    '- If I speak Chinese, reply only: \"Please try in English!\"\n\n' +
+                    "Today's movie:\n" +
+                    'Jerry Maguire\n\n' +
+                    "Today's scene:\n" +
+                    sceneTitle + '\n\n' +
+                    'Key phrases:\n\n' +
+                    (phraseList || '（此場景尚無重點句）') + '\n\n' +
+                    'For each phrase:\n\n' +
+                    'Step 1:\n' +
+                    'Read the phrase slowly.\n' +
+                    'Ask me to repeat it.\n\n' +
+                    'Step 2:\n' +
+                    'Give 3 substitution drills.\n' +
+                    'Change one word each time. Wait for my answer each time.\n\n' +
+                    'Step 3:\n' +
+                    'Ask me what the phrase means.\n\n' +
+                    'Step 4:\n' +
+                    'Ask me to explain the movie scene.\n\n' +
+                    'Step 5:\n' +
+                    'Ask me to connect the phrase to my own life.\n\n' +
+                    'Step 6:\n' +
+                    'Ask one simple follow-up question.\n\n' +
+                    'Step 7:\n' +
+                    'Correct my English gently.\n' +
+                    'Then move to the next phrase.\n\n' +
+                    'Keep the lesson relaxed and natural.\n\n' +
+                    'Start with:\n\n' +
+                    '\"Hello Steven.\n\n' +
+                    "Today we will talk about the movie scene '" + sceneTitle + ".'\n\n" +
+                    "Let's start with the first phrase.\n\n" +
+                    "'" + firstPhrase + "'\n\n" +
+                    'Please repeat: ' + firstPhrase + '\"'
+                  const fallback = () => { const el = document.createElement('textarea'); el.value = gptPrompt; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el) }
+                  if (navigator.clipboard?.writeText) navigator.clipboard.writeText(gptPrompt).then(() => {}).catch(fallback)
+                  else fallback()
+                  alert('✅「' + sceneTitle + '」ChatGPT 指令已複製！')
+                }}
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#c084fc',
+                  padding:'2px 6px', background:'#2d1a4a', borderRadius:5,
+                  border:'1px solid #c084fc50', marginRight:4, fontWeight:700 }}>🤖 GPT</div>
               <div onClick={e => { e.stopPropagation(); setEditingSceneNameId(s.id); setEditingSceneNameText(s.name) }}
                 style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
                   padding:'2px 6px', background:T.surf2, borderRadius:5, border:`1px solid ${T.bdr}`,
