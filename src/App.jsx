@@ -7282,7 +7282,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.50
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.51
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -16502,8 +16502,10 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
       if (audioElRef.current && starTimeUpdateRef.current) {
         audioElRef.current.removeEventListener('timeupdate', starTimeUpdateRef.current)
         starTimeUpdateRef.current = null
-        audioElRef.current.pause()
       }
+      // 停止電影音 + TTS
+      if (audioElRef.current) audioElRef.current.pause()
+      window.speechSynthesis?.cancel()
       setStarLoopMode(null)
       setStarLoopPaused(false)
     }
@@ -16547,14 +16549,19 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
       const useTTS = audioMode !== 'original' || secs === 0
 
       if (useTTS) {
-        // TTS 模式（系統音 或 startSecs=0 時間碼不準）
+        // TTS 模式：先確保電影音靜音，避免重疊
+        if (audioElRef.current) audioElRef.current.pause()
         window.speechSynthesis?.cancel()
         const utt = new SpeechSynthesisUtterance(p.en)
         utt.lang = 'en-US'; utt.rate = playRate
         utt.onend = () => {
-          if (starLoopActiveRef.current) {
-            starLoopRef.current = setTimeout(() => playStarPhrase(list, realIdx + 1), 600)
-          }
+          if (!starLoopActiveRef.current || starLoopPausedRef.current) return
+          starLoopRef.current = setTimeout(() => playStarPhrase(list, realIdx + 1), 600)
+        }
+        utt.onerror = () => {
+          // TTS 失敗也要繼續下一句
+          if (!starLoopActiveRef.current || starLoopPausedRef.current) return
+          starLoopRef.current = setTimeout(() => playStarPhrase(list, realIdx + 1), 800)
         }
         window.speechSynthesis?.speak(utt)
         return
@@ -16562,50 +16569,80 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
 
       const el = audioElRef.current
       if (!el) return
-      const endSecs  = p.endSecs   ?? (secs + 4)
+
+      // 停止 TTS，避免與電影音重疊
+      window.speechSynthesis?.cancel()
+
+      const endSecs   = p.endSecs ?? (secs + 4)
       const phraseDur = endSecs - secs
       const targetFile = getJerryMp3(secs)
 
-      // 移除舊的 timeupdate handler
+      // 清除舊的 timeupdate handler
       if (starTimeUpdateRef.current) {
         el.removeEventListener('timeupdate', starTimeUpdateRef.current)
         starTimeUpdateRef.current = null
       }
+      clearTimeout(starLoopRef.current)
+
+      const scheduleNext = () => {
+        if (!starLoopActiveRef.current || starLoopPausedRef.current) return
+        starLoopRef.current = setTimeout(() => playStarPhrase(list, realIdx + 1), 300)
+      }
 
       const doPlay = () => {
-        if (!starLoopActiveRef.current) return
+        if (!starLoopActiveRef.current || starLoopPausedRef.current) return
         el.currentTime = secs - targetFile.start
         el.playbackRate = playRate
-        el.play()
 
-        // 雙保險：setTimeout + timeupdate
-        // setTimeout 作為備用（多加 1 秒緩衝）
-        clearTimeout(starLoopRef.current)
-        starLoopRef.current = setTimeout(() => {
-          if (starLoopActiveRef.current) playStarPhrase(list, realIdx + 1)
-        }, (phraseDur / playRate) * 1000 + 1000)
+        el.play().catch(() => {
+          // play() 被拒絕時（如背景限制），等一下再試
+          starLoopRef.current = setTimeout(() => {
+            if (!starLoopActiveRef.current || starLoopPausedRef.current) return
+            el.play().catch(() => scheduleNext())
+          }, 500)
+        })
 
-        // timeupdate 作為主要觸發（到達 endSecs 前 0.05 秒）
+        // 主要觸發：timeupdate 監聽到達 endSecs
         const handler = () => {
           const pos = el.currentTime + targetFile.start
-          if (pos >= endSecs - 0.05) {
+          if (pos >= endSecs - 0.08) {
             el.removeEventListener('timeupdate', handler)
             starTimeUpdateRef.current = null
             clearTimeout(starLoopRef.current)
-            if (starLoopActiveRef.current) {
-              starLoopRef.current = setTimeout(() => playStarPhrase(list, realIdx + 1), 300)
-            }
+            el.pause()
+            scheduleNext()
           }
         }
         starTimeUpdateRef.current = handler
         el.addEventListener('timeupdate', handler)
+
+        // 備用：setTimeout（比預期時間多 1.5 秒，只在 timeupdate 失效時觸發）
+        starLoopRef.current = setTimeout(() => {
+          if (!starTimeUpdateRef.current) return // timeupdate 已正常觸發，不重複
+          el.removeEventListener('timeupdate', handler)
+          starTimeUpdateRef.current = null
+          el.pause()
+          scheduleNext()
+        }, (phraseDur / playRate) * 1000 + 1500)
       }
 
-      if (el.src !== targetFile.url) {
+      // 判斷是否需要切換 MP3 檔案
+      const currentSrcBase = el.src.split('?')[0]
+      const targetSrcBase  = targetFile.url.split('?')[0]
+      const needSwitch = !el.src || (!currentSrcBase.endsWith('Jerry_1.mp3') && !currentSrcBase.endsWith('Jerry_2.mp3'))
+                         || currentSrcBase !== targetSrcBase
+
+      if (needSwitch) {
         el.pause()
-        el.src = targetFile.url
-        el.load()
-        el.addEventListener('canplay', doPlay, { once: true })
+        // 清除舊 timeupdate 避免殘留
+        if (starTimeUpdateRef.current) {
+          el.removeEventListener('timeupdate', starTimeUpdateRef.current)
+          starTimeUpdateRef.current = null
+        }
+        loadAudioUrl(targetFile.url, `征服情海 Part ${JERRY_MP3.indexOf(targetFile) + 1}`)
+        // 等待 canplay 後再播
+        const onReady = () => doPlay()
+        el.addEventListener('canplay', onReady, { once: true })
       } else {
         doPlay()
       }
