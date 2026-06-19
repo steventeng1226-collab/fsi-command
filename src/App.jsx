@@ -7282,7 +7282,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.57
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.58
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -16786,7 +16786,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
     }
 
     return (
-      <div style={{ padding:'0 16px 80px', display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
+      <div style={{ padding:'54px 16px 80px', display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
         {/* Movie Toast 提示（starred tab）*/}
         {movieToast && (
           <div style={{ position:'fixed', top:70, left:'50%', transform:'translateX(-50%)',
@@ -16797,8 +16797,9 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           </div>
         )}
         {/* 標題列 — sticky 固定頂部 */}
-        <div style={{ position:'sticky', top:0, zIndex:10, background:T.bg,
-          padding:'12px 0 10px', marginBottom:4,
+        <div style={{ position:'fixed', top:50, left:'50%', transform:'translateX(-50%)', width:'100%', maxWidth:480,
+          zIndex:15, background:T.bg, borderBottom:`1px solid ${T.bdr}`,
+          padding:'10px 16px', boxSizing:'border-box',
           display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <BackBtn label="← 返回" to="list"/>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
