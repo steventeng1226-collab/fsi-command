@@ -7282,7 +7282,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.51
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.55
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13240,6 +13240,7 @@ function MovieTab({ audioMode, setAudioMode }) {
   const audioElRef   = useRef(null)   // HTMLAudioElement
   const audioUrlRef  = useRef(null)   // blob URL
   const audioStopRef = useRef(null)
+  const audioSrcKeyRef = useRef(null) // 當前載入的 MP3 原始 URL（Jerry_1/Jerry_2），用於切換判斷
   const [audioFileName, setAudioFileName] = useState(
     () => localStorage.getItem('fsi:movie:audioName') ?? ''
   )
@@ -13366,6 +13367,7 @@ function MovieTab({ audioMode, setAudioMode }) {
   const [starFamiliar,    setStarFamiliar]    = useState({})       // { [phraseId]: true } 熟悉
   const [starCurrentIdx,  setStarCurrentIdx]  = useState(0)        // 練習模式當前索引
   const [starReverse,     setStarReverse]     = useState(false)     // 反向開關（獨立於模式）
+  const starPlayCountRef  = useRef({})          // { [phraseId]: count } 循環播放計數（自動熟悉用）
   const [starLoopMode,    setStarLoopMode]    = useState(null)      // null | 'familiar' | 'unfamiliar'
   const [starLoopIdx,     setStarLoopIdx]     = useState(0)
   const [starLoopPaused,  setStarLoopPaused]  = useState(false)     // 暫停狀態
@@ -13381,6 +13383,15 @@ function MovieTab({ audioMode, setAudioMode }) {
   const starCardRefs      = useRef({})    // { [phraseId]: DOM element } 自動滾動用
   const [starSleepMins,   setStarSleepMins]   = useState(0)      // 0=無限, 10/20/30=睡眠計時
   const starSleepRef = useRef(null)                               // 睡眠計時器
+  const [starSleepEnd,    setStarSleepEnd]    = useState(null)    // 睡眠結束時間戳
+  const [starSleepRemain, setStarSleepRemain] = useState(null)    // 倒數秒數
+  const [movieToast,      setMovieToast]      = useState('')       // 複製提示 toast
+
+  // ── MovieTab Toast 提示（定義在此，供所有 view 使用）──
+  const showMovieToast = (msg) => {
+    setMovieToast(msg)
+    setTimeout(() => setMovieToast(''), 2000)
+  }
 
   const movie   = db.movies.find(m => m.id === movieId)
   const scene   = sceneId ? movie?.scenes.find(s => s.id === sceneId) : null
@@ -13722,6 +13733,7 @@ function MovieTab({ audioMode, setAudioMode }) {
         // 有快取，直接用 blobURL
         const blobUrl = URL.createObjectURL(cachedBlob)
         el.src = blobUrl
+        audioSrcKeyRef.current = url  // 記錄原始 URL
         el.oncanplay = () => { setAudioReady(true); setAudioFileName('📦 ' + displayName) }
         el.onerror   = () => {
           // blobURL 失效，改用原始 URL
@@ -13750,6 +13762,7 @@ function MovieTab({ audioMode, setAudioMode }) {
           await saveMp3ToIDB(url, blob)
           const blobUrl = URL.createObjectURL(blob)
           el.src = blobUrl
+          audioSrcKeyRef.current = url  // 記錄原始 URL
           el.oncanplay = () => { setAudioReady(true); setAudioFileName('📦 ' + displayName) }
           el.onerror   = () => { setAudioReady(false); setAudioFileName('❌ ' + displayName) }
           el.load()
@@ -13757,6 +13770,7 @@ function MovieTab({ audioMode, setAudioMode }) {
         .catch(() => {
           // fetch 失敗，直接用 URL（舊行為）
           el.src = url
+          audioSrcKeyRef.current = url  // 記錄原始 URL
           el.oncanplay = () => { setAudioReady(true); setAudioFileName(displayName) }
           el.onerror   = () => { setAudioReady(false); setAudioFileName('❌ ' + displayName) }
           el.load()
@@ -14180,11 +14194,11 @@ Return ONLY a JSON object, no markdown:
       el.select()
       document.execCommand('copy')
       document.body.removeChild(el)
-      alert(`✅ ${label} 已複製，可貼至 ChatGPT`)
+      showMovieToast(`✅ ${label} 已複製`)
     }
     if (navigator.clipboard?.writeText) {
       navigator.clipboard.writeText(content)
-        .then(() => alert(`✅ ${label} 已複製，可貼至 ChatGPT`))
+        .then(() => showMovieToast(`✅ ${label} 已複製`))
         .catch(fallback)
     } else { fallback() }
   }
@@ -14956,7 +14970,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
       const el = document.createElement('textarea'); el.value = prompt
       document.body.appendChild(el); el.select()
       document.execCommand('copy'); document.body.removeChild(el)
-      alert('✅ ChatGPT 陪練指令已複製（含逐字稿），可貼到 ChatGPT 語音')
+      showMovieToast('✅ 指令已複製，貼至 ChatGPT')
     }
     if (navigator.clipboard?.writeText) {
       navigator.clipboard.writeText(prompt)
@@ -14985,6 +14999,19 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
       }).catch(fallback)
     } else { fallback(); setSpeakCopied(type); setTimeout(() => setSpeakCopied(null), 2000) }
   }
+
+  // ── 睡眠計時器倒數 useEffect ──
+  useEffect(() => {
+    if (!starSleepEnd) { setStarSleepRemain(null); return }
+    const tick = () => {
+      const rem = Math.max(0, Math.ceil((starSleepEnd - Date.now()) / 1000))
+      setStarSleepRemain(rem)
+      if (rem <= 0) setStarSleepEnd(null)
+    }
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [starSleepEnd])
 
   // ── FAB 浮動按鈕：直接掛到 document.body，繞過 overflow 截斷問題 ──
   useEffect(() => {
@@ -16397,7 +16424,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                           document.body.appendChild(el); el.select()
                           document.execCommand('copy'); document.body.removeChild(el)
                         }
-                        alert('✅ 已複製，可貼至 ChatGPT')
+                        showMovieToast('✅ 已複製')
                       }
                       copy(txt)
                     }}
@@ -16498,6 +16525,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
       starLoopPausedRef.current = false
       clearTimeout(starLoopRef.current)
       clearTimeout(starSleepRef.current)
+      setStarSleepEnd(null)
       // 移除 timeupdate 監聽
       if (audioElRef.current && starTimeUpdateRef.current) {
         audioElRef.current.removeEventListener('timeupdate', starTimeUpdateRef.current)
@@ -16523,7 +16551,19 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
       if (!starLoopPausedRef.current) return
       starLoopPausedRef.current = false
       setStarLoopPaused(false)
-      playStarPhrase(starLoopListRef.current, starLoopIdxRef.current)
+      // 如果電影音模式且 el 有內容，先嘗試 resume（不重播整句）
+      const el = audioElRef.current
+      if (el && el.src && el.paused && audioSrcKeyRef.current) {
+        el.play().then(() => {
+          // resume 成功：timeupdate 仍在監聽，會自然接下一句
+        }).catch(() => {
+          // resume 失敗，重播當前句
+          playStarPhrase(starLoopListRef.current, starLoopIdxRef.current)
+        })
+      } else {
+        // TTS 模式或電影音未載入：重播當前句
+        playStarPhrase(starLoopListRef.current, starLoopIdxRef.current)
+      }
     }
     // 每次 render 更新 FAB 的 fn refs（讓 FAB click handler 永遠拿到最新 function）
     pauseFnRef.current = pauseStarLoop
@@ -16548,22 +16588,62 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
       const secs = p.startSecs ?? 0
       const useTTS = audioMode !== 'original' || secs === 0
 
+      // ── 自動熟悉邏輯：播完一句累計次數，連續 3 次 → 靜默升熟悉 ──
+      const markAutoFamiliar = (phraseId) => {
+        if (starFamiliar[phraseId]) return // 已是熟悉，跳過
+        const prev = starPlayCountRef.current[phraseId] ?? 0
+        const next = prev + 1
+        starPlayCountRef.current[phraseId] = next
+        if (next >= 3) {
+          // 自動升熟悉（靜默）
+          setStarFamiliar(f => ({ ...f, [phraseId]: true }))
+          starPlayCountRef.current[phraseId] = 0
+        }
+      }
+
       if (useTTS) {
         // TTS 模式：先確保電影音靜音，避免重疊
         if (audioElRef.current) audioElRef.current.pause()
         window.speechSynthesis?.cancel()
-        const utt = new SpeechSynthesisUtterance(p.en)
-        utt.lang = 'en-US'; utt.rate = playRate
-        utt.onend = () => {
+
+        const goNext = () => {
           if (!starLoopActiveRef.current || starLoopPausedRef.current) return
+          markAutoFamiliar(p.id)
           starLoopRef.current = setTimeout(() => playStarPhrase(list, realIdx + 1), 600)
         }
-        utt.onerror = () => {
-          // TTS 失敗也要繼續下一句
-          if (!starLoopActiveRef.current || starLoopPausedRef.current) return
-          starLoopRef.current = setTimeout(() => playStarPhrase(list, realIdx + 1), 800)
+
+        if (isReverse) {
+          // 反向模式：先播中文 → 停頓 1.2 秒 → 再播英文
+          const uttZh = new SpeechSynthesisUtterance(p.zh || p.en)
+          uttZh.lang = 'zh-TW'; uttZh.rate = playRate
+          uttZh.onend = () => {
+            if (!starLoopActiveRef.current || starLoopPausedRef.current) return
+            starLoopRef.current = setTimeout(() => {
+              if (!starLoopActiveRef.current || starLoopPausedRef.current) return
+              const uttEn = new SpeechSynthesisUtterance(p.en)
+              uttEn.lang = 'en-US'; uttEn.rate = playRate
+              uttEn.onend  = goNext
+              uttEn.onerror = goNext
+              window.speechSynthesis?.speak(uttEn)
+            }, 1200)
+          }
+          uttZh.onerror = () => {
+            // 中文 TTS 失敗，直接播英文
+            if (!starLoopActiveRef.current || starLoopPausedRef.current) return
+            const uttEn = new SpeechSynthesisUtterance(p.en)
+            uttEn.lang = 'en-US'; uttEn.rate = playRate
+            uttEn.onend = goNext; uttEn.onerror = goNext
+            window.speechSynthesis?.speak(uttEn)
+          }
+          window.speechSynthesis?.speak(uttZh)
+        } else {
+          // 一般模式：只播英文
+          const utt = new SpeechSynthesisUtterance(p.en)
+          utt.lang = 'en-US'; utt.rate = playRate
+          utt.onend  = goNext
+          utt.onerror = goNext
+          window.speechSynthesis?.speak(utt)
         }
-        window.speechSynthesis?.speak(utt)
         return
       }
 
@@ -16586,6 +16666,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
 
       const scheduleNext = () => {
         if (!starLoopActiveRef.current || starLoopPausedRef.current) return
+        markAutoFamiliar(p.id)
         starLoopRef.current = setTimeout(() => playStarPhrase(list, realIdx + 1), 300)
       }
 
@@ -16626,11 +16707,8 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
         }, (phraseDur / playRate) * 1000 + 1500)
       }
 
-      // 判斷是否需要切換 MP3 檔案
-      const currentSrcBase = el.src.split('?')[0]
-      const targetSrcBase  = targetFile.url.split('?')[0]
-      const needSwitch = !el.src || (!currentSrcBase.endsWith('Jerry_1.mp3') && !currentSrcBase.endsWith('Jerry_2.mp3'))
-                         || currentSrcBase !== targetSrcBase
+      // 判斷是否需要切換 MP3 檔案（用 audioSrcKeyRef 比對原始 URL，不受 blobURL 干擾）
+      const needSwitch = audioSrcKeyRef.current !== targetFile.url
 
       if (needSwitch) {
         el.pause()
@@ -16639,10 +16717,10 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           el.removeEventListener('timeupdate', starTimeUpdateRef.current)
           starTimeUpdateRef.current = null
         }
+        clearTimeout(starLoopRef.current)
         loadAudioUrl(targetFile.url, `征服情海 Part ${JERRY_MP3.indexOf(targetFile) + 1}`)
-        // 等待 canplay 後再播
-        const onReady = () => doPlay()
-        el.addEventListener('canplay', onReady, { once: true })
+        // 等待 canplay 後再播（loadAudioUrl 是 async，canplay 由它觸發）
+        el.addEventListener('canplay', doPlay, { once: true })
       } else {
         doPlay()
       }
@@ -16657,6 +16735,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
         return
       }
       stopStarLoop()
+      starPlayCountRef.current = {}  // 重置播放計數
       starLoopListRef.current = list
       starLoopActiveRef.current = true
       setStarLoopMode(group)
@@ -16665,9 +16744,14 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
       // 睡眠計時器
       clearTimeout(starSleepRef.current)
       if (starSleepMins > 0) {
+        const endTs = Date.now() + starSleepMins * 60 * 1000
+        setStarSleepEnd(endTs)
         starSleepRef.current = setTimeout(() => {
           stopStarLoop()
+          setStarSleepEnd(null)
         }, starSleepMins * 60 * 1000)
+      } else {
+        setStarSleepEnd(null)
       }
     }
 
@@ -16699,11 +16783,20 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
     const copyTxt = (txt) => {
       if (navigator.clipboard?.writeText) navigator.clipboard.writeText(txt).catch(() => {})
       else { const el = document.createElement('textarea'); el.value = txt; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el) }
-      alert('✅ 已複製，可貼至 ChatGPT')
+      showMovieToast('✅ 已複製')
     }
 
     return (
       <div style={{ padding:'16px 16px 80px', display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
+        {/* Movie Toast 提示（starred tab）*/}
+        {movieToast && (
+          <div style={{ position:'fixed', top:70, left:'50%', transform:'translateX(-50%)',
+            background:'#1a1a2e', border:`1px solid ${T.amber}60`, borderRadius:20,
+            padding:'8px 18px', fontFamily:MONO, fontSize:11, color:T.amber,
+            zIndex:9998, whiteSpace:'nowrap', animation:'fadeUp 0.2s ease', pointerEvents:'none' }}>
+            {movieToast}
+          </div>
+        )}
         {/* 標題列 */}
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <BackBtn label="← 返回" to="list"/>
@@ -16770,7 +16863,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
         </div>
 
         {/* 睡眠計時器 */}
-        <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>😴 睡眠計時：</span>
           {[0, 10, 20, 30].map(m => (
             <div key={m} onClick={() => setStarSleepMins(m)}
@@ -16782,6 +16875,11 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               {m === 0 ? '∞' : m+'分'}
             </div>
           ))}
+          {starSleepRemain != null && starLoopMode != null && (
+            <span style={{ fontFamily:MONO, fontSize:9, color:T.amber, fontWeight:700 }}>
+              ⏱ {Math.floor(starSleepRemain/60)}:{String(starSleepRemain%60).padStart(2,'0')}
+            </span>
+          )}
         </div>
 
         {/* 循環播放進度 */}
@@ -17219,7 +17317,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                   const fallback = () => { const el = document.createElement('textarea'); el.value = gptPrompt; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el) }
                   if (navigator.clipboard?.writeText) navigator.clipboard.writeText(gptPrompt).then(() => {}).catch(fallback)
                   else fallback()
-                  alert('✅「' + sceneTitle + '」ChatGPT 指令已複製！')
+                  showMovieToast('✅「' + sceneTitle + '」指令已複製')
                 }}
                 style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#c084fc',
                   padding:'2px 6px', background:'#2d1a4a', borderRadius:5,
@@ -17898,6 +17996,16 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
 
   return (
     <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:18 }} className="fadeUp">
+
+      {/* ── MovieTab 全局 Toast（所有 view 共用）── */}
+      {movieToast && (
+        <div style={{ position:'fixed', top:70, left:'50%', transform:'translateX(-50%)',
+          background:'#1a1a2e', border:`1px solid ${T.amber}60`, borderRadius:20,
+          padding:'8px 18px', fontFamily:MONO, fontSize:11, color:T.amber,
+          zIndex:9998, whiteSpace:'nowrap', animation:'fadeUp 0.2s ease', pointerEvents:'none' }}>
+          {movieToast}
+        </div>
+      )}
 
       {/* ── AI 供應商切換 ── */}
       <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
