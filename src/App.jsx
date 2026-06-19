@@ -13336,6 +13336,9 @@ function MovieTab({ audioMode, setAudioMode }) {
   const starLoopIdxRef   = useRef(0)      // 當前索引
   const starLoopActiveRef = useRef(false) // 是否循環中
   const starLoopPausedRef = useRef(false) // 暫停 ref（供 callback 讀取）
+  const fabRef = useRef(null)      // FAB DOM element
+  const pauseFnRef = useRef(null)  // pause function ref
+  const resumeFnRef = useRef(null) // resume function ref
   const starTimeUpdateRef = useRef(null)  // ontimeupdate handler
   const starCardRefs      = useRef({})    // { [phraseId]: DOM element } 自動滾動用
   const [starScenePicker, setStarScenePicker] = useState(false)  // 場景選擇面板
@@ -14903,6 +14906,62 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
     } else { fallback(); setSpeakCopied(type); setTimeout(() => setSpeakCopied(null), 2000) }
   }
 
+  // ── FAB 浮動按鈕：直接掛到 document.body，繞過 overflow 截斷問題 ──
+  useEffect(() => {
+    // 建立 FAB element
+    const fab = document.createElement('div')
+    fab.id = 'star-loop-fab'
+    Object.assign(fab.style, {
+      position: 'fixed',
+      bottom: '88px',
+      left: '20px',
+      zIndex: '9999',
+      width: '56px',
+      height: '56px',
+      borderRadius: '50%',
+      display: 'none',
+      alignItems: 'center',
+      justifyContent: 'center',
+      cursor: 'pointer',
+      fontSize: '22px',
+      userSelect: 'none',
+      fontFamily: 'monospace',
+      transition: 'background 0.2s, box-shadow 0.2s',
+      border: '2px solid',
+    })
+    document.body.appendChild(fab)
+    fabRef.current = fab
+    return () => { fab.remove() }
+  }, [])
+
+  // ── FAB 狀態同步 ──
+  useEffect(() => {
+    const fab = fabRef.current
+    if (!fab) return
+    if (starLoopMode != null) {
+      const color = starLoopPaused ? '#22c55e' : '#f59e0b'
+      fab.style.display = 'flex'
+      fab.style.background = color
+      fab.style.boxShadow = '0 4px 16px ' + color + '60'
+      fab.style.borderColor = color + '80'
+      fab.textContent = starLoopPaused ? '▶' : '⏸'
+    } else {
+      fab.style.display = 'none'
+    }
+  }, [starLoopMode, starLoopPaused])
+
+  // ── FAB 點擊事件（用 ref 避免 stale closure）──
+  useEffect(() => {
+    const fab = fabRef.current
+    if (!fab) return
+    const handler = () => {
+      if (starLoopPausedRef.current) { if (resumeFnRef.current) resumeFnRef.current() }
+      else { if (pauseFnRef.current) pauseFnRef.current() }
+    }
+    fab.addEventListener('click', handler)
+    return () => fab.removeEventListener('click', handler)
+  }, [])
+
   function goBack(to='list') { setView(to); setPlaying(false); window.speechSynthesis?.cancel() }
 
   const BackBtn = ({ label='← 返回', to='list' }) => (
@@ -16384,6 +16443,9 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
       setStarLoopPaused(false)
       playStarPhrase(starLoopListRef.current, starLoopIdxRef.current)
     }
+    // 每次 render 更新 FAB 的 fn refs（讓 FAB click handler 永遠拿到最新 function）
+    pauseFnRef.current = pauseStarLoop
+    resumeFnRef.current = resumeStarLoop
 
     const playStarPhrase = (list, idx) => {
       // 如果暫停中，不繼續播放
@@ -16846,23 +16908,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           )
         })}
 
-        {/* ── 浮動暫停/繼續按鈕 FAB（左下角，僅循環播放時顯示）── */}
-        {starLoopMode != null && (
-          <div
-            onClick={starLoopPaused ? resumeStarLoop : pauseStarLoop}
-            style={{
-              position:'fixed', bottom:80, left:20, zIndex:999,
-              width:56, height:56, borderRadius:'50%',
-              background: starLoopPaused ? T.grn : T.amber,
-              display:'flex', alignItems:'center', justifyContent:'center',
-              cursor:'pointer', boxShadow:`0 4px 16px ${starLoopPaused ? T.grn : T.amber}60`,
-              fontSize:22, userSelect:'none',
-              border:`2px solid ${starLoopPaused ? T.grn : T.amber}80`,
-              transition:'background 0.2s, box-shadow 0.2s'
-            }}>
-            {starLoopPaused ? '▶' : '⏸'}
-          </div>
-        )}
+
       </div>
     )
   }
