@@ -1,64 +1,66 @@
-// FSI Command App — Service Worker v1.0
-// 快取 App 所有資源，支援完全離線使用
+// FSI Command App Shell Service Worker
+// 只快取 App Shell（HTML/JS/CSS），不攔截 API 或 MP3
+// MP3 由 App 自行用 IndexedDB 快取
 
-const CACHE_NAME = 'fsi-app-v1'
+const CACHE_NAME = 'fsi-shell-v1'
 
-// 需要快取的檔案清單（依你的 GitHub Pages 路徑調整）
-const ASSETS = [
-  '/',
-  '/index.html',
-  '/App.jsx',
-  // Vite build 輸出的 JS/CSS（deploy 後可在 Network tab 查看實際路徑）
+// App Shell 資源（Vite build 輸出）
+const SHELL_URLS = [
+  '/fsi-command/',
+  '/fsi-command/index.html',
 ]
 
-// ── 安裝：快取所有靜態資源 ──────────────────────────────────────
-self.addEventListener('install', event => {
-  event.waitUntil(
+// ── Install：預快取 App Shell ──
+self.addEventListener('install', e => {
+  e.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
-      return cache.addAll(ASSETS).catch(() => {
-        // 部分資源快取失敗時不中斷安裝
+      return cache.addAll(SHELL_URLS).catch(err => {
+        console.warn('[SW] Shell 預快取部分失敗', err)
       })
-    })
+    }).then(() => self.skipWaiting())
   )
-  self.skipWaiting()
 })
 
-// ── 啟動：清除舊快取 ─────────────────────────────────────────────
-self.addEventListener('activate', event => {
-  event.waitUntil(
+// ── Activate：清除舊快取 ──
+self.addEventListener('activate', e => {
+  e.waitUntil(
     caches.keys().then(keys =>
       Promise.all(
         keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
       )
-    )
+    ).then(() => self.clients.claim())
   )
-  self.clients.claim()
 })
 
-// ── 攔截請求：優先快取，失敗才連網 ──────────────────────────────
-self.addEventListener('fetch', event => {
-  // 只處理 GET 請求，跳過 API 呼叫
-  if (event.request.method !== 'GET') return
-  const url = new URL(event.request.url)
-  // 跳過外部 API（Anthropic、Google 等）
-  if (!url.origin.includes('github.io') &&
-      !url.origin.includes('localhost') &&
-      url.protocol !== 'chrome-extension:') return
+// ── Fetch：只對 App Shell 做 Cache First；其他全部走網路 ──
+self.addEventListener('fetch', e => {
+  const url = new URL(e.request.url)
 
-  event.respondWith(
-    caches.match(event.request).then(cached => {
-      if (cached) return cached
-      return fetch(event.request).then(response => {
-        // 成功取得 → 存入快取
-        if (response && response.status === 200) {
+  // 只攔截同源的 HTML 請求（App Shell）
+  const isShell = (
+    url.origin === self.location.origin &&
+    (url.pathname === '/fsi-command/' ||
+     url.pathname === '/fsi-command/index.html' ||
+     url.pathname.startsWith('/fsi-command/assets/'))
+  )
+
+  if (!isShell) {
+    // 其他（API、MP3、GAS）全部直接走網路
+    return
+  }
+
+  // Cache First → 網路更新
+  e.respondWith(
+    caches.match(e.request).then(cached => {
+      const networkFetch = fetch(e.request).then(response => {
+        if (response.ok) {
           const clone = response.clone()
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone))
+          caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone))
         }
         return response
-      }).catch(() => {
-        // 離線且無快取 → 回傳離線頁面（如果有）
-        return caches.match('/index.html')
-      })
+      }).catch(() => cached) // 離線時 fallback 到快取
+
+      return cached || networkFetch
     })
   )
 })
