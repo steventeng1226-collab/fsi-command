@@ -7282,7 +7282,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.56
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.57
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13578,6 +13578,13 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   function toggleStar(pid) {
     updateScenePhrases(ps => ps.map(p => p.id === pid ? { ...p, starred: !p.starred } : p))
   }
+  function toggleStarGlobal(pid) {
+    saveDb({ ...db, movies: db.movies.map(m => ({
+      ...m, scenes: (m.scenes ?? []).map(s => ({
+        ...s, phrases: (s.phrases ?? []).map(p => p.id === pid ? { ...p, starred: !p.starred } : p)
+      }))
+    }))})
+  }
   function saveZh(pid, newZh) {
     updateScenePhrases(ps => ps.map(p => p.id === pid ? { ...p, zh: newZh.trim() } : p))
     setEditingZhId(null)
@@ -16779,7 +16786,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
     }
 
     return (
-      <div style={{ padding:'16px 16px 80px', display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
+      <div style={{ padding:'0 16px 80px', display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
         {/* Movie Toast 提示（starred tab）*/}
         {movieToast && (
           <div style={{ position:'fixed', top:70, left:'50%', transform:'translateX(-50%)',
@@ -16789,8 +16796,10 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
             {movieToast}
           </div>
         )}
-        {/* 標題列 */}
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        {/* 標題列 — sticky 固定頂部 */}
+        <div style={{ position:'sticky', top:0, zIndex:10, background:T.bg,
+          padding:'12px 0 10px', marginBottom:4,
+          display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <BackBtn label="← 返回" to="list"/>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
             {/* 循環播放按鈕 */}
@@ -16942,6 +16951,15 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                     style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#c084fc',
                       padding:'2px 7px', background:'#2d1a4a', borderRadius:6, border:'1px solid #c084fc40' }}>
                     📤
+                  </div>
+                  {/* ★ Unstar 按鈕 */}
+                  <div onClick={() => toggleStarGlobal(p.id)}
+                    title="取消收藏"
+                    style={{ cursor:'pointer', fontSize:13, lineHeight:1,
+                      padding:'2px 6px', borderRadius:6,
+                      background:'#2a1f00', border:`1px solid ${T.amber}40`,
+                      color:T.amber, transition:'opacity 0.15s' }}>
+                    ★
                   </div>
                 </div>
               </div>
