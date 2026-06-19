@@ -7282,7 +7282,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.58
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.59
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -16786,8 +16786,8 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
     }
 
     return (
-      <div style={{ padding:'54px 16px 80px', display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
-        {/* Movie Toast 提示（starred tab）*/}
+      <div style={{ display:'flex', flexDirection:'column', height:'100%' }} className="fadeUp">
+        {/* Movie Toast 提示 */}
         {movieToast && (
           <div style={{ position:'fixed', top:70, left:'50%', transform:'translateX(-50%)',
             background:'#1a1a2e', border:`1px solid ${T.amber}60`, borderRadius:20,
@@ -16796,11 +16796,11 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
             {movieToast}
           </div>
         )}
-        {/* 標題列 — sticky 固定頂部 */}
-        <div style={{ position:'fixed', top:50, left:'50%', transform:'translateX(-50%)', width:'100%', maxWidth:480,
-          zIndex:15, background:T.bg, borderBottom:`1px solid ${T.bdr}`,
-          padding:'10px 16px', boxSizing:'border-box',
-          display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        {/* ── 固定 Header 區（不 scroll）── */}
+        <div style={{ flexShrink:0, background:T.bg, borderBottom:`1px solid ${T.bdr}`,
+          padding:'10px 16px 12px', display:'flex', flexDirection:'column', gap:10 }}>
+          {/* 標題列 */}
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <BackBtn label="← 返回" to="list"/>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
             {/* 循環播放按鈕 */}
@@ -16836,9 +16836,8 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
             <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>⭐ {allPhrases.length}</span>
           </div>
         </div>
-
-        {/* 模式切換 */}
-        <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+          {/* 模式切換 */}
+          <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
           {[
             ['list',       '📋 全部'],
             ['familiar',   `✓ 熟悉 (${familiarList.length})`],
@@ -16862,10 +16861,8 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               border:`1px solid ${starReverse ? T.blue+'60' : T.bdr}` }}>
             🔄 反向{starReverse ? ' ON' : ''}
           </div>
-        </div>
-
-        {/* 睡眠計時器 */}
-        <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+          {/* 睡眠計時器 */}
+          <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>😴 睡眠計時：</span>
           {[0, 10, 20, 30].map(m => (
             <div key={m} onClick={() => setStarSleepMins(m)}
@@ -16882,18 +16879,20 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               ⏱ {Math.floor(starSleepRemain/60)}:{String(starSleepRemain%60).padStart(2,'0')}
             </span>
           )}
-        </div>
-
-        {/* 循環播放進度 */}
-        {starLoopMode != null && (
-          <div style={{ fontFamily:MONO, fontSize:9,
-            color: starLoopMode==='familiar' ? T.grn : starLoopMode==='unfamiliar' ? '#f87171' : T.amber,
-            textAlign:'center', padding:'6px', background:T.surf2, borderRadius:8 }}>
-            🔁 {starLoopMode==='familiar' ? '熟悉' : starLoopMode==='unfamiliar' ? '加強' : '全部'} 無限循環
-            · 第 {starLoopIdx+1} / {(starLoopMode==='familiar' ? familiarList : starLoopMode==='unfamiliar' ? unfamiliarList : allPhrases).length} 句
           </div>
-        )}
+          {/* 循環播放進度 */}
+          {starLoopMode != null && (
+            <div style={{ fontFamily:MONO, fontSize:9,
+              color: starLoopMode==='familiar' ? T.grn : starLoopMode==='unfamiliar' ? '#f87171' : T.amber,
+              textAlign:'center', padding:'6px', background:T.surf2, borderRadius:8 }}>
+              🔁 {starLoopMode==='familiar' ? '熟悉' : starLoopMode==='unfamiliar' ? '加強' : '全部'} 無限循環
+              · 第 {starLoopIdx+1} / {(starLoopMode==='familiar' ? familiarList : starLoopMode==='unfamiliar' ? unfamiliarList : allPhrases).length} 句
+            </div>
+          )}
+        </div>{/* end fixed header */}
 
+        {/* ── Scroll 卡片區 ── */}
+        <div style={{ flex:1, overflowY:'auto', padding:'12px 16px 80px', display:'flex', flexDirection:'column', gap:12 }}>
         {allPhrases.length === 0 ? (
           <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, textAlign:'center', padding:32 }}>
             還沒有收藏重點句，進入場景點 ⭐ 收藏
@@ -17018,9 +17017,9 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
             </div>
           )
         })}
-
-
+        </div>
       </div>
+    </div>
     )
   }
 
