@@ -62,6 +62,44 @@ function getJerryMp3(secs) {
   return JERRY_MP3.find(f => secs >= f.start && secs < f.end) ?? JERRY_MP3[0]
 }
 
+// ── MP3 IndexedDB 快取（離線使用）──────────────────────────────
+const MP3_DB_NAME = 'fsi-mp3-cache'
+const MP3_DB_VER  = 1
+const MP3_STORE   = 'blobs'
+
+function openMp3DB() {
+  return new Promise((res, rej) => {
+    const req = indexedDB.open(MP3_DB_NAME, MP3_DB_VER)
+    req.onupgradeneeded = e => e.target.result.createObjectStore(MP3_STORE)
+    req.onsuccess = e => res(e.target.result)
+    req.onerror   = e => rej(e.target.error)
+  })
+}
+
+async function saveMp3ToIDB(url, blob) {
+  try {
+    const db = await openMp3DB()
+    const tx = db.transaction(MP3_STORE, 'readwrite')
+    tx.objectStore(MP3_STORE).put(blob, url)
+    await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej })
+    db.close()
+  } catch(e) { console.warn('[MP3 IDB save]', e) }
+}
+
+async function getMp3FromIDB(url) {
+  try {
+    const db = await openMp3DB()
+    const tx = db.transaction(MP3_STORE, 'readonly')
+    const blob = await new Promise((res, rej) => {
+      const req = tx.objectStore(MP3_STORE).get(url)
+      req.onsuccess = () => res(req.result)
+      req.onerror   = rej
+    })
+    db.close()
+    return blob ?? null
+  } catch(e) { return null }
+}
+
 // ═══════════════════════════════════════════════════════════════
 // STORAGE  (localStorage — persists across sessions)
 // ═══════════════════════════════════════════════════════════════
@@ -7244,7 +7282,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.48
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.50
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13341,7 +13379,6 @@ function MovieTab({ audioMode, setAudioMode }) {
   const resumeFnRef = useRef(null) // resume function ref
   const starTimeUpdateRef = useRef(null)  // ontimeupdate handler
   const starCardRefs      = useRef({})    // { [phraseId]: DOM element } 自動滾動用
-  const [starScenePicker, setStarScenePicker] = useState(false)  // 場景選擇面板
   const [starSleepMins,   setStarSleepMins]   = useState(0)      // 0=無限, 10/20/30=睡眠計時
   const starSleepRef = useRef(null)                               // 睡眠計時器
 
@@ -13655,13 +13692,9 @@ function MovieTab({ audioMode, setAudioMode }) {
     if (!url) return
     if (!audioElRef.current) audioElRef.current = new Audio()
     const el = audioElRef.current
-    el.src = url
-    el.oncanplay = () => { setAudioReady(true); setAudioFileName(label || url.split('/').pop()) }
-    el.onerror   = (e) => {
-      console.error('[loadAudioUrl error]', url, e)
-      setAudioReady(false)
-      setAudioFileName('❌ 載入失敗：' + url.split('/').pop())
-    }
+    const displayName = label || url.split('/').pop()
+
+    // 共用 ontimeupdate handler
     el.ontimeupdate = () => {
       if (el._sceneEnd && el.currentTime >= el._sceneEnd) {
         if (el._sceneLoop) {
@@ -13678,10 +13711,57 @@ function MovieTab({ audioMode, setAudioMode }) {
         setScenePlayPos(Math.min(1, Math.max(0, pos)))
       }
     }
-    setAudioFileName(label || url.split('/').pop())
+
+    setAudioFileName(displayName)
     setAudioSource('cloud')
     setAudioReady(false)
-    el.load()
+
+    // 先嘗試從 IndexedDB 讀取快取
+    getMp3FromIDB(url).then(cachedBlob => {
+      if (cachedBlob) {
+        // 有快取，直接用 blobURL
+        const blobUrl = URL.createObjectURL(cachedBlob)
+        el.src = blobUrl
+        el.oncanplay = () => { setAudioReady(true); setAudioFileName('📦 ' + displayName) }
+        el.onerror   = () => {
+          // blobURL 失效，改用原始 URL
+          el.src = url
+          el.oncanplay = () => { setAudioReady(true); setAudioFileName(displayName) }
+          el.onerror = () => { setAudioReady(false); setAudioFileName('❌ ' + displayName) }
+          el.load()
+        }
+        el.load()
+        return
+      }
+
+      // 沒有快取，用網路載入並同時快取
+      if (!navigator.onLine) {
+        // 離線且沒快取
+        setAudioReady(false)
+        setAudioFileName('❌ 離線且無快取：' + displayName)
+        return
+      }
+
+      // 線上：fetch → 存 IDB → 建立 blobURL
+      setAudioFileName('⬇️ 下載中：' + displayName)
+      fetch(url)
+        .then(r => { if (!r.ok) throw new Error(r.status); return r.blob() })
+        .then(async blob => {
+          await saveMp3ToIDB(url, blob)
+          const blobUrl = URL.createObjectURL(blob)
+          el.src = blobUrl
+          el.oncanplay = () => { setAudioReady(true); setAudioFileName('📦 ' + displayName) }
+          el.onerror   = () => { setAudioReady(false); setAudioFileName('❌ ' + displayName) }
+          el.load()
+        })
+        .catch(() => {
+          // fetch 失敗，直接用 URL（舊行為）
+          el.src = url
+          el.oncanplay = () => { setAudioReady(true); setAudioFileName(displayName) }
+          el.onerror   = () => { setAudioReady(false); setAudioFileName('❌ ' + displayName) }
+          el.load()
+        })
+    })
   }
 
   function parseSceneTimeRange(timeRange) {
@@ -16652,121 +16732,6 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           </div>
         </div>
 
-        {/* 場景 ChatGPT 指令 - 場景選擇器 */}
-        {(() => {
-          const sceneList = db.movies.flatMap(m => m.scenes ?? [])
-          const scenesWithStar = sceneList.filter(s => (s.phrases ?? []).some(p => p.starred))
-          if (scenesWithStar.length === 0) return null
-
-          const makeCgpt = (sc) => {
-            const sceneTitle = sc.name ?? sc.title ?? ''
-            const starred = (sc.phrases ?? []).filter(p => p.starred)
-            const phraseList = starred.slice(0, 7).map((p, i) => (i+1) + '. ' + p.en).join('\n')
-            const firstPhrase = starred.length > 0 ? starred[0].en : ''
-            return 'You are my English conversation coach.\n\n' +
-              'I am a 55-year-old Taiwanese adult.\n' +
-              'My English level is intermediate-beginner.\n\n' +
-              'Your goal:\n' +
-              'Help me improve my English speaking, listening, and responding skills through movie scenes.\n\n' +
-              'Rules:\n\n' +
-              '- Speak very slowly.\n' +
-              '- Use simple English only.\n' +
-              '- Use short sentences.\n' +
-              '- Ask only ONE question at a time.\n' +
-              '- Wait for my answer before continuing.\n' +
-              '- Please wait at least 10 seconds after I stop speaking before you respond.\n' +
-              '- If I pause, wait patiently.\n' +
-              '- Correct my English gently after I finish speaking.\n' +
-              '- Focus on communication, not perfection.\n' +
-              '- Encourage me to use my own ideas.\n' +
-              '- Connect questions to my work in Vietnam, my family, my life experiences, or my feelings.\n' +
-              '- If I speak Chinese, reply only: \"Please try in English!\"\n\n' +
-              "Today's movie:\n" +
-              'Jerry Maguire\n\n' +
-              "Today's scene:\n" +
-              sceneTitle + '\n\n' +
-              'Key phrases:\n\n' +
-              phraseList + '\n\n' +
-              'For each phrase:\n\n' +
-              'Step 1:\n' +
-              'Read the phrase slowly.\n' +
-              'Ask me to repeat it.\n\n' +
-              'Step 2:\n' +
-              'Give 3 substitution drills.\n' +
-              'Change one word each time. Wait for my answer each time.\n\n' +
-              'Step 3:\n' +
-              'Ask me what the phrase means.\n\n' +
-              'Step 4:\n' +
-              'Ask me to explain the movie scene.\n\n' +
-              'Step 5:\n' +
-              'Ask me to connect the phrase to my own life.\n\n' +
-              'Step 6:\n' +
-              'Ask one simple follow-up question.\n\n' +
-              'Step 7:\n' +
-              'Correct my English gently.\n' +
-              'Then move to the next phrase.\n\n' +
-              'Keep the lesson relaxed and natural.\n\n' +
-              'Start with:\n\n' +
-              '\"Hello Steven.\n\n' +
-              "Today we will talk about the movie scene '" + sceneTitle + ".'\n\n" +
-              "Let's start with the first phrase.\n\n" +
-              "'" + firstPhrase + "'\n\n" +
-              'Please repeat: ' + firstPhrase + '\"'
-          }
-
-          const doCopy = (cgpt, sceneTitle) => {
-            const fallback = () => { const el = document.createElement('textarea'); el.value = cgpt; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el) }
-            if (navigator.clipboard?.writeText) navigator.clipboard.writeText(cgpt).then(() => {}).catch(fallback)
-            else fallback()
-            alert('✅ 「' + sceneTitle + '」ChatGPT 指令已複製！')
-            setStarScenePicker(false)
-          }
-
-          return (
-            <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-              {/* 主按鈕 */}
-              <div onClick={() => setStarScenePicker(p => !p)}
-                style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
-                  color:'#c084fc', padding:'9px 12px', background:'#2d1a4a',
-                  borderRadius:10, border:'1px solid #c084fc50',
-                  display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                <span>📤 場景重點句 ChatGPT 指令</span>
-                <span style={{ opacity:0.7 }}>{starScenePicker ? '▲' : '▼'} {scenesWithStar.length} 個場景</span>
-              </div>
-
-              {/* 場景列表 */}
-              {starScenePicker && (
-                <div style={{ display:'flex', flexDirection:'column', gap:5,
-                  background:'#1a1025', borderRadius:10, padding:'8px',
-                  border:'1px solid #c084fc30' }} className="fadeUp">
-                  {scenesWithStar.map((sc, i) => {
-                    const starCount = (sc.phrases ?? []).filter(p => p.starred).length
-                    const title = sc.name ?? sc.title ?? ''
-                    return (
-                      <div key={sc.id ?? i} onClick={() => doCopy(makeCgpt(sc), title)}
-                        style={{ cursor:'pointer', display:'flex', justifyContent:'space-between',
-                          alignItems:'center', padding:'8px 10px', borderRadius:8,
-                          background:'#2d1a4a', border:'1px solid #c084fc30' }}>
-                        <span style={{ fontFamily:MONO, fontSize:10, color:'#c084fc',
-                          flex:1, marginRight:8, lineHeight:1.4 }}>
-                          {title.length > 18 ? title.slice(0,18) + '…' : title}
-                        </span>
-                        <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
-                          <span style={{ fontFamily:MONO, fontSize:8, color:'#888' }}>⭐{starCount}句</span>
-                          <span style={{ fontFamily:MONO, fontSize:9, color:'#c084fc',
-                            padding:'2px 8px', background:'#3d2060', borderRadius:5 }}>
-                            📋 複製
-                          </span>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          )
-        })()}
-
         {/* 睡眠計時器 */}
         <div style={{ display:'flex', alignItems:'center', gap:6 }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>😴 睡眠計時：</span>
@@ -18523,11 +18488,11 @@ export default function App() {
       return e.returnValue
     }
     window.addEventListener('beforeunload', handler)
-    // ── Service Worker：取消舊的離線封鎖頁，讓 App 直接從 cache 載入 ──
+    // ── Service Worker：註冊輕量 App Shell 快取 SW ──
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(regs => {
-        regs.forEach(reg => reg.unregister())
-      })
+      navigator.serviceWorker.register('/fsi-command/sw.js', { scope: '/fsi-command/' })
+        .then(() => console.log('[SW] 已註冊'))
+        .catch(e => console.warn('[SW] 註冊失敗', e))
     }
     return () => window.removeEventListener('beforeunload', handler)
   }, [])
