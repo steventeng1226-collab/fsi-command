@@ -7282,7 +7282,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.55
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.56
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13197,7 +13197,7 @@ const DEFAULT_MOVIE_DB = {
   vocab: []
 }
 
-function MovieTab({ audioMode, setAudioMode }) {
+function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   const [db, setDb] = useState(() => {
     try { const s = localStorage.getItem('fsi:movie:db'); return s ? JSON.parse(s) : DEFAULT_MOVIE_DB }
     catch { return DEFAULT_MOVIE_DB }
@@ -13385,14 +13385,6 @@ function MovieTab({ audioMode, setAudioMode }) {
   const starSleepRef = useRef(null)                               // 睡眠計時器
   const [starSleepEnd,    setStarSleepEnd]    = useState(null)    // 睡眠結束時間戳
   const [starSleepRemain, setStarSleepRemain] = useState(null)    // 倒數秒數
-  const [movieToast,      setMovieToast]      = useState('')       // 複製提示 toast
-
-  // ── MovieTab Toast 提示（定義在此，供所有 view 使用）──
-  const showMovieToast = (msg) => {
-    setMovieToast(msg)
-    setTimeout(() => setMovieToast(''), 2000)
-  }
-
   const movie   = db.movies.find(m => m.id === movieId)
   const scene   = sceneId ? movie?.scenes.find(s => s.id === sceneId) : null
   const phrases     = scene?.phrases ?? []
@@ -17669,7 +17661,7 @@ function TranslateTest() {
   )
 }
 
-function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings, updateSettings, stats, earned }) {
+function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings, updateSettings, stats, earned, movieToast, showMovieToast }) {
   // 直接從 localStorage 讀取，避免 settings prop 非同步初始化問題
   const [key, setKey] = useState(() => {
     try { return JSON.parse(localStorage.getItem('fsi:se') || '{}')?.apiKey ?? '' } catch { return '' }
@@ -18618,6 +18610,11 @@ export default function App() {
   const [audioMode, setAudioMode] = useState(
     () => localStorage.getItem('fsi:movie:audioMode') ?? 'original'
   )
+  const [movieToast, setMovieToast] = useState('')
+  const showMovieToast = (msg) => {
+    setMovieToast(msg)
+    setTimeout(() => setMovieToast(''), 2000)
+  }
 
   function toggleAudioMode() {
     const next = audioMode === 'original' ? 'tts' : 'original'
@@ -18741,9 +18738,9 @@ export default function App() {
         {tab==='vocab'    && <VocabTab    {...P}/>}
         {tab==='email'    && <EmailTab    {...P}/>}
         <div style={{display: tab==='movie' ? 'flex' : 'none', flexDirection:'column', flex:1, minHeight:0}}>
-          <MovieTab audioMode={audioMode} setAudioMode={setAudioMode}/>
+          <MovieTab audioMode={audioMode} setAudioMode={setAudioMode} movieToast={movieToast} showMovieToast={showMovieToast}/>
         </div>
-        {tab==='settings' && <SettingsTab {...P}/>}
+        {tab==='settings' && <SettingsTab {...P} movieToast={movieToast} showMovieToast={showMovieToast}/>}
       </div>
       <BottomNav tab={tab} setTab={setTab}/>
     </div>
