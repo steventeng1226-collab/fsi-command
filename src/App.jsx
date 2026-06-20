@@ -7282,7 +7282,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.73
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.74
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -16947,6 +16947,23 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               background: starReverse ? T.blueD : T.surf2,
               border:`1px solid ${starReverse ? T.blue+'60' : T.bdr}` }}>
             🔄 反向{starReverse ? ' ON' : ''}
+          </div>
+          {/* 語速選擇器 */}
+          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+            <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>🔊 語速：</span>
+            {[0.6, 0.8, 1.0].map(r => (
+              <div key={r} onClick={() => {
+                setPlayRate(r)
+                localStorage.setItem('fsi:movie:playRate', String(r))
+              }}
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                  padding:'4px 8px', borderRadius:7,
+                  color: playRate===r ? T.amber : T.txt3,
+                  background: playRate===r ? T.amberD : T.surf2,
+                  border:`1px solid ${playRate===r ? T.amber+'60' : T.bdr}` }}>
+                {r === 0.6 ? '0.6x' : r === 0.8 ? '0.8x' : '1.0x'}
+              </div>
+            ))}
           </div>
           {/* 睡眠計時器 */}
           <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
