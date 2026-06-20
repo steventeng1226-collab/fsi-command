@@ -7282,7 +7282,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.64
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.66
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13223,6 +13223,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   const [autoGenSceneBusy, setAutoGenSceneBusy] = useState(false)
   const [starFilter,      setStarFilter]      = useState(true)
   const [editingSceneNameId,   setEditingSceneNameId]   = useState(null)
+  const [sceneSearch, setSceneSearch] = useState('')  // 場景搜尋關鍵字
   const [editingSceneNameText, setEditingSceneNameText] = useState('')
   const [playingPhraseId, setPlayingPhraseId] = useState(null)
   const [deletingPhraseId,setDeletingPhraseId]= useState(null)
@@ -17191,6 +17192,35 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
             ＋ 新增場景
           </div>
         </div>
+        {/* 場景搜尋列 */}
+        <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:6,
+          background:T.surf2, borderRadius:9, padding:'6px 10px',
+          border:`1px solid ${sceneSearch ? T.amber+'50' : T.bdr}` }}>
+          <span style={{ fontSize:12 }}>🔍</span>
+          <input
+            type="text"
+            placeholder="搜尋場景標題…"
+            value={sceneSearch}
+            onChange={e => {
+              const q = e.target.value
+              setSceneSearch(q)
+              if (q.trim()) {
+                // 找到第一個符合的場景 → scroll 到該卡片
+                setTimeout(() => {
+                  const el = document.getElementById('scene-search-highlight')
+                  if (el) el.scrollIntoView({ behavior:'smooth', block:'center' })
+                }, 50)
+              }
+            }}
+            style={{ flex:1, background:'transparent', border:'none', outline:'none',
+              fontFamily:'monospace', fontSize:12, color:'#fff' }}
+          />
+          {sceneSearch && (
+            <span onClick={() => setSceneSearch('')}
+              style={{ cursor:'pointer', fontFamily:'monospace', fontSize:11,
+                color:T.txt3, padding:'0 2px' }}>✕</span>
+          )}
+        </div>
         {/* MP3 狀態 + 重新選擇同一行 */}
         <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10,
           background:T.surf2, borderRadius:9, padding:'8px 12px',
@@ -17267,15 +17297,23 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
         })()}
       </div>
       {/* Scene cards（最新在最上面）*/}
-      {[...(movie?.scenes ?? [])].reverse().map(s => {
+      {[...(movie?.scenes ?? [])].reverse().map((s, idx) => {
+        const sceneNo = (movie?.scenes?.length ?? 0) - idx  // 反向後第1個=最新=最大序號
         const sp  = s.phrases.filter(p=>p.played).length
         const spc = s.phrases.length ? Math.round((sp/s.phrases.length)*100) : 0
         const isDone = s.done === true
         const st  = isDone ? 'done' : spc===100 ? 'done' : spc>0 ? 'active' : 'new'
+        const sceneName = s.name ?? s.title ?? ''
+        const isMatch = sceneSearch.trim() !== '' && sceneName.toLowerCase().includes(sceneSearch.trim().toLowerCase())
+        const isFirstMatch = isMatch && [...(movie?.scenes ?? [])].reverse()
+          .findIndex(sc => (sc.name ?? sc.title ?? '').toLowerCase().includes(sceneSearch.trim().toLowerCase())) === idx
         return (
-          <div key={s.id} onClick={() => { setSceneId(s.id); setView('scene') }}
-            style={{ background:T.surf,
-              border:`1px solid ${isDone ? T.grn+'60' : st==='active' ? T.amber+'60' : T.bdr}`,
+          <div key={s.id}
+            id={isFirstMatch ? 'scene-search-highlight' : undefined}
+            onClick={() => { setSceneId(s.id); setView('scene') }}
+            style={{ background: isMatch ? '#2a1f00' : T.surf,
+              border:`1px solid ${isFirstMatch ? T.amber : isDone ? T.grn+'60' : st==='active' ? T.amber+'60' : T.bdr}`,
+              boxShadow: isFirstMatch ? `0 0 0 2px ${T.amber}40` : 'none',
               borderRadius:13, padding:'15px 16px', cursor:'pointer', transition:'border-color 0.15s' }}>
             <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:5 }}>
               <div onClick={e => {
@@ -17289,6 +17327,11 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                   opacity: isDone ? 1 : 0.3, transition:'opacity 0.15s', userSelect:'none' }}>
                 {isDone ? '✅' : st==='active' ? '🟡' : '⭕'}
               </div>
+              <span style={{ fontFamily:'monospace', fontSize:10, color:T.amber,
+                background:'#2a1f00', border:`1px solid ${T.amber}40`,
+                borderRadius:5, padding:'1px 5px', flexShrink:0, letterSpacing:'0.05em' }}>
+                {String(sceneNo).padStart(2,'0')}
+              </span>
               {editingSceneNameId === s.id ? (
                 <input
                   autoFocus
