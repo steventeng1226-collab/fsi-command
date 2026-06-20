@@ -7282,7 +7282,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.63
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.64
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13377,6 +13377,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   const starLoopActiveRef = useRef(false) // 是否循環中
   const starLoopPausedRef = useRef(false) // 暫停 ref（供 callback 讀取）
   const fabRef = useRef(null)      // FAB DOM element
+  const backBtnRef = useRef(null)  // 浮動返回鍵 DOM element
   const pauseFnRef = useRef(null)  // pause function ref
   const resumeFnRef = useRef(null) // resume function ref
   const starTimeUpdateRef = useRef(null)  // ontimeupdate handler
@@ -15012,6 +15013,49 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
     const id = setInterval(tick, 1000)
     return () => clearInterval(id)
   }, [starSleepEnd])
+
+  // ── 浮動返回鍵：掛到 body，starred view 時顯示 ──
+  useEffect(() => {
+    const btn = document.createElement('div')
+    btn.id = 'star-back-btn'
+    btn.textContent = '← 返回'
+    Object.assign(btn.style, {
+      position: 'fixed',
+      top: '60px',
+      left: '16px',
+      zIndex: '9999',
+      display: 'none',
+      alignItems: 'center',
+      justifyContent: 'center',
+      cursor: 'pointer',
+      fontFamily: 'monospace',
+      fontSize: '13px',
+      fontWeight: '700',
+      color: '#f5a623',
+      background: '#2a1f00',
+      border: '1.5px solid #f5a62360',
+      borderRadius: '10px',
+      padding: '8px 14px',
+      userSelect: 'none',
+    })
+    document.body.appendChild(btn)
+    backBtnRef.current = btn
+    return () => { btn.remove() }
+  }, [])
+
+  // ── 浮動返回鍵：view===starred 時顯示，點擊返回 list ──
+  useEffect(() => {
+    const btn = backBtnRef.current
+    if (!btn) return
+    if (view === 'starred') {
+      btn.style.display = 'flex'
+      const handler = () => { setView('list'); setPlaying(false); window.speechSynthesis?.cancel() }
+      btn.addEventListener('click', handler)
+      return () => btn.removeEventListener('click', handler)
+    } else {
+      btn.style.display = 'none'
+    }
+  }, [view])
 
   // ── FAB 浮動按鈕：直接掛到 document.body，繞過 overflow 截斷問題 ──
   useEffect(() => {
@@ -16799,10 +16843,9 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
         )}
         {/* ── 固定 Header 區（不 scroll）── */}
         <div style={{ flexShrink:0, background:T.bg, borderBottom:`1px solid ${T.bdr}`,
-          padding:'10px 16px 12px', display:'flex', flexDirection:'column', gap:10 }}>
-          {/* 標題列 */}
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-          <BackBtn label="← 返回" to="list"/>
+          padding:'46px 16px 12px', display:'flex', flexDirection:'column', gap:10 }}>
+          {/* 標題列（返回鍵已改為浮動 FAB，見 backBtnRef）*/}
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'flex-end' }}>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
             {/* 循環播放按鈕 */}
             {starLoopMode ? (
