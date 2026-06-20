@@ -7282,7 +7282,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.68
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.69
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13248,6 +13248,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   const [audioReady, setAudioReady] = useState(false)
   const [audioSource, setAudioSource] = useState('none') // 'none' | 'cloud' | 'local'
   const [cloudAudioUrl, setCloudAudioUrl] = useState('')
+  const [part2Status, setPart2Status] = useState('idle') // 'idle'|'loading'|'cached'|'error'
 
   // ── 開 App 自動載入雲端 MP3（Part 1 顯示進度；Part 2 靜默背景預載）──
   useEffect(() => {
@@ -13258,18 +13259,18 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
       // Part 2：背景靜默預載進 IDB（不切換 audio element，不影響 Part 1 播放）
       const preloadPart2 = async () => {
         const url2 = JERRY_MP3[1].url
-        // 先查 IDB，已有快取就跳過
         try {
           const cached = await getMp3FromIDB(url2)
-          if (cached) return // 已快取，不需重複下載
+          if (cached) { setPart2Status('cached'); return }
         } catch(e) {}
-        // 沒有快取 → fetch 並存入 IDB
         try {
+          setPart2Status('loading')
           const res = await fetch(url2)
-          if (!res.ok) return
+          if (!res.ok) { setPart2Status('error'); return }
           const blob = await res.blob()
           await saveMp3ToIDB(url2, blob)
-        } catch(e) {} // 離線或失敗靜默忽略
+          setPart2Status('cached')
+        } catch(e) { setPart2Status('error') }
       }
       // 等 Part 1 稍微載完後再背景下載 Part 2（避免搶頻寬）
       setTimeout(preloadPart2, 8000)
@@ -17253,6 +17254,14 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                 : audioFileName
                   ? `⏳ 載入中… ${audioFileName}`
                   : '⏳ 自動載入雲端 MP3…'}
+          </span>
+          {/* Part 2 狀態 */}
+          <span style={{ fontFamily:MONO, fontSize:9, flexShrink:0,
+            color: part2Status==='cached' ? T.grn : part2Status==='loading' ? T.amber : T.txt3 }}>
+            {part2Status==='cached' ? '📦 P2 ✅'
+             : part2Status==='loading' ? '⏳ P2…'
+             : part2Status==='error'   ? '⚠️ P2'
+             : '📦 P2 -'}
           </span>
           <div onClick={() => loadAudioUrl(JERRY_MP3[0].url, '征服情海 Part 1')}
             style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
