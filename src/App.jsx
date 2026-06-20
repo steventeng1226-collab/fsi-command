@@ -7282,7 +7282,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.75
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.76
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -16444,6 +16444,14 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                       {inlineLookup.info.phonetic}
                     </span>
                   )}
+                  {/* 🔊 系統 TTS 播放單字 */}
+                  <span onClick={() => speak(inlineLookup.word, 0.8)}
+                    style={{ cursor:'pointer', fontSize:14, padding:'2px 6px',
+                      background:T.surf, borderRadius:6, border:`1px solid ${T.bdr}`,
+                      userSelect:'none' }}
+                    title="播放發音">
+                    🔊
+                  </span>
                   {inlineLookup.busy && (
                     <span style={{ display:'inline-block', width:8, height:8,
                       border:'1.5px solid transparent', borderTopColor:T.amber,
