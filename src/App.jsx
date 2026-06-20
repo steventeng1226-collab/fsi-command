@@ -7282,7 +7282,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.72
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.73
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13248,12 +13248,16 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   const [audioReady, setAudioReady] = useState(false)
   const [audioSource, setAudioSource] = useState('none') // 'none' | 'cloud' | 'local'
   const [cloudAudioUrl, setCloudAudioUrl] = useState('')
+  const [part1Status, setPart1Status] = useState('idle') // 'idle'|'loading'|'cached'|'error'
   const [part2Status, setPart2Status] = useState('idle') // 'idle'|'loading'|'cached'|'error'
 
   // ── 開 App 自動載入雲端 MP3（Part 1 顯示進度；Part 2 靜默背景預載）──
   useEffect(() => {
     localStorage.removeItem('fsi:movie:cloudUrl')
     if (audioMode === 'original') {
+      // 啟動時立即查 IDB 狀態（Part 1 + Part 2）
+      getMp3FromIDB(JERRY_MP3[0].url).then(c => { if (c) setPart1Status('cached') }).catch(() => {})
+      getMp3FromIDB(JERRY_MP3[1].url).then(c => { if (c) setPart2Status('cached') }).catch(() => {})
       // Part 1：正常載入（顯示狀態列）
       loadAudioUrl(JERRY_MP3[0].url, '征服情海 Part 1')
       // Part 2：背景靜默預載進 IDB（不切換 audio element，不影響 Part 1 播放）
@@ -13707,6 +13711,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
     // 存進 IDB（以 idbKey 為索引，之後可離線讀取）
     if (idbKey) {
       saveMp3ToIDB(idbKey, file).then(() => {
+        if (idbKey === JERRY_MP3[0].url) setPart1Status('cached')
         if (idbKey === JERRY_MP3[1].url) setPart2Status('cached')
       }).catch(() => {})
       audioSrcKeyRef.current = idbKey
@@ -13798,6 +13803,8 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
         .then(r => { if (!r.ok) throw new Error(r.status); return r.blob() })
         .then(async blob => {
           await saveMp3ToIDB(url, blob)
+          if (url === JERRY_MP3[0].url) setPart1Status('cached')
+          if (url === JERRY_MP3[1].url) setPart2Status('cached')
           const blobUrl = URL.createObjectURL(blob)
           el.src = blobUrl
           audioSrcKeyRef.current = url  // 記錄原始 URL
@@ -17512,11 +17519,11 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           </div>
           <div onClick={() => pickAudioFile(JERRY_MP3[0].url)}
             style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:9,
-              color: audioReady ? T.grn : T.amber,
-              padding:'9px', background: audioReady ? T.grnD : T.amberD,
-              borderRadius:8, border:`1px solid ${audioReady ? T.grn : T.amber}50`,
+              color: part1Status==='cached' ? T.grn : T.amber,
+              padding:'9px', background: part1Status==='cached' ? T.grnD : T.amberD,
+              borderRadius:8, border:`1px solid ${part1Status==='cached' ? T.grn : T.amber}50`,
               textAlign:'center' }}>
-            {audioReady ? '📦 P1 ✅' : '📁 P1 選檔'}
+            {part1Status==='cached' ? '📦 P1 ✅' : '📁 P1 選檔'}
           </div>
           <div onClick={() => pickAudioFile(JERRY_MP3[1].url)}
             style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:9,
