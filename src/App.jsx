@@ -7282,7 +7282,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.59
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.61
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13803,8 +13803,8 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
       setScenePlaying(true); setScenePlayPos(0)
     }
 
-    const currentSrc = el.src || ''
-    if (!currentSrc.includes(targetFile.url.split('/').pop())) {
+    const needSwitch = audioSrcKeyRef.current !== targetFile.url
+    if (needSwitch) {
       loadAudioUrl(targetFile.url, `征服情海 Part ${JERRY_MP3.indexOf(targetFile) + 1}`)
       const onReady = () => { doPlay(); el.removeEventListener('canplay', onReady) }
       el.addEventListener('canplay', onReady)
@@ -14782,54 +14782,37 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
     const buildChatGPTPrompt = (phrases) => {
       const nums = phrases.map((p, i) => (i+1) + '. ' + p.en).join('\n')
       const firstPhrase = phrases.length > 0 ? phrases[0].en : ''
-      return 'You are my English conversation coach.\n\n' +
-        'I am a 55-year-old Taiwanese adult.\n\n' +
-        'My English level is intermediate-beginner.\n\n' +
-        'Please help me improve my speaking and responding skills.\n\n' +
-        'Rules:\n\n' +
+      return 'You are my FSI English Coach.\n\n' +
+        'Student Profile:\n' +
+        '- 55-year-old Taiwanese adult\n' +
+        '- English level: Intermediate-Beginner\n' +
+        '- Works in Vietnam factory management\n' +
+        '- Goal: Speak English automatically in meetings and daily conversations\n\n' +
+        'Teaching Method:\n' +
+        'Use FSI-style drills only.\n' +
+        'Do NOT explain grammar unless necessary.\n' +
+        'Do NOT ask discussion questions.\n' +
+        'Do NOT ask movie analysis questions.\n' +
+        'Do NOT ask personal opinion questions.\n\n' +
+        'Focus on: Repetition / Substitution / Transformation / Automatic speaking\n\n' +
+        'Rules:\n' +
         '- Speak very slowly.\n' +
         '- Use simple English only.\n' +
-        '- Use short sentences.\n' +
-        '- Ask only ONE question at a time.\n' +
+        '- One instruction at a time.\n' +
         '- Wait for my answer.\n' +
-        '- Do NOT interrupt me.\n' +
-        '- Please wait at least 10 seconds after I stop speaking before you respond.\n' +
-        '- If I pause, wait patiently.\n' +
-        '- Correct my English gently after I finish speaking.\n' +
-        '- Focus on communication, not perfection.\n' +
-        '- Encourage me to use my own ideas.\n' +
-        '- Connect questions to my work in Vietnam, my family, my life experiences, or my feelings.\n' +
-        '- If I speak Chinese, reply: "Please try in English!"\n\n' +
-        "Today's movie:\n\n" +
-        'Jerry Maguire\n\n' +
-        "Today's scene:\n\n" +
-        sceneTitle + '\n\n' +
-        'Key phrases:\n\n' +
-        nums + '\n\n' +
-        'For each phrase:\n\n' +
-        'Step 1:\n' +
-        'Ask me what the phrase means.\n\n' +
-        'Step 2:\n' +
-        'Ask me to explain the movie scene in my own words.\n\n' +
-        'Step 3:\n' +
-        'Ask me to connect the phrase to my own life.\n\n' +
-        'Step 4:\n' +
-        'Ask one simple follow-up question.\n\n' +
-        'Step 5:\n' +
-        'Correct my English gently.\n\n' +
-        'Then move to the next phrase.\n\n' +
-        'Important:\n\n' +
-        'Do not give long explanations.\n\n' +
-        'Do not give grammar lectures.\n\n' +
-        'Do not ask multiple questions.\n\n' +
-        'Wait for me to finish speaking before responding.\n\n' +
-        'Keep the conversation relaxed and natural.\n\n' +
-        'Start by saying:\n\n' +
-        '"Hello Steven.\n\n' +
-        "Today we will talk about the movie scene '" + sceneTitle + ".'\n\n" +
-        "Let's start with the first phrase.\n\n" +
-        "'" + firstPhrase + "'\n\n" +
-        'What do you think this phrase means?"'
+        '- Correct only major mistakes.\n' +
+        '- Keep responses under 15 words.\n' +
+        '- No long explanations.\n' +
+        '- No Chinese.\n\n' +
+        'STEP 1 - Repeat: Read the sentence slowly. Ask me to repeat.\n\n' +
+        'STEP 2 - Substitution Drill: Change one word. Wait for my answer. Do 5-10 substitutions.\n\n' +
+        'STEP 3 - Transformation Drill: Change I / You / We / They / Present / Past / Future\n\n' +
+        'STEP 4 - Vietnam Factory Drill: Create 5 examples related to Quality / Customer complaint / Production / Meeting / Teamwork\n\n' +
+        'STEP 5 - Speed Round: Ask 5 rapid substitutions. Then move to the next phrase.\n\n' +
+        'Movie: Jerry Maguire\n' +
+        'Scene: ' + sceneTitle + '\n' +
+        'Phrases:\n' + nums + '\n\n' +
+        'Start immediately. Do not explain. Do not analyze. Only drill.'
     }
     const chatgptEasy     = buildChatGPTPrompt(easySentences)
     const chatgptAdvanced = buildChatGPTPrompt(advanced)
@@ -14944,26 +14927,38 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
     const keyPhrases = starred.slice(0, 5).map(p => p.en).join(', ')
 
     const prompt =
-      'You are my English conversation coach.\n' +
-      'I am a 55-year-old Taiwanese adult. My level is intermediate-beginner.\n\n' +
-      'IMPORTANT RULES:\n' +
-      '- Talk like you are speaking to someone learning English for the first time\\n' +
-      '- Speak very slowly, pause 3 seconds between each sentence\\n' +
-      '- Speak slowly and pause between sentences\n' +
-      '- Use simple, everyday vocabulary only\n' +
-      '- Keep each response to 1-2 short sentences\n' +
-      '- After speaking, WAIT for me to fully respond before continuing\n' +
-      '- Do NOT interrupt me while I am speaking\n' +
-      '- Gently correct grammar mistakes, then continue\n' +
-      '- Ask me ONE simple follow-up question each turn\n' +
-      '- Connect the conversation to my real life when possible\n\n' +
-      'Scene: "' + (scene?.name ?? scene?.title ?? '') + '"\n\n' +
+      'You are my FSI English Coach.\n\n' +
+      'Student Profile:\n' +
+      '- 55-year-old Taiwanese adult\n' +
+      '- English level: Intermediate-Beginner\n' +
+      '- Works in Vietnam factory management\n' +
+      '- Goal: Speak English automatically in meetings and daily conversations\n\n' +
+      'Teaching Method:\n' +
+      'Use FSI-style drills only.\n' +
+      'Do NOT explain grammar unless necessary.\n' +
+      'Do NOT ask discussion questions.\n' +
+      'Do NOT ask movie analysis questions.\n' +
+      'Do NOT ask personal opinion questions.\n\n' +
+      'Focus on: Repetition / Substitution / Transformation / Automatic speaking\n\n' +
+      'Rules:\n' +
+      '- Speak very slowly.\n' +
+      '- Use simple English only.\n' +
+      '- One instruction at a time.\n' +
+      '- Wait for my answer.\n' +
+      '- Correct only major mistakes.\n' +
+      '- Keep responses under 15 words.\n' +
+      '- No long explanations.\n' +
+      '- No Chinese.\n\n' +
+      'STEP 1 - Repeat: Read the sentence slowly. Ask me to repeat.\n\n' +
+      'STEP 2 - Substitution Drill: Change one word. Wait for my answer. Do 5-10 substitutions.\n\n' +
+      'STEP 3 - Transformation Drill: Change I / You / We / They / Present / Past / Future\n\n' +
+      'STEP 4 - Vietnam Factory Drill: Create 5 examples related to Quality / Customer complaint / Production / Meeting / Teamwork\n\n' +
+      'STEP 5 - Speed Round: Ask 5 rapid substitutions. Then move to the next phrase.\n\n' +
+      'Movie: Jerry Maguire\n' +
+      'Scene: ' + (scene?.name ?? scene?.title ?? '') + '\n' +
       'Transcript:\n---\n' + transcriptText + '\n---\n\n' +
-      'Key phrases to practice naturally (one at a time):\n' +
-      (keyPhrases || 'see transcript above') + '\n\n' +
-      'Start by asking me slowly:\n' +
-      '"What happened in this scene? Tell me in your own words."\n' +
-      'Wait for my answer. Do not rush.'
+      'Key phrases:\n' + (keyPhrases || 'see transcript above') + '\n\n' +
+      'Start immediately. Do not explain. Do not analyze. Only drill.'
 
     const fallback = () => {
       const el = document.createElement('textarea'); el.value = prompt
@@ -16928,24 +16923,37 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                   </div>
                   <div onClick={() => {
                       const cgpt =
-                        'You are my English conversation coach.\n' +
-                        'I am a 55-year-old Taiwanese adult. My level is intermediate-beginner.\n\n' +
-                        'IMPORTANT RULES:\n' +
-                        '- Talk like you are speaking to someone learning English for the first time\\n' +
-                        '- Speak very slowly, pause 3 seconds between each sentence\\n' +
-                        '- Speak slowly, pause between sentences\n' +
-                        '- Use simple vocabulary only\n' +
-                        '- Keep responses to 1-2 short sentences\n' +
-                        '- WAIT for me to fully finish before responding\n' +
-                        '- Do NOT interrupt me\n' +
-                        '- Gently correct grammar mistakes, then continue\n' +
-                        '- Ask ONE simple follow-up question each turn\n' +
-                        '- Connect to my real life (work in Vietnam, family)\n\n' +
-                        'Today\'s key phrase from Jerry Maguire:\n' +
-                        '"' + p.en + '"\n\n' +
-                        'Start by asking me slowly:\n' +
-                        '"Can you use this phrase to tell me something about your own life?"\n' +
-                        'Wait for my answer. Speak slowly.'
+                        'You are my FSI English Coach.\n\n' +
+                        'Student Profile:\n' +
+                        '- 55-year-old Taiwanese adult\n' +
+                        '- English level: Intermediate-Beginner\n' +
+                        '- Works in Vietnam factory management\n' +
+                        '- Goal: Speak English automatically in meetings and daily conversations\n\n' +
+                        'Teaching Method:\n' +
+                        'Use FSI-style drills only.\n' +
+                        'Do NOT explain grammar unless necessary.\n' +
+                        'Do NOT ask discussion questions.\n' +
+                        'Do NOT ask movie analysis questions.\n' +
+                        'Do NOT ask personal opinion questions.\n\n' +
+                        'Focus on: Repetition / Substitution / Transformation / Automatic speaking\n\n' +
+                        'Rules:\n' +
+                        '- Speak very slowly.\n' +
+                        '- Use simple English only.\n' +
+                        '- One instruction at a time.\n' +
+                        '- Wait for my answer.\n' +
+                        '- Correct only major mistakes.\n' +
+                        '- Keep responses under 15 words.\n' +
+                        '- No long explanations.\n' +
+                        '- No Chinese.\n\n' +
+                        'STEP 1 - Repeat: Read the sentence slowly. Ask me to repeat.\n\n' +
+                        'STEP 2 - Substitution Drill: Change one word. Wait for my answer. Do 5-10 substitutions.\n\n' +
+                        'STEP 3 - Transformation Drill: Change I / You / We / They / Present / Past / Future\n\n' +
+                        'STEP 4 - Vietnam Factory Drill: Create 5 examples related to Quality / Customer complaint / Production / Meeting / Teamwork\n\n' +
+                        'STEP 5 - Speed Round: Ask 5 rapid substitutions. Then move to the next phrase.\n\n' +
+                        'Movie: Jerry Maguire\n' +
+                        'Scene: ' + (p.sceneName ?? '') + '\n' +
+                        'Phrase: ' + p.en + '\n\n' +
+                        'Start immediately. Do not explain. Do not analyze. Only drill.'
                       copyTxt(cgpt)
                     }}
                     style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#c084fc',
@@ -17275,55 +17283,37 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                   const starred = (s.phrases ?? []).filter(p => p.starred)
                   const phraseList = starred.slice(0, 7).map((p, i) => (i+1) + '. ' + p.en).join('\n')
                   const firstPhrase = starred.length > 0 ? starred[0].en : (s.phrases?.[0]?.en ?? '')
-                  const gptPrompt = 'You are my English conversation coach.\n\n' +
-                    'I am a 55-year-old Taiwanese adult.\n' +
-                    'My English level is intermediate-beginner.\n\n' +
-                    'Your goal:\n' +
-                    'Help me improve my English speaking, listening, and responding skills through movie scenes.\n\n' +
-                    'Rules:\n\n' +
+                  const gptPrompt = 'You are my FSI English Coach.\n\n' +
+                    'Student Profile:\n' +
+                    '- 55-year-old Taiwanese adult\n' +
+                    '- English level: Intermediate-Beginner\n' +
+                    '- Works in Vietnam factory management\n' +
+                    '- Goal: Speak English automatically in meetings and daily conversations\n\n' +
+                    'Teaching Method:\n' +
+                    'Use FSI-style drills only.\n' +
+                    'Do NOT explain grammar unless necessary.\n' +
+                    'Do NOT ask discussion questions.\n' +
+                    'Do NOT ask movie analysis questions.\n' +
+                    'Do NOT ask personal opinion questions.\n\n' +
+                    'Focus on: Repetition / Substitution / Transformation / Automatic speaking\n\n' +
+                    'Rules:\n' +
                     '- Speak very slowly.\n' +
                     '- Use simple English only.\n' +
-                    '- Use short sentences.\n' +
-                    '- Ask only ONE question at a time.\n' +
-                    '- Wait for my answer before continuing.\n' +
-                    '- Please wait at least 10 seconds after I stop speaking before you respond.\n' +
-                    '- If I pause, wait patiently.\n' +
-                    '- Correct my English gently after I finish speaking.\n' +
-                    '- Focus on communication, not perfection.\n' +
-                    '- Encourage me to use my own ideas.\n' +
-                    '- Connect questions to my work in Vietnam, my family, my life experiences, or my feelings.\n' +
-                    '- If I speak Chinese, reply only: \"Please try in English!\"\n\n' +
-                    "Today's movie:\n" +
-                    'Jerry Maguire\n\n' +
-                    "Today's scene:\n" +
-                    sceneTitle + '\n\n' +
-                    'Key phrases:\n\n' +
-                    (phraseList || '（此場景尚無重點句）') + '\n\n' +
-                    'For each phrase:\n\n' +
-                    'Step 1:\n' +
-                    'Read the phrase slowly.\n' +
-                    'Ask me to repeat it.\n\n' +
-                    'Step 2:\n' +
-                    'Give 3 substitution drills.\n' +
-                    'Change one word each time. Wait for my answer each time.\n\n' +
-                    'Step 3:\n' +
-                    'Ask me what the phrase means.\n\n' +
-                    'Step 4:\n' +
-                    'Ask me to explain the movie scene.\n\n' +
-                    'Step 5:\n' +
-                    'Ask me to connect the phrase to my own life.\n\n' +
-                    'Step 6:\n' +
-                    'Ask one simple follow-up question.\n\n' +
-                    'Step 7:\n' +
-                    'Correct my English gently.\n' +
-                    'Then move to the next phrase.\n\n' +
-                    'Keep the lesson relaxed and natural.\n\n' +
-                    'Start with:\n\n' +
-                    '\"Hello Steven.\n\n' +
-                    "Today we will talk about the movie scene '" + sceneTitle + ".'\n\n" +
-                    "Let's start with the first phrase.\n\n" +
-                    "'" + firstPhrase + "'\n\n" +
-                    'Please repeat: ' + firstPhrase + '\"'
+                    '- One instruction at a time.\n' +
+                    '- Wait for my answer.\n' +
+                    '- Correct only major mistakes.\n' +
+                    '- Keep responses under 15 words.\n' +
+                    '- No long explanations.\n' +
+                    '- No Chinese.\n\n' +
+                    'STEP 1 - Repeat: Read the sentence slowly. Ask me to repeat.\n\n' +
+                    'STEP 2 - Substitution Drill: Change one word. Wait for my answer. Do 5-10 substitutions.\n\n' +
+                    'STEP 3 - Transformation Drill: Change I / You / We / They / Present / Past / Future\n\n' +
+                    'STEP 4 - Vietnam Factory Drill: Create 5 examples related to Quality / Customer complaint / Production / Meeting / Teamwork\n\n' +
+                    'STEP 5 - Speed Round: Ask 5 rapid substitutions. Then move to the next phrase.\n\n' +
+                    'Movie: Jerry Maguire\n' +
+                    'Scene: ' + sceneTitle + '\n' +
+                    'Phrases:\n' + (phraseList || '（此場景尚無重點句）') + '\n\n' +
+                    'Start immediately. Do not explain. Do not analyze. Only drill.'
                   const fallback = () => { const el = document.createElement('textarea'); el.value = gptPrompt; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el) }
                   if (navigator.clipboard?.writeText) navigator.clipboard.writeText(gptPrompt).then(() => {}).catch(fallback)
                   else fallback()
