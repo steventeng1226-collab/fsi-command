@@ -7282,7 +7282,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.74
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.75
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -16889,46 +16889,14 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           padding:'46px 16px 12px', display:'flex', flexDirection:'column', gap:10 }}>
           {/* 標題列（返回鍵已改為浮動 FAB，見 backBtnRef）*/}
           <div style={{ display:'flex', alignItems:'center', justifyContent:'flex-end' }}>
-          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-            {/* 循環播放按鈕 */}
-            {starLoopMode ? (
-              <div onClick={stopStarLoop}
-                style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
-                  color:'#f87171', padding:'5px 10px', background:'#3a1a1a',
-                  borderRadius:8, border:'1px solid #f8717150', animation:'micPulse 1s infinite' }}>
-                ⏹ 停止
-              </div>
-            ) : (
-              <div style={{ display:'flex', gap:5 }}>
-                <div onClick={() => startStarLoop('all')}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
-                    color:T.amber, padding:'5px 8px', background:T.amberD,
-                    borderRadius:8, border:`1px solid ${T.amber}50` }}>
-                  🔁 全部
-                </div>
-                <div onClick={() => startStarLoop('familiar')}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
-                    color:T.grn, padding:'5px 8px', background:T.grnD,
-                    borderRadius:8, border:`1px solid ${T.grn}50` }}>
-                  🔁 熟悉
-                </div>
-                <div onClick={() => startStarLoop('unfamiliar')}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
-                    color:'#f87171', padding:'5px 8px', background:'#3a1a1a',
-                    borderRadius:8, border:'1px solid #f8717150' }}>
-                  🔁 加強
-                </div>
-              </div>
-            )}
-            <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>⭐ {allPhrases.length}</span>
-          </div>
+          <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>⭐ {allPhrases.length}</span>
         </div>
-          {/* 模式切換 */}
-          <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+          {/* 篩選 + 反向 + 播放列（合併）*/}
+          <div style={{ display:'flex', gap:6, flexWrap:'wrap', alignItems:'center' }}>
           {[
-            ['list',       '📋 全部'],
-            ['familiar',   `✓ 熟悉 (${familiarList.length})`],
-            ['unfamiliar', `✗ 加強 (${unfamiliarList.length})`],
+            ['list',       `📋 全部(${allPhrases.length})`],
+            ['familiar',   `✓ 熟悉(${familiarList.length})`],
+            ['unfamiliar', `✗ 加強(${unfamiliarList.length})`],
           ].map(([mode, label]) => (
             <div key={mode} onClick={() => { setStarMode(mode); setStarFlip({}) }}
               style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
@@ -16939,7 +16907,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               {label}
             </div>
           ))}
-          {/* 反向開關：可與任何模式組合 */}
+          {/* 反向開關 */}
           <div onClick={() => { setStarReverse(r => !r); setStarFlip({}) }}
             style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
               padding:'6px 10px', borderRadius:8,
@@ -16948,6 +16916,26 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               border:`1px solid ${starReverse ? T.blue+'60' : T.bdr}` }}>
             🔄 反向{starReverse ? ' ON' : ''}
           </div>
+          {/* ▶ 播放當前篩選 / ⏹ 停止 */}
+          {starLoopMode != null ? (
+            <div onClick={stopStarLoop}
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                color:'#f87171', padding:'6px 10px', background:'#3a1a1a',
+                borderRadius:8, border:'1px solid #f8717150', animation:'micPulse 1s infinite' }}>
+              ⏹ 停止
+            </div>
+          ) : (
+            <div onClick={() => {
+              const group = starMode === 'familiar' ? 'familiar'
+                          : starMode === 'unfamiliar' ? 'unfamiliar' : 'all'
+              startStarLoop(group)
+            }}
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                color:T.amber, padding:'6px 10px', background:T.amberD,
+                borderRadius:8, border:`1px solid ${T.amber}50` }}>
+              🔁 播放
+            </div>
+          )}
           {/* 語速選擇器 */}
           <div style={{ display:'flex', alignItems:'center', gap:6 }}>
             <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>🔊 語速：</span>
