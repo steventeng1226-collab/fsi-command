@@ -7282,7 +7282,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.66
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.68
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13249,14 +13249,32 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   const [audioSource, setAudioSource] = useState('none') // 'none' | 'cloud' | 'local'
   const [cloudAudioUrl, setCloudAudioUrl] = useState('')
 
-  // ── 開 App 自動載入雲端 MP3 ───────────────────────────────
+  // ── 開 App 自動載入雲端 MP3（Part 1 顯示進度；Part 2 靜默背景預載）──
   useEffect(() => {
-    // 清除舊的 cloudUrl localStorage（避免舊 Google Drive URL 干擾）
     localStorage.removeItem('fsi:movie:cloudUrl')
     if (audioMode === 'original') {
+      // Part 1：正常載入（顯示狀態列）
       loadAudioUrl(JERRY_MP3[0].url, '征服情海 Part 1')
+      // Part 2：背景靜默預載進 IDB（不切換 audio element，不影響 Part 1 播放）
+      const preloadPart2 = async () => {
+        const url2 = JERRY_MP3[1].url
+        // 先查 IDB，已有快取就跳過
+        try {
+          const cached = await getMp3FromIDB(url2)
+          if (cached) return // 已快取，不需重複下載
+        } catch(e) {}
+        // 沒有快取 → fetch 並存入 IDB
+        try {
+          const res = await fetch(url2)
+          if (!res.ok) return
+          const blob = await res.blob()
+          await saveMp3ToIDB(url2, blob)
+        } catch(e) {} // 離線或失敗靜默忽略
+      }
+      // 等 Part 1 稍微載完後再背景下載 Part 2（避免搶頻寬）
+      setTimeout(preloadPart2, 8000)
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps // 'original' | 'tts'
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const [scenePlaying, setScenePlaying] = useState(false)
   const [scenePlayPos,  setScenePlayPos]  = useState(0)
   const [sceneRate,     setSceneRate]     = useState(0.6) // 0~1 進度
@@ -17304,9 +17322,19 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
         const isDone = s.done === true
         const st  = isDone ? 'done' : spc===100 ? 'done' : spc>0 ? 'active' : 'new'
         const sceneName = s.name ?? s.title ?? ''
-        const isMatch = sceneSearch.trim() !== '' && sceneName.toLowerCase().includes(sceneSearch.trim().toLowerCase())
+        const sceneNoStr = String(sceneNo).padStart(2,'0') // '01','02'…
+        const q = sceneSearch.trim().toLowerCase()
+        const isMatch = q !== '' && (
+          sceneName.toLowerCase().includes(q) ||  // 標題符合
+          sceneNoStr.includes(q) ||               // 序號符合（如 '01','18'）
+          String(sceneNo) === q                   // 純數字直接符合（如 '1'）
+        )
         const isFirstMatch = isMatch && [...(movie?.scenes ?? [])].reverse()
-          .findIndex(sc => (sc.name ?? sc.title ?? '').toLowerCase().includes(sceneSearch.trim().toLowerCase())) === idx
+          .findIndex((sc, i2) => {
+            const n2 = (sc.name ?? sc.title ?? '').toLowerCase()
+            const no2 = String((movie?.scenes?.length ?? 0) - i2).padStart(2,'0')
+            return n2.includes(q) || no2.includes(q) || String((movie?.scenes?.length ?? 0) - i2) === q
+          }) === idx
         return (
           <div key={s.id}
             id={isFirstMatch ? 'scene-search-highlight' : undefined}
