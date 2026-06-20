@@ -55,8 +55,8 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx_xBUsiWvvoF8Q
 
 // ── 電影音訊雙檔案設定 ────────────────────────────────────────
 const JERRY_MP3 = [
-  { url: 'https://steventeng1226-collab.github.io/fsi-command/Jerry_1.mp3', start: 0,    end: 2400 }, // 0~40分
-  { url: 'https://steventeng1226-collab.github.io/fsi-command/Jerry_2.mp3', start: 2400, end: 99999 }, // 40分~結尾
+  { url: 'https://steventeng1226-collab.github.io/fsi-command/Jerry_1.mp3', start: 0,    end: 2440 }, // Jerry_1 涵蓋到電影2440秒(41:05前)
+  { url: 'https://steventeng1226-collab.github.io/fsi-command/Jerry_2.mp3', start: 2440, end: 99999 }, // Jerry_2 實際起點=電影2440秒(41:05對應MP3 00:25)
 ]
 function getJerryMp3(secs) {
   return JERRY_MP3.find(f => secs >= f.start && secs < f.end) ?? JERRY_MP3[0]
@@ -7282,7 +7282,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.62
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.63
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
