@@ -7282,7 +7282,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.61
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.62
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13632,11 +13632,13 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
       const el = audioElRef.current
       const targetFile = getJerryMp3(phrase.startSecs)
       const offsetSecs = phrase.startSecs - targetFile.start
-      // 如果需要切換檔案
-      if (el.src !== targetFile.url && !el.src.includes(targetFile.url.split('/').pop())) {
+      // 用 audioSrcKeyRef 判斷是否需要切換（blob URL 下 el.src 不含檔名，不能用）
+      const needSwitch = audioSrcKeyRef.current !== targetFile.url
+      if (needSwitch) {
         loadAudioUrl(targetFile.url, `征服情海 Part ${JERRY_MP3.indexOf(targetFile) + 1}`)
-        // 等待載入後播放
         const onReady = () => {
+          // 確認已切換到正確檔案才播（防止舊 canplay 殘留觸發）
+          if (audioSrcKeyRef.current !== targetFile.url) return
           el.playbackRate = rate
           el.currentTime = offsetSecs
           el.play().catch(() => {})
@@ -14027,10 +14029,14 @@ ${numbered}`
         audioStopRef.current = setTimeout(() => { el.pause(); advance() }, dur + 300)
       }
 
-      const currentSrc = el.src || ''
-      if (!currentSrc.includes(targetFile.url.split('/').pop())) {
+      const needSwitch = audioSrcKeyRef.current !== targetFile.url
+      if (needSwitch) {
         loadAudioUrl(targetFile.url, `征服情海 Part ${JERRY_MP3.indexOf(targetFile) + 1}`)
-        const onReady = () => { if (!cancelled) playOffset(); el.removeEventListener('canplay', onReady) }
+        const onReady = () => {
+          if (audioSrcKeyRef.current !== targetFile.url) return // 防殘留 canplay
+          if (!cancelled) playOffset()
+          el.removeEventListener('canplay', onReady)
+        }
         el.addEventListener('canplay', onReady)
       } else {
         playOffset()
