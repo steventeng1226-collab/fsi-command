@@ -7282,7 +7282,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.71
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.72
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -17512,9 +17512,11 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           </div>
           <div onClick={() => pickAudioFile(JERRY_MP3[0].url)}
             style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:9,
-              color:T.txt3, padding:'9px', background:T.surf2,
-              borderRadius:8, border:`1px solid ${T.bdr}`, textAlign:'center' }}>
-            📁 P1 選檔
+              color: audioReady ? T.grn : T.amber,
+              padding:'9px', background: audioReady ? T.grnD : T.amberD,
+              borderRadius:8, border:`1px solid ${audioReady ? T.grn : T.amber}50`,
+              textAlign:'center' }}>
+            {audioReady ? '📦 P1 ✅' : '📁 P1 選檔'}
           </div>
           <div onClick={() => pickAudioFile(JERRY_MP3[1].url)}
             style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:9,
