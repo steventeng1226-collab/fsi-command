@@ -7282,7 +7282,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.76
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.77
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13777,11 +13777,11 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
         const blobUrl = URL.createObjectURL(cachedBlob)
         el.src = blobUrl
         audioSrcKeyRef.current = url  // 記錄原始 URL
-        el.oncanplay = () => { setAudioReady(true); setAudioFileName('📦 ' + displayName) }
+        el.addEventListener('canplay', () => { setAudioReady(true); setAudioFileName('📦 ' + displayName) }, { once: true })
         el.onerror   = () => {
           // blobURL 失效，改用原始 URL
           el.src = url
-          el.oncanplay = () => { setAudioReady(true); setAudioFileName(displayName) }
+          el.addEventListener('canplay', () => { setAudioReady(true); setAudioFileName(displayName) }, { once: true })
           el.onerror = () => { setAudioReady(false); setAudioFileName('❌ ' + displayName) }
           el.load()
         }
@@ -13808,7 +13808,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
           const blobUrl = URL.createObjectURL(blob)
           el.src = blobUrl
           audioSrcKeyRef.current = url  // 記錄原始 URL
-          el.oncanplay = () => { setAudioReady(true); setAudioFileName('📦 ' + displayName) }
+          el.addEventListener('canplay', () => { setAudioReady(true); setAudioFileName('📦 ' + displayName) }, { once: true })
           el.onerror   = () => { setAudioReady(false); setAudioFileName('❌ ' + displayName) }
           el.load()
         })
@@ -13816,7 +13816,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
           // fetch 失敗，直接用 URL（舊行為）
           el.src = url
           audioSrcKeyRef.current = url  // 記錄原始 URL
-          el.oncanplay = () => { setAudioReady(true); setAudioFileName(displayName) }
+          el.addEventListener('canplay', () => { setAudioReady(true); setAudioFileName(displayName) }, { once: true })
           el.onerror   = () => { setAudioReady(false); setAudioFileName('❌ ' + displayName) }
           el.load()
         })
@@ -14075,13 +14075,16 @@ ${numbered}`
 
       const needSwitch = audioSrcKeyRef.current !== targetFile.url
       if (needSwitch) {
+        // 用 Promise 等待 canplay，不依賴 audioReady state 重新觸發 effect
+        const waitCanPlay = new Promise(resolve => {
+          const onReady = () => {
+            el.removeEventListener('canplay', onReady)
+            resolve()
+          }
+          el.addEventListener('canplay', onReady)
+        })
         loadAudioUrl(targetFile.url, `征服情海 Part ${JERRY_MP3.indexOf(targetFile) + 1}`)
-        const onReady = () => {
-          if (audioSrcKeyRef.current !== targetFile.url) return // 防殘留 canplay
-          if (!cancelled) playOffset()
-          el.removeEventListener('canplay', onReady)
-        }
-        el.addEventListener('canplay', onReady)
+        waitCanPlay.then(() => { if (!cancelled) playOffset() })
       } else {
         playOffset()
       }
@@ -14100,7 +14103,7 @@ ${numbered}`
       if (audioElRef.current) audioElRef.current.pause()
       window.speechSynthesis?.cancel()
     }
-  }, [view, playing, playIdx, audioReady])
+  }, [view, playing, playIdx])
 
   // ── word lookup ───────────────────────────────────────────────
   async function lookupWord(phraseId, word, sentence) {
