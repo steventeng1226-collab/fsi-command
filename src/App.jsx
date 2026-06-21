@@ -7282,7 +7282,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.77
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.78
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -16649,19 +16649,8 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
       if (!starLoopPausedRef.current) return
       starLoopPausedRef.current = false
       setStarLoopPaused(false)
-      // 如果電影音模式且 el 有內容，先嘗試 resume（不重播整句）
-      const el = audioElRef.current
-      if (el && el.src && el.paused && audioSrcKeyRef.current) {
-        el.play().then(() => {
-          // resume 成功：timeupdate 仍在監聽，會自然接下一句
-        }).catch(() => {
-          // resume 失敗，重播當前句
-          playStarPhrase(starLoopListRef.current, starLoopIdxRef.current)
-        })
-      } else {
-        // TTS 模式或電影音未載入：重播當前句
-        playStarPhrase(starLoopListRef.current, starLoopIdxRef.current)
-      }
+      // 直接重播當前句（確保 timeupdate / _sceneEnd 正確設定）
+      playStarPhrase(starLoopListRef.current, starLoopIdxRef.current)
     }
     // 每次 render 更新 FAB 的 fn refs（讓 FAB click handler 永遠拿到最新 function）
     pauseFnRef.current = pauseStarLoop
@@ -16898,10 +16887,6 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
         {/* ── 固定 Header 區（不 scroll）── */}
         <div style={{ flexShrink:0, background:T.bg, borderBottom:`1px solid ${T.bdr}`,
           padding:'46px 16px 12px', display:'flex', flexDirection:'column', gap:10 }}>
-          {/* 標題列（返回鍵已改為浮動 FAB，見 backBtnRef）*/}
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'flex-end' }}>
-          <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>⭐ {allPhrases.length}</span>
-        </div>
           {/* 篩選 + 反向 + 播放列（合併）*/}
           <div style={{ display:'flex', gap:6, flexWrap:'wrap', alignItems:'center' }}>
           {[
