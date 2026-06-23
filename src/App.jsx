@@ -7282,7 +7282,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.80
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.81
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -18218,7 +18218,21 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
             return m
           }) ?? []
         }
-        localStorage.setItem('fsi:movie:db', JSON.stringify(mergedMovieDB))
+        // 用分離邏輯存（避免逐字稿超過 5MB 再次消失）
+        const t0merged = mergedMovieDB.movies?.[0]?.transcript ?? ''
+        if (t0merged && t0merged !== '__REF__') {
+          try { localStorage.setItem('fsi:movie:transcript:0', t0merged) } catch(e) {}
+        }
+        const mergedLight = {
+          ...mergedMovieDB,
+          movies: (mergedMovieDB.movies ?? []).map((m, i) =>
+            i === 0 && m.transcript && m.transcript !== '__REF__'
+              ? { ...m, transcript: '__REF__' } : m
+          )
+        }
+        try {
+          localStorage.setItem('fsi:movie:db', JSON.stringify(mergedLight))
+        } catch(e) { console.warn('fromSheets quota exceeded:', e) }
         flash(`✓ 已從 Sheets 還原：含電影資料 ${json.movieDB.movies?.length ?? 0} 部`)
         window.dispatchEvent(new StorageEvent('storage', { key:'fsi:movie:db' }))
       }
