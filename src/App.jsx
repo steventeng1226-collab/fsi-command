@@ -7282,7 +7282,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.78
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.79
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13394,7 +13394,24 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   // ── ⭐ 重點句 view state ──────────────────────────────────
   const [starMode,        setStarMode]        = useState('list')   // 'list'|'reverse'|'familiar'|'unfamiliar'
   const [starFlip,        setStarFlip]        = useState({})       // { [phraseId]: true } 已翻牌
-  const [starFamiliar,    setStarFamiliar]    = useState({})       // { [phraseId]: true } 熟悉
+  const [starFamiliar,    setStarFamiliar]    = useState(() => {
+    // 從 movieDB 初始化熟悉狀態（讓 App 重開後保留）
+    try {
+      const raw = localStorage.getItem('fsi:movie:db')
+      if (!raw) return {}
+      const db0 = JSON.parse(raw)
+      const map = {}
+      ;(db0.movies ?? []).forEach(m =>
+        (m.scenes ?? []).forEach(s =>
+          (s.phrases ?? []).forEach(ph => {
+            if (ph.familiar === true) map[ph.id] = true
+            else if (ph.familiar === false) map[ph.id] = false
+          })
+        )
+      )
+      return map
+    } catch { return {} }
+  })  // { [phraseId]: true/false } 熟悉
   const [starCurrentIdx,  setStarCurrentIdx]  = useState(0)        // 練習模式當前索引
   const [starReverse,     setStarReverse]     = useState(false)     // 反向開關（獨立於模式）
   const starPlayCountRef  = useRef({})          // { [phraseId]: count } 循環播放計數（自動熟悉用）
@@ -17100,14 +17117,31 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
 
               {/* 熟悉度標記 */}
               <div style={{ display:'flex', gap:6, marginTop:2 }}>
-                <div onClick={() => setStarFamiliar(prev => ({ ...prev, [p.id]: true }))}
+                <div onClick={() => {
+                  setStarFamiliar(prev => ({ ...prev, [p.id]: true }))
+                  // 同步寫入 movieDB（讓 Sheets 同步保留）
+                  saveDb({ ...db, movies: db.movies.map(m => ({
+                    ...m, scenes: (m.scenes ?? []).map(s => ({
+                      ...s, phrases: (s.phrases ?? []).map(ph =>
+                        ph.id === p.id ? { ...ph, familiar: true } : ph)
+                    }))
+                  })) })
+                }}
                   style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
                     color: isFamiliar ? T.grn : T.txt3,
                     padding:'4px 10px', background: isFamiliar ? T.grnD : T.surf2,
                     borderRadius:6, border:`1px solid ${isFamiliar ? T.grn+'50' : T.bdr}` }}>
                   ✓ 熟悉
                 </div>
-                <div onClick={() => setStarFamiliar(prev => ({ ...prev, [p.id]: false }))}
+                <div onClick={() => {
+                  setStarFamiliar(prev => ({ ...prev, [p.id]: false }))
+                  saveDb({ ...db, movies: db.movies.map(m => ({
+                    ...m, scenes: (m.scenes ?? []).map(s => ({
+                      ...s, phrases: (s.phrases ?? []).map(ph =>
+                        ph.id === p.id ? { ...ph, familiar: false } : ph)
+                    }))
+                  })) })
+                }}
                   style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
                     color: !isFamiliar ? '#f87171' : T.txt3,
                     padding:'4px 10px', background: !isFamiliar ? '#3a1a1a' : T.surf2,
