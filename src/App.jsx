@@ -7282,7 +7282,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.82
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.83
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -17416,9 +17416,11 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           )
         })()}
       </div>
-      {/* Scene cards（最新在最上面）*/}
-      {[...(movie?.scenes ?? [])].reverse().map((s, idx) => {
-        const sceneNo = (movie?.scenes?.length ?? 0) - idx  // 反向後第1個=最新=最大序號
+      {/* Scene cards（按電影時間正序排列）*/}
+      {[...(movie?.scenes ?? [])].sort((a, b) => {
+        try { return parseSceneTimeRange(a.timeRange).start - parseSceneTimeRange(b.timeRange).start } catch { return 0 }
+      }).map((s, idx) => {
+        const sceneNo = idx + 1  // 時間正序，第1個=最早=序號01
         const sp  = s.phrases.filter(p=>p.played).length
         const spc = s.phrases.length ? Math.round((sp/s.phrases.length)*100) : 0
         const isDone = s.done === true
@@ -17431,11 +17433,12 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           sceneNoStr.includes(q) ||               // 序號符合（如 '01','18'）
           String(sceneNo) === q                   // 純數字直接符合（如 '1'）
         )
-        const isFirstMatch = isMatch && [...(movie?.scenes ?? [])].reverse()
-          .findIndex((sc, i2) => {
+        const isFirstMatch = isMatch && [...(movie?.scenes ?? [])].sort((a, b) => {
+          try { return parseSceneTimeRange(a.timeRange).start - parseSceneTimeRange(b.timeRange).start } catch { return 0 }
+        }).findIndex((sc, i2) => {
             const n2 = (sc.name ?? sc.title ?? '').toLowerCase()
-            const no2 = String((movie?.scenes?.length ?? 0) - i2).padStart(2,'0')
-            return n2.includes(q) || no2.includes(q) || String((movie?.scenes?.length ?? 0) - i2) === q
+            const no2 = String(i2 + 1).padStart(2,'0')
+            return n2.includes(q) || no2.includes(q) || String(i2 + 1) === q
           }) === idx
         return (
           <div key={s.id}
