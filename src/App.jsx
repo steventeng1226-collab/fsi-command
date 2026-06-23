@@ -7282,7 +7282,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.81
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.82
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13588,13 +13588,17 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
           return rest
         }) ?? []
       }
-      const transcriptDB = ndWithTs.movies
-        ?.filter(m => m.transcript)
-        .map(m => ({
+      // 還原真正的逐字稿（v3.81+ 存 __REF__ 佔位，需從獨立 key 讀回）
+      const transcript0 = localStorage.getItem('fsi:movie:transcript:0') ?? ''
+      const transcriptDB = (ndWithTs.movies ?? [])
+        .filter(m => m.transcript || (m.id === 'jerry_maguire' && transcript0))
+        .map((m, i) => ({
           movieId: m.id,
-          transcript: m.transcript,
+          transcript: (m.transcript === '__REF__' || (!m.transcript && i === 0))
+            ? transcript0 : m.transcript,
           updatedAt: m.transcriptUpdatedAt ?? Date.now()
-        })) ?? []
+        }))
+        .filter(t => t.transcript) ?? []
       const form = new FormData()
       form.append('data', JSON.stringify({ movieDB: dbToSync, transcriptDB }))
       await fetch(APPS_SCRIPT_URL, { method:'POST', mode:'no-cors', body:form })
@@ -14478,13 +14482,17 @@ ${numbered}`
           return rest
         })
       }
+      // 還原真正的逐字稿
+      const t0mt = localStorage.getItem('fsi:movie:transcript:0') ?? ''
       const transcriptDB = db.movies
-        .filter(m => m.transcript)
-        .map(m => ({
+        .filter(m => m.transcript || (m.id === 'jerry_maguire' && t0mt))
+        .map((m, i) => ({
           movieId: m.id,
-          transcript: m.transcript,
+          transcript: (m.transcript === '__REF__' || (!m.transcript && i === 0))
+            ? t0mt : m.transcript,
           updatedAt: m.transcriptUpdatedAt ?? Date.now()
         }))
+        .filter(t => t.transcript)
 
       // 推送用 no-cors（手機 Chrome 安全限制）
       const form = new FormData()
