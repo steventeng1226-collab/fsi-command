@@ -7282,7 +7282,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.79
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.80
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13199,7 +13199,17 @@ const DEFAULT_MOVIE_DB = {
 
 function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   const [db, setDb] = useState(() => {
-    try { const s = localStorage.getItem('fsi:movie:db'); return s ? JSON.parse(s) : DEFAULT_MOVIE_DB }
+    try {
+      const s = localStorage.getItem('fsi:movie:db')
+      if (!s) return DEFAULT_MOVIE_DB
+      const parsed = JSON.parse(s)
+      // 還原獨立存放的逐字稿
+      const transcript0 = localStorage.getItem('fsi:movie:transcript:0') ?? ''
+      if (transcript0 && parsed.movies?.[0]?.transcript === '__REF__') {
+        parsed.movies[0].transcript = transcript0
+      }
+      return parsed
+    }
     catch { return DEFAULT_MOVIE_DB }
   })
   const [view,       setView]       = useState('list')
@@ -13544,11 +13554,26 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   const autoPushTimer = useRef(null)
 
   function saveDb(nd) {
-    // 加入時間戳
     const ndWithTs = { ...nd, updatedAt: Date.now() }
     setDb(ndWithTs)
-    localStorage.setItem('fsi:movie:db', JSON.stringify(ndWithTs))
-    // debounce 自動推送：3秒內多次修改只推送一次
+    // 逐字稿獨立存：避免 movieDB 超過 localStorage 5MB 限制
+    const transcript = ndWithTs.movies?.[0]?.transcript ?? ''
+    if (transcript) {
+      try { localStorage.setItem('fsi:movie:transcript:0', transcript) } catch(e) {}
+    }
+    // movieDB 去掉逐字稿再存（縮小體積）
+    const ndLight = {
+      ...ndWithTs,
+      movies: (ndWithTs.movies ?? []).map((m, i) =>
+        i === 0 ? { ...m, transcript: '__REF__' } : m
+      )
+    }
+    try {
+      localStorage.setItem('fsi:movie:db', JSON.stringify(ndLight))
+    } catch(e) {
+      // QuotaExceededError：movieDB 仍然太大，告警但不崩潰
+      console.warn('saveDb quota exceeded:', e)
+    }
     if (autoPushTimer.current) clearTimeout(autoPushTimer.current)
     autoPushTimer.current = setTimeout(() => autoPush(ndWithTs), 3000)
   }
@@ -18049,7 +18074,16 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
     try {
       const extraPhrases = (() => { try { return JSON.parse(localStorage.getItem('fsi:ph:extra') ?? '[]') } catch { return [] } })()
       const allPhrases = [...PHRASE_DATA, ...extraPhrases]
-      const movieDB    = (() => { try { return JSON.parse(localStorage.getItem('fsi:movie:db') ?? 'null') } catch { return null } })()
+      const movieDB    = (() => {
+        try {
+          const s = localStorage.getItem('fsi:movie:db')
+          if (!s) return null
+          const parsed = JSON.parse(s)
+          const t0 = localStorage.getItem('fsi:movie:transcript:0') ?? ''
+          if (t0 && parsed.movies?.[0]?.transcript === '__REF__') parsed.movies[0].transcript = t0
+          return parsed
+        } catch { return null }
+      })()
       const form = new FormData()
       form.append('data', JSON.stringify({
         sentences: sentences ?? [],
