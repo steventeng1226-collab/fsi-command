@@ -7282,7 +7282,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.84
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.85
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14335,7 +14335,7 @@ ${exportPreview.text}
       const [tsStart, tsEnd] = tsLine.split('-->')
       const lineStart = timeToSecs(tsStart.trim())
       const lineEnd   = timeToSecs((tsEnd ?? '').trim())
-      if (lineStart < startSecs - 1 || lineStart > endSecs + 1) continue
+      if (lineStart < startSecs || lineStart >= endSecs) continue
       const textLines = blines
         .filter(l => !/^\s*\d+\s*$/.test(l) && !/\d{2}:\d{2}:\d{2}/.test(l))
         .join(' ').replace(/\s+/g, ' ').trim()
