@@ -7282,7 +7282,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.85
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.86
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13215,6 +13215,8 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   const [view,       setView]       = useState('list')
   const [movieId,    setMovieId]    = useState('jerry_maguire')
   const [sceneId,    setSceneId]    = useState(null)
+  const [selectedSceneIds, setSelectedSceneIds] = useState(new Set()) // 多場景選擇播放
+  const [multiScenePhrases, setMultiScenePhrases] = useState([]) // 多場景合併重點句
   const [playIdx,    setPlayIdx]    = useState(0)
   const [playing,    setPlaying]    = useState(false)
   const [looping,    setLooping]    = useState(false)
@@ -15145,7 +15147,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
     if (!btn) return
     if (view === 'starred') {
       btn.style.display = 'flex'
-      const handler = () => { setView('list'); setPlaying(false); window.speechSynthesis?.cancel() }
+      const handler = () => { setView('list'); setPlaying(false); window.speechSynthesis?.cancel(); setMultiScenePhrases([]) }
       btn.addEventListener('click', handler)
       return () => btn.removeEventListener('click', handler)
     } else {
@@ -16656,10 +16658,13 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
       const getStart = s => { try { return parseSceneTimeRange(s.timeRange).start ?? 0 } catch { return 0 } }
       return getStart(a) - getStart(b)
     })
-    const allPhrases = sortedScenes
-      .flatMap(s => (s.phrases ?? []).map((p, idx) => ({
-        ...p, sceneName: s.name ?? s.title ?? '', sceneTimeRange: s.timeRange ?? '', _sceneIdx: idx
-      })).filter(p => p.starred))
+    // multiScenePhrases 有值時（從場景列表多選進入），優先使用它
+    const allPhrases = multiScenePhrases.length > 0
+      ? multiScenePhrases
+      : sortedScenes
+          .flatMap(s => (s.phrases ?? []).map((p, idx) => ({
+            ...p, sceneName: s.name ?? s.title ?? '', sceneTimeRange: s.timeRange ?? '', _sceneIdx: idx
+          })).filter(p => p.starred))
 
     const familiarList   = allPhrases.filter(p => starFamiliar[p.id])
     const unfamiliarList = allPhrases.filter(p => !starFamiliar[p.id])
@@ -17449,6 +17454,21 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               boxShadow: isFirstMatch ? `0 0 0 2px ${T.amber}40` : 'none',
               borderRadius:13, padding:'15px 16px', cursor:'pointer', transition:'border-color 0.15s' }}>
             <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:5 }}>
+              {/* ☑ 多選 checkbox */}
+              <div onClick={e => {
+                  e.stopPropagation()
+                  setSelectedSceneIds(prev => {
+                    const next = new Set(prev)
+                    next.has(s.id) ? next.delete(s.id) : next.add(s.id)
+                    return next
+                  })
+                }}
+                title="選擇場景（多選後可批次播放重點句）"
+                style={{ cursor:'pointer', fontSize:14, lineHeight:1,
+                  color: selectedSceneIds.has(s.id) ? T.amber : T.txt3,
+                  transition:'color 0.15s', userSelect:'none', flexShrink:0 }}>
+                {selectedSceneIds.has(s.id) ? '☑' : '☐'}
+              </div>
               <div onClick={e => {
                   e.stopPropagation()
                   saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : {
@@ -17568,6 +17588,46 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           </div>
         )
       })}
+      {/* ── 多場景批次播放浮動按鈕 ── */}
+      {selectedSceneIds.size > 0 && (
+        <div style={{ position:'sticky', bottom:80, zIndex:20, display:'flex', gap:8,
+          alignItems:'center', justifyContent:'space-between',
+          background:'#1a1500', border:`2px solid ${T.amber}`,
+          borderRadius:14, padding:'10px 14px', boxShadow:`0 4px 20px ${T.amber}40` }}>
+          <div style={{ fontFamily:MONO, fontSize:10, color:T.amber }}>
+            ☑ {selectedSceneIds.size} 個場景・
+            {(() => {
+              const total = [...selectedSceneIds].reduce((acc, sid) => {
+                const sc = movie?.scenes?.find(s => s.id === sid)
+                return acc + (sc?.phrases?.filter(p => p.starred).length ?? 0)
+              }, 0)
+              return <span>{total} 個重點句</span>
+            })()}
+          </div>
+          <div style={{ display:'flex', gap:6 }}>
+            <div onClick={() => setSelectedSceneIds(new Set())}
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
+                padding:'5px 8px', background:T.surf2, borderRadius:8,
+                border:`1px solid ${T.bdr}` }}>✕ 清除</div>
+            <div onClick={() => {
+                // 收集已選場景的重點句，進入 starred view 播放
+                const selectedPhrases = [...selectedSceneIds].flatMap(sid => {
+                  const sc = movie?.scenes?.find(s => s.id === sid)
+                  return (sc?.phrases ?? []).filter(p => p.starred).map(p => ({
+                    ...p, sceneName: sc.name ?? sc.title ?? ''
+                  }))
+                })
+                if (selectedPhrases.length === 0) { showMovieToast('選中場景沒有重點句'); return }
+                setMultiScenePhrases(selectedPhrases)
+                setSelectedSceneIds(new Set())
+                setView('starred')
+              }}
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                color:'#000', padding:'6px 12px', background:T.amber,
+                borderRadius:8, border:'none' }}>▶ 播放重點句</div>
+          </div>
+        </div>
+      )}
             {/* ── 雲端 MP3 設定 ── */}
       <div style={{ display:'flex', flexDirection:'column', gap:8,
         background:T.surf, border:`1px solid ${audioReady ? T.grn+'50' : T.bdr}`, borderRadius:13, padding:'14px 16px' }}>
