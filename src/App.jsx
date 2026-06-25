@@ -7282,7 +7282,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.87
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.88
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -16660,14 +16660,17 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
     })
     // multiScenePhrases 有值時（從場景列表多選進入），優先使用它
     const allPhrases = multiScenePhrases.length > 0
-      ? multiScenePhrases
+      ? [...multiScenePhrases].sort((a, b) => (a.startSecs ?? 0) - (b.startSecs ?? 0)) // 時間正序
       : sortedScenes
           .flatMap(s => (s.phrases ?? []).map((p, idx) => ({
             ...p, sceneName: s.name ?? s.title ?? '', sceneTimeRange: s.timeRange ?? '', _sceneIdx: idx
           })).filter(p => p.starred))
 
-    const familiarList   = allPhrases.filter(p => starFamiliar[p.id])
-    const unfamiliarList = allPhrases.filter(p => !starFamiliar[p.id])
+    // multiScenePhrases 模式：familiar 判斷用 p.familiar 欄位（已存 movieDB）
+    const familiarList   = allPhrases.filter(p => multiScenePhrases.length > 0
+      ? p.familiar === true : starFamiliar[p.id])
+    const unfamiliarList = allPhrases.filter(p => multiScenePhrases.length > 0
+      ? p.familiar !== true : !starFamiliar[p.id])
     const practiceList   = starMode === 'familiar'   ? familiarList :
                            starMode === 'unfamiliar'  ? unfamiliarList : allPhrases
     const isReverse      = starReverse
@@ -17365,6 +17368,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                   if (selectedPhrases.length === 0) { showMovieToast('選中場景沒有重點句'); return }
                   setMultiScenePhrases(selectedPhrases)
                   setSelectedSceneIds(new Set())
+                  setStarMode('list')  // 多場景模式預設全部顯示
                   setView('starred')
                 }}
                 style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
