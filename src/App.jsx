@@ -7282,7 +7282,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.86
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.87
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -17320,7 +17320,6 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               const q = e.target.value
               setSceneSearch(q)
               if (q.trim()) {
-                // 找到第一個符合的場景 → scroll 到該卡片
                 setTimeout(() => {
                   const el = document.getElementById('scene-search-highlight')
                   if (el) el.scrollIntoView({ behavior:'smooth', block:'center' })
@@ -17336,6 +17335,44 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                 color:T.txt3, padding:'0 2px' }}>✕</span>
           )}
         </div>
+        {/* ── 多場景批次播放列（選了場景才顯示）── */}
+        {selectedSceneIds.size > 0 && (
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+            gap:8, background:'#1a1500', border:`2px solid ${T.amber}`,
+            borderRadius:12, padding:'9px 14px', marginTop:4 }}>
+            <div style={{ fontFamily:MONO, fontSize:10, color:T.amber, lineHeight:1.4 }}>
+              ☑ {selectedSceneIds.size} 個場景・
+              {(() => {
+                const total = [...selectedSceneIds].reduce((acc, sid) => {
+                  const sc = movie?.scenes?.find(s => s.id === sid)
+                  return acc + (sc?.phrases?.filter(p => p.starred).length ?? 0)
+                }, 0)
+                return <span>{total} 個重點句</span>
+              })()}
+            </div>
+            <div style={{ display:'flex', gap:6, flexShrink:0 }}>
+              <div onClick={() => setSelectedSceneIds(new Set())}
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
+                  padding:'5px 8px', background:T.surf2, borderRadius:8,
+                  border:`1px solid ${T.bdr}` }}>✕ 清除</div>
+              <div onClick={() => {
+                  const selectedPhrases = [...selectedSceneIds].flatMap(sid => {
+                    const sc = movie?.scenes?.find(s => s.id === sid)
+                    return (sc?.phrases ?? []).filter(p => p.starred).map(p => ({
+                      ...p, sceneName: sc.name ?? sc.title ?? ''
+                    }))
+                  })
+                  if (selectedPhrases.length === 0) { showMovieToast('選中場景沒有重點句'); return }
+                  setMultiScenePhrases(selectedPhrases)
+                  setSelectedSceneIds(new Set())
+                  setView('starred')
+                }}
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                  color:'#000', padding:'6px 12px', background:T.amber,
+                  borderRadius:8 }}>▶ 播放重點句</div>
+            </div>
+          </div>
+        )}
         {/* MP3 狀態 + 重新選擇同一行 */}
         <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10,
           background:T.surf2, borderRadius:9, padding:'8px 12px',
@@ -17588,46 +17625,6 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           </div>
         )
       })}
-      {/* ── 多場景批次播放浮動按鈕 ── */}
-      {selectedSceneIds.size > 0 && (
-        <div style={{ position:'sticky', bottom:80, zIndex:20, display:'flex', gap:8,
-          alignItems:'center', justifyContent:'space-between',
-          background:'#1a1500', border:`2px solid ${T.amber}`,
-          borderRadius:14, padding:'10px 14px', boxShadow:`0 4px 20px ${T.amber}40` }}>
-          <div style={{ fontFamily:MONO, fontSize:10, color:T.amber }}>
-            ☑ {selectedSceneIds.size} 個場景・
-            {(() => {
-              const total = [...selectedSceneIds].reduce((acc, sid) => {
-                const sc = movie?.scenes?.find(s => s.id === sid)
-                return acc + (sc?.phrases?.filter(p => p.starred).length ?? 0)
-              }, 0)
-              return <span>{total} 個重點句</span>
-            })()}
-          </div>
-          <div style={{ display:'flex', gap:6 }}>
-            <div onClick={() => setSelectedSceneIds(new Set())}
-              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
-                padding:'5px 8px', background:T.surf2, borderRadius:8,
-                border:`1px solid ${T.bdr}` }}>✕ 清除</div>
-            <div onClick={() => {
-                // 收集已選場景的重點句，進入 starred view 播放
-                const selectedPhrases = [...selectedSceneIds].flatMap(sid => {
-                  const sc = movie?.scenes?.find(s => s.id === sid)
-                  return (sc?.phrases ?? []).filter(p => p.starred).map(p => ({
-                    ...p, sceneName: sc.name ?? sc.title ?? ''
-                  }))
-                })
-                if (selectedPhrases.length === 0) { showMovieToast('選中場景沒有重點句'); return }
-                setMultiScenePhrases(selectedPhrases)
-                setSelectedSceneIds(new Set())
-                setView('starred')
-              }}
-              style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
-                color:'#000', padding:'6px 12px', background:T.amber,
-                borderRadius:8, border:'none' }}>▶ 播放重點句</div>
-          </div>
-        </div>
-      )}
             {/* ── 雲端 MP3 設定 ── */}
       <div style={{ display:'flex', flexDirection:'column', gap:8,
         background:T.surf, border:`1px solid ${audioReady ? T.grn+'50' : T.bdr}`, borderRadius:13, padding:'14px 16px' }}>
