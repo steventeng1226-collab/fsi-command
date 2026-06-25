@@ -7282,7 +7282,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.88
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.89
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13416,7 +13416,8 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
       ;(db0.movies ?? []).forEach(m =>
         (m.scenes ?? []).forEach(s =>
           (s.phrases ?? []).forEach(ph => {
-            if (ph.familiar === true) map[ph.id] = true
+            if (ph.familiar === 'reinforce') map[ph.id] = 'reinforce'
+            else if (ph.familiar === true) map[ph.id] = true
             else if (ph.familiar === false) map[ph.id] = false
           })
         )
@@ -16667,12 +16668,13 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           })).filter(p => p.starred))
 
     // multiScenePhrases 模式：familiar 判斷用 p.familiar 欄位（已存 movieDB）
-    const familiarList   = allPhrases.filter(p => multiScenePhrases.length > 0
-      ? p.familiar === true : starFamiliar[p.id])
-    const unfamiliarList = allPhrases.filter(p => multiScenePhrases.length > 0
-      ? p.familiar !== true : !starFamiliar[p.id])
-    const practiceList   = starMode === 'familiar'   ? familiarList :
-                           starMode === 'unfamiliar'  ? unfamiliarList : allPhrases
+    const getFam = p => multiScenePhrases.length > 0 ? p.familiar : starFamiliar[p.id]
+    const familiarList    = allPhrases.filter(p => getFam(p) === true)
+    const unfamiliarList  = allPhrases.filter(p => getFam(p) === false || getFam(p) === undefined)
+    const reinforceList   = allPhrases.filter(p => getFam(p) === 'reinforce')
+    const practiceList    = starMode === 'familiar'   ? familiarList :
+                            starMode === 'unfamiliar'  ? unfamiliarList :
+                            starMode === 'reinforce'   ? reinforceList : allPhrases
     const isReverse      = starReverse
 
     // 循環播放
@@ -16740,10 +16742,27 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
         const next = prev + 1
         starPlayCountRef.current[phraseId] = next
         if (next >= 3) {
-          // 自動升熟悉（靜默）
           setStarFamiliar(f => ({ ...f, [phraseId]: true }))
           starPlayCountRef.current[phraseId] = 0
         }
+      }
+      // 再加強：每次循環重複播放3次再前進
+      const isReinforcePhrase = getFam(p) === 'reinforce'
+      const reinforceKey = `reinforce_${p.id}`
+      const advanceOrRepeat = (afterPlay) => {
+        if (isReinforcePhrase) {
+          const cnt = (starPlayCountRef.current[reinforceKey] ?? 0) + 1
+          starPlayCountRef.current[reinforceKey] = cnt
+          if (cnt < 3) {
+            // 還沒播夠3次，重播
+            starLoopRef.current = setTimeout(() => playStarPhrase(list, realIdx), 400)
+            return
+          } else {
+            // 播完3次，重置計數，前進
+            starPlayCountRef.current[reinforceKey] = 0
+          }
+        }
+        afterPlay()
       }
 
       if (useTTS) {
@@ -16754,7 +16773,9 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
         const goNext = () => {
           if (!starLoopActiveRef.current || starLoopPausedRef.current) return
           markAutoFamiliar(p.id)
-          starLoopRef.current = setTimeout(() => playStarPhrase(list, realIdx + 1), 600)
+          advanceOrRepeat(() => {
+            starLoopRef.current = setTimeout(() => playStarPhrase(list, realIdx + 1), 600)
+          })
         }
 
         if (isReverse) {
@@ -16812,7 +16833,9 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
       const scheduleNext = () => {
         if (!starLoopActiveRef.current || starLoopPausedRef.current) return
         markAutoFamiliar(p.id)
-        starLoopRef.current = setTimeout(() => playStarPhrase(list, realIdx + 1), 300)
+        advanceOrRepeat(() => {
+          starLoopRef.current = setTimeout(() => playStarPhrase(list, realIdx + 1), 300)
+        })
       }
 
       const doPlay = () => {
@@ -16873,10 +16896,12 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
 
     const startStarLoop = (group) => {
       const list = group === 'familiar'   ? familiarList :
-                   group === 'unfamiliar' ? unfamiliarList : allPhrases
+                   group === 'unfamiliar' ? unfamiliarList :
+                   group === 'reinforce'  ? reinforceList : allPhrases
       if (list.length === 0) {
-        alert(group === 'familiar' ? '還沒有熟悉的句子' :
-              group === 'unfamiliar' ? '所有句子都已熟悉！' : '沒有重點句子')
+        alert(group === 'familiar'   ? '還沒有熟悉的句子' :
+              group === 'unfamiliar' ? '所有句子都已熟悉！' :
+              group === 'reinforce'  ? '還沒有標記再加強的句子' : '沒有重點句子')
         return
       }
       stopStarLoop()
@@ -16951,6 +16976,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
             ['list',       `📋 全部(${allPhrases.length})`],
             ['familiar',   `✓ 熟悉(${familiarList.length})`],
             ['unfamiliar', `✗ 加強(${unfamiliarList.length})`],
+            ['reinforce',  `🔥 再加強(${reinforceList.length})`],
           ].map(([mode, label]) => (
             <div key={mode} onClick={() => { setStarMode(mode); setStarFlip({}) }}
               style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
@@ -17049,14 +17075,16 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           </div>
         ) : practiceList.map((p, idx) => {
           const flipped    = !!starFlip[p.id]
-          const isFamiliar = !!starFamiliar[p.id]
+          const famVal     = getFam(p)  // true | false | 'reinforce' | undefined
+          const isFamiliar = famVal === true
+          const isReinforce= famVal === 'reinforce'
           const loopList   = starLoopMode==='familiar' ? familiarList : starLoopMode==='unfamiliar' ? unfamiliarList : allPhrases
           const isPlaying  = starLoopMode != null && starLoopIdx === loopList.findIndex(x => x.id === p.id)
           return (
             <div key={p.id ?? idx}
               ref={el => { if (el) starCardRefs.current[p.id] = el }}
               style={{ background:T.surf, borderRadius:12, padding:'12px 14px',
-              border:`2px solid ${isPlaying ? T.amber : isFamiliar ? T.grn+'50' : T.amber+'30'}`,
+              border:`2px solid ${isPlaying ? T.amber : isFamiliar ? T.grn+'50' : isReinforce ? '#f97316' : T.amber+'30'}`,
               display:'flex', flexDirection:'column', gap:6,
               boxShadow: isPlaying ? `0 0 12px ${T.amber}40` : 'none' }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
@@ -17157,10 +17185,10 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               )}
 
               {/* 熟悉度標記 */}
-              <div style={{ display:'flex', gap:6, marginTop:2 }}>
+              <div style={{ display:'flex', gap:6, marginTop:2, flexWrap:'wrap' }}>
+                {/* ✓ 熟悉 */}
                 <div onClick={() => {
                   setStarFamiliar(prev => ({ ...prev, [p.id]: true }))
-                  // 同步寫入 movieDB（讓 Sheets 同步保留）
                   saveDb({ ...db, movies: db.movies.map(m => ({
                     ...m, scenes: (m.scenes ?? []).map(s => ({
                       ...s, phrases: (s.phrases ?? []).map(ph =>
@@ -17174,6 +17202,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                     borderRadius:6, border:`1px solid ${isFamiliar ? T.grn+'50' : T.bdr}` }}>
                   ✓ 熟悉
                 </div>
+                {/* ✗ 加強 */}
                 <div onClick={() => {
                   setStarFamiliar(prev => ({ ...prev, [p.id]: false }))
                   saveDb({ ...db, movies: db.movies.map(m => ({
@@ -17184,10 +17213,26 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                   })) })
                 }}
                   style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
-                    color: !isFamiliar ? '#f87171' : T.txt3,
-                    padding:'4px 10px', background: !isFamiliar ? '#3a1a1a' : T.surf2,
-                    borderRadius:6, border:`1px solid ${!isFamiliar ? '#f8717150' : T.bdr}` }}>
+                    color: famVal === false ? '#f87171' : T.txt3,
+                    padding:'4px 10px', background: famVal === false ? '#3a1a1a' : T.surf2,
+                    borderRadius:6, border:`1px solid ${famVal === false ? '#f8717150' : T.bdr}` }}>
                   ✗ 加強
+                </div>
+                {/* 🔥 再加強 */}
+                <div onClick={() => {
+                  setStarFamiliar(prev => ({ ...prev, [p.id]: 'reinforce' }))
+                  saveDb({ ...db, movies: db.movies.map(m => ({
+                    ...m, scenes: (m.scenes ?? []).map(s => ({
+                      ...s, phrases: (s.phrases ?? []).map(ph =>
+                        ph.id === p.id ? { ...ph, familiar: 'reinforce' } : ph)
+                    }))
+                  })) })
+                }}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                    color: isReinforce ? '#f97316' : T.txt3,
+                    padding:'4px 10px', background: isReinforce ? '#2a1200' : T.surf2,
+                    borderRadius:6, border:`1px solid ${isReinforce ? '#f9731650' : T.bdr}` }}>
+                  🔥 再加強
                 </div>
               </div>
             </div>
