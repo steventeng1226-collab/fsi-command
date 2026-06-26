@@ -7284,7 +7284,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.01
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.02
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14241,40 +14241,59 @@ Return ONLY a JSON object, no markdown:
     const phrases = scene?.phrases ?? []
     if (!phrases.length) return { matched: 0, starred: 0, unmatched: [] }
 
-    // 解析 ChatGPT 文字：找出英文句子和對應說明
-    const lines = text.split('\n')
     let matched = 0, starredCount = 0
     const unmatched = []
-    const updates = {} // { phraseId: { note, starred } }
+    const updates = {}
 
-    // 重點句識別：⭐⭐⭐⭐⭐、Final、① ② 等編號行
-    const starPatterns = [
-      /⭐{4,}/, /★{4,}/, /Final/i, /必背/, /首選/,
-      /^[①②③④⑤⑥⑦⑧⑨⑩]/, /\d+\./
-    ]
+    // 清理函數：去除 markdown、編號、標點，只留純英文單字
+    const cleanEn = s => s
+      .replace(/\*\*/g, '').replace(/^#+\s*/, '').replace(/^[①-⑩\d]+[.、]\s*/, '')
+      .replace(/^[-*•▸▪]\s*/, '').replace(/[^a-zA-Z0-9\s']/g, ' ')
+      .replace(/\s+/g, ' ').trim().toLowerCase()
 
-    let currentEn = null
-    let currentNote = []
-    let currentStarred = false
+    // 建立 phrases 的 cleanEn 對照表
+    const phraseMap = phrases.map(p => ({ p, clean: cleanEn(p.en) }))
+
+    // 匹配函數：找最佳匹配的 phrase
+    const findMatch = (enStr) => {
+      const q = cleanEn(enStr)
+      if (q.length < 3) return null
+      let best = null, bestScore = 0
+      phraseMap.forEach(({ p, clean }) => {
+        if (!clean) return
+        // 計算字詞重疊比例
+        const qWords = new Set(q.split(' ').filter(w => w.length > 2))
+        const pWords = new Set(clean.split(' ').filter(w => w.length > 2))
+        if (qWords.size === 0 || pWords.size === 0) return
+        let overlap = 0
+        qWords.forEach(w => { if (pWords.has(w)) overlap++ })
+        const score = overlap / Math.max(qWords.size, pWords.size)
+        // 額外：完全包含加分
+        if (clean.includes(q) || q.includes(clean)) {
+          const bonus = Math.min(q.length, clean.length) / Math.max(q.length, clean.length)
+          if (bonus > bestScore) { bestScore = bonus; best = p }
+        } else if (score > bestScore && score >= 0.5) {
+          bestScore = score; best = p
+        }
+      })
+      return best
+    }
+
+    // 重點句識別：⭐⭐⭐⭐⭐、Final、① ② 等
+    const isStarLine = line => /⭐{4,}|★{4,}|Final\s*8|必背|首選/i.test(line)
+
+    // 從文字中抽取所有英文候選句（含 markdown、編號）
+    const lines = text.split('\n')
+    let currentEn = null, currentNote = [], currentStarred = false
+    let nextStarred = false // 下一行是否被標記重點
 
     const flush = () => {
       if (!currentEn) return
-      // 在 phrases 裡找最相似的句子
-      const enClean = currentEn.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim()
-      let bestMatch = null, bestScore = 0
-      phrases.forEach(p => {
-        const pClean = p.en.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim()
-        // 完全包含或被包含
-        if (pClean.includes(enClean) || enClean.includes(pClean)) {
-          const score = Math.min(enClean.length, pClean.length) / Math.max(enClean.length, pClean.length)
-          if (score > bestScore) { bestScore = score; bestMatch = p }
-        }
-      })
-      if (bestMatch && bestScore > 0.6) {
-        updates[bestMatch.id] = {
-          note: currentNote.filter(Boolean).join(' ').trim(),
-          starred: currentStarred
-        }
+      const match = findMatch(currentEn)
+      if (match) {
+        if (!updates[match.id]) updates[match.id] = { note: '', starred: false }
+        if (currentNote.length) updates[match.id].note = currentNote.join(' ').trim()
+        if (currentStarred) updates[match.id].starred = true
         matched++
         if (currentStarred) starredCount++
       } else {
@@ -14283,25 +14302,34 @@ Return ONLY a JSON object, no markdown:
       currentEn = null; currentNote = []; currentStarred = false
     }
 
-    lines.forEach(line => {
-      const trimmed = line.trim()
-      if (!trimmed) return
+    lines.forEach((line, idx) => {
+      const raw = line.trim()
+      if (!raw) return
 
-      // 找英文句子行（以英文字母開頭，長度 > 5）
-      const isEnLine = /^[①-⑩]?\s*[A-Z][a-zA-Z'\s,\.\?!]+$/.test(trimmed) && trimmed.length > 5
-      // 是否為重點標記行
-      const isStar = starPatterns.some(p => p.test(trimmed))
+      // 重點標記行
+      if (isStarLine(raw)) { nextStarred = true; return }
 
-      if (isEnLine) {
+      // 清理 markdown 後的文字
+      const stripped = raw
+        .replace(/\*\*/g, '').replace(/^#+\s*/, '')
+        .replace(/^[①-⑩\d]+[.、]\s*/, '').replace(/^[-*•]\s*/, '').trim()
+
+      // 判斷是否為英文句子：主要由英文組成，長度 5~80
+      const enRatio = (stripped.match(/[a-zA-Z]/g) || []).length / Math.max(stripped.length, 1)
+      const isEn = enRatio > 0.6 && stripped.length >= 4 && stripped.length <= 100
+        && /[a-zA-Z]/.test(stripped[0] || '')
+        && !/^(http|www|例如|母句|工作|電影|中文|意思|★|⭐)/i.test(stripped)
+
+      if (isEn) {
         flush()
-        // 去掉前面的編號符號
-        currentEn = trimmed.replace(/^[①-⑩]\s*/, '').replace(/^\d+\.\s*/, '').trim()
-        if (isStar) currentStarred = true
+        currentEn = stripped
+        currentStarred = nextStarred
+        nextStarred = false
       } else if (currentEn) {
-        if (isStar) currentStarred = true
-        // 收集備註內容（過濾純符號行）
-        if (trimmed.length > 2 && !/^[⭐★-]+$/.test(trimmed)) {
-          currentNote.push(trimmed)
+        // 收集備註：中文說明、💡 開頭
+        if (raw.length > 2 && !/^[⭐★#*-]+$/.test(raw) &&
+            (raw.includes('💡') || /[\u4e00-\u9fff]/.test(raw))) {
+          currentNote.push(raw.replace(/^💡\s*/, ''))
         }
       }
     })
