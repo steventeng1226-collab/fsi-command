@@ -7282,7 +7282,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.89
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.90
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -17185,7 +17185,8 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               )}
 
               {/* 熟悉度標記 */}
-              <div style={{ display:'flex', gap:6, marginTop:2, flexWrap:'wrap' }}>
+              <div style={{ display:'flex', gap:6, marginTop:2, flexWrap:'wrap',
+                position:'relative', zIndex:2, pointerEvents:'auto' }}>
                 {/* ✓ 熟悉 */}
                 <div onClick={() => {
                   setStarFamiliar(prev => ({ ...prev, [p.id]: true }))
