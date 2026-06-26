@@ -7282,7 +7282,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.91
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.92
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -17189,54 +17189,40 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                 position:'relative', zIndex:2, pointerEvents:'auto' }}
                 onMouseDown={e => e.stopPropagation()}
                 onTouchStart={e => e.stopPropagation()}>
-                {/* ✓ 熟悉 */}
-                <div onClick={e => { e.stopPropagation()
-                  setStarFamiliar(prev => ({ ...prev, [p.id]: true }))
-                  saveDb({ ...db, movies: db.movies.map(m => ({
-                    ...m, scenes: (m.scenes ?? []).map(s => ({
-                      ...s, phrases: (s.phrases ?? []).map(ph =>
-                        ph.id === p.id ? { ...ph, familiar: true } : ph)
-                    }))
-                  })) })
-                }}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
-                    color: isFamiliar ? T.grn : T.txt3,
-                    padding:'4px 10px', background: isFamiliar ? T.grnD : T.surf2,
-                    borderRadius:6, border:`1px solid ${isFamiliar ? T.grn+'50' : T.bdr}` }}>
-                  ✓ 熟悉
-                </div>
-                {/* ✗ 加強 */}
-                <div onClick={e => { e.stopPropagation()
-                  setStarFamiliar(prev => ({ ...prev, [p.id]: false }))
-                  saveDb({ ...db, movies: db.movies.map(m => ({
-                    ...m, scenes: (m.scenes ?? []).map(s => ({
-                      ...s, phrases: (s.phrases ?? []).map(ph =>
-                        ph.id === p.id ? { ...ph, familiar: false } : ph)
-                    }))
-                  })) })
-                }}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
-                    color: famVal === false ? '#f87171' : T.txt3,
-                    padding:'4px 10px', background: famVal === false ? '#3a1a1a' : T.surf2,
-                    borderRadius:6, border:`1px solid ${famVal === false ? '#f8717150' : T.bdr}` }}>
-                  ✗ 加強
-                </div>
-                {/* 🔥 再加強 */}
-                <div onClick={e => { e.stopPropagation()
-                  setStarFamiliar(prev => ({ ...prev, [p.id]: 'reinforce' }))
-                  saveDb({ ...db, movies: db.movies.map(m => ({
-                    ...m, scenes: (m.scenes ?? []).map(s => ({
-                      ...s, phrases: (s.phrases ?? []).map(ph =>
-                        ph.id === p.id ? { ...ph, familiar: 'reinforce' } : ph)
-                    }))
-                  })) })
-                }}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
-                    color: isReinforce ? '#f97316' : T.txt3,
-                    padding:'4px 10px', background: isReinforce ? '#2a1200' : T.surf2,
-                    borderRadius:6, border:`1px solid ${isReinforce ? '#f9731650' : T.bdr}` }}>
-                  🔥 再加強
-                </div>
+                {/* 熟悉度共用 setter（同時更新 starFamiliar + movieDB + multiScenePhrases）*/}
+                {[['true', '✓ 熟悉', T.grn, T.grnD, famVal === true],
+                  ['false', '✗ 加強', '#f87171', '#3a1a1a', famVal === false],
+                  ['reinforce', '🔥 再加強', '#f97316', '#2a1200', famVal === 'reinforce']
+                ].map(([val, label, activeColor, activeBg, isActive]) => (
+                  <div key={val}
+                    onClick={e => {
+                      e.stopPropagation()
+                      const fv = val === 'true' ? true : val === 'false' ? false : 'reinforce'
+                      // 更新 starFamiliar（全局 starred view 用）
+                      setStarFamiliar(prev => ({ ...prev, [p.id]: fv }))
+                      // 更新 movieDB（持久化）
+                      saveDb({ ...db, movies: db.movies.map(m => ({
+                        ...m, scenes: (m.scenes ?? []).map(s => ({
+                          ...s, phrases: (s.phrases ?? []).map(ph =>
+                            ph.id === p.id ? { ...ph, familiar: fv } : ph)
+                        }))
+                      })) })
+                      // 更新 multiScenePhrases（多場景模式 live 更新）
+                      if (multiScenePhrases.length > 0) {
+                        setMultiScenePhrases(prev => prev.map(ph =>
+                          ph.id === p.id ? { ...ph, familiar: fv } : ph
+                        ))
+                      }
+                    }}
+                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                      color: isActive ? activeColor : T.txt3,
+                      padding:'4px 10px',
+                      background: isActive ? activeBg : T.surf2,
+                      borderRadius:6,
+                      border:`1px solid ${isActive ? activeColor+'50' : T.bdr}` }}>
+                    {label}
+                  </div>
+                ))}
               </div>
             </div>
           )
