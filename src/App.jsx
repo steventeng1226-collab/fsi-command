@@ -7284,7 +7284,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.99
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.00
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13351,6 +13351,9 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   // ── Speak 課程 state ────────────────────────────────────────
   const [speakOpen,   setSpeakOpen]   = useState(false)
   const [speakBusy,   setSpeakBusy]   = useState(false)
+  const [batchImportOpen, setBatchImportOpen] = useState(false) // 批次匯入備註+重點
+  const [batchImportText, setBatchImportText] = useState('')
+  const [batchImportResult, setBatchImportResult] = useState(null)
   const [speakCopied, setSpeakCopied] = useState(null)  // 'easy'|'advanced'|null
 
   // ── 開 App 自動從 Sheets 讀入（背景靜默執行）──────────────
@@ -13411,6 +13414,9 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   const [manualExample, setManualExample] = useState('')
   const [srtText,       setSrtText]       = useState('')
   const [transcriptDraft, setTranscriptDraft] = useState('')
+  const [deleteRangeStart, setDeleteRangeStart] = useState('') // 刪除時間段：開始
+  const [deleteRangeEnd,   setDeleteRangeEnd]   = useState('') // 刪除時間段：結束
+  const [deleteRangeMsg,   setDeleteRangeMsg]   = useState('')
   const [transcriptEditMode, setTranscriptEditMode] = useState(false) // false=唯讀顯示已存, true=編輯新內容
   const [startTime,  setStartTime]  = useState('')
   const [endTime,    setEndTime]    = useState('')
@@ -14209,6 +14215,133 @@ Return ONLY a JSON object, no markdown:
   }
 
   // ── 儲存逐字稿到 movie 物件 ──────────────────────────────────
+  // 刪除逐字稿中某個時間段的所有 SRT 區塊
+  function deleteTranscriptRange(startStr, endStr) {
+    const transcript = movie?.transcript ?? ''
+    if (!transcript) return 0
+    const startSecs = timeToSecs(startStr.trim())
+    const endSecs   = timeToSecs(endStr.trim())
+    if (!startSecs && startStr.trim() !== '00:00:00') return 0
+    const blocks = normalizeSRT(transcript).split(/\n{2,}/)
+    const kept = blocks.filter(block => {
+      const blines = block.trim().split('\n')
+      const tsLine = blines.find(l => /\d{2}:\d{2}:\d{2}[,.]\d+\s*-->/.test(l))
+      if (!tsLine) return true // 非時間行保留
+      const blockStart = timeToSecs(tsLine.split('-->')[0].trim())
+      // 該區塊開始時間在刪除範圍內 → 刪除
+      return !(blockStart >= startSecs && blockStart < endSecs)
+    })
+    const removed = blocks.length - kept.length
+    saveTranscript(kept.join('\n\n'))
+    return removed
+  }
+
+  // 批次匯入 ChatGPT 分析：自動匹配備註 + 重點句
+  function batchImportFromChatGPT(text) {
+    const phrases = scene?.phrases ?? []
+    if (!phrases.length) return { matched: 0, starred: 0, unmatched: [] }
+
+    // 解析 ChatGPT 文字：找出英文句子和對應說明
+    const lines = text.split('\n')
+    let matched = 0, starredCount = 0
+    const unmatched = []
+    const updates = {} // { phraseId: { note, starred } }
+
+    // 重點句識別：⭐⭐⭐⭐⭐、Final、① ② 等編號行
+    const starPatterns = [
+      /⭐{4,}/, /★{4,}/, /Final/i, /必背/, /首選/,
+      /^[①②③④⑤⑥⑦⑧⑨⑩]/, /\d+\./
+    ]
+
+    let currentEn = null
+    let currentNote = []
+    let currentStarred = false
+
+    const flush = () => {
+      if (!currentEn) return
+      // 在 phrases 裡找最相似的句子
+      const enClean = currentEn.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim()
+      let bestMatch = null, bestScore = 0
+      phrases.forEach(p => {
+        const pClean = p.en.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim()
+        // 完全包含或被包含
+        if (pClean.includes(enClean) || enClean.includes(pClean)) {
+          const score = Math.min(enClean.length, pClean.length) / Math.max(enClean.length, pClean.length)
+          if (score > bestScore) { bestScore = score; bestMatch = p }
+        }
+      })
+      if (bestMatch && bestScore > 0.6) {
+        updates[bestMatch.id] = {
+          note: currentNote.filter(Boolean).join(' ').trim(),
+          starred: currentStarred
+        }
+        matched++
+        if (currentStarred) starredCount++
+      } else {
+        unmatched.push(currentEn)
+      }
+      currentEn = null; currentNote = []; currentStarred = false
+    }
+
+    lines.forEach(line => {
+      const trimmed = line.trim()
+      if (!trimmed) return
+
+      // 找英文句子行（以英文字母開頭，長度 > 5）
+      const isEnLine = /^[①-⑩]?\s*[A-Z][a-zA-Z'\s,\.\?!]+$/.test(trimmed) && trimmed.length > 5
+      // 是否為重點標記行
+      const isStar = starPatterns.some(p => p.test(trimmed))
+
+      if (isEnLine) {
+        flush()
+        // 去掉前面的編號符號
+        currentEn = trimmed.replace(/^[①-⑩]\s*/, '').replace(/^\d+\.\s*/, '').trim()
+        if (isStar) currentStarred = true
+      } else if (currentEn) {
+        if (isStar) currentStarred = true
+        // 收集備註內容（過濾純符號行）
+        if (trimmed.length > 2 && !/^[⭐★-]+$/.test(trimmed)) {
+          currentNote.push(trimmed)
+        }
+      }
+    })
+    flush()
+
+    // 批次寫入 movieDB
+    if (Object.keys(updates).length > 0) {
+      updateScenePhrases(ps => ps.map(p => {
+        const u = updates[p.id]
+        if (!u) return p
+        return {
+          ...p,
+          note: u.note || p.note,
+          starred: u.starred ? true : p.starred
+        }
+      }))
+    }
+    // 解析 ChatGPT 建議的場景標題
+    const titles = []
+    let inTitleSection = false
+    for (const line of lines) {
+      const t = line.trim()
+      // 標題區塊觸發詞
+      if (/場景標題|推薦標題|其他可選|可選|首選/i.test(t)) { inTitleSection = true; continue }
+      // 離開標題區塊（碰到長段落或分隔線）
+      if (inTitleSection && (t.startsWith('---') || t.length > 60 || t.startsWith('⭐⭐⭐⭐') )) {
+        if (!t.startsWith('⭐')) inTitleSection = false
+      }
+      if (inTitleSection && t.length > 3 && t.length < 50 &&
+          /[A-Za-z一-鿿]/.test(t) &&
+          !t.startsWith('⭐') && !t.startsWith('★') &&
+          !t.startsWith('（') && !t.startsWith('(') &&
+          !t.startsWith('這') && !t.startsWith('因') &&
+          titles.length < 5) {
+        titles.push(t.replace(/^[⭐★✨🎬📝💡▪▸•·-]\s*/, '').trim())
+      }
+    }
+    return { matched, starred: starredCount, unmatched, titles }
+  }
+
   function saveTranscript(text) {
     saveDb({ ...db, movies: db.movies.map(m =>
       m.id !== movieId ? m : { ...m, transcript: text.trim(), transcriptUpdatedAt: Date.now() }
@@ -14466,7 +14599,7 @@ ${numbered}`
         phrases: lines.map((en, i) => ({
           en,
           zh: translations[i] ?? '',
-          starred: recommended[i] ?? false,
+          starred: false, // 預設不勾星，由使用者或 ChatGPT 批次匯入決定
           rating: ratings[i] ?? 3,
           reason: reasons[i] ?? '',
           startSecs: lineObjects[i]?.startSecs ?? 0,
@@ -15513,6 +15646,58 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
         )}
       </div>
 
+      {/* ── 區塊一·五：刪除時間段 ── */}
+      {hasSaved && (
+        <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:13,
+          padding:'14px 16px', display:'flex', flexDirection:'column', gap:10 }}>
+          <span style={{ fontFamily:MONO, fontSize:10, color:'#f87171', fontWeight:700 }}>
+            🗑 刪除時間段
+          </span>
+          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+            <div style={{ flex:1 }}>
+              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:3 }}>開始</div>
+              <input
+                type="text" placeholder="00:45:00"
+                value={deleteRangeStart}
+                onChange={e => setDeleteRangeStart(e.target.value)}
+                style={{ width:'100%', background:T.surf2, border:`1px solid ${T.bdr}`,
+                  borderRadius:7, padding:'6px 8px', color:'#fff',
+                  fontFamily:'monospace', fontSize:12, outline:'none', boxSizing:'border-box' }}/>
+            </div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:3 }}>結束</div>
+              <input
+                type="text" placeholder="00:47:00"
+                value={deleteRangeEnd}
+                onChange={e => setDeleteRangeEnd(e.target.value)}
+                style={{ width:'100%', background:T.surf2, border:`1px solid ${T.bdr}`,
+                  borderRadius:7, padding:'6px 8px', color:'#fff',
+                  fontFamily:'monospace', fontSize:12, outline:'none', boxSizing:'border-box' }}/>
+            </div>
+          </div>
+          <div
+            onClick={() => {
+              if (!deleteRangeStart || !deleteRangeEnd) { setDeleteRangeMsg('請填入開始和結束時間'); return }
+              if (!window.confirm(`確定刪除 ${deleteRangeStart} ~ ${deleteRangeEnd} 的逐字稿？`)) return
+              const n = deleteTranscriptRange(deleteRangeStart, deleteRangeEnd)
+              setDeleteRangeMsg(n > 0 ? `✅ 已刪除 ${n} 個區塊` : '⚠️ 找不到該時間段的內容')
+              setDeleteRangeStart(''); setDeleteRangeEnd('')
+            }}
+            style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+              color:'#fff', padding:'9px', background:'#7f1d1d',
+              borderRadius:8, border:'1px solid #f8717150', textAlign:'center' }}>
+            🗑 刪除此時間段
+          </div>
+          {deleteRangeMsg && (
+            <div style={{ fontFamily:MONO, fontSize:10, color: deleteRangeMsg.startsWith('✅') ? T.grn : T.amber,
+              textAlign:'center' }}>{deleteRangeMsg}</div>
+          )}
+          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.5 }}>
+            💡 刪除後用下方「附加/取代」→「附加」貼上新的正確 SRT 段落
+          </div>
+        </div>
+      )}
+
       {/* ── 區塊二：時間範圍 + AI 解析 ── */}
       <div style={{ background:T.surf, border:`1px solid ${canParse ? T.amber+'40' : T.bdr}`,
         borderRadius:13, padding:'14px 16px', display:'flex', flexDirection:'column', gap:10,
@@ -16176,6 +16361,81 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
             )}
           </div>
         )}
+        {/* ── 批次匯入 ChatGPT 備註+重點 ── */}
+        <div onClick={() => { setBatchImportOpen(o => !o); setBatchImportText(''); setBatchImportResult(null) }}
+          style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+            color:'#a78bfa', padding:'10px', background:'#1e1040',
+            borderRadius:10, border:'1px solid #a78bfa50', textAlign:'center' }}>
+          {batchImportOpen ? '✕ 關閉批次匯入' : '📝 貼上 ChatGPT 分析 → 批次匯入備註+重點'}
+        </div>
+        {batchImportOpen && (
+          <div style={{ background:'#1a1030', border:'1px solid #a78bfa50',
+            borderRadius:10, padding:14, display:'flex', flexDirection:'column', gap:10 }}>
+            <div style={{ fontFamily:MONO, fontSize:9, color:'#a78bfa' }}>
+              貼上 ChatGPT 完整分析文字，自動匹配備註到句子，並標記推薦重點句（⭐⭐⭐⭐⭐）
+            </div>
+            <textarea
+              rows={8}
+              placeholder="貼上 ChatGPT 分析資料…"
+              value={batchImportText}
+              onChange={e => setBatchImportText(e.target.value)}
+              style={{ background:'#0d0820', border:'1px solid #a78bfa40',
+                borderRadius:8, padding:'8px 10px', color:'#fff',
+                fontFamily:'monospace', fontSize:11, outline:'none',
+                resize:'vertical', width:'100%', boxSizing:'border-box' }}/>
+            <div onClick={() => {
+                if (!batchImportText.trim()) return
+                const result = batchImportFromChatGPT(batchImportText)
+                setBatchImportResult(result)
+                if (result.matched > 0) setBatchImportText('')
+              }}
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                color:'#000', padding:'9px', background:'#a78bfa',
+                borderRadius:8, textAlign:'center' }}>
+              ✓ 執行批次匯入
+            </div>
+            {batchImportResult && (
+              <div style={{ fontFamily:MONO, fontSize:10, lineHeight:1.6,
+                display:'flex', flexDirection:'column', gap:8 }}>
+                <div style={{ color:'#4ade80' }}>✅ 匹配 {batchImportResult.matched} 句・自動加星 {batchImportResult.starred} 句</div>
+                {/* 場景標題建議 */}
+                {batchImportResult.titles?.length > 0 && (
+                  <div style={{ background:'#1a1030', border:'1px solid #a78bfa50',
+                    borderRadius:8, padding:'10px 12px',
+                    display:'flex', flexDirection:'column', gap:6 }}>
+                    <div style={{ color:'#a78bfa', fontSize:9 }}>🎬 ChatGPT 建議場景標題（點擊套用）：</div>
+                    {batchImportResult.titles.map((title, i) => (
+                      <div key={i}
+                        onClick={() => {
+                          // 套用標題到當前場景
+                          saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : ({
+                            ...m, scenes: m.scenes.map(sc => sc.id !== sceneId ? sc : { ...sc, name: title })
+                          })) })
+                          showMovieToast(`✅ 標題已套用：${title}`)
+                        }}
+                        style={{ cursor:'pointer', color: i===0 ? T.amber : T.txt2,
+                          background: i===0 ? T.amberD : T.surf2,
+                          border:`1px solid ${i===0 ? T.amber+'50' : T.bdr}`,
+                          borderRadius:7, padding:'6px 10px',
+                          fontSize:11, fontFamily:'monospace' }}>
+                        {i===0 ? '⭐ ' : `${i+1}. `}{title}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {batchImportResult.unmatched.length > 0 && (
+                  <div style={{ color:'#f59e0b' }}>
+                    ⚠️ 未匹配（場景內找不到）：
+                    {batchImportResult.unmatched.map((s,i) => (
+                      <div key={i} style={{ color:'#fbbf24', paddingLeft:8 }}>• {s}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ── Speak / ChatGPT 課程按鈕 ── */}
         <div onClick={() => {
             if (scene?.speakEasy) { setSpeakOpen(o => !o) }
@@ -17417,7 +17677,32 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
             {autoSyncStatus === 'syncing' ? '⟳ 同步中' :
              autoSyncStatus === 'ok' ? '✓ 已同步' : ''}
           </div>
-          <div onClick={() => { setTranscriptDraft(''); setTranscriptEditMode(false); setStartTime(''); setEndTime(''); setAddPreview(null); setAddErr(''); setView('manageTranscript') }}
+          <div onClick={() => {
+              setTranscriptDraft(''); setTranscriptEditMode(false)
+              setAddPreview(null); setAddErr('')
+              // 自動填入時間：上個場景結束時間 → 新場景開始，+2.5分鐘 → 結束
+              const scenes = movie?.scenes ?? []
+              if (scenes.length > 0) {
+                try {
+                  // 找時間最晚的場景結束時間
+                  const sorted = [...scenes].sort((a, b) => {
+                    try { return parseSceneTimeRange(b.timeRange).end - parseSceneTimeRange(a.timeRange).end } catch { return 0 }
+                  })
+                  const lastEnd = parseSceneTimeRange(sorted[0].timeRange).end
+                  const newStart = lastEnd
+                  const newEnd   = lastEnd + 150 // +2.5分鐘
+                  const fmt = s => {
+                    const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = Math.floor(s%60)
+                    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`
+                  }
+                  setStartTime(fmt(newStart))
+                  setEndTime(fmt(newEnd))
+                } catch { setStartTime(''); setEndTime('') }
+              } else {
+                setStartTime(''); setEndTime('')
+              }
+              setView('manageTranscript')
+            }}
             style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
               color:T.amber, background:T.amberD, border:`1px solid ${T.amber}50`,
               borderRadius:8, padding:'5px 10px', whiteSpace:'nowrap' }}>
