@@ -55,8 +55,10 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx_xBUsiWvvoF8Q
 
 // ── 電影音訊雙檔案設定 ────────────────────────────────────────
 const JERRY_MP3 = [
-  { url: 'https://steventeng1226-collab.github.io/fsi-command/Jerry_1.mp3', start: 0,    end: 2440 }, // Jerry_1 涵蓋到電影2440秒(41:05前)
-  { url: 'https://steventeng1226-collab.github.io/fsi-command/Jerry_2.mp3', start: 2440, end: 99999 }, // Jerry_2 實際起點=電影2440秒(41:05對應MP3 00:25)
+  { url: 'https://steventeng1226-collab.github.io/fsi-command/Jerry_01.mp3', start: 0,    end: 2100 }, // 00:00~35:00
+  { url: 'https://steventeng1226-collab.github.io/fsi-command/Jerry_02.mp3', start: 2100, end: 4200 }, // 35:00~1:10:00
+  { url: 'https://steventeng1226-collab.github.io/fsi-command/Jerry_03.mp3', start: 4200, end: 6300 }, // 1:10:00~1:45:00
+  { url: 'https://steventeng1226-collab.github.io/fsi-command/Jerry_04.mp3', start: 6300, end: 99999 }, // 1:45:00~結尾
 ]
 function getJerryMp3(secs) {
   return JERRY_MP3.find(f => secs >= f.start && secs < f.end) ?? JERRY_MP3[0]
@@ -7282,7 +7284,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.97
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.98
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13260,42 +13262,42 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   const [audioReady, setAudioReady] = useState(false)
   const [audioSource, setAudioSource] = useState('none') // 'none' | 'cloud' | 'local'
   const [cloudAudioUrl, setCloudAudioUrl] = useState('')
-  const [part1Status, setPart1Status] = useState('idle') // 'idle'|'loading'|'cached'|'error'
-  const [part2Status, setPart2Status] = useState('idle') // 'idle'|'loading'|'cached'|'error'
+  const [partStatus, setPartStatus] = useState(['idle','idle','idle','idle']) // 4個 MP3 各自狀態
+  const setPartN = (n, v) => setPartStatus(prev => prev.map((s,i) => i===n ? v : s))
 
   // ── 開 App 自動載入雲端 MP3（Part 1 顯示進度；Part 2 靜默背景預載）──
   useEffect(() => {
     localStorage.removeItem('fsi:movie:cloudUrl')
     if (audioMode === 'original') {
       // 啟動時立即查 IDB 狀態（Part 1 + Part 2）
-      getMp3FromIDB(JERRY_MP3[0].url).then(c => { if (c) setPart1Status('cached') }).catch(() => {})
-      getMp3FromIDB(JERRY_MP3[1].url).then(c => { if (c) setPart2Status('cached') }).catch(() => {})
+      JERRY_MP3.forEach((f, i) => {
+        getMp3FromIDB(f.url).then(c => { if (c) setPartN(i, 'cached') }).catch(() => {})
+      })
       // Part 1：正常載入（顯示狀態列）
       loadAudioUrl(JERRY_MP3[0].url, '征服情海 Part 1')
       // Part 2：背景靜默預載進 IDB（不切換 audio element，不影響 Part 1 播放）
       const preloadPart2 = async () => {
-        const url2 = JERRY_MP3[1].url
-        // 先查 IDB，已有快取直接標記
+        // 背景預載 Part2~4
+      }
+      const preloadPart = async (idx) => {
+        const url = JERRY_MP3[idx].url
         try {
-          const cached = await getMp3FromIDB(url2)
-          if (cached) { setPart2Status('cached'); return }
+          const cached = await getMp3FromIDB(url)
+          if (cached) { setPartN(idx, 'cached'); return }
         } catch(e) {}
-        if (!navigator.onLine) { setPart2Status('error'); return }
-        // 沒有快取且有網路 → 開始下載
+        if (!navigator.onLine) { setPartN(idx, 'error'); return }
         try {
-          setPart2Status('loading')
-          const res = await fetch(url2)
-          if (!res.ok) { setPart2Status('error'); return }
-          // 用 arrayBuffer 讀取（更穩定）
+          setPartN(idx, 'loading')
+          const res = await fetch(url)
+          if (!res.ok) { setPartN(idx, 'error'); return }
           const buf = await res.arrayBuffer()
           const blob = new Blob([buf], { type: 'audio/mpeg' })
-          await saveMp3ToIDB(url2, blob)
-          setPart2Status('cached')
-        } catch(e) { setPart2Status('error') }
+          await saveMp3ToIDB(url, blob)
+          setPartN(idx, 'cached')
+        } catch(e) { setPartN(idx, 'error') }
       }
-      // Part 1 載好後立即查 IDB；3秒後若無快取才開始下載
-      preloadPart2()  // 立即查 IDB 狀態（不下載，有快取就顯示 ✅）
-      setTimeout(preloadPart2, 3000) // 3秒後才正式下載（讓 Part 1 先佔頻寬）
+      ;[1,2,3].forEach(i => preloadPart(i))
+      setTimeout(() => { [1,2,3].forEach(i => preloadPart(i)) }, 3000)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const [scenePlaying, setScenePlaying] = useState(false)
@@ -13548,9 +13550,8 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
       }
     } else {
       // fallback: 傳統 input[type=file]
-      const inp = idbKey === JERRY_MP3[1].url
-        ? document.getElementById('fsi-audio-input-p2')
-        : document.getElementById('fsi-audio-input')
+      const idx = JERRY_MP3.findIndex(f => f.url === idbKey)
+      const inp = document.getElementById(`fsi-audio-input-p${idx >= 0 ? idx+1 : 1}`)
       inp?.click()
     }
   }
@@ -13770,8 +13771,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
     // 存進 IDB（以 idbKey 為索引，之後可離線讀取）
     if (idbKey) {
       saveMp3ToIDB(idbKey, file).then(() => {
-        if (idbKey === JERRY_MP3[0].url) setPart1Status('cached')
-        if (idbKey === JERRY_MP3[1].url) setPart2Status('cached')
+        JERRY_MP3.forEach((f,i) => { if (idbKey === f.url) setPartN(i, 'cached') })
       }).catch(() => {})
       audioSrcKeyRef.current = idbKey
     }
@@ -13862,8 +13862,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
         .then(r => { if (!r.ok) throw new Error(r.status); return r.blob() })
         .then(async blob => {
           await saveMp3ToIDB(url, blob)
-          if (url === JERRY_MP3[0].url) setPart1Status('cached')
-          if (url === JERRY_MP3[1].url) setPart2Status('cached')
+          JERRY_MP3.forEach((f,i) => { if (url === f.url) setPartN(i, 'cached') })
           const blobUrl = URL.createObjectURL(blob)
           el.src = blobUrl
           audioSrcKeyRef.current = url  // 記錄原始 URL
@@ -17494,24 +17493,26 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                   ? `⏳ 載入中… ${audioFileName}`
                   : '⏳ 自動載入雲端 MP3…'}
           </span>
-          {/* Part 2 狀態 */}
-          <span style={{ fontFamily:MONO, fontSize:9, flexShrink:0,
-            color: part2Status==='cached' ? T.grn : part2Status==='loading' ? T.amber : T.txt3 }}>
-            {part2Status==='cached' ? '📦 P2 ✅'
-             : part2Status==='loading' ? '⏳ P2…'
-             : part2Status==='error'   ? '⚠️ P2'
-             : '📦 P2 -'}
-          </span>
+          {/* P2~P4 狀態 */}
+          {[1,2,3].map(i => (
+            <span key={i} style={{ fontFamily:MONO, fontSize:9, flexShrink:0,
+              color: partStatus[i]==='cached' ? T.grn : partStatus[i]==='loading' ? T.amber : T.txt3 }}>
+              {partStatus[i]==='cached' ? `📦 P${i+1} ✅`
+               : partStatus[i]==='loading' ? `⏳ P${i+1}…`
+               : partStatus[i]==='error'   ? `⚠️ P${i+1}`
+               : `📦 P${i+1} -`}
+            </span>
+          ))}
           <div onClick={() => loadAudioUrl(JERRY_MP3[0].url, '征服情海 Part 1')}
             style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
               color:T.grn, padding:'4px 10px', background:T.grnD,
               borderRadius:7, border:`1px solid ${T.grn}50`, whiteSpace:'nowrap', flexShrink:0 }}>
             ↺ 重新載入
           </div>
-          <input id="fsi-audio-input" type="file" accept="audio/*" style={{ display:'none' }}
-            onChange={e => e.target.files[0] && loadAudioFile(e.target.files[0], JERRY_MP3[0].url)}/>
-          <input id="fsi-audio-input-p2" type="file" accept="audio/*" style={{ display:'none' }}
-            onChange={e => e.target.files[0] && loadAudioFile(e.target.files[0], JERRY_MP3[1].url)}/>
+          {JERRY_MP3.map((f, i) => (
+            <input key={i} id={`fsi-audio-input-p${i+1}`} type="file" accept="audio/*" style={{ display:'none' }}
+              onChange={e => e.target.files[0] && loadAudioFile(e.target.files[0], f.url)}/>
+          ))}
         </div>
         <div style={{ background:T.bdr, borderRadius:4, height:6, overflow:'hidden', marginBottom:6 }}>
           <div style={{ width:`${totalPct}%`, height:'100%',
@@ -17767,22 +17768,16 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               borderRadius:8, border:`1px solid ${T.grn}50`, textAlign:'center' }}>
             ↺ 重新載入雲端 MP3
           </div>
-          <div onClick={() => pickAudioFile(JERRY_MP3[0].url)}
-            style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:9,
-              color: part1Status==='cached' ? T.grn : T.amber,
-              padding:'9px', background: part1Status==='cached' ? T.grnD : T.amberD,
-              borderRadius:8, border:`1px solid ${part1Status==='cached' ? T.grn : T.amber}50`,
-              textAlign:'center' }}>
-            {part1Status==='cached' ? '📦 P1 ✅' : '📁 P1 選檔'}
-          </div>
-          <div onClick={() => pickAudioFile(JERRY_MP3[1].url)}
-            style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:9,
-              color: part2Status==='cached' ? T.grn : T.amber,
-              padding:'9px', background: part2Status==='cached' ? T.grnD : T.amberD,
-              borderRadius:8, border:`1px solid ${part2Status==='cached' ? T.grn : T.amber}50`,
-              textAlign:'center' }}>
-            {part2Status==='cached' ? '📦 P2 ✅' : '📁 P2 選檔'}
-          </div>
+          {JERRY_MP3.map((f, i) => (
+            <div key={i} onClick={() => pickAudioFile(f.url)}
+              style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:9,
+                color: partStatus[i]==='cached' ? T.grn : T.amber,
+                padding:'9px', background: partStatus[i]==='cached' ? T.grnD : T.amberD,
+                borderRadius:8, border:`1px solid ${partStatus[i]==='cached' ? T.grn : T.amber}50`,
+                textAlign:'center' }}>
+              {partStatus[i]==='cached' ? `📦 P${i+1} ✅` : `📁 P${i+1} 選檔`}
+            </div>
+          ))}
         </div>
       </div>
 
