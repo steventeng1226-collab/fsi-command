@@ -7282,7 +7282,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.92
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.93
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -15922,7 +15922,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                   </div>
                   {/* 播放按鈕 */}
                   <div style={{ display:'flex', gap:8, marginTop:12 }}>
-                    {[{rate:0.6,label:'🔊 0.6x'},{rate:1.0,label:'🔊 1.0x'}].map(({rate,label}) => (
+                    {[{rate:0.6,label:'🔊 0.6x'},{rate:0.8,label:'🔊 0.8x'},{rate:1.0,label:'🔊 1.0x'}].map(({rate,label}) => (
                       <div key={rate} onClick={() => speakPhrase(cur.id, cur.en, rate)}
                         style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.amber,
                           padding:'7px', background:T.surf, borderRadius:8,
