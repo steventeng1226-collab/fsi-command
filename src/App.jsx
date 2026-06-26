@@ -7282,7 +7282,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.94
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.95
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -17583,7 +17583,14 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
         return (
           <div key={s.id}
             id={isFirstMatch ? 'scene-search-highlight' : undefined}
-            onClick={() => { setSceneId(s.id); setView('scene') }}
+            onClick={() => {
+              setSceneId(s.id); setView('scene')
+              // 記錄最後練習日期
+              const today = new Date().toISOString().slice(0,10) // 'YYYY-MM-DD'
+              saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : ({
+                ...m, scenes: m.scenes.map(sc => sc.id !== s.id ? sc : { ...sc, lastVisited: today })
+              }))})
+            }}
             style={{ background: isMatch ? '#2a1f00' : T.surf,
               border:`1px solid ${isFirstMatch ? T.amber : isDone ? T.grn+'60' : st==='active' ? T.amber+'60' : T.bdr}`,
               boxShadow: isFirstMatch ? `0 0 0 2px ${T.amber}40` : 'none',
@@ -17604,16 +17611,19 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                   transition:'color 0.15s', userSelect:'none', flexShrink:0 }}>
                 {selectedSceneIds.has(s.id) ? '☑' : '☐'}
               </div>
-              <div onClick={e => {
-                  e.stopPropagation()
-                  saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : {
-                    ...m, scenes: m.scenes.map(sc => sc.id !== s.id ? sc : { ...sc, done: !sc.done })
-                  })})
-                }}
-                title={isDone ? '取消完成標記' : '標記為訓練完畢'}
-                style={{ cursor:'pointer', fontSize:16, lineHeight:1,
-                  opacity: isDone ? 1 : 0.3, transition:'opacity 0.15s', userSelect:'none' }}>
-                {isDone ? '✅' : st==='active' ? '🟡' : '⭕'}
+              {/* 最後練習日期 */}
+              <div style={{ fontFamily:MONO, fontSize:9, lineHeight:1.2, textAlign:'center',
+                flexShrink:0, minWidth:32 }}>
+                {s.lastVisited ? (
+                  <>
+                    <div style={{ color:T.grn, fontSize:8 }}>📅</div>
+                    <div style={{ color:T.grn }}>
+                      {s.lastVisited.slice(5).replace('-','/')}
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ color:T.txt3, fontSize:10 }}>－</div>
+                )}
               </div>
               <span style={{ fontFamily:'monospace', fontSize:10, color:T.amber,
                 background:'#2a1f00', border:`1px solid ${T.amber}40`,
