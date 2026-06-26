@@ -7284,7 +7284,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.00
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.01
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -17916,13 +17916,20 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                 onClick={e => {
                   e.stopPropagation()
                   const today = new Date().toISOString().slice(0,10)
-                  // 有日期 → 清除；無日期 → 標記今天
-                  const newVal = s.lastVisited ? null : today
-                  saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : ({
-                    ...m, scenes: m.scenes.map(sc => sc.id !== s.id ? sc : { ...sc, lastVisited: newVal })
-                  }))})
+                  if (s.lastVisited) {
+                    // 有日期 → 需確認才清除（防誤觸）
+                    if (!window.confirm(`確定清除「${s.name ?? '此場景'}」的練習記錄（${s.lastVisited.slice(5).replace('-','/')}）？`)) return
+                    saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : ({
+                      ...m, scenes: m.scenes.map(sc => sc.id !== s.id ? sc : { ...sc, lastVisited: null })
+                    }))})
+                  } else {
+                    // 無日期 → 直接標記今天
+                    saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : ({
+                      ...m, scenes: m.scenes.map(sc => sc.id !== s.id ? sc : { ...sc, lastVisited: today })
+                    }))})
+                  }
                 }}
-                title={s.lastVisited ? '點擊清除練習記錄' : '點擊標記今天練習'}
+                title={s.lastVisited ? '點擊清除練習記錄（需確認）' : '點擊標記今天練習'}
                 style={{ fontFamily:MONO, fontSize:9, lineHeight:1.2, textAlign:'center',
                   flexShrink:0, minWidth:32, cursor:'pointer',
                   opacity: s.lastVisited ? 1 : 0.5,
