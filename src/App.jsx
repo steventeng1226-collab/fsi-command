@@ -7284,7 +7284,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.98
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.99
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13269,12 +13269,27 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   useEffect(() => {
     localStorage.removeItem('fsi:movie:cloudUrl')
     if (audioMode === 'original') {
-      // 啟動時立即查 IDB 狀態（Part 1 + Part 2）
-      JERRY_MP3.forEach((f, i) => {
-        getMp3FromIDB(f.url).then(c => { if (c) setPartN(i, 'cached') }).catch(() => {})
-      })
-      // Part 1：正常載入（顯示狀態列）
-      loadAudioUrl(JERRY_MP3[0].url, '征服情海 Part 1')
+      // 啟動時：優先從 IDB 讀 Part1，有快取直接用，沒快取才嘗試雲端
+      const initPart1 = async () => {
+        JERRY_MP3.forEach((f, i) => {
+          getMp3FromIDB(f.url).then(c => { if (c) setPartN(i, 'cached') }).catch(() => {})
+        })
+        try {
+          const cached = await getMp3FromIDB(JERRY_MP3[0].url)
+          if (cached) {
+            // IDB 有快取，直接用（不嘗試網路）
+            loadAudioUrl(JERRY_MP3[0].url, '征服情海 Part 1')
+          } else if (navigator.onLine) {
+            // 有網路才嘗試雲端
+            loadAudioUrl(JERRY_MP3[0].url, '征服情海 Part 1')
+          } else {
+            // 離線且無快取：顯示提示
+            setAudioFileName('📁 請用 P1 選檔載入 MP3')
+            setPartN(0, 'idle')
+          }
+        } catch(e) {}
+      }
+      initPart1()
       // Part 2：背景靜默預載進 IDB（不切換 audio element，不影響 Part 1 播放）
       const preloadPart2 = async () => {
         // 背景預載 Part2~4
@@ -13871,12 +13886,10 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
           el.load()
         })
         .catch(() => {
-          // fetch 失敗，直接用 URL（舊行為）
-          el.src = url
-          audioSrcKeyRef.current = url  // 記錄原始 URL
-          el.addEventListener('canplay', () => { setAudioReady(true); setAudioFileName(displayName) }, { once: true })
-          el.onerror   = () => { setAudioReady(false); setAudioFileName('❌ ' + displayName) }
-          el.load()
+          // fetch 失敗（GitHub 無此檔案）→ 提示用選檔方式載入
+          const partIdx = JERRY_MP3.findIndex(f => f.url === url)
+          setAudioReady(false)
+          setAudioFileName(`📁 請點 P${partIdx+1} 選檔 載入 MP3`)
         })
     })
   }
