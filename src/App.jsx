@@ -7282,7 +7282,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.95
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.97
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13610,6 +13610,14 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
     } catch { /* 靜默失敗，下次再試 */ }
   }
 
+  // 記錄場景最後練習日期（實際按播放才觸發）
+  function markScenePracticed() {
+    const today = new Date().toISOString().slice(0,10)
+    saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : ({
+      ...m, scenes: m.scenes.map(sc => sc.id !== sceneId ? sc : { ...sc, lastVisited: today })
+    }))})
+  }
+
   function updateScenePhrases(fn) {
     saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : {
       ...m, scenes: m.scenes.map(s => s.id !== sceneId ? s : { ...s, phrases: fn(s.phrases) })
@@ -16065,7 +16073,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               color: starFilter ? T.amber : T.txt3 }}>
             ⭐ 重點 ({starredCount})
           </div>
-          <div onClick={() => { setRevIdx(0); setRevFlip(false); setView('reverse') }}
+          <div onClick={() => { markScenePracticed(); setRevIdx(0); setRevFlip(false); setView('reverse') }}
             style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, textAlign:'center',
               padding:'8px', borderRadius:10, transition:'all 0.13s',
               background: T.surf2, border:`1px solid ${T.bdr2}`, color:T.txt2 }}>
@@ -16093,7 +16101,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
             background:T.surf, border:`1px solid ${scenePlaying || playing ? T.amber+'50' : T.bdr}`,
             borderRadius:12, padding:'10px 12px', transition:'border-color 0.2s' }}>
             <div style={{ display:'flex', gap:6 }}>
-              <div onClick={scenePlaying ? stopSceneAudio : playSceneAudio}
+              <div onClick={() => { if (!scenePlaying) markScenePracticed(); scenePlaying ? stopSceneAudio() : playSceneAudio() }}
                 style={{ flex:2, cursor:'pointer', background: scenePlaying ? T.surf2 : T.amberD,
                   border:`1px solid ${T.amber}60`, borderRadius:9, padding:'9px',
                   textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700, color:T.amber }}>
@@ -16113,7 +16121,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                   {label}
                 </div>
               ))}
-              <div onClick={() => { setPlayIdx(0); setPlaying(false); setView('play') }}
+              <div onClick={() => { markScenePracticed(); setPlayIdx(0); setPlaying(false); setView('play') }}
                 style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
                   padding:'9px 4px', borderRadius:9, textAlign:'center',
                   background: T.amberD, border:`1px solid ${T.amber}50`, color:T.amber }}>
@@ -17583,14 +17591,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
         return (
           <div key={s.id}
             id={isFirstMatch ? 'scene-search-highlight' : undefined}
-            onClick={() => {
-              setSceneId(s.id); setView('scene')
-              // 記錄最後練習日期
-              const today = new Date().toISOString().slice(0,10) // 'YYYY-MM-DD'
-              saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : ({
-                ...m, scenes: m.scenes.map(sc => sc.id !== s.id ? sc : { ...sc, lastVisited: today })
-              }))})
-            }}
+            onClick={() => { setSceneId(s.id); setView('scene') }}
             style={{ background: isMatch ? '#2a1f00' : T.surf,
               border:`1px solid ${isFirstMatch ? T.amber : isDone ? T.grn+'60' : st==='active' ? T.amber+'60' : T.bdr}`,
               boxShadow: isFirstMatch ? `0 0 0 2px ${T.amber}40` : 'none',
@@ -17611,9 +17612,22 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                   transition:'color 0.15s', userSelect:'none', flexShrink:0 }}>
                 {selectedSceneIds.has(s.id) ? '☑' : '☐'}
               </div>
-              {/* 最後練習日期 */}
-              <div style={{ fontFamily:MONO, fontSize:9, lineHeight:1.2, textAlign:'center',
-                flexShrink:0, minWidth:32 }}>
+              {/* 最後練習日期（可點擊手動切換）*/}
+              <div
+                onClick={e => {
+                  e.stopPropagation()
+                  const today = new Date().toISOString().slice(0,10)
+                  // 有日期 → 清除；無日期 → 標記今天
+                  const newVal = s.lastVisited ? null : today
+                  saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : ({
+                    ...m, scenes: m.scenes.map(sc => sc.id !== s.id ? sc : { ...sc, lastVisited: newVal })
+                  }))})
+                }}
+                title={s.lastVisited ? '點擊清除練習記錄' : '點擊標記今天練習'}
+                style={{ fontFamily:MONO, fontSize:9, lineHeight:1.2, textAlign:'center',
+                  flexShrink:0, minWidth:32, cursor:'pointer',
+                  opacity: s.lastVisited ? 1 : 0.5,
+                  transition:'opacity 0.15s' }}>
                 {s.lastVisited ? (
                   <>
                     <div style={{ color:T.grn, fontSize:8 }}>📅</div>
@@ -17622,7 +17636,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                     </div>
                   </>
                 ) : (
-                  <div style={{ color:T.txt3, fontSize:10 }}>－</div>
+                  <div style={{ color:T.txt3, fontSize:10 }}>📅</div>
                 )}
               </div>
               <span style={{ fontFamily:'monospace', fontSize:10, color:T.amber,
