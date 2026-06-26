@@ -7282,7 +7282,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.93
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v3.94
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13406,6 +13406,8 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   // ── ⭐ 重點句 view state ──────────────────────────────────
   const [starMode,        setStarMode]        = useState('list')   // 'list'|'reverse'|'familiar'|'unfamiliar'
   const [starFlip,        setStarFlip]        = useState({})       // { [phraseId]: true } 已翻牌
+  const [starNoteId,      setStarNoteId]      = useState(null)  // starred view 備註編輯中的 phraseId
+  const [starNoteText,    setStarNoteText]    = useState('')
   const [starFamiliar,    setStarFamiliar]    = useState(() => {
     // 從 movieDB 初始化熟悉狀態（讓 App 重開後保留）
     try {
@@ -17095,10 +17097,17 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                       padding:'2px 7px', background:T.surf2, borderRadius:6, border:`1px solid ${T.bdr}` }}>
                     🔊
                   </div>
-                  <div onClick={() => copyTxt(p.en)}
-                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.blue,
-                      padding:'2px 7px', background:T.blueD, borderRadius:6, border:`1px solid ${T.blue}40` }}>
-                    📋
+                  <div onClick={() => {
+                      setStarNoteId(p.id)
+                      setStarNoteText(p.note ?? '')
+                    }}
+                    title="備註"
+                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:9,
+                      color: p.note ? T.amber : T.blue,
+                      padding:'2px 7px',
+                      background: p.note ? T.amberD : T.blueD,
+                      borderRadius:6, border:`1px solid ${p.note ? T.amber+'40' : T.blue+'40'}` }}>
+                    {p.note ? '📝' : '📋'}
                   </div>
                   <div onClick={() => {
                       const cgpt =
@@ -17184,6 +17193,57 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                 </div>
               )}
 
+              {/* 備註顯示 + 編輯框 */}
+              {starNoteId === p.id ? (
+                <div style={{ display:'flex', gap:6, alignItems:'center' }}
+                  onMouseDown={e => e.stopPropagation()}
+                  onTouchStart={e => e.stopPropagation()}>
+                  <input autoFocus
+                    value={starNoteText}
+                    onChange={e => setStarNoteText(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        // 存備註到 movieDB
+                        const newNote = starNoteText.trim()
+                        toggleStarGlobal.__saveNote?.(p.id, newNote)
+                        saveDb({ ...db, movies: db.movies.map(m => ({
+                          ...m, scenes: (m.scenes ?? []).map(s => ({
+                            ...s, phrases: (s.phrases ?? []).map(ph =>
+                              ph.id === p.id ? { ...ph, note: newNote } : ph)
+                          }))
+                        })) })
+                        if (multiScenePhrases.length > 0)
+                          setMultiScenePhrases(prev => prev.map(ph => ph.id === p.id ? { ...ph, note: newNote } : ph))
+                        setStarNoteId(null)
+                      }
+                      if (e.key === 'Escape') setStarNoteId(null)
+                    }}
+                    placeholder="輸入備註… Enter 確認"
+                    style={{ flex:1, background:T.surf2, border:`1px solid ${T.amber}`,
+                      borderRadius:7, padding:'5px 8px', color:'#fff',
+                      fontFamily:'monospace', fontSize:11, outline:'none' }}/>
+                  <div onClick={() => {
+                      const newNote = starNoteText.trim()
+                      saveDb({ ...db, movies: db.movies.map(m => ({
+                        ...m, scenes: (m.scenes ?? []).map(s => ({
+                          ...s, phrases: (s.phrases ?? []).map(ph =>
+                            ph.id === p.id ? { ...ph, note: newNote } : ph)
+                        }))
+                      })) })
+                      if (multiScenePhrases.length > 0)
+                        setMultiScenePhrases(prev => prev.map(ph => ph.id === p.id ? { ...ph, note: newNote } : ph))
+                      setStarNoteId(null)
+                    }}
+                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#000',
+                      padding:'5px 10px', background:T.amber, borderRadius:7 }}>存</div>
+                </div>
+              ) : p.note ? (
+                <div style={{ fontFamily:MONO, fontSize:10, color:T.amber,
+                  background:T.amberD, borderRadius:7, padding:'4px 8px',
+                  border:`1px solid ${T.amber}30` }}>
+                  📝 {p.note}
+                </div>
+              ) : null}
               {/* 熟悉度標記 */}
               <div style={{ display:'flex', gap:6, marginTop:2, flexWrap:'wrap',
                 position:'relative', zIndex:2, pointerEvents:'auto' }}
