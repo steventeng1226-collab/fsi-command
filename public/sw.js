@@ -84,3 +84,10 @@ self.addEventListener('fetch', e => {
     }
   })())
 })
+
+// 接收 App 傳來的 SKIP_WAITING 指令，立即接管
+self.addEventListener('message', e => {
+  if (e.data?.type === 'SKIP_WAITING') {
+    self.skipWaiting()
+  }
+})
