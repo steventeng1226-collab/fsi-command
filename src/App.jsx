@@ -7284,7 +7284,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.14
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.15
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14287,9 +14287,14 @@ Return ONLY a JSON object, no markdown:
       raw === ''                    // 空行（由外部過濾）
 
     // 英文句子判斷
-    const isEnSentence = raw => {
+    const isEnSentence = (raw, sec) => {
       const enRatio = (raw.match(/[a-zA-Z]/g) || []).length / Math.max(raw.length, 1)
-      return enRatio > 0.5 && raw.length >= 3 && /[A-Za-z]/.test(raw[0] ?? '')
+      // supplement 允許小寫開頭（片語如 roll with, stand for）
+      // recommend 要求大寫開頭（完整句子）
+      const startsOk = sec === 'supplement'
+        ? /[A-Za-z]/.test(raw[0] ?? '')
+        : /[A-Z]/.test(raw[0] ?? '')
+      return enRatio > 0.5 && raw.length >= 2 && startsOk
     }
 
     const lines = text.split('\n')
@@ -14304,9 +14309,8 @@ Return ONLY a JSON object, no markdown:
       if (match) {
         if (!updates[match.id]) updates[match.id] = { note: '', starred: false }
         if (currentNote) updates[match.id].note = currentNote
-        if (section === 'recommend') updates[match.id].starred = true
+        if (section === 'recommend') { updates[match.id].starred = true; starredCount++ }
         matched++
-        if (section === 'recommend') starredCount++
       } else {
         unmatched.push(currentEn)
       }
@@ -14337,6 +14341,8 @@ Return ONLY a JSON object, no markdown:
           }
         } else if (blockName === '推薦句') {
           section = 'recommend'
+        } else if (blockName === '補充') {
+          section = 'supplement' // 補充：匹配場景句子但不加星
         } else {
           section = null // 其他區塊忽略
         }
@@ -14354,7 +14360,7 @@ Return ONLY a JSON object, no markdown:
       }
 
       // 推薦句區塊
-      if (section === 'recommend') {
+      if (section === 'recommend' || section === 'supplement') {
         // 備註行：只讀這一行，之後設 noteRead = true
         if (/^備註[：:]/.test(raw)) {
           if (currentEn && !noteRead) {
@@ -14366,7 +14372,7 @@ Return ONLY a JSON object, no markdown:
 
         // noteRead = true 後：遇到新英文句子才繼續，其他行全部忽略
         if (noteRead) {
-          if (isEnSentence(raw)) {
+          if (isEnSentence(raw, section)) {
             flush()
             currentEn = raw
           }
@@ -14375,7 +14381,7 @@ Return ONLY a JSON object, no markdown:
         }
 
         // 英文句子行
-        if (isEnSentence(raw)) {
+        if (isEnSentence(raw, section)) {
           flush()
           currentEn = raw
         }
