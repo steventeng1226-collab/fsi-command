@@ -7284,7 +7284,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.04
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.07
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14244,11 +14244,12 @@ Return ONLY a JSON object, no markdown:
     let matched = 0, starredCount = 0
     const unmatched = []
     const updates = {}
+    const titles = []
 
-    // 清理英文句子：去除標點差異
+    // 清理英文：去除標點，只留字詞
     const cleanEn = s => s.replace(/[^a-zA-Z0-9\s']/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase()
 
-    // 匹配函數：字詞重疊
+    // 匹配函數
     const findMatch = (enStr) => {
       const q = cleanEn(enStr)
       if (q.length < 2) return null
@@ -14263,15 +14264,15 @@ Return ONLY a JSON object, no markdown:
           if (score > bestScore) { bestScore = score; best = p }
         }
         // 片語：所有字都在句子裡
-        else if (qWords.size <= 5) {
+        else if (qWords.size <= 5 && qWords.size >= 2) {
           const allIn = [...qWords].every(w => pWords.has(w))
-          if (allIn && qWords.size >= 2) {
+          if (allIn) {
             const score = qWords.size / Math.max(pWords.size, 1)
             if (score > bestScore) { bestScore = score; best = p }
           }
         }
         // 字詞重疊
-        else {
+        else if (qWords.size > 0 && pWords.size > 0) {
           let overlap = 0
           qWords.forEach(w => { if (pWords.has(w)) overlap++ })
           const score = overlap / Math.max(qWords.size, pWords.size)
@@ -14281,13 +14282,11 @@ Return ONLY a JSON object, no markdown:
       return best
     }
 
-    // 解析固定格式
     const lines = text.split('\n')
-    let section = null  // 'title' | 'phrase' | 'recommend'
+    let section = null  // 'title' | 'recommend'
     let currentEn = null
     let currentNote = []
-    let currentStarred = false
-    const titles = []
+    let inNote = false  // 進入備註模式後，後續行都是備註
 
     const flush = () => {
       if (!currentEn) return
@@ -14296,13 +14295,13 @@ Return ONLY a JSON object, no markdown:
         if (!updates[match.id]) updates[match.id] = { note: '', starred: false }
         const noteText = currentNote.join(' ').trim()
         if (noteText) updates[match.id].note = noteText
-        if (currentStarred) updates[match.id].starred = true
+        if (section === 'recommend') updates[match.id].starred = true
         matched++
-        if (currentStarred) starredCount++
+        if (section === 'recommend') starredCount++
       } else {
         unmatched.push(currentEn)
       }
-      currentEn = null; currentNote = []; currentStarred = false
+      currentEn = null; currentNote = []; inNote = false
     }
 
     lines.forEach(line => {
@@ -14311,32 +14310,50 @@ Return ONLY a JSON object, no markdown:
 
       // 區塊切換
       if (raw === '【場景標題】') { flush(); section = 'title'; return }
-      if (raw === '【片語】')   { flush(); section = 'phrase'; return }
-      if (raw === '【推薦句】') { flush(); section = 'recommend'; return }
-      // 其他區塊標記跳過
-      if (/^【.+】$/.test(raw)) { flush(); section = null; return }
+      if (raw === '【推薦句】')   { flush(); section = 'recommend'; return }
+      // 其他【區塊】跳過
+      if (/^【.+】$/.test(raw))  { flush(); section = null; return }
+      // 分隔線跳過
+      if (/^[-—=*#]{2,}$/.test(raw)) return
 
+      // 場景標題
       if (section === 'title') {
-        // 提取標題（去掉「首選：」「備選：」前綴）
         const t = raw.replace(/^(首選|備選)[：:]\s*/, '').trim()
-        if (t && t.length > 2) titles.push(t)
+        if (t.length > 2 && /[\u4e00-\u9fffa-zA-Z]/.test(t)) titles.push(t)
         return
       }
 
-      if (section === 'phrase' || section === 'recommend') {
-        // 備註行
+      // 推薦句
+      if (section === 'recommend') {
+        // 備註行開始
         if (/^備註[：:]/.test(raw)) {
           const note = raw.replace(/^備註[：:]\s*/, '').trim()
           if (note) currentNote.push(note)
+          inNote = true
           return
         }
-        // 英文句子行（主要由英文組成）
+        // 備註模式：收集後續行
+        if (inNote) {
+          // 新的英文句子（大寫開頭，不像例句）→ 離開備註模式
+          const looksLikeNewSentence = /^[A-Z]/.test(raw) &&
+            currentNote.length > 0 &&
+            !currentNote[currentNote.length - 1].match(/[：:]\s*$/) &&
+            raw.length > 5
+          if (looksLikeNewSentence) {
+            inNote = false
+            // 繼續往下當新句子處理
+          } else {
+            if (raw.length > 1) currentNote.push(raw)
+            return
+          }
+        }
+        // 英文句子行
         const enRatio = (raw.match(/[a-zA-Z]/g) || []).length / Math.max(raw.length, 1)
-        const isEn = enRatio > 0.5 && raw.length >= 2 && /[a-zA-Z]/.test(raw)
+        const isEn = enRatio > 0.5 && raw.length >= 3 && /[A-Za-z]/.test(raw[0] ?? '')
         if (isEn) {
           flush()
           currentEn = raw
-          currentStarred = (section === 'recommend')
+          inNote = false
         }
       }
     })
