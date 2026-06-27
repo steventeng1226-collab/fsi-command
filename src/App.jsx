@@ -7284,7 +7284,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.08
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.09
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -17732,27 +17732,28 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           <div onClick={() => {
               setTranscriptDraft(''); setTranscriptEditMode(false)
               setAddPreview(null); setAddErr('')
-              // 自動填入時間：上個場景結束時間 → 新場景開始，+2.5分鐘 → 結束
-              const scenes = movie?.scenes ?? []
-              if (scenes.length > 0) {
-                try {
-                  // 找時間最晚的場景結束時間
-                  const sorted = [...scenes].sort((a, b) => {
-                    try { return parseSceneTimeRange(b.timeRange).end - parseSceneTimeRange(a.timeRange).end } catch { return 0 }
-                  })
-                  const lastEnd = parseSceneTimeRange(sorted[0].timeRange).end
-                  const newStart = lastEnd
-                  const newEnd   = lastEnd + 150 // +2.5分鐘
+              setStartTime(''); setEndTime('')
+              // 自動填入時間：找時間最晚的場景結束時間 + 2.5分鐘
+              try {
+                const scenes = movie?.scenes ?? []
+                if (scenes.length > 0) {
                   const fmt = s => {
                     const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = Math.floor(s%60)
-                    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`
+                    return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0')
                   }
-                  setStartTime(fmt(newStart))
-                  setEndTime(fmt(newEnd))
-                } catch { setStartTime(''); setEndTime('') }
-              } else {
-                setStartTime(''); setEndTime('')
-              }
+                  let maxEnd = 0
+                  scenes.forEach(sc => {
+                    try {
+                      const e = parseSceneTimeRange(sc.timeRange).end
+                      if (e > maxEnd) maxEnd = e
+                    } catch {}
+                  })
+                  if (maxEnd > 0) {
+                    setStartTime(fmt(maxEnd))
+                    setEndTime(fmt(maxEnd + 150))
+                  }
+                }
+              } catch {}
               setView('manageTranscript')
             }}
             style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
