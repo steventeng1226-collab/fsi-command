@@ -1,38 +1,36 @@
-// FSI Command App Shell Service Worker v3
-// Install 時解析 index.html，把所有 assets 一次快取完
-const CACHE_NAME = 'fsi-shell-v3'
+// FSI Command App Shell Service Worker v4
+// 離線時 fallback 到快取的 index.html
+const CACHE_NAME = 'fsi-shell-v4'
 const BASE = '/fsi-command'
+const INDEX = BASE + '/index.html'
 
 self.addEventListener('install', e => {
   e.waitUntil((async () => {
     const cache = await caches.open(CACHE_NAME)
-    // 先快取 index.html
     try {
-      const res = await fetch(BASE + '/index.html')
+      // 快取 index.html
+      const res = await fetch(INDEX)
       if (!res.ok) throw new Error('index.html fetch failed')
-      await cache.put(BASE + '/index.html', res.clone())
+      await cache.put(INDEX, res.clone())
       await cache.put(BASE + '/', res.clone())
 
       // 解析 index.html，找出所有 assets
       const html = await res.text()
-      const assetUrls = []
       const re = /(?:src|href)=["']([^"']+)["']/g
       let m
+      const fetches = []
       while ((m = re.exec(html)) !== null) {
         const u = m[1]
         if (u.startsWith('/fsi-command/assets/')) {
-          assetUrls.push(u)
+          fetches.push(
+            fetch(u).then(r => { if (r.ok) cache.put(u, r) }).catch(() => {})
+          )
         }
       }
-
-      // 逐一快取 assets
-      await Promise.allSettled(
-        assetUrls.map(url =>
-          fetch(url).then(r => { if (r.ok) cache.put(url, r) }).catch(() => {})
-        )
-      )
+      await Promise.allSettled(fetches)
+      console.log('[SW v4] install complete, assets cached')
     } catch (err) {
-      console.warn('[SW v3] install fetch failed', err)
+      console.warn('[SW v4] install failed', err)
     }
     await self.skipWaiting()
   })())
@@ -60,21 +58,29 @@ self.addEventListener('fetch', e => {
   )
   if (!isShell) return
 
-  e.respondWith(
-    caches.open(CACHE_NAME).then(cache =>
-      cache.match(e.request).then(cached => {
-        if (cached) {
-          // 背景更新
-          fetch(e.request)
-            .then(r => { if (r.ok) cache.put(e.request, r) })
-            .catch(() => {})
-          return cached
-        }
-        return fetch(e.request).then(r => {
-          if (r.ok) cache.put(e.request, r.clone())
-          return r
-        })
-      })
-    )
-  )
+  e.respondWith((async () => {
+    const cache = await caches.open(CACHE_NAME)
+    const cached = await cache.match(e.request)
+
+    if (cached) {
+      // 背景更新
+      fetch(e.request)
+        .then(r => { if (r.ok) cache.put(e.request, r) })
+        .catch(() => {})
+      return cached
+    }
+
+    try {
+      const response = await fetch(e.request)
+      if (response.ok) cache.put(e.request, response.clone())
+      return response
+    } catch {
+      // 網路失敗：fallback 到快取的 index.html（不要顯示離線頁面）
+      const fallback = await cache.match(INDEX)
+      if (fallback) return fallback
+      // 最後手段：回傳一個簡單的離線提示（不會跳到 offline.html）
+      return new Response('<html><body style="background:#1a1a1a;color:#f90;font-family:monospace;display:flex;align-items:center;justify-content:center;height:100vh;margin:0"><div style="text-align:center"><div style="font-size:48px">📱</div><div style="font-size:18px;margin-top:16px">FSI COMMAND</div><div style="font-size:12px;margin-top:8px;color:#888">請先上網開啟一次 App 再離線使用</div></div></body></html>',
+        { headers: { 'Content-Type': 'text/html;charset=utf-8' } })
+    }
+  })())
 })
