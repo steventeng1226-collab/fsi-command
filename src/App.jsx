@@ -7284,7 +7284,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.13
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.14
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -17860,25 +17860,25 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                 style={{ flex:1, border:`1px solid ${starCount ? T.amber+'50' : T.bdr}`, borderRadius:12, padding:'13px',
                   display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer',
                   background: starCount ? T.amberD : T.surf }}>
-                <span style={{ fontFamily:MONO, fontSize:11, color: starCount ? T.amber : T.txt2 }}>⭐ 重點句</span>
+                <span style={{ fontFamily:MONO, fontSize:11, color: starCount ? T.amber : T.txt2 }}>✗ 加強</span>
                 <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>{starCount} →</span>
               </div>
               {(() => {
                 // 加強句：starred 且 familiar !== true
                 const allScenes2 = db.movies.flatMap(m => m.scenes ?? [])
                 const reinforceCount = allScenes2.flatMap(s => s.phrases ?? [])
-                  .filter(p => p.starred && p.familiar !== true).length
+                  .filter(p => p.starred && p.familiar === 'reinforce').length
                 return (
                   <div onClick={() => {
-                      setStarMode('unfamiliar')
+                      setStarMode('reinforce')
                       setMultiScenePhrases([])
                       setView('starred')
                     }}
-                    style={{ flex:1, border:`1px solid ${reinforceCount ? '#f87171' : T.bdr}`, borderRadius:12, padding:'13px',
+                    style={{ flex:1, border:`1px solid ${reinforceCount ? '#f97316' : T.bdr}`, borderRadius:12, padding:'13px',
                       display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer',
-                      background: reinforceCount ? '#3a1a1a' : T.surf }}>
-                    <span style={{ fontFamily:MONO, fontSize:11, color: reinforceCount ? '#f87171' : T.txt2 }}>✗ 加強句</span>
-                    <span style={{ fontFamily:MONO, fontSize:11, color:'#f87171' }}>{reinforceCount} →</span>
+                      background: reinforceCount ? '#2a1200' : T.surf }}>
+                    <span style={{ fontFamily:MONO, fontSize:11, color: reinforceCount ? '#f97316' : T.txt2 }}>🔥 再加強</span>
+                    <span style={{ fontFamily:MONO, fontSize:11, color:'#f97316' }}>{reinforceCount} →</span>
                   </div>
                 )
               })()}
