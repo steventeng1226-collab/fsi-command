@@ -7284,7 +7284,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.16
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.18
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14242,25 +14242,48 @@ Return ONLY a JSON object, no markdown:
   // 批次匯入 ChatGPT 分析：自動匹配備註 + 重點句
   function batchImportFromChatGPT(text) {
     const phrases = scene?.phrases ?? []
-    if (!phrases.length) return { matched: 0, starred: 0, unmatched: [], titles: [] }
+    if (!phrases.length) return { matched: 0, starred: 0, unmatched: [], titles: [], supplements: [] }
 
     let matched = 0, starredCount = 0
-    const unmatched = []
+    const unmatched = []   // 完全找不到的
+    const supplements = [] // 補充片語（找不到時獨立顯示）
     const updates = {}
     const titles = []
 
-    // 清理英文：去除標點，只留字詞
     const cleanEn = s => s.replace(/[^a-zA-Z0-9\s']/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase()
 
-    // 匹配函數
-    const findMatch = (enStr) => {
+    // 詞形變化：把片語轉成寬鬆正則
+    // hang out → hang.*out
+    // be raised by → raised by（去掉 be 動詞）
+    // running → run（去掉 -ing）
+    const toFlexRegex = (q) => {
+      // 去掉開頭的 be/is/am/are/was/were
+      const stripped = q.replace(/^(be|is|am|are|was|were|have|has|had)\s+/, '')
+      const words = stripped.split(' ').filter(w => w.length > 1)
+      if (words.length === 0) return null
+      // 每個字允許詞尾變化（-ing, -ed, -s, -er, -est）
+      const parts = words.map(w => {
+        const stem = w.replace(/(ing|ed|s|er|est)$/, '')
+        return stem.length >= 3 ? stem : w
+      })
+      return new RegExp(parts.join('.*'), 'i')
+    }
+
+    // 匹配函數：精確 + 詞形變化
+    const findMatch = (enStr, isPhrase = false) => {
       const q = cleanEn(enStr)
-      if (q.length < 2) return null
+      if (q.length < 2) return { match: null, flexMatch: null }
       const qWords = new Set(q.split(' ').filter(w => w.length > 1))
       let best = null, bestScore = 0
+      let flexBest = null, flexScore = 0
+
+      const flexRe = isPhrase ? toFlexRegex(q) : null
+
       phrases.forEach(p => {
         const c = cleanEn(p.en)
         const pWords = new Set(c.split(' ').filter(w => w.length > 1))
+
+        // 精確匹配
         if (c.includes(q) || q.includes(c)) {
           const score = Math.min(q.length, c.length) / Math.max(q.length, c.length)
           if (score > bestScore) { bestScore = score; best = p }
@@ -14276,21 +14299,22 @@ Return ONLY a JSON object, no markdown:
           const score = overlap / Math.max(qWords.size, pWords.size)
           if (score >= 0.4 && score > bestScore) { bestScore = score; best = p }
         }
+
+        // 詞形變化匹配（只對補充片語）
+        if (!best && flexRe && flexRe.test(c)) {
+          if (!flexBest) { flexBest = p; flexScore = 1 }
+        }
       })
-      return best
+      return { match: best, flexMatch: flexBest }
     }
 
-    // 終止符號判斷
+    // 終止符號
     const isTerminator = raw =>
-      /^【.+】/.test(raw) ||       // 任何區塊標題（包含同行內容）
-      /^[-—=*#]{2,}$/.test(raw) || // 分隔線
-      raw === ''                    // 空行（由外部過濾）
+      /^【.+】/.test(raw) || /^[-—=*#]{2,}$/.test(raw)
 
     // 英文句子判斷
     const isEnSentence = (raw, sec) => {
       const enRatio = (raw.match(/[a-zA-Z]/g) || []).length / Math.max(raw.length, 1)
-      // supplement 允許小寫開頭（片語如 roll with, stand for）
-      // recommend 要求大寫開頭（完整句子）
       const startsOk = sec === 'supplement'
         ? /[A-Za-z]/.test(raw[0] ?? '')
         : /[A-Z]/.test(raw[0] ?? '')
@@ -14300,91 +14324,81 @@ Return ONLY a JSON object, no markdown:
     const lines = text.split('\n')
     let section = null
     let currentEn = null
-    let currentNote = ''   // 只存一行備註
-    let noteRead = false   // 已讀取備註，不再讀後續行
+    let currentNote = ''
+    let noteRead = false
 
     const flush = () => {
       if (!currentEn) return
-      const match = findMatch(currentEn)
+      const isPhrase = (section === 'supplement')
+      const { match, flexMatch } = findMatch(currentEn, isPhrase)
+
       if (match) {
+        // 精確匹配：直接寫備註
         if (!updates[match.id]) updates[match.id] = { note: '', starred: false }
         if (currentNote) updates[match.id].note = currentNote
         if (section === 'recommend') { updates[match.id].starred = true; starredCount++ }
         matched++
+      } else if (flexMatch) {
+        // 詞形變化匹配：備註加上原形標記
+        if (!updates[flexMatch.id]) updates[flexMatch.id] = { note: '', starred: false }
+        const noteWithForm = currentNote
+          ? `📚 ${currentEn}（原形）${currentNote}`
+          : `📚 原形：${currentEn}`
+        updates[flexMatch.id].note = noteWithForm
+        matched++
       } else {
-        unmatched.push(currentEn)
+        // 完全找不到
+        if (section === 'supplement') {
+          supplements.push({ en: currentEn, note: currentNote })
+        } else {
+          unmatched.push(currentEn)
+        }
       }
       currentEn = null; currentNote = ''; noteRead = false
     }
 
     lines.forEach(line => {
       const raw = line.trim()
-
-      // 空行：重置備註讀取狀態，但不 flush
-      if (!raw) { noteRead = false; return }
-
-      // 分隔線：flush 並重置
+      if (!raw) return
       if (/^[-—=*#]{2,}$/.test(raw)) { flush(); return }
 
-      // 區塊標題（支援同行內容，如【場景標題】愛情、傷痛與重新開始）
       if (/^【.+】/.test(raw)) {
         flush()
         const blockMatch = raw.match(/^【(.+?)】(.*)/)
         const blockName = blockMatch?.[1] ?? ''
         const inlineContent = blockMatch?.[2]?.trim() ?? ''
-
         if (blockName === '場景標題') {
           section = 'title'
           if (inlineContent && /[\u4e00-\u9fffa-zA-Z]/.test(inlineContent)) {
-            titles.push(inlineContent)
-            section = null // 標題已讀，離開 title 區塊
+            titles.push(inlineContent); section = null
           }
-        } else if (blockName === '推薦句') {
-          section = 'recommend'
-        } else if (blockName === '補充') {
-          section = 'supplement' // 補充：匹配場景句子但不加星
-        } else {
-          section = null // 其他區塊忽略
-        }
+        } else if (blockName === '推薦句') { section = 'recommend' }
+        else if (blockName === '補充')   { section = 'supplement' }
+        else { section = null }
         return
       }
 
-      // 場景標題區塊：讀下一行為標題
       if (section === 'title') {
         const t = raw.replace(/^(首選|備選)[：:]\s*/, '').trim()
-        if (t.length > 2 && /[\u4e00-\u9fffa-zA-Z]/.test(t)) {
-          titles.push(t)
-          section = null // 只讀一個標題
+        if (t.length > 2 && /[\u4e00-\u9fffa-zA-Z]/.test(t) && !/^[-—]+$/.test(t)) {
+          titles.push(t); section = null
         }
         return
       }
 
-      // 推薦句區塊
       if (section === 'recommend' || section === 'supplement') {
-        // 備註行：只讀這一行，之後設 noteRead = true
         if (/^備註[：:]/.test(raw)) {
           if (currentEn && !noteRead) {
             currentNote = raw.replace(/^備註[：:]\s*/, '').trim()
-            noteRead = true  // 備註已讀，後續行不再收集
+            noteRead = true
           }
           return
         }
-
-        // noteRead = true 後：遇到新英文句子才繼續，其他行全部忽略
         if (noteRead) {
-          if (isEnSentence(raw, section)) {
-            flush()
-            currentEn = raw
-          }
-          // 其他行（ChatGPT 多餘內容）直接忽略
+          if (isEnSentence(raw, section)) { flush(); currentEn = raw }
           return
         }
-
-        // 英文句子行
-        if (isEnSentence(raw, section)) {
-          flush()
-          currentEn = raw
-        }
+        if (isEnSentence(raw, section)) { flush(); currentEn = raw }
       }
     })
     flush()
@@ -14394,14 +14408,10 @@ Return ONLY a JSON object, no markdown:
       updateScenePhrases(ps => ps.map(p => {
         const u = updates[p.id]
         if (!u) return p
-        return {
-          ...p,
-          note: u.note || p.note,
-          starred: u.starred ? true : p.starred
-        }
+        return { ...p, note: u.note || p.note, starred: u.starred ? true : p.starred }
       }))
     }
-    return { matched, starred: starredCount, unmatched, titles }
+    return { matched, starred: starredCount, unmatched, titles, supplements }
   }
   function saveTranscript(text) {
     saveDb({ ...db, movies: db.movies.map(m =>
@@ -16432,9 +16442,23 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                     ))}
                   </div>
                 )}
+                {/* 補充片語：找不到精確匹配，獨立顯示 */}
+                {batchImportResult.supplements?.length > 0 && (
+                  <div style={{ background:'#0d1a2a', border:'1px solid #3b82f650',
+                    borderRadius:8, padding:'10px 12px' }}>
+                    <div style={{ fontFamily:MONO, fontSize:9, color:'#60a5fa', marginBottom:6 }}>📚 補充片語（未匹配到電影原句）</div>
+                    {batchImportResult.supplements.map((s,i) => (
+                      <div key={i} style={{ fontFamily:MONO, fontSize:10, color:'#93c5fd',
+                        padding:'3px 0', borderBottom:'1px solid #1e3a5f' }}>
+                        • <span style={{ color:'#fff' }}>{s.en}</span>
+                        {s.note ? <span style={{ color:'#94a3b8', marginLeft:6 }}>{s.note}</span> : null}
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {batchImportResult.unmatched.length > 0 && (
-                  <div style={{ color:'#f59e0b' }}>
-                    ⚠️ 未匹配（場景內找不到）：
+                  <div style={{ color:'#f59e0b', fontSize:9, fontFamily:MONO }}>
+                    ⚠️ 推薦句未匹配：
                     {batchImportResult.unmatched.map((s,i) => (
                       <div key={i} style={{ color:'#fbbf24', paddingLeft:8 }}>• {s}</div>
                     ))}
@@ -19454,7 +19478,26 @@ export default function App() {
     // ── Service Worker：註冊輕量 App Shell 快取 SW ──
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/fsi-command/sw.js', { scope: '/fsi-command/' })
-        .then(() => console.log('[SW] 已註冊'))
+        .then(reg => {
+          console.log('[SW] 已註冊')
+          // 有新版 SW waiting → 自動 skipWaiting，不需手動清除
+          const tryUpdate = (sw) => {
+            if (!sw) return
+            if (sw.state === 'installed') {
+              sw.postMessage({ type: 'SKIP_WAITING' })
+            } else {
+              sw.addEventListener('statechange', () => {
+                if (sw.state === 'installed') sw.postMessage({ type: 'SKIP_WAITING' })
+              })
+            }
+          }
+          if (reg.waiting) tryUpdate(reg.waiting)
+          reg.addEventListener('updatefound', () => tryUpdate(reg.installing))
+          // 新 SW 接管後自動 reload
+          navigator.serviceWorker.addEventListener('controllerchange', () => {
+            window.location.reload()
+          })
+        })
         .catch(e => console.warn('[SW] 註冊失敗', e))
     }
     return () => window.removeEventListener('beforeunload', handler)
