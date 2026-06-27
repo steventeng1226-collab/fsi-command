@@ -7284,7 +7284,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.09
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.11
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -15698,58 +15698,6 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
         )}
       </div>
 
-      {/* ── 區塊一·五：刪除時間段 ── */}
-      {hasSaved && (
-        <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:13,
-          padding:'14px 16px', display:'flex', flexDirection:'column', gap:10 }}>
-          <span style={{ fontFamily:MONO, fontSize:10, color:'#f87171', fontWeight:700 }}>
-            🗑 刪除時間段
-          </span>
-          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-            <div style={{ flex:1 }}>
-              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:3 }}>開始</div>
-              <input
-                type="text" placeholder="00:45:00"
-                value={deleteRangeStart}
-                onChange={e => setDeleteRangeStart(e.target.value)}
-                style={{ width:'100%', background:T.surf2, border:`1px solid ${T.bdr}`,
-                  borderRadius:7, padding:'6px 8px', color:'#fff',
-                  fontFamily:'monospace', fontSize:12, outline:'none', boxSizing:'border-box' }}/>
-            </div>
-            <div style={{ flex:1 }}>
-              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:3 }}>結束</div>
-              <input
-                type="text" placeholder="00:47:00"
-                value={deleteRangeEnd}
-                onChange={e => setDeleteRangeEnd(e.target.value)}
-                style={{ width:'100%', background:T.surf2, border:`1px solid ${T.bdr}`,
-                  borderRadius:7, padding:'6px 8px', color:'#fff',
-                  fontFamily:'monospace', fontSize:12, outline:'none', boxSizing:'border-box' }}/>
-            </div>
-          </div>
-          <div
-            onClick={() => {
-              if (!deleteRangeStart || !deleteRangeEnd) { setDeleteRangeMsg('請填入開始和結束時間'); return }
-              if (!window.confirm(`確定刪除 ${deleteRangeStart} ~ ${deleteRangeEnd} 的逐字稿？`)) return
-              const n = deleteTranscriptRange(deleteRangeStart, deleteRangeEnd)
-              setDeleteRangeMsg(n > 0 ? `✅ 已刪除 ${n} 個區塊` : '⚠️ 找不到該時間段的內容')
-              setDeleteRangeStart(''); setDeleteRangeEnd('')
-            }}
-            style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
-              color:'#fff', padding:'9px', background:'#7f1d1d',
-              borderRadius:8, border:'1px solid #f8717150', textAlign:'center' }}>
-            🗑 刪除此時間段
-          </div>
-          {deleteRangeMsg && (
-            <div style={{ fontFamily:MONO, fontSize:10, color: deleteRangeMsg.startsWith('✅') ? T.grn : T.amber,
-              textAlign:'center' }}>{deleteRangeMsg}</div>
-          )}
-          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.5 }}>
-            💡 刪除後用下方「附加/取代」→「附加」貼上新的正確 SRT 段落
-          </div>
-        </div>
-      )}
-
       {/* ── 區塊二：時間範圍 + AI 解析 ── */}
       <div style={{ background:T.surf, border:`1px solid ${canParse ? T.amber+'40' : T.bdr}`,
         borderRadius:13, padding:'14px 16px', display:'flex', flexDirection:'column', gap:10,
@@ -18138,6 +18086,53 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           ))}
         </div>
       </div>
+
+            {/* ── 刪除時間段（較少用，放最下方）── */}
+            {!!(movie?.transcript?.trim()) && (
+              <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:13,
+                padding:'14px 16px', display:'flex', flexDirection:'column', gap:10 }}>
+                <span style={{ fontFamily:MONO, fontSize:10, color:'#f87171', fontWeight:700 }}>
+                  🗑 刪除時間段
+                </span>
+                <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:3 }}>開始</div>
+                    <input type="text" placeholder="00:45:00"
+                      value={deleteRangeStart}
+                      onChange={e => setDeleteRangeStart(e.target.value)}
+                      style={{ width:'100%', background:T.surf2, border:`1px solid ${T.bdr}`,
+                        borderRadius:7, padding:'6px 8px', color:'#fff',
+                        fontFamily:'monospace', fontSize:12, outline:'none', boxSizing:'border-box' }}/>
+                  </div>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:3 }}>結束</div>
+                    <input type="text" placeholder="00:47:00"
+                      value={deleteRangeEnd}
+                      onChange={e => setDeleteRangeEnd(e.target.value)}
+                      style={{ width:'100%', background:T.surf2, border:`1px solid ${T.bdr}`,
+                        borderRadius:7, padding:'6px 8px', color:'#fff',
+                        fontFamily:'monospace', fontSize:12, outline:'none', boxSizing:'border-box' }}/>
+                  </div>
+                </div>
+                <div onClick={() => {
+                    if (!deleteRangeStart || !deleteRangeEnd) { setDeleteRangeMsg('請填入開始和結束時間'); return }
+                    if (!window.confirm(`確定刪除 ${deleteRangeStart} ~ ${deleteRangeEnd} 的逐字稿？`)) return
+                    const n = deleteTranscriptRange(deleteRangeStart, deleteRangeEnd)
+                    setDeleteRangeMsg(n > 0 ? `✅ 已刪除 ${n} 個區塊` : '⚠️ 找不到該時間段的內容')
+                    setDeleteRangeStart(''); setDeleteRangeEnd('')
+                  }}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                    color:'#fff', padding:'9px', background:'#7f1d1d',
+                    borderRadius:8, border:'1px solid #f8717150', textAlign:'center' }}>
+                  🗑 刪除此時間段
+                </div>
+                {deleteRangeMsg && (
+                  <div style={{ fontFamily:MONO, fontSize:10,
+                    color: deleteRangeMsg.startsWith('✅') ? T.grn : T.amber,
+                    textAlign:'center' }}>{deleteRangeMsg}</div>
+                )}
+              </div>
+            )}
 
             {/* ── 電影資料同步 ── */}
       <div style={{ display:'flex', flexDirection:'column', gap:8,
