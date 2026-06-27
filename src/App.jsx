@@ -7284,7 +7284,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.11
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.12
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13634,6 +13634,9 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
 
   // 記錄場景最後練習日期（實際按播放才觸發）
   function markScenePracticed() {
+    // 只在沒有日期時才記錄（保留第一次練習日期，不覆蓋）
+    const currentScene = movie?.scenes?.find(sc => sc.id === sceneId)
+    if (currentScene?.lastVisited) return // 已有日期，不更新
     const today = new Date().toISOString().slice(0,10)
     saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : ({
       ...m, scenes: m.scenes.map(sc => sc.id !== sceneId ? sc : { ...sc, lastVisited: today })
