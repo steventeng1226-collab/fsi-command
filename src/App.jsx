@@ -7284,7 +7284,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.07
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.08
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14258,21 +14258,16 @@ Return ONLY a JSON object, no markdown:
       phrases.forEach(p => {
         const c = cleanEn(p.en)
         const pWords = new Set(c.split(' ').filter(w => w.length > 1))
-        // 完全包含
         if (c.includes(q) || q.includes(c)) {
           const score = Math.min(q.length, c.length) / Math.max(q.length, c.length)
           if (score > bestScore) { bestScore = score; best = p }
-        }
-        // 片語：所有字都在句子裡
-        else if (qWords.size <= 5 && qWords.size >= 2) {
+        } else if (qWords.size <= 5 && qWords.size >= 2) {
           const allIn = [...qWords].every(w => pWords.has(w))
           if (allIn) {
             const score = qWords.size / Math.max(pWords.size, 1)
             if (score > bestScore) { bestScore = score; best = p }
           }
-        }
-        // 字詞重疊
-        else if (qWords.size > 0 && pWords.size > 0) {
+        } else if (qWords.size > 0 && pWords.size > 0) {
           let overlap = 0
           qWords.forEach(w => { if (pWords.has(w)) overlap++ })
           const score = overlap / Math.max(qWords.size, pWords.size)
@@ -14282,78 +14277,104 @@ Return ONLY a JSON object, no markdown:
       return best
     }
 
+    // 終止符號判斷
+    const isTerminator = raw =>
+      /^【.+】/.test(raw) ||       // 任何區塊標題（包含同行內容）
+      /^[-—=*#]{2,}$/.test(raw) || // 分隔線
+      raw === ''                    // 空行（由外部過濾）
+
+    // 英文句子判斷
+    const isEnSentence = raw => {
+      const enRatio = (raw.match(/[a-zA-Z]/g) || []).length / Math.max(raw.length, 1)
+      return enRatio > 0.5 && raw.length >= 3 && /[A-Za-z]/.test(raw[0] ?? '')
+    }
+
     const lines = text.split('\n')
-    let section = null  // 'title' | 'recommend'
+    let section = null
     let currentEn = null
-    let currentNote = []
-    let inNote = false  // 進入備註模式後，後續行都是備註
+    let currentNote = ''   // 只存一行備註
+    let noteRead = false   // 已讀取備註，不再讀後續行
 
     const flush = () => {
       if (!currentEn) return
       const match = findMatch(currentEn)
       if (match) {
         if (!updates[match.id]) updates[match.id] = { note: '', starred: false }
-        const noteText = currentNote.join(' ').trim()
-        if (noteText) updates[match.id].note = noteText
+        if (currentNote) updates[match.id].note = currentNote
         if (section === 'recommend') updates[match.id].starred = true
         matched++
         if (section === 'recommend') starredCount++
       } else {
         unmatched.push(currentEn)
       }
-      currentEn = null; currentNote = []; inNote = false
+      currentEn = null; currentNote = ''; noteRead = false
     }
 
     lines.forEach(line => {
       const raw = line.trim()
-      if (!raw) return
 
-      // 區塊切換
-      if (raw === '【場景標題】') { flush(); section = 'title'; return }
-      if (raw === '【推薦句】')   { flush(); section = 'recommend'; return }
-      // 其他【區塊】跳過
-      if (/^【.+】$/.test(raw))  { flush(); section = null; return }
-      // 分隔線跳過
-      if (/^[-—=*#]{2,}$/.test(raw)) return
+      // 空行：重置備註讀取狀態，但不 flush
+      if (!raw) { noteRead = false; return }
 
-      // 場景標題
-      if (section === 'title') {
-        const t = raw.replace(/^(首選|備選)[：:]\s*/, '').trim()
-        if (t.length > 2 && /[\u4e00-\u9fffa-zA-Z]/.test(t)) titles.push(t)
+      // 分隔線：flush 並重置
+      if (/^[-—=*#]{2,}$/.test(raw)) { flush(); return }
+
+      // 區塊標題（支援同行內容，如【場景標題】愛情、傷痛與重新開始）
+      if (/^【.+】/.test(raw)) {
+        flush()
+        const blockMatch = raw.match(/^【(.+?)】(.*)/)
+        const blockName = blockMatch?.[1] ?? ''
+        const inlineContent = blockMatch?.[2]?.trim() ?? ''
+
+        if (blockName === '場景標題') {
+          section = 'title'
+          if (inlineContent && /[\u4e00-\u9fffa-zA-Z]/.test(inlineContent)) {
+            titles.push(inlineContent)
+            section = null // 標題已讀，離開 title 區塊
+          }
+        } else if (blockName === '推薦句') {
+          section = 'recommend'
+        } else {
+          section = null // 其他區塊忽略
+        }
         return
       }
 
-      // 推薦句
+      // 場景標題區塊：讀下一行為標題
+      if (section === 'title') {
+        const t = raw.replace(/^(首選|備選)[：:]\s*/, '').trim()
+        if (t.length > 2 && /[\u4e00-\u9fffa-zA-Z]/.test(t)) {
+          titles.push(t)
+          section = null // 只讀一個標題
+        }
+        return
+      }
+
+      // 推薦句區塊
       if (section === 'recommend') {
-        // 備註行開始
+        // 備註行：只讀這一行，之後設 noteRead = true
         if (/^備註[：:]/.test(raw)) {
-          const note = raw.replace(/^備註[：:]\s*/, '').trim()
-          if (note) currentNote.push(note)
-          inNote = true
+          if (currentEn && !noteRead) {
+            currentNote = raw.replace(/^備註[：:]\s*/, '').trim()
+            noteRead = true  // 備註已讀，後續行不再收集
+          }
           return
         }
-        // 備註模式：收集後續行
-        if (inNote) {
-          // 新的英文句子（大寫開頭，不像例句）→ 離開備註模式
-          const looksLikeNewSentence = /^[A-Z]/.test(raw) &&
-            currentNote.length > 0 &&
-            !currentNote[currentNote.length - 1].match(/[：:]\s*$/) &&
-            raw.length > 5
-          if (looksLikeNewSentence) {
-            inNote = false
-            // 繼續往下當新句子處理
-          } else {
-            if (raw.length > 1) currentNote.push(raw)
-            return
+
+        // noteRead = true 後：遇到新英文句子才繼續，其他行全部忽略
+        if (noteRead) {
+          if (isEnSentence(raw)) {
+            flush()
+            currentEn = raw
           }
+          // 其他行（ChatGPT 多餘內容）直接忽略
+          return
         }
+
         // 英文句子行
-        const enRatio = (raw.match(/[a-zA-Z]/g) || []).length / Math.max(raw.length, 1)
-        const isEn = enRatio > 0.5 && raw.length >= 3 && /[A-Za-z]/.test(raw[0] ?? '')
-        if (isEn) {
+        if (isEnSentence(raw)) {
           flush()
           currentEn = raw
-          inNote = false
         }
       }
     })
