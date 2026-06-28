@@ -7288,7 +7288,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.36
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.37
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -18500,13 +18500,18 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                   setTimeout(() => { kbSavingRef.current = false }, 3000)
                   // 從內容的【分類】行自動偵測分類
                   let finalCat = kbCat
-                  const catLine = kbContent.split('\n').find(l => /^【分類】/.test(l.trim()))
-                  if (catLine) {
-                    const catText = catLine.replace(/^【分類】/, '').trim()
+                  // 支援【分類】同行或換行兩種格式
+                  const kbLines = kbContent.split('\n')
+                  const catIdx = kbLines.findIndex(l => /^【分類】/.test(l.trim()))
+                  if (catIdx >= 0) {
+                    // 同行：【分類】文法易混淆，或換行：下一非空行
+                    const sameLine = kbLines[catIdx].replace(/^【分類】/, '').trim()
+                    const catText = sameLine || kbLines.slice(catIdx+1).find(l => l.trim())?.trim() || ''
                     if (/動詞/.test(catText)) finalCat = 'verb'
                     else if (/電影固定/.test(catText)) finalCat = 'movie'
+                    else if (/文法易混淆/.test(catText)) finalCat = 'grammar'
                     else if (/文法/.test(catText)) finalCat = 'grammar'
-                    else if (/金句/.test(catText)) finalCat = 'quote'
+                    else if (/電影金句|金句/.test(catText)) finalCat = 'quote'
                     else if (/工作/.test(catText)) finalCat = 'work'
                     else if (/易混淆|混淆/.test(catText)) finalCat = 'confuse'
                     else if (/關聯/.test(catText)) finalCat = 'link'
