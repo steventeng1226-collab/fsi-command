@@ -7284,7 +7284,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.28
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.29
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -18341,69 +18341,18 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
 一句最好記的中文。
 
 三、整理規則
-1. 不要加入聊天內容、鼓勵文字、「Steven，我覺得……」
-2. 不要重複說明
-3. 優先整理成「家族知識」，不要只整理一句電影台詞
-4. 相同知識保持相同命名
-5. 內容以方便直接貼入 APP 為主
+1. 不要加入聊天內容。
+2. 不要加入鼓勵文字。
+3. 不要加入「Steven，我覺得……」等對話。
+4. 不要重複說明。
+5. 內容以方便直接貼入 APP 為主。
+6. 標題、分類由 ChatGPT 自行決定。
+7. 相同知識保持相同命名。
+8. 優先整理成「家族知識」，不要只整理一句電影台詞。
+9. 若知識可以套用到工作或生活，優先整理成可重複使用的知識。
 10. 如果同一知識已存在，請不要建立新的知識，而是補充到原有知識。`}</div>
             <div onClick={() => {
-                navigator.clipboard?.writeText(`從現在開始，每當我說「加入知識庫」，請不要輸出聊天內容，只輸出可直接貼入 APP 的知識。
-請遵守以下原則：
-
-一、優先整理原則（最重要）
-請優先整理「可重複使用的英文知識」，而不是單一句電影台詞。
-優先順序：
-1. 動詞家族（Get、Go、Come、Take、Make、Put、See…）
-2. 固定 Chunk（What if...、I've got...、be proud of...）
-3. 文法易混淆（do + 原形、be + V-ing、this vs that）
-4. 電影金句（We determine our worth.）
-5. 工作可套用句型
-
-二、固定格式
-
-【分類】
-只能選一個：動詞家族 / 電影固定句 / 文法易混淆 / 電影金句 / 工作英文 / 易混淆 / 其他
-
-【標題】
-簡短、容易搜尋、同主題保持一致命名。
-例如：Get 家族 / What if... / This vs That / in vs at
-
-【核心觀念】
-50字內，只保留最重要概念。
-
-【Chunk】
-3~8個最值得背的固定搭配，每行一個。
-
-【電影例句】
-1~3句最值得背的電影例句。
-
-【工作例句】
-若適合工作情境提供1句，否則省略。
-
-【易混淆】
-只有容易犯錯時才建立。
-格式：
-❌ ...
-✅ ...
-
-【易混淆比較】
-只有真的需要比較時才建立。
-例如：think vs thinking / hear vs listen
-
-【關聯知識】
-可延伸閱讀的知識，不超過6個。
-
-【口訣】
-一句最好記的中文。
-
-三、整理規則
-1. 不要加入聊天內容、鼓勵文字、「Steven，我覺得……」
-2. 不要重複說明
-3. 優先整理成「家族知識」，不要只整理一句電影台詞
-4. 相同知識保持相同命名
-5. 內容以方便直接貼入 APP 為主
-10. 如果同一知識已存在，請不要建立新的知識，而是補充到原有知識。`)
+                navigator.clipboard?.writeText(`從現在開始，每當我說「加入知識庫」，請不要輸出聊天內容，只輸出可直接貼入 APP 的知識。\n請遵守以下原則：\n\n一、優先整理原則（最重要）\n請優先整理「可重複使用的英文知識」，而不是單一句電影台詞。\n優先順序：\n1. 動詞家族（Get、Go、Come、Take、Make、Put、See…）\n2. 固定 Chunk（What if...、I've got...、be proud of...）\n3. 文法易混淆（do + 原形、be + V-ing、this vs that）\n4. 電影金句（We determine our worth.）\n5. 工作可套用句型\n\n二、固定格式\n\n【分類】\n只能選一個：動詞家族 / 電影固定句 / 文法易混淆 / 電影金句 / 工作英文 / 易混淆 / 其他\n\n【標題】\n簡短、容易搜尋、同主題保持一致命名。\n例如：Get 家族 / What if... / This vs That / in vs at\n\n【核心觀念】\n50字內，只保留最重要概念。\n\n【Chunk】\n3~8個最值得背的固定搭配，每行一個。\n\n【電影例句】\n1~3句最值得背的電影例句。\n\n【工作例句】\n若適合工作情境提供1句，否則省略。\n\n【易混淆】\n只有容易犯錯時才建立。\n格式：\n❌ ...\n✅ ...\n\n【易混淆比較】\n只有真的需要比較時才建立。\n例如：think vs thinking / hear vs listen\n\n【關聯知識】\n可延伸閱讀的知識，不超過6個。\n\n【口訣】\n一句最好記的中文。\n\n三、整理規則\n1. 不要加入聊天內容。\n2. 不要加入鼓勵文字。\n3. 不要加入「Steven，我覺得……」等對話。\n4. 不要重複說明。\n5. 內容以方便直接貼入 APP 為主。\n6. 標題、分類由 ChatGPT 自行決定。\n7. 相同知識保持相同命名。\n8. 優先整理成「家族知識」，不要只整理一句電影台詞。\n9. 若知識可以套用到工作或生活，優先整理成可重複使用的知識。\n10. 如果同一知識已存在，請不要建立新的知識，而是補充到原有知識。`)
                   .then(() => showMovieToast('✅ 已複製！貼到 ChatGPT 設定一次即可'))
                   .catch(() => showMovieToast('請長按上方文字複製'))
               }}
