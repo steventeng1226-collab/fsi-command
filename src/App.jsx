@@ -7284,7 +7284,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.23
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.25
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -18255,12 +18255,14 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
       {/* ── 📚 知識庫 ── */}
       {(() => {
         const KB_CATS = [
-          { id:'verb',    label:'📚 動詞家族',    color:'#60a5fa' },
-          { id:'movie',   label:'🎬 電影固定句',  color:'#f59e0b' },
-          { id:'grammar', label:'🧠 文法',        color:'#f87171' },
-          { id:'quote',   label:'❤️ 電影金句',    color:'#a78bfa' },
-          { id:'work',    label:'💼 工作英文',    color:'#34d399' },
-          { id:'other',   label:'📝 其他',        color:'#94a3b8' },
+          { id:'verb',    label:'📚 動詞家族',      color:'#60a5fa' },
+          { id:'movie',   label:'🎬 電影固定句',    color:'#f59e0b' },
+          { id:'grammar', label:'🧠 文法易混淆',    color:'#f87171' },
+          { id:'quote',   label:'❤️ 電影金句',      color:'#a78bfa' },
+          { id:'work',    label:'💼 工作英文',      color:'#34d399' },
+          { id:'confuse', label:'⚠️ 易混淆',        color:'#fb923c' },
+          { id:'link',    label:'🔗 關聯知識',      color:'#22d3ee' },
+          { id:'other',   label:'📝 其他',          color:'#94a3b8' },
         ]
         return (
       <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:13, padding:'14px 16px',
@@ -18289,7 +18291,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               background:'#060412', borderRadius:8, padding:12, lineHeight:1.8,
               whiteSpace:'pre-wrap', userSelect:'all' }}>{`從現在開始，每當我說「加入知識庫」，請用以下格式整理，不要加任何聊天內容：
 
-【分類】動詞家族 / 電影固定句 / 文法 / 電影金句 / 工作英文（選一個）
+【分類】動詞家族 / 電影固定句 / 文法易混淆 / 電影金句 / 工作英文 / 易混淆 / 關聯知識（選一個）
 
 【標題】一句話
 
@@ -18308,7 +18310,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
 
 不要加鼓勵文字。不要加「Steven，我覺得...」。只保留知識。`}</div>
             <div onClick={() => {
-                navigator.clipboard?.writeText(`從現在開始，每當我說「加入知識庫」，請用以下格式整理，不要加任何聊天內容：\n\n【分類】動詞家族 / 電影固定句 / 文法 / 電影金句 / 工作英文（選一個）\n\n【標題】一句話\n\n【核心觀念】50字內\n\n【Chunk】\n3~8個固定搭配，每行一個\n\n【電影例句】\n1~3句最值得背的\n\n【工作例句】\n1句（沒有則省略）\n\n【口訣】一句最好記的中文\n\n不要加鼓勵文字。不要加「Steven，我覺得...」。只保留知識。`)
+                navigator.clipboard?.writeText(`從現在開始，每當我說「加入知識庫」，請用以下格式整理，不要加任何聊天內容：\n\n【分類】動詞家族 / 電影固定句 / 文法易混淆 / 電影金句 / 工作英文 / 易混淆 / 關聯知識（選一個）\n\n【標題】一句話\n\n【核心觀念】50字內\n\n【Chunk】\n3~8個固定搭配，每行一個\n\n【電影例句】\n1~3句最值得背的\n\n【工作例句】\n1句（沒有則省略）\n\n【口訣】一句最好記的中文\n\n不要加鼓勵文字。不要加「Steven，我覺得...」。只保留知識。`)
                   .then(() => showMovieToast('✅ 已複製！貼到 ChatGPT 設定一次即可'))
                   .catch(() => showMovieToast('請長按上方文字複製'))
               }}
@@ -18352,12 +18354,45 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                 color:'#fff', outline:'none', resize:'vertical' }}/>
             <div style={{ display:'flex', gap:8 }}>
               <div onClick={() => {
-                  // 標題空白時，自動取內容第一行
-                  const autoTitle = kbTitle.trim() ||
-                    kbContent.split('\n').find(l => l.trim().length > 2)?.trim().slice(0,30) || '未命名筆記'
-                  if (kbEditId) updateKbItem(kbEditId, autoTitle, kbContent, kbCat)
-                  else addKbItem(autoTitle, kbContent, kbCat)
-                  setKbNewMode(false); setKbEditId(null); setKbTitle(''); setKbContent('')
+                  // 標題空白時，從內容找【標題】區塊，或跳過【分類】行取第一個有意義的行
+                  let autoTitle = kbTitle.trim()
+                  if (!autoTitle) {
+                    const lines = kbContent.split('\n')
+                    // 優先找【標題】區塊下一行
+                    const titleIdx = lines.findIndex(l => /^【標題】/.test(l.trim()))
+                    if (titleIdx >= 0) {
+                      const next = lines.slice(titleIdx).find((l, i) => i > 0 && l.trim() && !/^【/.test(l.trim()))
+                      autoTitle = next?.trim().slice(0,40) ?? ''
+                    }
+                    // 找不到【標題】就跳過【分類】行，取第一個非【】行
+                    if (!autoTitle) {
+                      autoTitle = lines.find(l => l.trim().length > 2 && !/^【/.test(l.trim()))?.trim().slice(0,40) || '未命名筆記'
+                    }
+                  }
+                  // 從內容的【分類】行自動偵測分類
+                  let finalCat = kbCat
+                  const catLine = kbContent.split('\n').find(l => /^【分類】/.test(l.trim()))
+                  if (catLine) {
+                    const catText = catLine.replace(/^【分類】/, '').trim()
+                    if (/動詞/.test(catText)) finalCat = 'verb'
+                    else if (/電影固定/.test(catText)) finalCat = 'movie'
+                    else if (/文法/.test(catText)) finalCat = 'grammar'
+                    else if (/金句/.test(catText)) finalCat = 'quote'
+                    else if (/工作/.test(catText)) finalCat = 'work'
+                    else if (/易混淆|混淆/.test(catText)) finalCat = 'confuse'
+                    else if (/關聯/.test(catText)) finalCat = 'link'
+                  }
+                  if (kbEditId) {
+                    updateKbItem(kbEditId, autoTitle, kbContent, finalCat)
+                  } else {
+                    addKbItem(autoTitle, kbContent, finalCat)
+                  }
+                  // 儲存後立即關閉並清空，防止重複觸發
+                  setKbNewMode(false)
+                  setKbEditId(null)
+                  setKbTitle('')
+                  setKbContent('')
+                  setKbCat('other')
                 }}
                 style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
                   color:'#000', padding:'8px', background:T.amber, borderRadius:8, textAlign:'center' }}>
