@@ -7284,7 +7284,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.18
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.21
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13351,7 +13351,13 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   // ── Speak 課程 state ────────────────────────────────────────
   const [speakOpen,   setSpeakOpen]   = useState(false)
   const [speakBusy,   setSpeakBusy]   = useState(false)
-  const [batchImportOpen, setBatchImportOpen] = useState(false) // 批次匯入備註+重點
+  const [batchImportOpen, setBatchImportOpen] = useState(false)
+  const [kbOpen,    setKbOpen]    = useState(null)   // 展開的知識庫 id
+  const [kbEditId,  setKbEditId]  = useState(null)   // 編輯中的知識庫 id
+  const [kbNewMode, setKbNewMode] = useState(false)  // 新增模式
+  const [kbTitle,   setKbTitle]   = useState('')
+  const [kbContent, setKbContent] = useState('')
+  const [kbCat,     setKbCat]     = useState('other') // 選中的分類 // 批次匯入備註+重點
   const [batchImportText, setBatchImportText] = useState('')
   const [batchImportResult, setBatchImportResult] = useState(null)
   const [speakCopied, setSpeakCopied] = useState(null)  // 'easy'|'advanced'|null
@@ -13633,6 +13639,23 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   }
 
   // 記錄場景最後練習日期（實際按播放才觸發）
+  // 知識庫 CRUD
+  const kbList = movie?.knowledgeBase ?? []
+  function saveKb(items) {
+    saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : { ...m, knowledgeBase: items }) })
+  }
+  function addKbItem(title, content, cat = 'other') {
+    const item = { id: Date.now().toString(), title, content, cat, createdAt: Date.now() }
+    saveKb([...kbList, item])
+    return item.id
+  }
+  function updateKbItem(id, title, content, cat) {
+    saveKb(kbList.map(k => k.id === id ? { ...k, title, content, cat: cat ?? k.cat } : k))
+  }
+  function deleteKbItem(id) {
+    saveKb(kbList.filter(k => k.id !== id))
+  }
+
   function markScenePracticed() {
     // 只在沒有日期時才記錄（保留第一次練習日期，不覆蓋）
     const currentScene = movie?.scenes?.find(sc => sc.id === sceneId)
@@ -18228,6 +18251,161 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           </div>
         )}
       </div>
+
+      {/* ── 📚 知識庫 ── */}
+      {(() => {
+        const KB_CATS = [
+          { id:'verb',    label:'🔤 動詞家族',    color:'#60a5fa' },
+          { id:'movie',   label:'🎬 電影固定句',  color:'#f59e0b' },
+          { id:'life',    label:'😊 情緒與人生句', color:'#a78bfa' },
+          { id:'grammar', label:'⚠️ 文法易錯點',  color:'#f87171' },
+          { id:'work',    label:'💼 工作可套用句', color:'#34d399' },
+          { id:'other',   label:'📝 其他',        color:'#94a3b8' },
+        ]
+        return (
+      <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:13, padding:'14px 16px',
+        display:'flex', flexDirection:'column', gap:10 }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <span style={{ fontFamily:MONO, fontSize:11, color:T.amber, fontWeight:700 }}>📚 知識庫</span>
+          <div onClick={() => { setKbNewMode(true); setKbTitle(''); setKbContent(''); setKbEditId(null) }}
+            style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.amber,
+              padding:'4px 10px', background:T.amberD, borderRadius:7, border:`1px solid ${T.amber}50` }}>
+            ＋ 新增
+          </div>
+        </div>
+        {/* 新增 / 編輯表單 */}
+        {(kbNewMode || kbEditId) && (
+          <div style={{ display:'flex', flexDirection:'column', gap:8,
+            background:T.surf2, borderRadius:10, padding:12 }}>
+            <input placeholder="標題（如：Get 家族）"
+              value={kbTitle} onChange={e => setKbTitle(e.target.value)}
+              style={{ fontFamily:MONO, fontSize:12, background:'#0d0d1a',
+                border:`1px solid ${T.amber}50`, borderRadius:7, padding:'6px 10px',
+                color:'#fff', outline:'none' }}/>
+            {/* 分類點選按鈕 */}
+            <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+              {KB_CATS.map(cat => {
+                const isSelected = kbCat === cat.id
+                return (
+                  <div key={cat.id}
+                    onClick={() => setKbCat(cat.id)}
+                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:8,
+                      color: isSelected ? '#000' : cat.color,
+                      padding:'4px 10px', borderRadius:6,
+                      background: isSelected ? cat.color : cat.color+'15',
+                      border:`1px solid ${isSelected ? cat.color : cat.color+'40'}`,
+                      fontWeight: isSelected ? 700 : 400
+                    }}>{cat.label}</div>
+                )
+              })}
+            </div>
+            <textarea rows={8} placeholder="貼上 ChatGPT 內容…"
+              value={kbContent} onChange={e => setKbContent(e.target.value)}
+              style={{ fontFamily:'monospace', fontSize:11, background:'#0d0d1a',
+                border:`1px solid ${T.amber}30`, borderRadius:7, padding:'8px 10px',
+                color:'#fff', outline:'none', resize:'vertical' }}/>
+            <div style={{ display:'flex', gap:8 }}>
+              <div onClick={() => {
+                  if (!kbTitle.trim()) return
+                  if (kbEditId) updateKbItem(kbEditId, kbTitle.trim(), kbContent, kbCat)
+                  else addKbItem(kbTitle.trim(), kbContent, kbCat)
+                  setKbNewMode(false); setKbEditId(null); setKbTitle(''); setKbContent('')
+                }}
+                style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                  color:'#000', padding:'8px', background:T.amber, borderRadius:8, textAlign:'center' }}>
+                ✓ 儲存
+              </div>
+              <div onClick={() => { setKbNewMode(false); setKbEditId(null); setKbTitle(''); setKbContent('') }}
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt3,
+                  padding:'8px 14px', background:T.surf2, borderRadius:8,
+                  border:`1px solid ${T.bdr}`, textAlign:'center' }}>
+                取消
+              </div>
+            </div>
+          </div>
+        )}
+        {/* 分類顯示 */}
+        {kbList.length === 0 && !kbNewMode && (
+          <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, textAlign:'center', padding:'8px 0' }}>
+            尚無筆記，點「＋ 新增」加入動詞家族等學習整理
+          </div>
+        )}
+        {KB_CATS.map(cat => {
+          const catItems = kbList.filter(k => k.cat === cat.id)
+          if (catItems.length === 0) return null
+          return (
+            <div key={cat.id}>
+              <div style={{ fontFamily:MONO, fontSize:9, color:cat.color,
+                fontWeight:700, marginBottom:4, paddingLeft:2 }}>{cat.label}</div>
+              {catItems.map(k => (
+                <div key={k.id} style={{ borderRadius:10, overflow:'hidden', marginBottom:6,
+                  border:`1px solid ${kbOpen===k.id ? cat.color+'80' : T.bdr}` }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:8,
+                    padding:'10px 12px', background: kbOpen===k.id ? cat.color+'15' : T.surf2,
+                    cursor:'pointer' }}
+                    onClick={() => setKbOpen(kbOpen===k.id ? null : k.id)}>
+                    <span style={{ fontFamily:MONO, fontSize:10, color:cat.color, flexShrink:0 }}>
+                      {kbOpen===k.id ? '▼' : '▶'}
+                    </span>
+                    <span style={{ fontFamily:MONO, fontSize:11, color:'#fff', flex:1 }}>{k.title}</span>
+                    <div onClick={e => { e.stopPropagation();
+                        setKbEditId(k.id); setKbTitle(k.title); setKbContent(k.content); setKbCat(k.cat ?? 'other'); setKbNewMode(false)
+                      }}
+                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:cat.color,
+                        padding:'2px 7px', background:cat.color+'20', borderRadius:5 }}>✏</div>
+                    <div onClick={e => { e.stopPropagation();
+                        if (window.confirm(`刪除「${k.title}」？`)) deleteKbItem(k.id)
+                      }}
+                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#f87171',
+                        padding:'2px 7px', background:'#3a1a1a', borderRadius:5 }}>✕</div>
+                  </div>
+                  {kbOpen===k.id && (
+                    <div style={{ padding:'12px 14px', background:'#0a0a14',
+                      fontFamily:'monospace', fontSize:11, color:'#cbd5e1',
+                      lineHeight:1.8, whiteSpace:'pre-wrap', wordBreak:'break-word' }}>
+                      {k.content}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )
+        })}
+        {/* 未分類項目 */}
+        {kbList.filter(k => !k.cat || k.cat === 'other' || !KB_CATS.find(c => c.id === k.cat)).map(k => (
+          <div key={k.id} style={{ borderRadius:10, overflow:'hidden',
+            border:`1px solid ${kbOpen===k.id ? T.amber+'60' : T.bdr}` }}>
+            <div style={{ display:'flex', alignItems:'center', gap:8,
+              padding:'10px 12px', background: kbOpen===k.id ? T.amberD : T.surf2,
+              cursor:'pointer' }}
+              onClick={() => setKbOpen(kbOpen===k.id ? null : k.id)}>
+              <span style={{ fontFamily:MONO, fontSize:10, color:T.amber, flexShrink:0 }}>
+                {kbOpen===k.id ? '▼' : '▶'}
+              </span>
+              <span style={{ fontFamily:MONO, fontSize:11, color:'#fff', flex:1 }}>{k.title}</span>
+              <div onClick={e => { e.stopPropagation();
+                  setKbEditId(k.id); setKbTitle(k.title); setKbContent(k.content); setKbNewMode(false)
+                }}
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.amber,
+                  padding:'2px 7px', background:T.amberD, borderRadius:5 }}>✏</div>
+              <div onClick={e => { e.stopPropagation();
+                  if (window.confirm(`刪除「${k.title}」？`)) deleteKbItem(k.id)
+                }}
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#f87171',
+                  padding:'2px 7px', background:'#3a1a1a', borderRadius:5 }}>✕</div>
+            </div>
+            {kbOpen===k.id && (
+              <div style={{ padding:'12px 14px', background:'#0a0a14',
+                fontFamily:'monospace', fontSize:11, color:'#cbd5e1',
+                lineHeight:1.8, whiteSpace:'pre-wrap', wordBreak:'break-word' }}>
+                {k.content}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+        )
+      })()}
     </div>
   )
 }
