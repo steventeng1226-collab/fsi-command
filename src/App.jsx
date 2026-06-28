@@ -7284,7 +7284,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.25
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.27
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13357,7 +13357,8 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   const [kbNewMode, setKbNewMode] = useState(false)  // 新增模式
   const [kbTitle,   setKbTitle]   = useState('')
   const [kbContent, setKbContent] = useState('')
-  const [kbCat,     setKbCat]     = useState('other') // 選中的分類 // 批次匯入備註+重點
+  const [kbCat,     setKbCat]     = useState('other') // 選中的分類
+  const kbSavingRef = useRef(false) // 防止重複儲存 // 批次匯入備註+重點
   const [batchImportText, setBatchImportText] = useState('')
   const [batchImportResult, setBatchImportResult] = useState(null)
   const [speakCopied, setSpeakCopied] = useState(null)  // 'easy'|'advanced'|null
@@ -13645,15 +13646,16 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
     saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : { ...m, knowledgeBase: items }) })
   }
   function addKbItem(title, content, cat = 'other') {
-    const item = { id: Date.now().toString(), title, content, cat, createdAt: Date.now() }
+    const item = { id: `${Date.now()}_${Math.random().toString(36).slice(2,7)}`, title, content, cat, createdAt: Date.now() }
     saveKb([...kbList, item])
     return item.id
   }
   function updateKbItem(id, title, content, cat) {
     saveKb(kbList.map(k => k.id === id ? { ...k, title, content, cat: cat ?? k.cat } : k))
   }
-  function deleteKbItem(id) {
-    saveKb(kbList.filter(k => k.id !== id))
+  function deleteKbItem(id, idx) {
+    // 用 index 刪除（避免相同 id 全刪）
+    saveKb(kbList.filter((k, i) => i !== idx))
   }
 
   function markScenePracticed() {
@@ -18275,7 +18277,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                 padding:'4px 10px', background:'#1e1040', borderRadius:7, border:'1px solid #a78bfa50' }}>
               💬 ChatGPT 指令
             </div>
-            <div onClick={() => { setKbNewMode(true); setKbTitle(''); setKbContent(''); setKbEditId(null); setKbCat('other') }}
+            <div onClick={() => { setKbEditId(null); setKbTitle(''); setKbContent(''); setKbCat('other'); setKbNewMode(true) }}
               style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.amber,
                 padding:'4px 10px', background:T.amberD, borderRadius:7, border:`1px solid ${T.amber}50` }}>
               ＋ 新增
@@ -18369,6 +18371,9 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                       autoTitle = lines.find(l => l.trim().length > 2 && !/^【/.test(l.trim()))?.trim().slice(0,40) || '未命名筆記'
                     }
                   }
+                  if (kbSavingRef.current) return // 防止重複觸發
+                  kbSavingRef.current = true
+                  setTimeout(() => { kbSavingRef.current = false }, 1000)
                   // 從內容的【分類】行自動偵測分類
                   let finalCat = kbCat
                   const catLine = kbContent.split('\n').find(l => /^【分類】/.test(l.trim()))
@@ -18420,7 +18425,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
             <div key={cat.id}>
               <div style={{ fontFamily:MONO, fontSize:9, color:cat.color,
                 fontWeight:700, marginBottom:4, paddingLeft:2 }}>{cat.label}</div>
-              {catItems.map(k => (
+              {catItems.map((k) => { const globalIdx = kbList.indexOf(k); return (
                 <div key={k.id} style={{ borderRadius:10, overflow:'hidden', marginBottom:6,
                   border:`1px solid ${kbOpen===k.id ? cat.color+'80' : T.bdr}` }}>
                   <div style={{ display:'flex', alignItems:'center', gap:8,
@@ -18432,12 +18437,12 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                     </span>
                     <span style={{ fontFamily:MONO, fontSize:11, color:'#fff', flex:1 }}>{k.title}</span>
                     <div onClick={e => { e.stopPropagation();
-                        setKbEditId(k.id); setKbTitle(k.title); setKbContent(k.content); setKbCat(k.cat ?? 'other'); setKbNewMode(false)
+                        setKbNewMode(false); setKbEditId(k.id); setKbTitle(k.title); setKbContent(k.content); setKbCat(k.cat ?? 'other')
                       }}
                       style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:cat.color,
                         padding:'2px 7px', background:cat.color+'20', borderRadius:5 }}>✏</div>
                     <div onClick={e => { e.stopPropagation();
-                        if (window.confirm(`刪除「${k.title}」？`)) deleteKbItem(k.id)
+                        if (window.confirm(`刪除「${k.title}」？`)) deleteKbItem(k.id, kbList.indexOf(k))
                       }}
                       style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#f87171',
                         padding:'2px 7px', background:'#3a1a1a', borderRadius:5 }}>✕</div>
@@ -18483,7 +18488,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                     )
                   })()}
                 </div>
-              ))}
+              )})}
             </div>
           )
         })}
@@ -18505,7 +18510,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                 style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.amber,
                   padding:'2px 7px', background:T.amberD, borderRadius:5 }}>✏</div>
               <div onClick={e => { e.stopPropagation();
-                  if (window.confirm(`刪除「${k.title}」？`)) deleteKbItem(k.id)
+                  if (window.confirm(`刪除「${k.title}」？`)) deleteKbItem(k.id, kbList.indexOf(k))
                 }}
                 style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#f87171',
                   padding:'2px 7px', background:'#3a1a1a', borderRadius:5 }}>✕</div>
