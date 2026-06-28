@@ -7288,7 +7288,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.35
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.36
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -18616,38 +18616,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
             </div>
           )
         })}
-        {/* 未分類項目 */}
-        {kbList.filter(k => !k.cat || k.cat === 'other' || !KB_CATS.find(c => c.id === k.cat)).map(k => (
-          <div key={k.id} style={{ borderRadius:10, overflow:'hidden',
-            border:`1px solid ${kbOpen===k.id ? T.amber+'60' : T.bdr}` }}>
-            <div style={{ display:'flex', alignItems:'center', gap:8,
-              padding:'10px 12px', background: kbOpen===k.id ? T.amberD : T.surf2,
-              cursor:'pointer' }}
-              onClick={() => setKbOpen(kbOpen===k.id ? null : k.id)}>
-              <span style={{ fontFamily:MONO, fontSize:10, color:T.amber, flexShrink:0 }}>
-                {kbOpen===k.id ? '▼' : '▶'}
-              </span>
-              <span style={{ fontFamily:MONO, fontSize:11, color:'#fff', flex:1 }}>{k.title}</span>
-              <div onClick={e => { e.stopPropagation();
-                  setKbEditId(k.id); setKbTitle(k.title); setKbContent(k.content); setKbNewMode(false)
-                }}
-                style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.amber,
-                  padding:'2px 7px', background:T.amberD, borderRadius:5 }}>✏</div>
-              <div onClick={e => { e.stopPropagation();
-                  if (window.confirm(`刪除「${k.title}」？`)) deleteKbItem(k.id, kbList.indexOf(k))
-                }}
-                style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#f87171',
-                  padding:'2px 7px', background:'#3a1a1a', borderRadius:5 }}>✕</div>
-            </div>
-            {kbOpen===k.id && (
-              <div style={{ padding:'12px 14px', background:'#0a0a14',
-                fontFamily:'monospace', fontSize:11, color:'#cbd5e1',
-                lineHeight:1.8, whiteSpace:'pre-wrap', wordBreak:'break-word' }}>
-                {k.content}
-              </div>
-            )}
-          </div>
-        ))}
+        {/* 未分類項目已由 KB_CATS.map 的 'other' 分類處理，不再重複渲染 */}
       </div>
         )
       })()}
