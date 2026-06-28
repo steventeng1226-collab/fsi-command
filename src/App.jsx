@@ -7284,7 +7284,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.31
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.32
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13648,16 +13648,22 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
     saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : { ...m, knowledgeBase: items }) })
   }
   function addKbItem(title, content, cat = 'other') {
+    if (kbSavingRef.current) return // 防止重複新增
+    kbSavingRef.current = true
+    setTimeout(() => { kbSavingRef.current = false }, 2000)
     const item = { id: `${Date.now()}_${Math.random().toString(36).slice(2,7)}`, title, content, cat, createdAt: Date.now() }
-    saveKb([...kbList, item])
+    // 直接從 db 取最新 kbList，避免 stale closure
+    const latestKb = db.movies.find(m => m.id === movieId)?.knowledgeBase ?? []
+    saveKb([...latestKb, item])
     return item.id
   }
   function updateKbItem(id, title, content, cat) {
-    saveKb(kbList.map(k => k.id === id ? { ...k, title, content, cat: cat ?? k.cat } : k))
+    const latestKb = db.movies.find(m => m.id === movieId)?.knowledgeBase ?? []
+    saveKb(latestKb.map(k => k.id === id ? { ...k, title, content, cat: cat ?? k.cat } : k))
   }
   function deleteKbItem(id, idx) {
-    // 用 index 刪除（避免相同 id 全刪）
-    saveKb(kbList.filter((k, i) => i !== idx))
+    const latestKb = db.movies.find(m => m.id === movieId)?.knowledgeBase ?? []
+    saveKb(latestKb.filter((k, i) => i !== idx))
   }
 
   function markScenePracticed() {
@@ -18470,9 +18476,6 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                       autoTitle = lines.find(l => l.trim().length > 2 && !/^【/.test(l.trim()))?.trim().slice(0,40) || '未命名筆記'
                     }
                   }
-                  if (kbSavingRef.current) return // 防止重複觸發
-                  kbSavingRef.current = true
-                  setTimeout(() => { kbSavingRef.current = false }, 1000)
                   // 從內容的【分類】行自動偵測分類
                   let finalCat = kbCat
                   const catLine = kbContent.split('\n').find(l => /^【分類】/.test(l.trim()))
