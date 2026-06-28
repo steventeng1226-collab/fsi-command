@@ -54,6 +54,10 @@ const DISP  = "'Cinzel',serif"
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx_xBUsiWvvoF8Qz9OczKniddNVENSz8W0ToTrzIw7VVCG3V0MlM85vl8Z1VmuNPS8STg/exec'
 
 // ── 電影音訊雙檔案設定 ────────────────────────────────────────
+// 知識庫 id 計數器（module level，確保每次新增 id 唯一）
+let _kbIdCounter = Date.now()
+function genKbId() { return `kb_${++_kbIdCounter}` }
+
 const JERRY_MP3 = [
   { url: 'https://steventeng1226-collab.github.io/fsi-command/Jerry_01.mp3', start: 0,    end: 2100 }, // 00:00~35:00
   { url: 'https://steventeng1226-collab.github.io/fsi-command/Jerry_02.mp3', start: 2100, end: 4200 }, // 35:00~1:10:00
@@ -7284,7 +7288,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.34
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.35
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13648,10 +13652,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
     saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : { ...m, knowledgeBase: items }) })
   }
   function addKbItem(title, content, cat = 'other') {
-    if (kbSavingRef.current) return // 防止重複新增
-    kbSavingRef.current = true
-    setTimeout(() => { kbSavingRef.current = false }, 2000)
-    const item = { id: `${Date.now()}_${Math.random().toString(36).slice(2,7)}`, title, content, cat, createdAt: Date.now() }
+    const item = { id: genKbId(), title, content, cat, createdAt: Date.now() }
     // 直接從 db 取最新 kbList，避免 stale closure
     const latestKb = db.movies.find(m => m.id === movieId)?.knowledgeBase ?? []
     saveKb([...latestKb, item])
@@ -18477,8 +18478,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                 border:`1px solid ${T.amber}30`, borderRadius:7, padding:'8px 10px',
                 color:'#fff', outline:'none', resize:'vertical' }}/>
             <div style={{ display:'flex', gap:8 }}>
-              <div onPointerDown={e => { e.preventDefault(); e.stopPropagation() }}
-              onClick={() => {
+              <div onClick={() => {
                   // 標題空白時，從內容找【標題】區塊，或跳過【分類】行取第一個有意義的行
                   let autoTitle = kbTitle.trim()
                   if (!autoTitle) {
@@ -18494,6 +18494,10 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                       autoTitle = lines.find(l => l.trim().length > 2 && !/^【/.test(l.trim()))?.trim().slice(0,40) || '未命名筆記'
                     }
                   }
+                  // 防重複：已在儲存中則跳過
+                  if (kbSavingRef.current) { console.log('[KB] blocked duplicate save'); return }
+                  kbSavingRef.current = true
+                  setTimeout(() => { kbSavingRef.current = false }, 3000)
                   // 從內容的【分類】行自動偵測分類
                   let finalCat = kbCat
                   const catLine = kbContent.split('\n').find(l => /^【分類】/.test(l.trim()))
