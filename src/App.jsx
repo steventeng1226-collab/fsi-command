@@ -7284,7 +7284,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.22
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.23
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -18255,11 +18255,11 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
       {/* ── 📚 知識庫 ── */}
       {(() => {
         const KB_CATS = [
-          { id:'verb',    label:'🔤 動詞家族',    color:'#60a5fa' },
+          { id:'verb',    label:'📚 動詞家族',    color:'#60a5fa' },
           { id:'movie',   label:'🎬 電影固定句',  color:'#f59e0b' },
-          { id:'life',    label:'😊 情緒與人生句', color:'#a78bfa' },
-          { id:'grammar', label:'⚠️ 文法易錯點',  color:'#f87171' },
-          { id:'work',    label:'💼 工作可套用句', color:'#34d399' },
+          { id:'grammar', label:'🧠 文法',        color:'#f87171' },
+          { id:'quote',   label:'❤️ 電影金句',    color:'#a78bfa' },
+          { id:'work',    label:'💼 工作英文',    color:'#34d399' },
           { id:'other',   label:'📝 其他',        color:'#94a3b8' },
         ]
         return (
@@ -18267,12 +18267,58 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
         display:'flex', flexDirection:'column', gap:10 }}>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <span style={{ fontFamily:MONO, fontSize:11, color:T.amber, fontWeight:700 }}>📚 知識庫</span>
-          <div onClick={() => { setKbNewMode(true); setKbTitle(''); setKbContent(''); setKbEditId(null) }}
-            style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.amber,
-              padding:'4px 10px', background:T.amberD, borderRadius:7, border:`1px solid ${T.amber}50` }}>
-            ＋ 新增
+          <div style={{ display:'flex', gap:6 }}>
+            <div onClick={() => setKbOpen(kbOpen === '__prompt__' ? null : '__prompt__')}
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#a78bfa',
+                padding:'4px 10px', background:'#1e1040', borderRadius:7, border:'1px solid #a78bfa50' }}>
+              💬 ChatGPT 指令
+            </div>
+            <div onClick={() => { setKbNewMode(true); setKbTitle(''); setKbContent(''); setKbEditId(null); setKbCat('other') }}
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.amber,
+                padding:'4px 10px', background:T.amberD, borderRadius:7, border:`1px solid ${T.amber}50` }}>
+              ＋ 新增
+            </div>
           </div>
         </div>
+        {/* ChatGPT 指令面板 */}
+        {kbOpen === '__prompt__' && (
+          <div style={{ background:'#0d0820', border:'1px solid #a78bfa40',
+            borderRadius:10, padding:14, display:'flex', flexDirection:'column', gap:8 }}>
+            <div style={{ fontFamily:MONO, fontSize:9, color:'#a78bfa', fontWeight:700 }}>複製以下指令給 ChatGPT：</div>
+            <div style={{ fontFamily:'monospace', fontSize:10, color:'#cbd5e1',
+              background:'#060412', borderRadius:8, padding:12, lineHeight:1.8,
+              whiteSpace:'pre-wrap', userSelect:'all' }}>{`從現在開始，每當我說「加入知識庫」，請用以下格式整理，不要加任何聊天內容：
+
+【分類】動詞家族 / 電影固定句 / 文法 / 電影金句 / 工作英文（選一個）
+
+【標題】一句話
+
+【核心觀念】50字內
+
+【Chunk】
+3~8個固定搭配，每行一個
+
+【電影例句】
+1~3句最值得背的
+
+【工作例句】
+1句（沒有則省略）
+
+【口訣】一句最好記的中文
+
+不要加鼓勵文字。不要加「Steven，我覺得...」。只保留知識。`}</div>
+            <div onClick={() => {
+                navigator.clipboard?.writeText(`從現在開始，每當我說「加入知識庫」，請用以下格式整理，不要加任何聊天內容：\n\n【分類】動詞家族 / 電影固定句 / 文法 / 電影金句 / 工作英文（選一個）\n\n【標題】一句話\n\n【核心觀念】50字內\n\n【Chunk】\n3~8個固定搭配，每行一個\n\n【電影例句】\n1~3句最值得背的\n\n【工作例句】\n1句（沒有則省略）\n\n【口訣】一句最好記的中文\n\n不要加鼓勵文字。不要加「Steven，我覺得...」。只保留知識。`)
+                  .then(() => showMovieToast('✅ 已複製！貼到 ChatGPT 設定一次即可'))
+                  .catch(() => showMovieToast('請長按上方文字複製'))
+              }}
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                color:'#000', padding:'8px', background:'#a78bfa',
+                borderRadius:8, textAlign:'center' }}>
+              📋 複製指令
+            </div>
+          </div>
+        )}
         {/* 新增 / 編輯表單 */}
         {(kbNewMode || kbEditId) && (
           <div style={{ display:'flex', flexDirection:'column', gap:8,
@@ -18361,13 +18407,46 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                       style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#f87171',
                         padding:'2px 7px', background:'#3a1a1a', borderRadius:5 }}>✕</div>
                   </div>
-                  {kbOpen===k.id && (
-                    <div style={{ padding:'12px 14px', background:'#0a0a14',
-                      fontFamily:'monospace', fontSize:11, color:'#cbd5e1',
-                      lineHeight:1.8, whiteSpace:'pre-wrap', wordBreak:'break-word' }}>
-                      {k.content}
-                    </div>
-                  )}
+                  {kbOpen===k.id && (() => {
+                    // 解析結構化格式 【標題】【核心觀念】【Chunk】【電影例句】【工作例句】【口訣】
+                    const sections = {}
+                    let curSection = null
+                    ;(k.content ?? '').split('\n').forEach(line => {
+                      const m = line.match(/^【(.+?)】(.*)$/)
+                      if (m) { curSection = m[1]; sections[curSection] = (m[2].trim() ? [m[2].trim()] : []) }
+                      else if (curSection && line.trim()) sections[curSection].push(line.trim())
+                    })
+                    const hasStructure = Object.keys(sections).length > 0
+                    if (!hasStructure) return (
+                      <div style={{ padding:'12px 14px', background:'#0a0a14',
+                        fontFamily:'monospace', fontSize:11, color:'#cbd5e1',
+                        lineHeight:1.8, whiteSpace:'pre-wrap', wordBreak:'break-word' }}>
+                        {k.content}
+                      </div>
+                    )
+                    const SectionColors = { '核心觀念':'#94a3b8','Chunk':'#60a5fa','電影例句':'#f59e0b','工作例句':'#34d399','口訣':'#f97316','標題':'#fff' }
+                    return (
+                      <div style={{ padding:'12px 14px', background:'#0a0a14',
+                        display:'flex', flexDirection:'column', gap:10 }}>
+                        {Object.entries(sections).map(([sec, lines]) => (
+                          <div key={sec}>
+                            <div style={{ fontFamily:MONO, fontSize:8, color:SectionColors[sec] ?? '#94a3b8',
+                              fontWeight:700, marginBottom:4, letterSpacing:'0.05em' }}>【{sec}】</div>
+                            {lines.map((line, i) => (
+                              <div key={i} style={{ fontFamily:'monospace', fontSize:11,
+                                color: SectionColors[sec] ?? '#cbd5e1',
+                                lineHeight:1.8, paddingLeft: sec==='Chunk'||sec==='電影例句'||sec==='工作例句' ? 8 : 0,
+                                borderLeft: sec==='Chunk' ? `2px solid #60a5fa30` :
+                                  sec==='電影例句' ? `2px solid #f59e0b30` : 'none',
+                                marginLeft: sec==='Chunk'||sec==='電影例句' ? 4 : 0 }}>
+                                {sec==='口訣' ? `💡 ${line}` : line}
+                              </div>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  })()}
                 </div>
               ))}
             </div>
