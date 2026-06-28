@@ -7288,7 +7288,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.37
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.38
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -18262,7 +18262,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           🎬 電影資料同步 (Google Sheets)
         </div>
         <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.7 }}>
-          同步範圍：場景、句子、⭐收藏、單字庫、逐字稿
+          同步範圍：場景、句子、⭐收藏、單字庫、逐字稿、📚知識庫
         </div>
         <div style={{ display:'flex', gap:8 }}>
           <div onClick={pushSyncing ? undefined : pushMovieDB}
