@@ -7284,7 +7284,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.32
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.34
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -18325,6 +18325,23 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                 padding:'4px 10px', background:T.amberD, borderRadius:7, border:`1px solid ${T.amber}50` }}>
               ＋ 新增
             </div>
+            {/* 去除重複按鈕（舊資料修復用）*/}
+            {kbList.length !== new Set(kbList.map(k=>k.title)).size && (
+              <div onClick={() => {
+                  if (!window.confirm('移除重複的知識庫筆記？')) return
+                  const seen = new Set()
+                  const deduped = kbList.filter(k => {
+                    if (seen.has(k.title)) return false
+                    seen.add(k.title); return true
+                  })
+                  saveKb(deduped)
+                }}
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:8, color:'#f87171',
+                  padding:'4px 8px', background:'#3a1a1a', borderRadius:7,
+                  border:'1px solid #f8717150' }}>
+                🗑 去重複
+              </div>
+            )}
           </div>
         </div>
         {/* ChatGPT 指令面板 */}
@@ -18460,7 +18477,8 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                 border:`1px solid ${T.amber}30`, borderRadius:7, padding:'8px 10px',
                 color:'#fff', outline:'none', resize:'vertical' }}/>
             <div style={{ display:'flex', gap:8 }}>
-              <div onClick={() => {
+              <div onPointerDown={e => { e.preventDefault(); e.stopPropagation() }}
+              onClick={() => {
                   // 標題空白時，從內容找【標題】區塊，或跳過【分類】行取第一個有意義的行
                   let autoTitle = kbTitle.trim()
                   if (!autoTitle) {
