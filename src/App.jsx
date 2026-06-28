@@ -7284,7 +7284,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.21
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.22
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -18306,9 +18306,11 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                 color:'#fff', outline:'none', resize:'vertical' }}/>
             <div style={{ display:'flex', gap:8 }}>
               <div onClick={() => {
-                  if (!kbTitle.trim()) return
-                  if (kbEditId) updateKbItem(kbEditId, kbTitle.trim(), kbContent, kbCat)
-                  else addKbItem(kbTitle.trim(), kbContent, kbCat)
+                  // 標題空白時，自動取內容第一行
+                  const autoTitle = kbTitle.trim() ||
+                    kbContent.split('\n').find(l => l.trim().length > 2)?.trim().slice(0,30) || '未命名筆記'
+                  if (kbEditId) updateKbItem(kbEditId, autoTitle, kbContent, kbCat)
+                  else addKbItem(autoTitle, kbContent, kbCat)
                   setKbNewMode(false); setKbEditId(null); setKbTitle(''); setKbContent('')
                 }}
                 style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
