@@ -7284,7 +7284,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.30
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.31
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13245,6 +13245,8 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   const [editingZhText,   setEditingZhText]   = useState('')
   const [editingNoteId,   setEditingNoteId]   = useState(null)
   const [editingNoteText, setEditingNoteText] = useState('')
+  const [editingEnId,     setEditingEnId]     = useState(null)  // 編輯英文句子
+  const [editingEnText,   setEditingEnText]   = useState('')
   const [retranslatingId, setRetranslatingId] = useState(null)
   const [wordModal,       setWordModal]       = useState(null)
   // ── 行內單字查詢（取代 modal，在句子卡內展開）──
@@ -16638,7 +16640,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           </div>
         )}
 
-        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>⭐ 收藏重點句 · 👆 點單字加入單字庫 · ✕ 刪除句子</div>
+        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>⭐ 收藏重點句 · 👆 點單字加入單字庫 · ✎ 長按英文編輯 · ✕ 刪除句子</div>
         {/* Sentence list */}
         {(starFilter ? phrases.filter(p=>p.starred) : phrases).map(p => (
           <div key={p.id} style={{ background:T.surf,
@@ -16656,7 +16658,34 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               onPointerCancel={() => { clearTimeout(tapTimerRef.current); tapStartRef.current = null }}
               style={{ marginBottom:7, lineHeight:2.1, display:'flex', flexWrap:'wrap', gap:1,
                 paddingRight:70, userSelect:'none', WebkitUserSelect:'none' }}>
-              {p.en.split(/(\b)/).filter(Boolean).map((tok, j) => {
+              {editingEnId === p.id ? (
+                <div style={{ display:'flex', gap:6, alignItems:'center', width:'100%', paddingRight:0 }}>
+                  <input autoFocus
+                    value={editingEnText}
+                    onChange={e => setEditingEnText(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        updateScenePhrases(ps => ps.map(ph => ph.id===p.id ? {...ph, en: editingEnText.trim()} : ph))
+                        setEditingEnId(null)
+                      }
+                      if (e.key === 'Escape') setEditingEnId(null)
+                    }}
+                    style={{ flex:1, fontFamily:MONO, fontSize:13, color:'#fff',
+                      background:T.surf2, border:`1px solid ${T.amber}80`,
+                      borderRadius:7, padding:'5px 9px', outline:'none' }}/>
+                  <div onClick={() => {
+                      updateScenePhrases(ps => ps.map(ph => ph.id===p.id ? {...ph, en: editingEnText.trim()} : ph))
+                      setEditingEnId(null)
+                    }}
+                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, color:'#000',
+                      padding:'4px 9px', background:T.amber, borderRadius:6, fontWeight:700 }}>✓</div>
+                  <div onClick={() => setEditingEnId(null)}
+                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
+                      padding:'4px 7px', background:T.surf2, borderRadius:6,
+                      border:`1px solid ${T.bdr}` }}>✕</div>
+                </div>
+              ) : null}
+              {editingEnId !== p.id && p.en.split(/(\b)/).filter(Boolean).map((tok, j) => {
                 const isWord = /^[a-zA-Z']+$/.test(tok)
                 const cleanWord = tok.replace(/[^a-zA-Z']/g,'')
                 const isActive = inlineLookup?.phraseId === p.id && inlineLookup?.word === cleanWord
@@ -16935,7 +16964,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               )}
             </div>
 
-            {/* 底部按鈕列：📝 備註 | 🎬 畫面 | 🔄 重譯 | 🔊 播放 */}
+            {/* 底部按鈕列：📝 備註 | 🎬 畫面 | ✎ 編輯英文 | 🔄 重譯 | 🔊 播放 */}
             {deletingPhraseId !== p.id && (
               <div style={{ display:'flex', gap:6, marginTop:10, paddingRight:38 }}>
                 <div onClick={() => { setEditingNoteId(p.id); setEditingNoteText(p.note ?? '') }}
@@ -16945,6 +16974,14 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                     border:`1px solid ${p.note ? T.blue+'60' : T.bdr}`,
                     color: p.note ? T.blue : T.txt3 }}>
                   📝 備註
+                </div>
+                <div onClick={() => { setEditingEnId(p.id); setEditingEnText(p.en) }}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                    padding:'5px 10px', borderRadius:7, flex:1, textAlign:'center',
+                    background: editingEnId===p.id ? T.amberD : T.surf2,
+                    border:`1px solid ${editingEnId===p.id ? T.amber+'60' : T.bdr}`,
+                    color: editingEnId===p.id ? T.amber : T.txt3 }}>
+                  ✎ 英文
                 </div>
                 <div onClick={() => { setEditingSceneDescId(p.id); setEditingSceneDescText(p.sceneDesc ?? '') }}
                   style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
