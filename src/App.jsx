@@ -7288,7 +7288,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.40
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.41
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13218,8 +13218,13 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
     }
     catch { return DEFAULT_MOVIE_DB }
   })
-  const [view,       setView]       = useState('list')
-  const [movieId,    setMovieId]    = useState('jerry_maguire')
+  const [view,       setView]       = useState(() => {
+    const saved = localStorage.getItem('fsi:movie:selected')
+    return saved ? 'list' : 'library'
+  })
+  const [movieId,    setMovieId]    = useState(() => {
+    return localStorage.getItem('fsi:movie:selected') || 'jerry_maguire'
+  })
   const [sceneId,    setSceneId]    = useState(null)
   const [selectedSceneIds, setSelectedSceneIds] = useState(new Set()) // 多場景選擇播放
   const [multiScenePhrases, setMultiScenePhrases] = useState([]) // 多場景合併重點句
@@ -17792,6 +17797,106 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
   }
 
   // ══════════════════════════════════════════════════════════════
+  // LIBRARY VIEW — 電影片庫選擇頁
+  // ══════════════════════════════════════════════════════════════
+  if (view === 'library') {
+    const [newMovieTitle, setNewMovieTitle] = React.useState('')
+    const [adding, setAdding] = React.useState(false)
+
+    function selectMovie(mid) {
+      setMovieId(mid)
+      localStorage.setItem('fsi:movie:selected', mid)
+      setView('list')
+    }
+
+    function addNewMovie() {
+      const title = newMovieTitle.trim()
+      if (!title) return
+      const id = 'movie_' + Date.now()
+      const newMovie = {
+        id, title, titleEn: '', year: new Date().getFullYear(),
+        scenes: [], transcript: '', knowledgeBase: []
+      }
+      saveDb({ ...db, movies: [...db.movies, newMovie] })
+      setNewMovieTitle('')
+      setAdding(false)
+      selectMovie(id)
+    }
+
+    return (
+      <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:14 }} className="fadeUp">
+        <div style={{ fontFamily:DISP, fontSize:18, color:T.txt, paddingTop:4 }}>🎬 我的電影片庫</div>
+
+        {db.movies.map(m => {
+          const sceneCount = m.scenes?.length ?? 0
+          const starCount  = m.scenes?.reduce((a,s) => a + (s.phrases?.filter(p => p.familiar === false || p.familiar === 'reinforce').length ?? 0), 0) ?? 0
+          const hasTranscript = !!m.transcript
+          return (
+            <div key={m.id} onClick={() => selectMovie(m.id)}
+              style={{ cursor:'pointer', background:T.surf,
+                border:`1px solid ${movieId === m.id ? T.amber+'60' : T.bdr}`,
+                borderRadius:16, padding:'18px 20px',
+                display:'flex', alignItems:'center', gap:14,
+                transition:'border-color 0.15s' }}>
+              <div style={{ fontSize:32, flexShrink:0 }}>🎬</div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontFamily:DISP, fontSize:15, color:T.txt }}>{m.title}</div>
+                <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginTop:2 }}>
+                  {m.titleEn}{m.year ? ` · ${m.year}` : ''}
+                </div>
+                <div style={{ display:'flex', gap:10, marginTop:6, flexWrap:'wrap' }}>
+                  <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2 }}>{sceneCount} 場景</span>
+                  {starCount > 0 && <span style={{ fontFamily:MONO, fontSize:9, color:'#f87171' }}>✗🔥 {starCount} 句需練</span>}
+                  {hasTranscript && <span style={{ fontFamily:MONO, fontSize:9, color:T.grn }}>✓ 逐字稿</span>}
+                </div>
+              </div>
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>▶</div>
+            </div>
+          )
+        })}
+
+        {adding ? (
+          <div style={{ background:T.surf, border:`1px solid ${T.bdr2}`, borderRadius:14, padding:'16px',
+            display:'flex', flexDirection:'column', gap:10 }}>
+            <div style={{ fontFamily:MONO, fontSize:10, color:T.txt2, fontWeight:700 }}>新增電影</div>
+            <input
+              autoFocus
+              type="text"
+              placeholder="電影中文名稱（如：高年級實習生）"
+              value={newMovieTitle}
+              onChange={e => setNewMovieTitle(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') addNewMovie() }}
+              style={{ background:T.surf2, border:`1px solid ${T.bdr2}`, borderRadius:9,
+                padding:'10px 12px', fontFamily:MONO, fontSize:11, color:T.txt,
+                outline:'none' }}
+            />
+            <div style={{ display:'flex', gap:8 }}>
+              <div onClick={addNewMovie}
+                style={{ flex:2, cursor:'pointer', background:T.amberD,
+                  border:`1px solid ${T.amber}60`, borderRadius:9, padding:'10px',
+                  textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700, color:T.amber }}>
+                ＋ 建立
+              </div>
+              <div onClick={() => { setAdding(false); setNewMovieTitle('') }}
+                style={{ flex:1, cursor:'pointer', background:T.surf2,
+                  border:`1px solid ${T.bdr}`, borderRadius:9, padding:'10px',
+                  textAlign:'center', fontFamily:MONO, fontSize:10, color:T.txt3 }}>
+                取消
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div onClick={() => setAdding(true)}
+            style={{ cursor:'pointer', background:T.surf2,
+              border:`1px dashed ${T.bdr2}`, borderRadius:14, padding:'18px',
+              textAlign:'center', fontFamily:MONO, fontSize:11, color:T.txt3 }}>
+            ＋ 新增電影
+          </div>
+        )}
+      </div>
+    )
+  }
+  // ══════════════════════════════════════════════════════════════
   // LIST VIEW (default — scene list)
   // ══════════════════════════════════════════════════════════════
   const totalPhrases = movie?.scenes.reduce((a,s) => a+s.phrases.length, 0) ?? 0
@@ -17800,6 +17905,14 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
 
   return (
     <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
+      {/* ← 片庫按鈕 */}
+      <div onClick={() => setView('library')}
+        style={{ cursor:'pointer', display:'inline-flex', alignItems:'center', gap:6,
+          fontFamily:MONO, fontSize:10, color:T.amber, background:T.amberD,
+          border:`1px solid ${T.amber}50`, borderRadius:9, padding:'6px 12px',
+          alignSelf:'flex-start' }}>
+        ← 片庫
+      </div>
       {/* Movie header */}
       <div style={{ background:T.surf, borderRadius:14, padding:'18px 20px' }}>
         <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
