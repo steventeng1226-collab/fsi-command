@@ -7288,7 +7288,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.43
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.44
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -15702,11 +15702,36 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               </div>
             )}
             {!hasSaved && (
-              <div onClick={() => setTranscriptEditMode(true)}
-                style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
-                  color:T.amber, padding:'10px', background:T.amberD,
-                  borderRadius:9, border:`1px solid ${T.amber}50`, textAlign:'center' }}>
-                ✏️ 貼上新逐字稿
+              <div style={{ display:'flex', gap:8 }}>
+                <label style={{ flex:2, cursor:'pointer', display:'flex', alignItems:'center',
+                  justifyContent:'center', gap:6,
+                  fontFamily:MONO, fontSize:10, fontWeight:700, color:T.blue,
+                  padding:'10px', background:T.blueD,
+                  borderRadius:9, border:`1px solid ${T.blue}50`, textAlign:'center' }}>
+                  📁 選擇 .srt 檔案
+                  <input
+                    type="file"
+                    accept=".srt,.txt"
+                    style={{ display:'none' }}
+                    onChange={e => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+                      const reader = new FileReader()
+                      reader.onload = ev => {
+                        setTranscriptDraft(ev.target.result ?? '')
+                        setTranscriptEditMode(true)
+                      }
+                      reader.readAsText(file, 'UTF-8')
+                      e.target.value = ''
+                    }}
+                  />
+                </label>
+                <div onClick={() => setTranscriptEditMode(true)}
+                  style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                    color:T.amber, padding:'10px', background:T.amberD,
+                    borderRadius:9, border:`1px solid ${T.amber}50`, textAlign:'center' }}>
+                  ✏️ 手動貼上
+                </div>
               </div>
             )}
           </>
@@ -15721,6 +15746,34 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                 {transcriptDraft.trim() ? `　本頁 ${transcriptDraft.length.toLocaleString()} 字元` : ''}
               </div>
             )}
+            {/* 📁 選擇 .srt 檔案 */}
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <label style={{ cursor:'pointer', display:'inline-flex', alignItems:'center', gap:6,
+                fontFamily:MONO, fontSize:10, fontWeight:700, color:T.blue,
+                background:T.blueD, border:`1px solid ${T.blue}50`,
+                borderRadius:8, padding:'8px 14px' }}>
+                📁 選擇 .srt 檔案
+                <input
+                  type="file"
+                  accept=".srt,.txt"
+                  style={{ display:'none' }}
+                  onChange={e => {
+                    const file = e.target.files?.[0]
+                    if (!file) return
+                    const reader = new FileReader()
+                    reader.onload = ev => {
+                      setTranscriptDraft(ev.target.result ?? '')
+                    }
+                    reader.readAsText(file, 'UTF-8')
+                    e.target.value = ''  // 允許重複選同一檔
+                  }}
+                />
+              </label>
+              {transcriptDraft.trim()
+                ? <span style={{ fontFamily:MONO, fontSize:9, color:T.grn }}>✓ 已讀取 {transcriptDraft.length.toLocaleString()} 字元</span>
+                : <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>或直接貼上文字</span>
+              }
+            </div>
             <textarea
               value={transcriptDraft}
               onChange={e => setTranscriptDraft(e.target.value)}
