@@ -7288,7 +7288,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.38
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.39
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13961,6 +13961,9 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
       el.currentTime = offsetStart
       el.play().catch(() => setScenePlaying(false))
       setScenePlaying(true); setScenePlayPos(0)
+      // 播放超過5秒才算真正練習，記錄日期
+      clearTimeout(el._practiceDateTimer)
+      el._practiceDateTimer = setTimeout(() => { markScenePracticed() }, 5000)
     }
 
     const needSwitch = audioSrcKeyRef.current !== targetFile.url
@@ -13975,6 +13978,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
 
   function stopSceneAudio() {
     if (!audioElRef.current) return
+    clearTimeout(audioElRef.current._practiceDateTimer)
     audioElRef.current.pause()
     audioElRef.current._sceneEnd = null
     setScenePlaying(false); setScenePlayPos(0)
@@ -14165,6 +14169,8 @@ ${numbered}`
     function advance() {
       if (cancelled) return
       markPlayed(p.id)
+      // 第一句播完才算真正開始練習，記錄日期
+      if (playIdx === 0) markScenePracticed()
       setTimeout(() => {
         if (cancelled) return
         const next = playIdx + 1
@@ -16207,6 +16213,8 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                           setRevIdx(activePhrases.length) // 超出範圍作為完成標記
                           setRevFlip(false)
                         } else {
+                          // 第一句確認後才算真正開始練習，記錄日期
+                          if (revIdx === 0) markScenePracticed()
                           setRevIdx(i => i + 1)
                         }
                       }}
@@ -16323,7 +16331,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               color: starFilter ? T.amber : T.txt3 }}>
             ⭐ 重點 ({starredCount})
           </div>
-          <div onClick={() => { markScenePracticed(); setRevIdx(0); setRevFlip(false); setView('reverse') }}
+          <div onClick={() => { setRevIdx(0); setRevFlip(false); setView('reverse') }}
             style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, textAlign:'center',
               padding:'8px', borderRadius:10, transition:'all 0.13s',
               background: T.surf2, border:`1px solid ${T.bdr2}`, color:T.txt2 }}>
@@ -16351,7 +16359,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
             background:T.surf, border:`1px solid ${scenePlaying || playing ? T.amber+'50' : T.bdr}`,
             borderRadius:12, padding:'10px 12px', transition:'border-color 0.2s' }}>
             <div style={{ display:'flex', gap:6 }}>
-              <div onClick={() => { if (!scenePlaying) markScenePracticed(); scenePlaying ? stopSceneAudio() : playSceneAudio() }}
+              <div onClick={() => { if (!scenePlaying) { }; scenePlaying ? stopSceneAudio() : playSceneAudio() }}
                 style={{ flex:2, cursor:'pointer', background: scenePlaying ? T.surf2 : T.amberD,
                   border:`1px solid ${T.amber}60`, borderRadius:9, padding:'9px',
                   textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700, color:T.amber }}>
@@ -16371,7 +16379,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                   {label}
                 </div>
               ))}
-              <div onClick={() => { markScenePracticed(); setPlayIdx(0); setPlaying(false); setView('play') }}
+              <div onClick={() => { setPlayIdx(0); setPlaying(false); setView('play') }}
                 style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
                   padding:'9px 4px', borderRadius:9, textAlign:'center',
                   background: T.amberD, border:`1px solid ${T.amber}50`, color:T.amber }}>
