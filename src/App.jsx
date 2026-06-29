@@ -7288,7 +7288,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.39
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.40
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -16199,36 +16199,64 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                   </div>
                 </div>
 
-                {/* 品質自評 */}
+                {/* 熟悉度標記 + 下一句 */}
                 <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:12,
                   padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }}>
                   <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, textAlign:'center' }}>
-                    這次有帶入畫面說出來嗎？
+                    說出來了嗎？標記熟悉度 → 自動下一句
                   </div>
-                  <div style={{ display:'flex', gap:8 }}>
-                    <div onClick={() => {
-                        const isLast = revIdx >= activePhrases.length - 1
-                        if (isLast) {
-                          // 最後一句完成 → 顯示完成畫面
-                          setRevIdx(activePhrases.length) // 超出範圍作為完成標記
-                          setRevFlip(false)
-                        } else {
-                          // 第一句確認後才算真正開始練習，記錄日期
-                          if (revIdx === 0) markScenePracticed()
-                          setRevIdx(i => i + 1)
-                        }
-                      }}
-                      style={{ flex:2, cursor:'pointer', background:T.grnD,
-                        border:`1px solid ${T.grn}50`, borderRadius:10, padding:'11px',
-                        textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700, color:T.grn }}>
-                      {revIdx >= activePhrases.length - 1 ? '✓ 完成練習' : '✓ 有，下一句'}
-                    </div>
-                    <div onClick={retryPhrase}
-                      style={{ flex:1, cursor:'pointer', background:T.surf2,
-                        border:`1px solid ${T.bdr}`, borderRadius:10, padding:'11px',
-                        textAlign:'center', fontFamily:MONO, fontSize:10, color:T.txt3 }}>
-                      ↺ 再來
-                    </div>
+                  {/* 三態熟悉度按鈕 */}
+                  <div style={{ display:'flex', gap:6 }}>
+                    {[
+                      ['true',      '✓ 熟悉',   T.grn,     T.grnD,     '#22c55e'],
+                      ['false',     '✗ 加強',   '#f87171',  '#3a1a1a',  '#f87171'],
+                      ['reinforce', '🔥 再加強', '#f97316',  '#2a1200',  '#f97316'],
+                    ].map(([val, label, activeColor, activeBg, borderColor]) => {
+                      const fv = val === 'true' ? true : val === 'false' ? false : 'reinforce'
+                      const curFam = cur?.familiar
+                      const isActive = curFam === fv
+                      return (
+                        <div key={val} onClick={() => {
+                            // 更新 familiar（同步 starFamiliar + movieDB + multiScenePhrases）
+                            setStarFamiliar(prev => ({ ...prev, [cur.id]: fv }))
+                            saveDb({ ...db, movies: db.movies.map(m => ({
+                              ...m, scenes: (m.scenes ?? []).map(s => ({
+                                ...s, phrases: (s.phrases ?? []).map(ph =>
+                                  ph.id === cur.id ? { ...ph, familiar: fv } : ph)
+                              }))
+                            })) })
+                            if (multiScenePhrases.length > 0) {
+                              setMultiScenePhrases(prev => prev.map(ph =>
+                                ph.id === cur.id ? { ...ph, familiar: fv } : ph
+                              ))
+                            }
+                            // 記錄日期（第一句）
+                            if (revIdx === 0) markScenePracticed()
+                            // 自動進下一句
+                            const isLast = revIdx >= activePhrases.length - 1
+                            setRevFlip(false)
+                            if (isLast) {
+                              setRevIdx(activePhrases.length)
+                            } else {
+                              setRevIdx(i => i + 1)
+                            }
+                          }}
+                          style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                            padding:'11px 4px', borderRadius:10, textAlign:'center',
+                            background: isActive ? activeBg : T.surf2,
+                            border:`1px solid ${isActive ? borderColor+'60' : T.bdr}`,
+                            color: isActive ? activeColor : T.txt3 }}>
+                          {label}
+                        </div>
+                      )
+                    })}
+                  </div>
+                  {/* 再來按鈕 */}
+                  <div onClick={retryPhrase}
+                    style={{ cursor:'pointer', background:T.surf2,
+                      border:`1px solid ${T.bdr}`, borderRadius:10, padding:'9px',
+                      textAlign:'center', fontFamily:MONO, fontSize:10, color:T.txt3 }}>
+                    ↺ 再來（重新翻牌）
                   </div>
                 </div>
               </div>
