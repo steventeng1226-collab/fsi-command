@@ -58,14 +58,62 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx_xBUsiWvvoF8Q
 let _kbIdCounter = Date.now()
 function genKbId() { return `kb_${++_kbIdCounter}` }
 
+// ── 舊版相容：JERRY_MP3 保留供遷移用 ──
 const JERRY_MP3 = [
-  { url: 'https://steventeng1226-collab.github.io/fsi-command/Jerry_01.mp3', start: 0,    end: 2100 }, // 00:00~35:00
-  { url: 'https://steventeng1226-collab.github.io/fsi-command/Jerry_02.mp3', start: 2100, end: 4200 }, // 35:00~1:10:00
-  { url: 'https://steventeng1226-collab.github.io/fsi-command/Jerry_03.mp3', start: 4200, end: 6300 }, // 1:10:00~1:45:00
-  { url: 'https://steventeng1226-collab.github.io/fsi-command/Jerry_04.mp3', start: 6300, end: 99999 }, // 1:45:00~結尾
+  { url: 'https://steventeng1226-collab.github.io/fsi-command/Jerry_01.mp3', start: 0,    end: 2100 },
+  { url: 'https://steventeng1226-collab.github.io/fsi-command/Jerry_02.mp3', start: 2100, end: 4200 },
+  { url: 'https://steventeng1226-collab.github.io/fsi-command/Jerry_03.mp3', start: 4200, end: 6300 },
+  { url: 'https://steventeng1226-collab.github.io/fsi-command/Jerry_04.mp3', start: 6300, end: 99999 },
 ]
-function getJerryMp3(secs) {
-  return JERRY_MP3.find(f => secs >= f.start && secs < f.end) ?? JERRY_MP3[0]
+
+// ── 動態 MP3 架構 ──
+// 每部電影的 mp3Parts 存在 movieDB，格式：{ label, start, end }
+// IDB key 格式：mp3__<movieId>__<partIndex>
+function getMovieIdbKey(movieId, partIndex) {
+  return `mp3__${movieId}__${partIndex}`
+}
+
+// 從 movie 物件取得 mp3Parts（含 idbKey）
+function getMovieMp3Parts(movie) {
+  if (!movie) return []
+  return (movie.mp3Parts ?? []).map((p, i) => ({
+    ...p,
+    idbKey: getMovieIdbKey(movie.id, i)
+  }))
+}
+
+// 依秒數找對應 part
+function getMovieMp3At(movie, secs) {
+  const parts = getMovieMp3Parts(movie)
+  return parts.find(p => secs >= p.start && secs < p.end) ?? parts[0] ?? null
+}
+
+
+// ── IDB 遷移：舊 key（Jerry URL）→ 新 key（mp3__jerry_maguire__N）──
+async function migrateMp3IdbKeys() {
+  const migrated = localStorage.getItem('fsi:mp3:migrated')
+  if (migrated === 'v1') return
+  try {
+    for (let i = 0; i < JERRY_MP3.length; i++) {
+      const oldKey = JERRY_MP3[i].url
+      const newKey = getMovieIdbKey('jerry_maguire', i)
+      const blob = await getMp3FromIDB(oldKey)
+      if (blob) {
+        await saveMp3ToIDB(newKey, blob)
+        // 刪除舊 key
+        try {
+          const db2 = await openMp3DB()
+          const tx = db2.transaction('blobs', 'readwrite')
+          tx.objectStore('blobs').delete(oldKey)
+          await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej })
+          db2.close()
+        } catch(e) { console.warn('[MP3 migrate delete]', e) }
+        console.log(`[MP3 migrate] ${oldKey} → ${newKey}`)
+      }
+    }
+    localStorage.setItem('fsi:mp3:migrated', 'v1')
+    console.log('[MP3 migrate] done')
+  } catch(e) { console.warn('[MP3 migrate]', e) }
 }
 
 // ── MP3 IndexedDB 快取（離線使用）──────────────────────────────
@@ -7288,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.44
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.47
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13172,6 +13220,12 @@ STRICT RULES:
 const DEFAULT_MOVIE_DB = {
   movies: [{
     id: 'jerry_maguire', title: '征服情海', titleEn: 'Jerry Maguire', year: 1996,
+    mp3Parts: [
+      { label:'Jerry_01', start:0,    end:2100  },
+      { label:'Jerry_02', start:2100, end:4200  },
+      { label:'Jerry_03', start:4200, end:6300  },
+      { label:'Jerry_04', start:6300, end:99999 },
+    ],
     scenes: [{
       id: 'scene_001', timeRange: '00:05:57 ~ 00:07:59', name: '使命宣言的誕生',
       phrases: [
@@ -13210,10 +13264,15 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
       if (!s) return DEFAULT_MOVIE_DB
       const parsed = JSON.parse(s)
       // 還原獨立存放的逐字稿
-      const transcript0 = localStorage.getItem('fsi:movie:transcript:0') ?? ''
-      if (transcript0 && parsed.movies?.[0]?.transcript === '__REF__') {
-        parsed.movies[0].transcript = transcript0
-      }
+      // 還原各電影逐字稿（新格式：per movieId）
+      ;(parsed.movies ?? []).forEach(m => {
+        if (m.transcript === '__REF__') {
+          const t = localStorage.getItem(`fsi:movie:transcript:${m.id}`)
+            ?? localStorage.getItem('fsi:movie:transcript:0')
+            ?? ''
+          m.transcript = t
+        }
+      })
       return parsed
     }
     catch { return DEFAULT_MOVIE_DB }
@@ -13247,6 +13306,9 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   // 片庫新增電影 state（必須在頂層，不能放在 if 區塊內）
   const [newMovieTitle,    setNewMovieTitle]    = useState('')
   const [libraryAdding,    setLibraryAdding]    = useState(false)
+  // MP3 設定 state
+  const [mp3SettingId,     setMp3SettingId]     = useState(null) // 展開設定的 movieId
+  const [mp3SettingParts,  setMp3SettingParts]  = useState([])   // 暫存編輯中的 parts
   const [starFilter,      setStarFilter]      = useState(true)
   const [editingSceneNameId,   setEditingSceneNameId]   = useState(null)
   const [sceneSearch, setSceneSearch] = useState('')  // 場景搜尋關鍵字
@@ -13279,56 +13341,58 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   const [partStatus, setPartStatus] = useState(['idle','idle','idle','idle']) // 4個 MP3 各自狀態
   const setPartN = (n, v) => setPartStatus(prev => prev.map((s,i) => i===n ? v : s))
 
-  // ── 開 App 自動載入雲端 MP3（Part 1 顯示進度；Part 2 靜默背景預載）──
+  // ── 開 App 自動載入 MP3（動態架構，支援多部電影）──
   useEffect(() => {
     localStorage.removeItem('fsi:movie:cloudUrl')
+    // 先執行 IDB key 遷移（舊 Jerry URL → 新 mp3__jerry_maguire__N）
+    migrateMp3IdbKeys()
     if (audioMode === 'original') {
-      // 啟動時：優先從 IDB 讀 Part1，有快取直接用，沒快取才嘗試雲端
+      const parts = getMovieMp3Parts(movie)
+      if (!parts.length) return
+      // 掃描所有 part 的 IDB 快取狀態
+      parts.forEach((p, i) => {
+        getMp3FromIDB(p.idbKey).then(c => { if (c) setPartN(i, 'cached') }).catch(() => {})
+      })
+      // 初始化 Part 1
       const initPart1 = async () => {
-        JERRY_MP3.forEach((f, i) => {
-          getMp3FromIDB(f.url).then(c => { if (c) setPartN(i, 'cached') }).catch(() => {})
-        })
+        const p0 = parts[0]
         try {
-          const cached = await getMp3FromIDB(JERRY_MP3[0].url)
+          const cached = await getMp3FromIDB(p0.idbKey)
           if (cached) {
-            // IDB 有快取，直接用（不嘗試網路）
-            loadAudioUrl(JERRY_MP3[0].url, '征服情海 Part 1')
-          } else if (navigator.onLine) {
-            // 有網路才嘗試雲端
-            loadAudioUrl(JERRY_MP3[0].url, '征服情海 Part 1')
+            loadAudioUrl(p0.idbKey, `${movie.title} Part 1`)
+          } else if (navigator.onLine && p0.url) {
+            loadAudioUrl(p0.url, `${movie.title} Part 1`)
           } else {
-            // 離線且無快取：顯示提示
-            setAudioFileName('📁 請用 P1 選檔載入 MP3')
+            setAudioFileName('📁 請選擇 MP3 檔案')
             setPartN(0, 'idle')
           }
         } catch(e) {}
       }
       initPart1()
-      // Part 2：背景靜默預載進 IDB（不切換 audio element，不影響 Part 1 播放）
-      const preloadPart2 = async () => {
-        // 背景預載 Part2~4
-      }
+      // 背景預載 Part 2~N
       const preloadPart = async (idx) => {
-        const url = JERRY_MP3[idx].url
+        const p = parts[idx]
+        if (!p) return
         try {
-          const cached = await getMp3FromIDB(url)
+          const cached = await getMp3FromIDB(p.idbKey)
           if (cached) { setPartN(idx, 'cached'); return }
         } catch(e) {}
         if (!navigator.onLine) { setPartN(idx, 'error'); return }
+        if (!p.url) { setPartN(idx, 'idle'); return }
         try {
           setPartN(idx, 'loading')
-          const res = await fetch(url)
+          const res = await fetch(p.url)
           if (!res.ok) { setPartN(idx, 'error'); return }
           const buf = await res.arrayBuffer()
           const blob = new Blob([buf], { type: 'audio/mpeg' })
-          await saveMp3ToIDB(url, blob)
+          await saveMp3ToIDB(p.idbKey, blob)
           setPartN(idx, 'cached')
         } catch(e) { setPartN(idx, 'error') }
       }
-      ;[1,2,3].forEach(i => preloadPart(i))
-      setTimeout(() => { [1,2,3].forEach(i => preloadPart(i)) }, 3000)
+      parts.slice(1).forEach((_, i) => preloadPart(i + 1))
+      setTimeout(() => { parts.slice(1).forEach((_, i) => preloadPart(i + 1)) }, 3000)
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [movieId]) // movieId 切換時重新載入 // eslint-disable-line react-hooks/exhaustive-deps
   const [scenePlaying, setScenePlaying] = useState(false)
   const [scenePlayPos,  setScenePlayPos]  = useState(0)
   const [sceneRate,     setSceneRate]     = useState(0.6) // 0~1 進度
@@ -13592,8 +13656,10 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
       }
     } else {
       // fallback: 傳統 input[type=file]
-      const idx = JERRY_MP3.findIndex(f => f.url === idbKey)
-      const inp = document.getElementById(`fsi-audio-input-p${idx >= 0 ? idx+1 : 1}`)
+      // idbKey 格式：mp3__<movieId>__<partIndex>
+      const parts2 = idbKey.split('__')
+      const partIdx = parts2.length === 3 ? parseInt(parts2[2]) : 0
+      const inp = document.getElementById(`fsi-audio-input-p${partIdx + 1}`)
       inp?.click()
     }
   }
@@ -13604,16 +13670,22 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   function saveDb(nd) {
     const ndWithTs = { ...nd, updatedAt: Date.now() }
     setDb(ndWithTs)
-    // 逐字稿獨立存：避免 movieDB 超過 localStorage 5MB 限制
-    const transcript = ndWithTs.movies?.[0]?.transcript ?? ''
-    if (transcript) {
-      try { localStorage.setItem('fsi:movie:transcript:0', transcript) } catch(e) {}
+    // 逐字稿獨立存：每部電影用各自的 key（fsi:movie:transcript:<movieId>）
+    ;(ndWithTs.movies ?? []).forEach(m => {
+      if (m.transcript && m.transcript !== '__REF__') {
+        try { localStorage.setItem(`fsi:movie:transcript:${m.id}`, m.transcript) } catch(e) {}
+      }
+    })
+    // 向後相容：也存 :0（給舊版讀取）
+    const t0 = ndWithTs.movies?.[0]?.transcript ?? ''
+    if (t0 && t0 !== '__REF__') {
+      try { localStorage.setItem('fsi:movie:transcript:0', t0) } catch(e) {}
     }
     // movieDB 去掉逐字稿再存（縮小體積）
     const ndLight = {
       ...ndWithTs,
-      movies: (ndWithTs.movies ?? []).map((m, i) =>
-        i === 0 ? { ...m, transcript: '__REF__' } : m
+      movies: (ndWithTs.movies ?? []).map(m =>
+        m.transcript && m.transcript !== '__REF__' ? { ...m, transcript: '__REF__' } : m
       )
     }
     try {
@@ -13790,12 +13862,12 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
     // 優先用電影原音（audioMode === 'original' 且 MP3 已載入且有時間碼）
     if (audioMode === 'original' && audioElRef.current && hasTimestamp) {
       const el = audioElRef.current
-      const targetFile = getJerryMp3(phrase.startSecs)
+      const targetFile = getMovieMp3At(movie, phrase.startSecs)
       const offsetSecs = phrase.startSecs - targetFile.start
       // 用 audioSrcKeyRef 判斷是否需要切換（blob URL 下 el.src 不含檔名，不能用）
       const needSwitch = audioSrcKeyRef.current !== targetFile.url
       if (needSwitch) {
-        loadAudioUrl(targetFile.url, `征服情海 Part ${JERRY_MP3.indexOf(targetFile) + 1}`)
+        loadAudioUrl(targetFile?.idbKey ?? targetFile?.url, `征服情海 Part ${JERRY_MP3.indexOf(targetFile) + 1}`)
         const onReady = () => {
           // 確認已切換到正確檔案才播（防止舊 canplay 殘留觸發）
           if (audioSrcKeyRef.current !== targetFile.url) return
@@ -13837,7 +13909,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
     // 存進 IDB（以 idbKey 為索引，之後可離線讀取）
     if (idbKey) {
       saveMp3ToIDB(idbKey, file).then(() => {
-        JERRY_MP3.forEach((f,i) => { if (idbKey === f.url) setPartN(i, 'cached') })
+        const p3 = idbKey?.split('__') ?? []; const pi3 = p3.length===3 ? parseInt(p3[2]) : -1; if (pi3>=0) setPartN(pi3, 'cached')
       }).catch(() => {})
       audioSrcKeyRef.current = idbKey
     }
@@ -13928,7 +14000,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
         .then(r => { if (!r.ok) throw new Error(r.status); return r.blob() })
         .then(async blob => {
           await saveMp3ToIDB(url, blob)
-          JERRY_MP3.forEach((f,i) => { if (url === f.url) setPartN(i, 'cached') })
+          const p4 = url?.split('__') ?? []; const pi4 = p4.length===3 ? parseInt(p4[2]) : -1; if (pi4>=0) setPartN(pi4, 'cached')
           const blobUrl = URL.createObjectURL(blob)
           el.src = blobUrl
           audioSrcKeyRef.current = url  // 記錄原始 URL
@@ -13959,7 +14031,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
     window.speechSynthesis?.cancel()
     setPlayingPhraseId(null)
     const el = audioElRef.current
-    const targetFile = getJerryMp3(start)
+    const targetFile = getMovieMp3At(movie, start)
     const offsetStart = start - targetFile.start
     const offsetEnd   = end   - targetFile.start
 
@@ -13976,7 +14048,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
 
     const needSwitch = audioSrcKeyRef.current !== targetFile.url
     if (needSwitch) {
-      loadAudioUrl(targetFile.url, `征服情海 Part ${JERRY_MP3.indexOf(targetFile) + 1}`)
+      loadAudioUrl(targetFile?.idbKey ?? targetFile?.url, `征服情海 Part ${JERRY_MP3.indexOf(targetFile) + 1}`)
       const onReady = () => { doPlay(); el.removeEventListener('canplay', onReady) }
       el.addEventListener('canplay', onReady)
     } else {
@@ -14190,7 +14262,7 @@ ${numbered}`
     if (audioMode === 'original' && audioElRef.current && hasTimestamp) {
       // 電影原音：自動切換正確檔案
       const el = audioElRef.current
-      const targetFile = getJerryMp3(p.startSecs)
+      const targetFile = getMovieMp3At(movie, p.startSecs)
       const offsetSecs = p.startSecs - targetFile.start
 
       function playOffset() {
@@ -14211,7 +14283,7 @@ ${numbered}`
           }
           el.addEventListener('canplay', onReady)
         })
-        loadAudioUrl(targetFile.url, `征服情海 Part ${JERRY_MP3.indexOf(targetFile) + 1}`)
+        loadAudioUrl(targetFile?.idbKey ?? targetFile?.url, `征服情海 Part ${JERRY_MP3.indexOf(targetFile) + 1}`)
         waitCanPlay.then(() => { if (!cancelled) playOffset() })
       } else {
         playOffset()
@@ -17302,7 +17374,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
 
       const endSecs   = p.endSecs ?? (secs + 4)
       const phraseDur = endSecs - secs
-      const targetFile = getJerryMp3(secs)
+      const targetFile = getMovieMp3At(movie, secs)
 
       // 清除舊的 timeupdate handler
       if (starTimeUpdateRef.current) {
@@ -17367,7 +17439,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           starTimeUpdateRef.current = null
         }
         clearTimeout(starLoopRef.current)
-        loadAudioUrl(targetFile.url, `征服情海 Part ${JERRY_MP3.indexOf(targetFile) + 1}`)
+        loadAudioUrl(targetFile?.idbKey ?? targetFile?.url, `征服情海 Part ${JERRY_MP3.indexOf(targetFile) + 1}`)
         // 等待 canplay 後再播（loadAudioUrl 是 async，canplay 由它觸發）
         el.addEventListener('canplay', doPlay, { once: true })
       } else {
@@ -17421,7 +17493,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
       if (!audioElRef.current) return
       const secs = p.startSecs ?? 0
       const end  = p.endSecs   ?? (secs + 4)
-      const targetFile = getJerryMp3(secs)
+      const targetFile = getMovieMp3At(movie, secs)
       const el = audioElRef.current
       if (el.src !== targetFile.url) el.src = targetFile.url
       el.currentTime = secs - targetFile.start
@@ -17869,7 +17941,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
       const id = 'movie_' + Date.now()
       const newMovie = {
         id, title, titleEn: '', year: new Date().getFullYear(),
-        scenes: [], transcript: '', knowledgeBase: []
+        mp3Parts: [], scenes: [], transcript: '', knowledgeBase: []
       }
       saveDb({ ...db, movies: [...db.movies, newMovie] })
       setNewMovieTitle('')
@@ -17882,29 +17954,149 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
         <div style={{ fontFamily:DISP, fontSize:18, color:T.txt, paddingTop:4 }}>🎬 我的電影片庫</div>
 
         {db.movies.map(m => {
-          const sceneCount = m.scenes?.length ?? 0
-          const starCount  = m.scenes?.reduce((a,s) => a + (s.phrases?.filter(p => p.familiar === false || p.familiar === 'reinforce').length ?? 0), 0) ?? 0
+          const sceneCount    = m.scenes?.length ?? 0
           const hasTranscript = !!m.transcript
+          const allPhrases    = (m.scenes ?? []).flatMap(s => s.phrases ?? [])
+          const starredCount  = allPhrases.filter(p => p.starred).length
+          const reinforceCount = allPhrases.filter(p => p.starred && p.familiar === 'reinforce').length
+          // 全域統計（單字庫、背誦庫跨電影共用）
+          const vocabCount  = db.vocab?.length ?? 0
+          const allPhrasesGlobal = (db.movies ?? []).flatMap(mv => (mv.scenes ?? []).flatMap(s => s.phrases ?? []))
+          const memCount    = allPhrasesGlobal.filter(p => Number(p.rating) === 4 || Number(p.rating) === 5).length
           return (
-            <div key={m.id} onClick={() => selectMovie(m.id)}
-              style={{ cursor:'pointer', background:T.surf,
+            <div key={m.id} style={{ background:T.surf,
                 border:`1px solid ${movieId === m.id ? T.amber+'60' : T.bdr}`,
-                borderRadius:16, padding:'18px 20px',
-                display:'flex', alignItems:'center', gap:14,
-                transition:'border-color 0.15s' }}>
-              <div style={{ fontSize:32, flexShrink:0 }}>🎬</div>
-              <div style={{ flex:1 }}>
-                <div style={{ fontFamily:DISP, fontSize:15, color:T.txt }}>{m.title}</div>
-                <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginTop:2 }}>
-                  {m.titleEn}{m.year ? ` · ${m.year}` : ''}
+                borderRadius:16, overflow:'hidden' }}>
+              {/* 電影標題列 — 點擊進入 */}
+              <div onClick={() => selectMovie(m.id)}
+                style={{ cursor:'pointer', padding:'16px 18px',
+                  display:'flex', alignItems:'center', gap:12 }}>
+                <div style={{ fontSize:28, flexShrink:0 }}>🎬</div>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontFamily:DISP, fontSize:15, color:T.txt }}>{m.title}</div>
+                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginTop:2 }}>
+                    {m.titleEn}{m.year ? ` · ${m.year}` : ''}
+                  </div>
+                  <div style={{ display:'flex', gap:8, marginTop:5, flexWrap:'wrap' }}>
+                    <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2 }}>{sceneCount} 場景</span>
+                    {hasTranscript && <span style={{ fontFamily:MONO, fontSize:9, color:T.grn }}>✓ 逐字稿</span>}
+                  </div>
                 </div>
-                <div style={{ display:'flex', gap:10, marginTop:6, flexWrap:'wrap' }}>
-                  <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2 }}>{sceneCount} 場景</span>
-                  {starCount > 0 && <span style={{ fontFamily:MONO, fontSize:9, color:'#f87171' }}>✗🔥 {starCount} 句需練</span>}
-                  {hasTranscript && <span style={{ fontFamily:MONO, fontSize:9, color:T.grn }}>✓ 逐字稿</span>}
+                <div style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>▶</div>
+              </div>
+              {/* 快捷卡片 — 各電影獨立 */}
+              <div style={{ padding:'0 12px 14px', display:'grid', gridTemplateColumns:'1fr 1fr', gap:6 }}>
+                <div onClick={() => { selectMovie(m.id); setTimeout(() => setView('vocab'), 50) }}
+                  style={{ cursor:'pointer', border:`1px solid ${vocabCount ? T.blue+'50' : T.bdr}`,
+                    borderRadius:10, padding:'8px 10px', display:'flex', alignItems:'center',
+                    justifyContent:'space-between', background: vocabCount ? T.blueD : T.surf2 }}>
+                  <span style={{ fontFamily:MONO, fontSize:9, color: vocabCount ? T.blue : T.txt3 }}>📖 單字庫</span>
+                  <span style={{ fontFamily:MONO, fontSize:9, color:T.amber }}>{vocabCount} →</span>
+                </div>
+                <div onClick={() => { selectMovie(m.id); setTimeout(() => setView('memory'), 50) }}
+                  style={{ cursor:'pointer', border:`1px solid ${memCount ? T.amber+'50' : T.bdr}`,
+                    borderRadius:10, padding:'8px 10px', display:'flex', alignItems:'center',
+                    justifyContent:'space-between', background: memCount ? T.amberD : T.surf2 }}>
+                  <span style={{ fontFamily:MONO, fontSize:9, color: memCount ? T.amber : T.txt3 }}>📚 背誦庫</span>
+                  <span style={{ fontFamily:MONO, fontSize:9, color:T.amber }}>{memCount} →</span>
+                </div>
+                <div onClick={() => { selectMovie(m.id); setTimeout(() => setView('starred'), 50) }}
+                  style={{ cursor:'pointer', border:`1px solid ${starredCount ? T.amber+'50' : T.bdr}`,
+                    borderRadius:10, padding:'8px 10px', display:'flex', alignItems:'center',
+                    justifyContent:'space-between', background: starredCount ? T.amberD : T.surf2 }}>
+                  <span style={{ fontFamily:MONO, fontSize:9, color: starredCount ? '#f87171' : T.txt3 }}>✗ 加強</span>
+                  <span style={{ fontFamily:MONO, fontSize:9, color:'#f87171' }}>{starredCount} →</span>
+                </div>
+                <div onClick={() => { selectMovie(m.id); setStarMode('reinforce'); setMultiScenePhrases([]); setTimeout(() => setView('starred'), 50) }}
+                  style={{ cursor:'pointer', border:`1px solid ${reinforceCount ? '#f97316' : T.bdr}`,
+                    borderRadius:10, padding:'8px 10px', display:'flex', alignItems:'center',
+                    justifyContent:'space-between', background: reinforceCount ? '#2a1200' : T.surf2 }}>
+                  <span style={{ fontFamily:MONO, fontSize:9, color: reinforceCount ? '#f97316' : T.txt3 }}>🔥 再加強</span>
+                  <span style={{ fontFamily:MONO, fontSize:9, color:'#f97316' }}>{reinforceCount} →</span>
                 </div>
               </div>
-              <div style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>▶</div>
+              {/* ⚙️ MP3 設定入口 */}
+              <div style={{ padding:'0 12px 12px' }}>
+                <div onClick={() => {
+                    if (mp3SettingId === m.id) {
+                      setMp3SettingId(null)
+                    } else {
+                      setMp3SettingId(m.id)
+                      const existing = m.mp3Parts ?? []
+                      setMp3SettingParts(existing.length > 0
+                        ? existing.map(p => ({ ...p }))
+                        : [
+                            { label:'Part_01', start:0,    end:1800  },
+                            { label:'Part_02', start:1800, end:3600  },
+                            { label:'Part_03', start:3600, end:5400  },
+                            { label:'Part_04', start:5400, end:99999 },
+                          ]
+                      )
+                    }
+                  }}
+                  style={{ cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between',
+                    background: mp3SettingId === m.id ? T.amberD : T.surf2,
+                    border:`1px solid ${mp3SettingId === m.id ? T.amber+'50' : T.bdr}`,
+                    borderRadius:9, padding:'7px 12px' }}>
+                  <span style={{ fontFamily:MONO, fontSize:9, color: mp3SettingId === m.id ? T.amber : T.txt3 }}>
+                    ⚙️ MP3 設定 {m.mp3Parts?.length ? `(${m.mp3Parts.length} 段)` : '(未設定)'}
+                  </span>
+                  <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>{mp3SettingId === m.id ? '▲' : '▼'}</span>
+                </div>
+                {mp3SettingId === m.id && (
+                  <div style={{ marginTop:8, display:'flex', flexDirection:'column', gap:8,
+                    background:T.surf2, borderRadius:10, padding:'12px', border:`1px solid ${T.bdr}` }}>
+                    <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                      設定每段 MP3 時間範圍（秒）；空白結束秒 = 到結尾
+                    </div>
+                    {mp3SettingParts.map((p, i) => (
+                      <div key={i} style={{ display:'flex', gap:5, alignItems:'center' }}>
+                        <span style={{ fontFamily:MONO, fontSize:9, color:T.amber, minWidth:18 }}>P{i+1}</span>
+                        <input type="text" value={p.label}
+                          onChange={e => setMp3SettingParts(prev => prev.map((x,j) => j===i ? {...x, label:e.target.value} : x))}
+                          style={{ flex:2, background:T.surf, border:`1px solid ${T.bdr2}`, borderRadius:6,
+                            padding:'5px 7px', fontFamily:MONO, fontSize:9, color:T.txt, outline:'none' }} />
+                        <input type="number" value={p.start}
+                          onChange={e => setMp3SettingParts(prev => prev.map((x,j) => j===i ? {...x, start:Number(e.target.value)} : x))}
+                          placeholder="開始"
+                          style={{ flex:1, background:T.surf, border:`1px solid ${T.bdr2}`, borderRadius:6,
+                            padding:'5px 7px', fontFamily:MONO, fontSize:9, color:T.txt, outline:'none' }} />
+                        <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>~</span>
+                        <input type="number" value={p.end === 99999 ? '' : p.end}
+                          onChange={e => setMp3SettingParts(prev => prev.map((x,j) => j===i ? {...x, end: e.target.value==='' ? 99999 : Number(e.target.value)} : x))}
+                          placeholder="結束"
+                          style={{ flex:1, background:T.surf, border:`1px solid ${T.bdr2}`, borderRadius:6,
+                            padding:'5px 7px', fontFamily:MONO, fontSize:9, color:T.txt, outline:'none' }} />
+                      </div>
+                    ))}
+                    <div style={{ display:'flex', gap:6 }}>
+                      <div onClick={() => setMp3SettingParts(prev => [...prev, { label:`Part_0${prev.length+1}`, start: prev[prev.length-1]?.end ?? 0, end:99999 }])}
+                        style={{ cursor:'pointer', flex:1, fontFamily:MONO, fontSize:9, color:T.grn,
+                          background:T.grnD, border:`1px solid ${T.grn}50`, borderRadius:7, padding:'6px', textAlign:'center' }}>
+                        ＋ 新增段
+                      </div>
+                      {mp3SettingParts.length > 1 && (
+                        <div onClick={() => setMp3SettingParts(prev => prev.slice(0,-1))}
+                          style={{ cursor:'pointer', flex:1, fontFamily:MONO, fontSize:9, color:'#f87171',
+                            background:'#3a1a1a', border:'1px solid #f8717150', borderRadius:7, padding:'6px', textAlign:'center' }}>
+                          － 移除最後
+                        </div>
+                      )}
+                    </div>
+                    <div onClick={() => {
+                        saveDb({ ...db, movies: db.movies.map(mv =>
+                          mv.id !== m.id ? mv : { ...mv, mp3Parts: mp3SettingParts }
+                        )})
+                        setMp3SettingId(null)
+                        setPartStatus(['idle','idle','idle','idle'])
+                      }}
+                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                        color:T.bg, background:T.amber, borderRadius:8, padding:'9px', textAlign:'center' }}>
+                      💾 儲存 MP3 設定
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )
         })}
@@ -17948,62 +18140,6 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           </div>
         )}
 
-
-        {/* ── 快捷入口 ── */}
-        <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-{/* 單字庫 + 背誦庫 並排 */}
-        <div style={{ display:'flex', gap:8 }}>
-          <div onClick={() => setView('vocab')}
-            style={{ flex:1, border:`1px solid ${db.vocab.length ? T.blue+'50' : T.bdr}`, borderRadius:12, padding:'10px 8px',
-              display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer',
-              background: db.vocab.length ? T.blueD : T.surf }}>
-            <span style={{ fontFamily:MONO, fontSize:9, color: db.vocab.length ? T.blue : T.txt2 }}>📖 單字庫</span>
-            <span style={{ fontFamily:MONO, fontSize:9, color:T.amber }}>{db.vocab.length} →</span>
-          </div>
-          {(() => {
-            const allPhrases = (db.movies ?? []).flatMap(m => (m.scenes ?? []).flatMap(s => s.phrases ?? []))
-            const memCount   = allPhrases.filter(p => Number(p.rating) === 4 || Number(p.rating) === 5).length
-            const starCount  = allPhrases.filter(p => p.starred).length
-            return (
-              <>
-                <div onClick={() => setView('memory')}
-                  style={{ flex:1, border:`1px solid ${memCount ? T.amber+'50' : T.bdr}`, borderRadius:12, padding:'13px',
-                    display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer',
-                    background: memCount ? T.amberD : T.surf }}>
-                  <span style={{ fontFamily:MONO, fontSize:9, color: memCount ? T.amber : T.txt2 }}>📚 背誦庫</span>
-                  <span style={{ fontFamily:MONO, fontSize:9, color:T.amber }}>{memCount} →</span>
-                </div>
-                <div onClick={() => setView('starred')}
-                  style={{ flex:1, border:`1px solid ${starCount ? T.amber+'50' : T.bdr}`, borderRadius:12, padding:'13px',
-                    display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer',
-                    background: starCount ? T.amberD : T.surf }}>
-                  <span style={{ fontFamily:MONO, fontSize:9, color: starCount ? T.amber : T.txt2 }}>✗ 加強</span>
-                  <span style={{ fontFamily:MONO, fontSize:9, color:T.amber }}>{starCount} →</span>
-                </div>
-                {(() => {
-                  // 加強句：starred 且 familiar !== true
-                  const allScenes2 = db.movies.flatMap(m => m.scenes ?? [])
-                  const reinforceCount = allScenes2.flatMap(s => s.phrases ?? [])
-                    .filter(p => p.starred && p.familiar === 'reinforce').length
-                  return (
-                    <div onClick={() => {
-                        setStarMode('reinforce')
-                        setMultiScenePhrases([])
-                        setView('starred')
-                      }}
-                      style={{ flex:1, border:`1px solid ${reinforceCount ? '#f97316' : T.bdr}`, borderRadius:12, padding:'13px',
-                        display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer',
-                        background: reinforceCount ? '#2a1200' : T.surf }}>
-                      <span style={{ fontFamily:MONO, fontSize:9, color: reinforceCount ? '#f97316' : T.txt2 }}>🔥 再加強</span>
-                      <span style={{ fontFamily:MONO, fontSize:9, color:'#f97316' }}>{reinforceCount} →</span>
-                    </div>
-                  )
-                })()}
-              </>
-            )
-          })()}
-        </div>
-        </div>
 
         {/* ── 📚 知識庫（跨電影共用）── */}
 {/* ── 📚 知識庫 ── */}
@@ -18493,15 +18629,15 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                : `📦 P${i+1} -`}
             </span>
           ))}
-          <div onClick={() => loadAudioUrl(JERRY_MP3[0].url, '征服情海 Part 1')}
+          <div onClick={() => { const p0 = getMovieMp3Parts(movie)[0]; if (p0) loadAudioUrl(p0.idbKey, `${movie?.title ?? ''} Part 1`) }}
             style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
               color:T.grn, padding:'4px 10px', background:T.grnD,
               borderRadius:7, border:`1px solid ${T.grn}50`, whiteSpace:'nowrap', flexShrink:0 }}>
             ↺ 重新載入
           </div>
-          {JERRY_MP3.map((f, i) => (
+          {getMovieMp3Parts(movie).map((p, i) => (
             <input key={i} id={`fsi-audio-input-p${i+1}`} type="file" accept="audio/*" style={{ display:'none' }}
-              onChange={e => e.target.files[0] && loadAudioFile(e.target.files[0], f.url)}/>
+              onChange={e => e.target.files[0] && loadAudioFile(e.target.files[0], p.idbKey)}/>
           ))}
         </div>
         <div style={{ background:T.bdr, borderRadius:4, height:6, overflow:'hidden', marginBottom:6 }}>
@@ -18726,14 +18862,14 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               : '⏳ 載入中…'}
         </div>
         <div style={{ display:'flex', gap:8 }}>
-          <div onClick={() => loadAudioUrl(JERRY_MP3[0].url, '征服情海 Part 1')}
+          <div onClick={() => { const p0 = getMovieMp3Parts(movie)[0]; if (p0) loadAudioUrl(p0.idbKey, `${movie?.title ?? ''} Part 1`) }}
             style={{ flex:2, cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
               color:T.grn, padding:'9px', background:T.grnD,
               borderRadius:8, border:`1px solid ${T.grn}50`, textAlign:'center' }}>
             ↺ 重新載入雲端 MP3
           </div>
-          {JERRY_MP3.map((f, i) => (
-            <div key={i} onClick={() => pickAudioFile(f.url)}
+          {getMovieMp3Parts(movie).map((p, i) => (
+            <div key={i} onClick={() => pickAudioFile(p.idbKey)}
               style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:9,
                 color: partStatus[i]==='cached' ? T.grn : T.amber,
                 padding:'9px', background: partStatus[i]==='cached' ? T.grnD : T.amberD,
