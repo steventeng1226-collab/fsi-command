@@ -7288,7 +7288,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.42
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.43
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -17894,6 +17894,392 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
             ＋ 新增電影
           </div>
         )}
+
+
+        {/* ── 快捷入口 ── */}
+        <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+{/* 單字庫 + 背誦庫 並排 */}
+        <div style={{ display:'flex', gap:8 }}>
+          <div onClick={() => setView('vocab')}
+            style={{ flex:1, border:`1px solid ${db.vocab.length ? T.blue+'50' : T.bdr}`, borderRadius:12, padding:'10px 8px',
+              display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer',
+              background: db.vocab.length ? T.blueD : T.surf }}>
+            <span style={{ fontFamily:MONO, fontSize:9, color: db.vocab.length ? T.blue : T.txt2 }}>📖 單字庫</span>
+            <span style={{ fontFamily:MONO, fontSize:9, color:T.amber }}>{db.vocab.length} →</span>
+          </div>
+          {(() => {
+            const allPhrases = (db.movies ?? []).flatMap(m => (m.scenes ?? []).flatMap(s => s.phrases ?? []))
+            const memCount   = allPhrases.filter(p => Number(p.rating) === 4 || Number(p.rating) === 5).length
+            const starCount  = allPhrases.filter(p => p.starred).length
+            return (
+              <>
+                <div onClick={() => setView('memory')}
+                  style={{ flex:1, border:`1px solid ${memCount ? T.amber+'50' : T.bdr}`, borderRadius:12, padding:'13px',
+                    display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer',
+                    background: memCount ? T.amberD : T.surf }}>
+                  <span style={{ fontFamily:MONO, fontSize:9, color: memCount ? T.amber : T.txt2 }}>📚 背誦庫</span>
+                  <span style={{ fontFamily:MONO, fontSize:9, color:T.amber }}>{memCount} →</span>
+                </div>
+                <div onClick={() => setView('starred')}
+                  style={{ flex:1, border:`1px solid ${starCount ? T.amber+'50' : T.bdr}`, borderRadius:12, padding:'13px',
+                    display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer',
+                    background: starCount ? T.amberD : T.surf }}>
+                  <span style={{ fontFamily:MONO, fontSize:9, color: starCount ? T.amber : T.txt2 }}>✗ 加強</span>
+                  <span style={{ fontFamily:MONO, fontSize:9, color:T.amber }}>{starCount} →</span>
+                </div>
+                {(() => {
+                  // 加強句：starred 且 familiar !== true
+                  const allScenes2 = db.movies.flatMap(m => m.scenes ?? [])
+                  const reinforceCount = allScenes2.flatMap(s => s.phrases ?? [])
+                    .filter(p => p.starred && p.familiar === 'reinforce').length
+                  return (
+                    <div onClick={() => {
+                        setStarMode('reinforce')
+                        setMultiScenePhrases([])
+                        setView('starred')
+                      }}
+                      style={{ flex:1, border:`1px solid ${reinforceCount ? '#f97316' : T.bdr}`, borderRadius:12, padding:'13px',
+                        display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer',
+                        background: reinforceCount ? '#2a1200' : T.surf }}>
+                      <span style={{ fontFamily:MONO, fontSize:9, color: reinforceCount ? '#f97316' : T.txt2 }}>🔥 再加強</span>
+                      <span style={{ fontFamily:MONO, fontSize:9, color:'#f97316' }}>{reinforceCount} →</span>
+                    </div>
+                  )
+                })()}
+              </>
+            )
+          })()}
+        </div>
+        </div>
+
+        {/* ── 📚 知識庫（跨電影共用）── */}
+{/* ── 📚 知識庫 ── */}
+        {(() => {
+          const KB_CATS = [
+            { id:'verb',    label:'📚 動詞家族',      color:'#60a5fa' },
+            { id:'movie',   label:'🎬 電影固定句',    color:'#f59e0b' },
+            { id:'grammar', label:'🧠 文法易混淆',    color:'#f87171' },
+            { id:'quote',   label:'❤️ 電影金句',      color:'#a78bfa' },
+            { id:'work',    label:'💼 工作英文',      color:'#34d399' },
+            { id:'confuse', label:'⚠️ 易混淆',        color:'#fb923c' },
+            { id:'link',    label:'🔗 關聯知識',      color:'#22d3ee' },
+            { id:'other',   label:'📝 其他',          color:'#94a3b8' },
+          ]
+          return (
+        <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:13, padding:'14px 16px',
+          display:'flex', flexDirection:'column', gap:10 }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+            <span style={{ fontFamily:MONO, fontSize:11, color:T.amber, fontWeight:700 }}>📚 知識庫</span>
+            <div style={{ display:'flex', gap:6 }}>
+              <div onClick={() => setKbOpen(kbOpen === '__prompt__' ? null : '__prompt__')}
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#a78bfa',
+                  padding:'4px 10px', background:'#1e1040', borderRadius:7, border:'1px solid #a78bfa50' }}>
+                💬 ChatGPT 指令
+              </div>
+              <div onClick={() => { setKbEditId(null); setKbTitle(''); setKbContent(''); setKbCat('other'); setKbNewMode(true) }}
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.amber,
+                  padding:'4px 10px', background:T.amberD, borderRadius:7, border:`1px solid ${T.amber}50` }}>
+                ＋ 新增
+              </div>
+              {/* 去除重複按鈕（舊資料修復用）*/}
+              {kbList.length !== new Set(kbList.map(k=>k.title)).size && (
+                <div onClick={() => {
+                    if (!window.confirm('移除重複的知識庫筆記？')) return
+                    const seen = new Set()
+                    const deduped = kbList.filter(k => {
+                      if (seen.has(k.title)) return false
+                      seen.add(k.title); return true
+                    })
+                    saveKb(deduped)
+                  }}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:8, color:'#f87171',
+                    padding:'4px 8px', background:'#3a1a1a', borderRadius:7,
+                    border:'1px solid #f8717150' }}>
+                  🗑 去重複
+                </div>
+              )}
+            </div>
+          </div>
+          {/* ChatGPT 指令面板 */}
+          {kbOpen === '__prompt__' && (
+            <div style={{ background:'#0d0820', border:'1px solid #a78bfa40',
+              borderRadius:10, padding:14, display:'flex', flexDirection:'column', gap:8 }}>
+              <div style={{ fontFamily:MONO, fontSize:9, color:'#a78bfa', fontWeight:700 }}>複製以下指令給 ChatGPT：</div>
+              <div style={{ fontFamily:'monospace', fontSize:10, color:'#cbd5e1',
+                background:'#060412', borderRadius:8, padding:12, lineHeight:1.8,
+                whiteSpace:'pre-wrap', userSelect:'all' }}>{`從現在開始，每當我說「加入知識庫」，請不要輸出聊天內容，只輸出可直接貼入 APP 的知識。
+請遵守以下原則：
+━━━━━━━━━━━━━━━━━━━━
+一、優先整理原則（最重要）
+━━━━━━━━━━━━━━━━━━━━
+請優先整理「可重複使用的英文知識」，而不是單一句電影台詞。
+優先順序：
+1. 動詞家族（Get、Go、Come、Take、Make、Put、See…）
+2. 固定 Chunk（What if...、I've got...、be proud of...）
+3. 文法易混淆（do + 原形、be + V-ing、this vs that）
+4. 電影金句（We determine our worth.）
+5. 工作可套用句型
+如果一句電影台詞可以整理成更大的知識，請優先整理成知識，而不是整理成該句台詞。
+━━━━━━━━━━━━━━━━━━━━
+二、固定格式
+━━━━━━━━━━━━━━━━━━━━
+【分類】
+只能選一個：
+- 動詞家族
+- 電影固定句
+- 文法易混淆
+- 電影金句
+- 工作英文
+- 易混淆
+- 其他
+
+【標題】
+由 ChatGPT 自行決定。
+標題必須：
+- 簡短（建議 30 字內）
+- 容易搜尋
+- 同主題保持一致命名
+- 使用未來最可能搜尋的關鍵字
+- 不可使用完整說明、結論或核心觀念
+標題只使用以下三種形式：
+1. 家族：Get 家族 / Go 家族 / Take 家族
+2. Chunk：What if... / I've got = I have / How about...
+3. 比較：This vs That / Hear vs Listen / in vs at
+
+【核心觀念】
+50 字內，只保留最重要概念。
+
+【Chunk】
+列出 3~8 個最值得背的固定搭配，每行一個。
+
+【電影例句】
+保留 1~3 句最值得背的電影例句。
+
+【工作例句】
+若適合工作情境，提供 1 句；否則省略。
+
+【易混淆】
+只有容易犯錯時才建立。
+格式：
+❌ ...
+✅ ...
+
+【易混淆比較】
+只有真的需要比較時才建立。
+例如：think vs thinking / hear vs listen / this vs that
+
+【關聯知識】
+列出可延伸閱讀的知識，不超過 6 個。
+
+【口訣】
+一句最好記的中文。
+━━━━━━━━━━━━━━━━━━━━
+三、整理規則
+━━━━━━━━━━━━━━━━━━━━
+1. 不要加入聊天內容。
+2. 不要加入鼓勵文字。
+3. 不要加入「Steven，我覺得……」等對話。
+4. 不要重複說明。
+5. 內容以方便直接貼入 APP 為主。
+6. 標題、分類由 ChatGPT 自行決定。
+7. 相同知識保持相同命名。
+8. 優先整理成「家族知識」，不要只整理一句電影台詞。
+9. 若知識可以套用到工作或生活，優先整理成可重複使用的知識。
+10. 如果同一知識已存在，不要建立新的知識，而是補充到原有知識。
+11. 若同時符合多個分類，選擇最有利於長期學習與搜尋的分類，不重複建立。
+12. 若已有成熟的動詞家族（如 Get 家族），新的例句應優先補充至該家族，而不是建立新的知識。
+13. 若內容不值得長期保存（僅限單一句情境、低頻用法或一次性解釋），不要建立知識庫。`}</div>
+              <div onClick={() => {
+                  navigator.clipboard?.writeText(`從現在開始，每當我說「加入知識庫」，請不要輸出聊天內容，只輸出可直接貼入 APP 的知識。\n請遵守以下原則：\n━━━━━━━━━━━━━━━━━━━━\n一、優先整理原則（最重要）\n━━━━━━━━━━━━━━━━━━━━\n請優先整理「可重複使用的英文知識」，而不是單一句電影台詞。\n優先順序：\n1. 動詞家族（Get、Go、Come、Take、Make、Put、See…）\n2. 固定 Chunk（What if...、I've got...、be proud of...）\n3. 文法易混淆（do + 原形、be + V-ing、this vs that）\n4. 電影金句（We determine our worth.）\n5. 工作可套用句型\n如果一句電影台詞可以整理成更大的知識，請優先整理成知識，而不是整理成該句台詞。\n━━━━━━━━━━━━━━━━━━━━\n二、固定格式\n━━━━━━━━━━━━━━━━━━━━\n【分類】\n只能選一個：\n- 動詞家族\n- 電影固定句\n- 文法易混淆\n- 電影金句\n- 工作英文\n- 易混淆\n- 其他\n\n【標題】\n由 ChatGPT 自行決定。\n標題必須：\n- 簡短（建議 30 字內）\n- 容易搜尋\n- 同主題保持一致命名\n- 使用未來最可能搜尋的關鍵字\n- 不可使用完整說明、結論或核心觀念\n標題只使用以下三種形式：\n1. 家族：Get 家族 / Go 家族 / Take 家族\n2. Chunk：What if... / I've got = I have / How about...\n3. 比較：This vs That / Hear vs Listen / in vs at\n\n【核心觀念】\n50 字內，只保留最重要概念。\n\n【Chunk】\n列出 3~8 個最值得背的固定搭配，每行一個。\n\n【電影例句】\n保留 1~3 句最值得背的電影例句。\n\n【工作例句】\n若適合工作情境，提供 1 句；否則省略。\n\n【易混淆】\n只有容易犯錯時才建立。\n格式：\n❌ ...\n✅ ...\n\n【易混淆比較】\n只有真的需要比較時才建立。\n例如：think vs thinking / hear vs listen / this vs that\n\n【關聯知識】\n列出可延伸閱讀的知識，不超過 6 個。\n\n【口訣】\n一句最好記的中文。\n━━━━━━━━━━━━━━━━━━━━\n三、整理規則\n━━━━━━━━━━━━━━━━━━━━\n1. 不要加入聊天內容。\n2. 不要加入鼓勵文字。\n3. 不要加入「Steven，我覺得……」等對話。\n4. 不要重複說明。\n5. 內容以方便直接貼入 APP 為主。\n6. 標題、分類由 ChatGPT 自行決定。\n7. 相同知識保持相同命名。\n8. 優先整理成「家族知識」，不要只整理一句電影台詞。\n9. 若知識可以套用到工作或生活，優先整理成可重複使用的知識。\n10. 如果同一知識已存在，不要建立新的知識，而是補充到原有知識。\n11. 若同時符合多個分類，選擇最有利於長期學習與搜尋的分類，不重複建立。\n12. 若已有成熟的動詞家族（如 Get 家族），新的例句應優先補充至該家族，而不是建立新的知識。\n13. 若內容不值得長期保存（僅限單一句情境、低頻用法或一次性解釋），不要建立知識庫。`)
+                    .then(() => showMovieToast('✅ 已複製！貼到 ChatGPT 設定一次即可'))
+                    .catch(() => showMovieToast('請長按上方文字複製'))
+                }}
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                  color:'#000', padding:'8px', background:'#a78bfa',
+                  borderRadius:8, textAlign:'center' }}>
+                📋 複製指令
+              </div>
+            </div>
+          )}
+          {/* 新增 / 編輯表單 */}
+          {(kbNewMode || kbEditId) && (
+            <div style={{ display:'flex', flexDirection:'column', gap:8,
+              background:T.surf2, borderRadius:10, padding:12 }}>
+              <input placeholder="標題（如：Get 家族）"
+                value={kbTitle} onChange={e => setKbTitle(e.target.value)}
+                style={{ fontFamily:MONO, fontSize:12, background:'#0d0d1a',
+                  border:`1px solid ${T.amber}50`, borderRadius:7, padding:'6px 10px',
+                  color:'#fff', outline:'none' }}/>
+              {/* 分類點選按鈕 */}
+              <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                {KB_CATS.map(cat => {
+                  const isSelected = kbCat === cat.id
+                  return (
+                    <div key={cat.id}
+                      onClick={() => setKbCat(cat.id)}
+                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:8,
+                        color: isSelected ? '#000' : cat.color,
+                        padding:'4px 10px', borderRadius:6,
+                        background: isSelected ? cat.color : cat.color+'15',
+                        border:`1px solid ${isSelected ? cat.color : cat.color+'40'}`,
+                        fontWeight: isSelected ? 700 : 400
+                      }}>{cat.label}</div>
+                  )
+                })}
+              </div>
+              <textarea rows={8} placeholder="貼上 ChatGPT 內容…"
+                value={kbContent} onChange={e => setKbContent(e.target.value)}
+                style={{ fontFamily:'monospace', fontSize:11, background:'#0d0d1a',
+                  border:`1px solid ${T.amber}30`, borderRadius:7, padding:'8px 10px',
+                  color:'#fff', outline:'none', resize:'vertical' }}/>
+              <div style={{ display:'flex', gap:8 }}>
+                <div onClick={() => {
+                    // 標題空白時，從內容找【標題】區塊，或跳過【分類】行取第一個有意義的行
+                    let autoTitle = kbTitle.trim()
+                    if (!autoTitle) {
+                      const lines = kbContent.split('\n')
+                      // 優先找【標題】區塊下一行
+                      const titleIdx = lines.findIndex(l => /^【標題】/.test(l.trim()))
+                      if (titleIdx >= 0) {
+                        const next = lines.slice(titleIdx).find((l, i) => i > 0 && l.trim() && !/^【/.test(l.trim()))
+                        autoTitle = next?.trim().slice(0,40) ?? ''
+                      }
+                      // 找不到【標題】就跳過【分類】行，取第一個非【】行
+                      if (!autoTitle) {
+                        autoTitle = lines.find(l => l.trim().length > 2 && !/^【/.test(l.trim()))?.trim().slice(0,40) || '未命名筆記'
+                      }
+                    }
+                    // 防重複：已在儲存中則跳過
+                    if (kbSavingRef.current) { console.log('[KB] blocked duplicate save'); return }
+                    kbSavingRef.current = true
+                    setTimeout(() => { kbSavingRef.current = false }, 3000)
+                    // 從內容的【分類】行自動偵測分類
+                    let finalCat = kbCat
+                    // 支援【分類】同行或換行兩種格式
+                    const kbLines = kbContent.split('\n')
+                    const catIdx = kbLines.findIndex(l => /^【分類】/.test(l.trim()))
+                    if (catIdx >= 0) {
+                      // 同行：【分類】文法易混淆，或換行：下一非空行
+                      const sameLine = kbLines[catIdx].replace(/^【分類】/, '').trim()
+                      const catText = sameLine || kbLines.slice(catIdx+1).find(l => l.trim())?.trim() || ''
+                      if (/動詞/.test(catText)) finalCat = 'verb'
+                      else if (/電影固定/.test(catText)) finalCat = 'movie'
+                      else if (/文法易混淆/.test(catText)) finalCat = 'grammar'
+                      else if (/文法/.test(catText)) finalCat = 'grammar'
+                      else if (/電影金句|金句/.test(catText)) finalCat = 'quote'
+                      else if (/工作/.test(catText)) finalCat = 'work'
+                      else if (/易混淆|混淆/.test(catText)) finalCat = 'confuse'
+                      else if (/關聯/.test(catText)) finalCat = 'link'
+                    }
+                    if (kbEditId) {
+                      updateKbItem(kbEditId, autoTitle, kbContent, finalCat)
+                    } else {
+                      addKbItem(autoTitle, kbContent, finalCat)
+                    }
+                    // 儲存後立即關閉並清空，防止重複觸發
+                    setKbNewMode(false)
+                    setKbEditId(null)
+                    setKbTitle('')
+                    setKbContent('')
+                    setKbCat('other')
+                  }}
+                  style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                    color:'#000', padding:'8px', background:T.amber, borderRadius:8, textAlign:'center' }}>
+                  ✓ 儲存
+                </div>
+                <div onClick={() => { setKbNewMode(false); setKbEditId(null); setKbTitle(''); setKbContent('') }}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt3,
+                    padding:'8px 14px', background:T.surf2, borderRadius:8,
+                    border:`1px solid ${T.bdr}`, textAlign:'center' }}>
+                  取消
+                </div>
+              </div>
+            </div>
+          )}
+          {/* 分類顯示 */}
+          {kbList.length === 0 && !kbNewMode && (
+            <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, textAlign:'center', padding:'8px 0' }}>
+              尚無筆記，點「＋ 新增」加入動詞家族等學習整理
+            </div>
+          )}
+          {KB_CATS.map(cat => {
+            const catItems = kbList.filter(k => k.cat === cat.id)
+            if (catItems.length === 0) return null
+            return (
+              <div key={cat.id}>
+                <div style={{ fontFamily:MONO, fontSize:9, color:cat.color,
+                  fontWeight:700, marginBottom:4, paddingLeft:2 }}>{cat.label}</div>
+                {catItems.map((k) => { const globalIdx = kbList.indexOf(k); return (
+                  <div key={k.id} style={{ borderRadius:10, overflow:'hidden', marginBottom:6,
+                    border:`1px solid ${kbOpen===k.id ? cat.color+'80' : T.bdr}` }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:8,
+                      padding:'10px 12px', background: kbOpen===k.id ? cat.color+'15' : T.surf2,
+                      cursor:'pointer' }}
+                      onClick={() => setKbOpen(kbOpen===k.id ? null : k.id)}>
+                      <span style={{ fontFamily:MONO, fontSize:10, color:cat.color, flexShrink:0 }}>
+                        {kbOpen===k.id ? '▼' : '▶'}
+                      </span>
+                      <span style={{ fontFamily:MONO, fontSize:11, color:'#fff', flex:1 }}>{k.title}</span>
+                      <div onClick={e => { e.stopPropagation();
+                          setKbNewMode(false); setKbEditId(k.id); setKbTitle(k.title); setKbContent(k.content); setKbCat(k.cat ?? 'other')
+                        }}
+                        style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:cat.color,
+                          padding:'2px 7px', background:cat.color+'20', borderRadius:5 }}>✏</div>
+                      <div onClick={e => { e.stopPropagation();
+                          if (window.confirm(`刪除「${k.title}」？`)) deleteKbItem(k.id, kbList.indexOf(k))
+                        }}
+                        style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#f87171',
+                          padding:'2px 7px', background:'#3a1a1a', borderRadius:5 }}>✕</div>
+                    </div>
+                    {kbOpen===k.id && (() => {
+                      // 解析結構化格式 【標題】【核心觀念】【Chunk】【電影例句】【工作例句】【口訣】
+                      const sections = {}
+                      let curSection = null
+                      ;(k.content ?? '').split('\n').forEach(line => {
+                        const m = line.match(/^【(.+?)】(.*)$/)
+                        if (m) { curSection = m[1]; sections[curSection] = (m[2].trim() ? [m[2].trim()] : []) }
+                        else if (curSection && line.trim()) sections[curSection].push(line.trim())
+                      })
+                      const hasStructure = Object.keys(sections).length > 0
+                      if (!hasStructure) return (
+                        <div style={{ padding:'12px 14px', background:'#0a0a14',
+                          fontFamily:'monospace', fontSize:11, color:'#cbd5e1',
+                          lineHeight:1.8, whiteSpace:'pre-wrap', wordBreak:'break-word' }}>
+                          {k.content}
+                        </div>
+                      )
+                      const SectionColors = { '核心觀念':'#94a3b8','Chunk':'#60a5fa','電影例句':'#f59e0b','工作例句':'#34d399','口訣':'#f97316','標題':'#fff' }
+                      return (
+                        <div style={{ padding:'12px 14px', background:'#0a0a14',
+                          display:'flex', flexDirection:'column', gap:10 }}>
+                          {Object.entries(sections).map(([sec, lines]) => (
+                            <div key={sec}>
+                              <div style={{ fontFamily:MONO, fontSize:8, color:SectionColors[sec] ?? '#94a3b8',
+                                fontWeight:700, marginBottom:4, letterSpacing:'0.05em' }}>【{sec}】</div>
+                              {lines.map((line, i) => (
+                                <div key={i} style={{ fontFamily:'monospace', fontSize:11,
+                                  color: SectionColors[sec] ?? '#cbd5e1',
+                                  lineHeight:1.8, paddingLeft: sec==='Chunk'||sec==='電影例句'||sec==='工作例句' ? 8 : 0,
+                                  borderLeft: sec==='Chunk' ? `2px solid #60a5fa30` :
+                                    sec==='電影例句' ? `2px solid #f59e0b30` : 'none',
+                                  marginLeft: sec==='Chunk'||sec==='電影例句' ? 4 : 0 }}>
+                                  {sec==='口訣' ? `💡 ${line}` : line}
+                                </div>
+                              ))}
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    })()}
+                  </div>
+                )})}
+              </div>
+            )
+          })}
+          {/* 未分類項目已由 KB_CATS.map 的 'other' 分類處理，不再重複渲染 */}
+        </div>
+          )
+        })()}
       </div>
     )
   }
@@ -18082,58 +18468,6 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
             {movie?.transcript ? `📄 逐字稿已存` : '📄 存逐字稿'}
           </span>
         </div>
-      </div>
-      {/* 單字庫 + 背誦庫 並排 */}
-      <div style={{ display:'flex', gap:8 }}>
-        <div onClick={() => setView('vocab')}
-          style={{ flex:1, border:`1px solid ${db.vocab.length ? T.blue+'50' : T.bdr}`, borderRadius:12, padding:'10px 8px',
-            display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer',
-            background: db.vocab.length ? T.blueD : T.surf }}>
-          <span style={{ fontFamily:MONO, fontSize:9, color: db.vocab.length ? T.blue : T.txt2 }}>📖 單字庫</span>
-          <span style={{ fontFamily:MONO, fontSize:9, color:T.amber }}>{db.vocab.length} →</span>
-        </div>
-        {(() => {
-          const allPhrases = (db.movies ?? []).flatMap(m => (m.scenes ?? []).flatMap(s => s.phrases ?? []))
-          const memCount   = allPhrases.filter(p => Number(p.rating) === 4 || Number(p.rating) === 5).length
-          const starCount  = allPhrases.filter(p => p.starred).length
-          return (
-            <>
-              <div onClick={() => setView('memory')}
-                style={{ flex:1, border:`1px solid ${memCount ? T.amber+'50' : T.bdr}`, borderRadius:12, padding:'13px',
-                  display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer',
-                  background: memCount ? T.amberD : T.surf }}>
-                <span style={{ fontFamily:MONO, fontSize:9, color: memCount ? T.amber : T.txt2 }}>📚 背誦庫</span>
-                <span style={{ fontFamily:MONO, fontSize:9, color:T.amber }}>{memCount} →</span>
-              </div>
-              <div onClick={() => setView('starred')}
-                style={{ flex:1, border:`1px solid ${starCount ? T.amber+'50' : T.bdr}`, borderRadius:12, padding:'13px',
-                  display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer',
-                  background: starCount ? T.amberD : T.surf }}>
-                <span style={{ fontFamily:MONO, fontSize:9, color: starCount ? T.amber : T.txt2 }}>✗ 加強</span>
-                <span style={{ fontFamily:MONO, fontSize:9, color:T.amber }}>{starCount} →</span>
-              </div>
-              {(() => {
-                // 加強句：starred 且 familiar !== true
-                const allScenes2 = db.movies.flatMap(m => m.scenes ?? [])
-                const reinforceCount = allScenes2.flatMap(s => s.phrases ?? [])
-                  .filter(p => p.starred && p.familiar === 'reinforce').length
-                return (
-                  <div onClick={() => {
-                      setStarMode('reinforce')
-                      setMultiScenePhrases([])
-                      setView('starred')
-                    }}
-                    style={{ flex:1, border:`1px solid ${reinforceCount ? '#f97316' : T.bdr}`, borderRadius:12, padding:'13px',
-                      display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer',
-                      background: reinforceCount ? '#2a1200' : T.surf }}>
-                    <span style={{ fontFamily:MONO, fontSize:9, color: reinforceCount ? '#f97316' : T.txt2 }}>🔥 再加強</span>
-                    <span style={{ fontFamily:MONO, fontSize:9, color:'#f97316' }}>{reinforceCount} →</span>
-                  </div>
-                )
-              })()}
-            </>
-          )
-        })()}
       </div>
       {/* Scene cards（時間倒序：最晚場景在最上面，序號最大）*/}
       {[...(movie?.scenes ?? [])].sort((a, b) => {
@@ -18447,334 +18781,6 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           </div>
         )}
       </div>
-
-      {/* ── 📚 知識庫 ── */}
-      {(() => {
-        const KB_CATS = [
-          { id:'verb',    label:'📚 動詞家族',      color:'#60a5fa' },
-          { id:'movie',   label:'🎬 電影固定句',    color:'#f59e0b' },
-          { id:'grammar', label:'🧠 文法易混淆',    color:'#f87171' },
-          { id:'quote',   label:'❤️ 電影金句',      color:'#a78bfa' },
-          { id:'work',    label:'💼 工作英文',      color:'#34d399' },
-          { id:'confuse', label:'⚠️ 易混淆',        color:'#fb923c' },
-          { id:'link',    label:'🔗 關聯知識',      color:'#22d3ee' },
-          { id:'other',   label:'📝 其他',          color:'#94a3b8' },
-        ]
-        return (
-      <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:13, padding:'14px 16px',
-        display:'flex', flexDirection:'column', gap:10 }}>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-          <span style={{ fontFamily:MONO, fontSize:11, color:T.amber, fontWeight:700 }}>📚 知識庫</span>
-          <div style={{ display:'flex', gap:6 }}>
-            <div onClick={() => setKbOpen(kbOpen === '__prompt__' ? null : '__prompt__')}
-              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#a78bfa',
-                padding:'4px 10px', background:'#1e1040', borderRadius:7, border:'1px solid #a78bfa50' }}>
-              💬 ChatGPT 指令
-            </div>
-            <div onClick={() => { setKbEditId(null); setKbTitle(''); setKbContent(''); setKbCat('other'); setKbNewMode(true) }}
-              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.amber,
-                padding:'4px 10px', background:T.amberD, borderRadius:7, border:`1px solid ${T.amber}50` }}>
-              ＋ 新增
-            </div>
-            {/* 去除重複按鈕（舊資料修復用）*/}
-            {kbList.length !== new Set(kbList.map(k=>k.title)).size && (
-              <div onClick={() => {
-                  if (!window.confirm('移除重複的知識庫筆記？')) return
-                  const seen = new Set()
-                  const deduped = kbList.filter(k => {
-                    if (seen.has(k.title)) return false
-                    seen.add(k.title); return true
-                  })
-                  saveKb(deduped)
-                }}
-                style={{ cursor:'pointer', fontFamily:MONO, fontSize:8, color:'#f87171',
-                  padding:'4px 8px', background:'#3a1a1a', borderRadius:7,
-                  border:'1px solid #f8717150' }}>
-                🗑 去重複
-              </div>
-            )}
-          </div>
-        </div>
-        {/* ChatGPT 指令面板 */}
-        {kbOpen === '__prompt__' && (
-          <div style={{ background:'#0d0820', border:'1px solid #a78bfa40',
-            borderRadius:10, padding:14, display:'flex', flexDirection:'column', gap:8 }}>
-            <div style={{ fontFamily:MONO, fontSize:9, color:'#a78bfa', fontWeight:700 }}>複製以下指令給 ChatGPT：</div>
-            <div style={{ fontFamily:'monospace', fontSize:10, color:'#cbd5e1',
-              background:'#060412', borderRadius:8, padding:12, lineHeight:1.8,
-              whiteSpace:'pre-wrap', userSelect:'all' }}>{`從現在開始，每當我說「加入知識庫」，請不要輸出聊天內容，只輸出可直接貼入 APP 的知識。
-請遵守以下原則：
-━━━━━━━━━━━━━━━━━━━━
-一、優先整理原則（最重要）
-━━━━━━━━━━━━━━━━━━━━
-請優先整理「可重複使用的英文知識」，而不是單一句電影台詞。
-優先順序：
-1. 動詞家族（Get、Go、Come、Take、Make、Put、See…）
-2. 固定 Chunk（What if...、I've got...、be proud of...）
-3. 文法易混淆（do + 原形、be + V-ing、this vs that）
-4. 電影金句（We determine our worth.）
-5. 工作可套用句型
-如果一句電影台詞可以整理成更大的知識，請優先整理成知識，而不是整理成該句台詞。
-━━━━━━━━━━━━━━━━━━━━
-二、固定格式
-━━━━━━━━━━━━━━━━━━━━
-【分類】
-只能選一個：
-- 動詞家族
-- 電影固定句
-- 文法易混淆
-- 電影金句
-- 工作英文
-- 易混淆
-- 其他
-
-【標題】
-由 ChatGPT 自行決定。
-標題必須：
-- 簡短（建議 30 字內）
-- 容易搜尋
-- 同主題保持一致命名
-- 使用未來最可能搜尋的關鍵字
-- 不可使用完整說明、結論或核心觀念
-標題只使用以下三種形式：
-1. 家族：Get 家族 / Go 家族 / Take 家族
-2. Chunk：What if... / I've got = I have / How about...
-3. 比較：This vs That / Hear vs Listen / in vs at
-
-【核心觀念】
-50 字內，只保留最重要概念。
-
-【Chunk】
-列出 3~8 個最值得背的固定搭配，每行一個。
-
-【電影例句】
-保留 1~3 句最值得背的電影例句。
-
-【工作例句】
-若適合工作情境，提供 1 句；否則省略。
-
-【易混淆】
-只有容易犯錯時才建立。
-格式：
-❌ ...
-✅ ...
-
-【易混淆比較】
-只有真的需要比較時才建立。
-例如：think vs thinking / hear vs listen / this vs that
-
-【關聯知識】
-列出可延伸閱讀的知識，不超過 6 個。
-
-【口訣】
-一句最好記的中文。
-━━━━━━━━━━━━━━━━━━━━
-三、整理規則
-━━━━━━━━━━━━━━━━━━━━
-1. 不要加入聊天內容。
-2. 不要加入鼓勵文字。
-3. 不要加入「Steven，我覺得……」等對話。
-4. 不要重複說明。
-5. 內容以方便直接貼入 APP 為主。
-6. 標題、分類由 ChatGPT 自行決定。
-7. 相同知識保持相同命名。
-8. 優先整理成「家族知識」，不要只整理一句電影台詞。
-9. 若知識可以套用到工作或生活，優先整理成可重複使用的知識。
-10. 如果同一知識已存在，不要建立新的知識，而是補充到原有知識。
-11. 若同時符合多個分類，選擇最有利於長期學習與搜尋的分類，不重複建立。
-12. 若已有成熟的動詞家族（如 Get 家族），新的例句應優先補充至該家族，而不是建立新的知識。
-13. 若內容不值得長期保存（僅限單一句情境、低頻用法或一次性解釋），不要建立知識庫。`}</div>
-            <div onClick={() => {
-                navigator.clipboard?.writeText(`從現在開始，每當我說「加入知識庫」，請不要輸出聊天內容，只輸出可直接貼入 APP 的知識。\n請遵守以下原則：\n━━━━━━━━━━━━━━━━━━━━\n一、優先整理原則（最重要）\n━━━━━━━━━━━━━━━━━━━━\n請優先整理「可重複使用的英文知識」，而不是單一句電影台詞。\n優先順序：\n1. 動詞家族（Get、Go、Come、Take、Make、Put、See…）\n2. 固定 Chunk（What if...、I've got...、be proud of...）\n3. 文法易混淆（do + 原形、be + V-ing、this vs that）\n4. 電影金句（We determine our worth.）\n5. 工作可套用句型\n如果一句電影台詞可以整理成更大的知識，請優先整理成知識，而不是整理成該句台詞。\n━━━━━━━━━━━━━━━━━━━━\n二、固定格式\n━━━━━━━━━━━━━━━━━━━━\n【分類】\n只能選一個：\n- 動詞家族\n- 電影固定句\n- 文法易混淆\n- 電影金句\n- 工作英文\n- 易混淆\n- 其他\n\n【標題】\n由 ChatGPT 自行決定。\n標題必須：\n- 簡短（建議 30 字內）\n- 容易搜尋\n- 同主題保持一致命名\n- 使用未來最可能搜尋的關鍵字\n- 不可使用完整說明、結論或核心觀念\n標題只使用以下三種形式：\n1. 家族：Get 家族 / Go 家族 / Take 家族\n2. Chunk：What if... / I've got = I have / How about...\n3. 比較：This vs That / Hear vs Listen / in vs at\n\n【核心觀念】\n50 字內，只保留最重要概念。\n\n【Chunk】\n列出 3~8 個最值得背的固定搭配，每行一個。\n\n【電影例句】\n保留 1~3 句最值得背的電影例句。\n\n【工作例句】\n若適合工作情境，提供 1 句；否則省略。\n\n【易混淆】\n只有容易犯錯時才建立。\n格式：\n❌ ...\n✅ ...\n\n【易混淆比較】\n只有真的需要比較時才建立。\n例如：think vs thinking / hear vs listen / this vs that\n\n【關聯知識】\n列出可延伸閱讀的知識，不超過 6 個。\n\n【口訣】\n一句最好記的中文。\n━━━━━━━━━━━━━━━━━━━━\n三、整理規則\n━━━━━━━━━━━━━━━━━━━━\n1. 不要加入聊天內容。\n2. 不要加入鼓勵文字。\n3. 不要加入「Steven，我覺得……」等對話。\n4. 不要重複說明。\n5. 內容以方便直接貼入 APP 為主。\n6. 標題、分類由 ChatGPT 自行決定。\n7. 相同知識保持相同命名。\n8. 優先整理成「家族知識」，不要只整理一句電影台詞。\n9. 若知識可以套用到工作或生活，優先整理成可重複使用的知識。\n10. 如果同一知識已存在，不要建立新的知識，而是補充到原有知識。\n11. 若同時符合多個分類，選擇最有利於長期學習與搜尋的分類，不重複建立。\n12. 若已有成熟的動詞家族（如 Get 家族），新的例句應優先補充至該家族，而不是建立新的知識。\n13. 若內容不值得長期保存（僅限單一句情境、低頻用法或一次性解釋），不要建立知識庫。`)
-                  .then(() => showMovieToast('✅ 已複製！貼到 ChatGPT 設定一次即可'))
-                  .catch(() => showMovieToast('請長按上方文字複製'))
-              }}
-              style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
-                color:'#000', padding:'8px', background:'#a78bfa',
-                borderRadius:8, textAlign:'center' }}>
-              📋 複製指令
-            </div>
-          </div>
-        )}
-        {/* 新增 / 編輯表單 */}
-        {(kbNewMode || kbEditId) && (
-          <div style={{ display:'flex', flexDirection:'column', gap:8,
-            background:T.surf2, borderRadius:10, padding:12 }}>
-            <input placeholder="標題（如：Get 家族）"
-              value={kbTitle} onChange={e => setKbTitle(e.target.value)}
-              style={{ fontFamily:MONO, fontSize:12, background:'#0d0d1a',
-                border:`1px solid ${T.amber}50`, borderRadius:7, padding:'6px 10px',
-                color:'#fff', outline:'none' }}/>
-            {/* 分類點選按鈕 */}
-            <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
-              {KB_CATS.map(cat => {
-                const isSelected = kbCat === cat.id
-                return (
-                  <div key={cat.id}
-                    onClick={() => setKbCat(cat.id)}
-                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:8,
-                      color: isSelected ? '#000' : cat.color,
-                      padding:'4px 10px', borderRadius:6,
-                      background: isSelected ? cat.color : cat.color+'15',
-                      border:`1px solid ${isSelected ? cat.color : cat.color+'40'}`,
-                      fontWeight: isSelected ? 700 : 400
-                    }}>{cat.label}</div>
-                )
-              })}
-            </div>
-            <textarea rows={8} placeholder="貼上 ChatGPT 內容…"
-              value={kbContent} onChange={e => setKbContent(e.target.value)}
-              style={{ fontFamily:'monospace', fontSize:11, background:'#0d0d1a',
-                border:`1px solid ${T.amber}30`, borderRadius:7, padding:'8px 10px',
-                color:'#fff', outline:'none', resize:'vertical' }}/>
-            <div style={{ display:'flex', gap:8 }}>
-              <div onClick={() => {
-                  // 標題空白時，從內容找【標題】區塊，或跳過【分類】行取第一個有意義的行
-                  let autoTitle = kbTitle.trim()
-                  if (!autoTitle) {
-                    const lines = kbContent.split('\n')
-                    // 優先找【標題】區塊下一行
-                    const titleIdx = lines.findIndex(l => /^【標題】/.test(l.trim()))
-                    if (titleIdx >= 0) {
-                      const next = lines.slice(titleIdx).find((l, i) => i > 0 && l.trim() && !/^【/.test(l.trim()))
-                      autoTitle = next?.trim().slice(0,40) ?? ''
-                    }
-                    // 找不到【標題】就跳過【分類】行，取第一個非【】行
-                    if (!autoTitle) {
-                      autoTitle = lines.find(l => l.trim().length > 2 && !/^【/.test(l.trim()))?.trim().slice(0,40) || '未命名筆記'
-                    }
-                  }
-                  // 防重複：已在儲存中則跳過
-                  if (kbSavingRef.current) { console.log('[KB] blocked duplicate save'); return }
-                  kbSavingRef.current = true
-                  setTimeout(() => { kbSavingRef.current = false }, 3000)
-                  // 從內容的【分類】行自動偵測分類
-                  let finalCat = kbCat
-                  // 支援【分類】同行或換行兩種格式
-                  const kbLines = kbContent.split('\n')
-                  const catIdx = kbLines.findIndex(l => /^【分類】/.test(l.trim()))
-                  if (catIdx >= 0) {
-                    // 同行：【分類】文法易混淆，或換行：下一非空行
-                    const sameLine = kbLines[catIdx].replace(/^【分類】/, '').trim()
-                    const catText = sameLine || kbLines.slice(catIdx+1).find(l => l.trim())?.trim() || ''
-                    if (/動詞/.test(catText)) finalCat = 'verb'
-                    else if (/電影固定/.test(catText)) finalCat = 'movie'
-                    else if (/文法易混淆/.test(catText)) finalCat = 'grammar'
-                    else if (/文法/.test(catText)) finalCat = 'grammar'
-                    else if (/電影金句|金句/.test(catText)) finalCat = 'quote'
-                    else if (/工作/.test(catText)) finalCat = 'work'
-                    else if (/易混淆|混淆/.test(catText)) finalCat = 'confuse'
-                    else if (/關聯/.test(catText)) finalCat = 'link'
-                  }
-                  if (kbEditId) {
-                    updateKbItem(kbEditId, autoTitle, kbContent, finalCat)
-                  } else {
-                    addKbItem(autoTitle, kbContent, finalCat)
-                  }
-                  // 儲存後立即關閉並清空，防止重複觸發
-                  setKbNewMode(false)
-                  setKbEditId(null)
-                  setKbTitle('')
-                  setKbContent('')
-                  setKbCat('other')
-                }}
-                style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
-                  color:'#000', padding:'8px', background:T.amber, borderRadius:8, textAlign:'center' }}>
-                ✓ 儲存
-              </div>
-              <div onClick={() => { setKbNewMode(false); setKbEditId(null); setKbTitle(''); setKbContent('') }}
-                style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt3,
-                  padding:'8px 14px', background:T.surf2, borderRadius:8,
-                  border:`1px solid ${T.bdr}`, textAlign:'center' }}>
-                取消
-              </div>
-            </div>
-          </div>
-        )}
-        {/* 分類顯示 */}
-        {kbList.length === 0 && !kbNewMode && (
-          <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, textAlign:'center', padding:'8px 0' }}>
-            尚無筆記，點「＋ 新增」加入動詞家族等學習整理
-          </div>
-        )}
-        {KB_CATS.map(cat => {
-          const catItems = kbList.filter(k => k.cat === cat.id)
-          if (catItems.length === 0) return null
-          return (
-            <div key={cat.id}>
-              <div style={{ fontFamily:MONO, fontSize:9, color:cat.color,
-                fontWeight:700, marginBottom:4, paddingLeft:2 }}>{cat.label}</div>
-              {catItems.map((k) => { const globalIdx = kbList.indexOf(k); return (
-                <div key={k.id} style={{ borderRadius:10, overflow:'hidden', marginBottom:6,
-                  border:`1px solid ${kbOpen===k.id ? cat.color+'80' : T.bdr}` }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:8,
-                    padding:'10px 12px', background: kbOpen===k.id ? cat.color+'15' : T.surf2,
-                    cursor:'pointer' }}
-                    onClick={() => setKbOpen(kbOpen===k.id ? null : k.id)}>
-                    <span style={{ fontFamily:MONO, fontSize:10, color:cat.color, flexShrink:0 }}>
-                      {kbOpen===k.id ? '▼' : '▶'}
-                    </span>
-                    <span style={{ fontFamily:MONO, fontSize:11, color:'#fff', flex:1 }}>{k.title}</span>
-                    <div onClick={e => { e.stopPropagation();
-                        setKbNewMode(false); setKbEditId(k.id); setKbTitle(k.title); setKbContent(k.content); setKbCat(k.cat ?? 'other')
-                      }}
-                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:cat.color,
-                        padding:'2px 7px', background:cat.color+'20', borderRadius:5 }}>✏</div>
-                    <div onClick={e => { e.stopPropagation();
-                        if (window.confirm(`刪除「${k.title}」？`)) deleteKbItem(k.id, kbList.indexOf(k))
-                      }}
-                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#f87171',
-                        padding:'2px 7px', background:'#3a1a1a', borderRadius:5 }}>✕</div>
-                  </div>
-                  {kbOpen===k.id && (() => {
-                    // 解析結構化格式 【標題】【核心觀念】【Chunk】【電影例句】【工作例句】【口訣】
-                    const sections = {}
-                    let curSection = null
-                    ;(k.content ?? '').split('\n').forEach(line => {
-                      const m = line.match(/^【(.+?)】(.*)$/)
-                      if (m) { curSection = m[1]; sections[curSection] = (m[2].trim() ? [m[2].trim()] : []) }
-                      else if (curSection && line.trim()) sections[curSection].push(line.trim())
-                    })
-                    const hasStructure = Object.keys(sections).length > 0
-                    if (!hasStructure) return (
-                      <div style={{ padding:'12px 14px', background:'#0a0a14',
-                        fontFamily:'monospace', fontSize:11, color:'#cbd5e1',
-                        lineHeight:1.8, whiteSpace:'pre-wrap', wordBreak:'break-word' }}>
-                        {k.content}
-                      </div>
-                    )
-                    const SectionColors = { '核心觀念':'#94a3b8','Chunk':'#60a5fa','電影例句':'#f59e0b','工作例句':'#34d399','口訣':'#f97316','標題':'#fff' }
-                    return (
-                      <div style={{ padding:'12px 14px', background:'#0a0a14',
-                        display:'flex', flexDirection:'column', gap:10 }}>
-                        {Object.entries(sections).map(([sec, lines]) => (
-                          <div key={sec}>
-                            <div style={{ fontFamily:MONO, fontSize:8, color:SectionColors[sec] ?? '#94a3b8',
-                              fontWeight:700, marginBottom:4, letterSpacing:'0.05em' }}>【{sec}】</div>
-                            {lines.map((line, i) => (
-                              <div key={i} style={{ fontFamily:'monospace', fontSize:11,
-                                color: SectionColors[sec] ?? '#cbd5e1',
-                                lineHeight:1.8, paddingLeft: sec==='Chunk'||sec==='電影例句'||sec==='工作例句' ? 8 : 0,
-                                borderLeft: sec==='Chunk' ? `2px solid #60a5fa30` :
-                                  sec==='電影例句' ? `2px solid #f59e0b30` : 'none',
-                                marginLeft: sec==='Chunk'||sec==='電影例句' ? 4 : 0 }}>
-                                {sec==='口訣' ? `💡 ${line}` : line}
-                              </div>
-                            ))}
-                          </div>
-                        ))}
-                      </div>
-                    )
-                  })()}
-                </div>
-              )})}
-            </div>
-          )
-        })}
-        {/* 未分類項目已由 KB_CATS.map 的 'other' 分類處理，不再重複渲染 */}
-      </div>
-        )
-      })()}
     </div>
   )
 }
