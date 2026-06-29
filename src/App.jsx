@@ -7288,7 +7288,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.41
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.42
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13244,6 +13244,9 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   const [editingSceneDescId,   setEditingSceneDescId]   = useState(null)
   const [editingSceneDescText, setEditingSceneDescText] = useState('')
   const [autoGenSceneBusy, setAutoGenSceneBusy] = useState(false)
+  // 片庫新增電影 state（必須在頂層，不能放在 if 區塊內）
+  const [newMovieTitle,    setNewMovieTitle]    = useState('')
+  const [libraryAdding,    setLibraryAdding]    = useState(false)
   const [starFilter,      setStarFilter]      = useState(true)
   const [editingSceneNameId,   setEditingSceneNameId]   = useState(null)
   const [sceneSearch, setSceneSearch] = useState('')  // 場景搜尋關鍵字
@@ -17800,8 +17803,6 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
   // LIBRARY VIEW — 電影片庫選擇頁
   // ══════════════════════════════════════════════════════════════
   if (view === 'library') {
-    const [newMovieTitle, setNewMovieTitle] = React.useState('')
-    const [adding, setAdding] = React.useState(false)
 
     function selectMovie(mid) {
       setMovieId(mid)
@@ -17819,7 +17820,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
       }
       saveDb({ ...db, movies: [...db.movies, newMovie] })
       setNewMovieTitle('')
-      setAdding(false)
+      setLibraryAdding(false)
       selectMovie(id)
     }
 
@@ -17855,7 +17856,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           )
         })}
 
-        {adding ? (
+        {libraryAdding ? (
           <div style={{ background:T.surf, border:`1px solid ${T.bdr2}`, borderRadius:14, padding:'16px',
             display:'flex', flexDirection:'column', gap:10 }}>
             <div style={{ fontFamily:MONO, fontSize:10, color:T.txt2, fontWeight:700 }}>新增電影</div>
@@ -17877,7 +17878,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                   textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700, color:T.amber }}>
                 ＋ 建立
               </div>
-              <div onClick={() => { setAdding(false); setNewMovieTitle('') }}
+              <div onClick={() => { setLibraryAdding(false); setNewMovieTitle('') }}
                 style={{ flex:1, cursor:'pointer', background:T.surf2,
                   border:`1px solid ${T.bdr}`, borderRadius:9, padding:'10px',
                   textAlign:'center', fontFamily:MONO, fontSize:10, color:T.txt3 }}>
@@ -17886,7 +17887,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
             </div>
           </div>
         ) : (
-          <div onClick={() => setAdding(true)}
+          <div onClick={() => setLibraryAdding(true)}
             style={{ cursor:'pointer', background:T.surf2,
               border:`1px dashed ${T.bdr2}`, borderRadius:14, padding:'18px',
               textAlign:'center', fontFamily:MONO, fontSize:11, color:T.txt3 }}>
