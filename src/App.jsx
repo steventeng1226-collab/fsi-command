@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.48
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.49
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -20210,6 +20210,15 @@ export default function App() {
     const next = audioMode === 'original' ? 'tts' : 'original'
     setAudioMode(next)
     localStorage.setItem('fsi:movie:audioMode', next)
+    // 切換到原音模式時，重新載入 MP3 Part 1
+    if (next === 'original') {
+      const parts = getMovieMp3Parts(movie)
+      const p0 = parts[0]
+      if (p0) {
+        setAudioReady(false)
+        loadAudioUrl(p0.idbKey, `${movie?.title ?? ''} ${p0.label ?? 'Part 1'}`)
+      }
+    }
   }
 
   // ── 離開確認（避免誤觸關閉 App）──────────────────────────────
