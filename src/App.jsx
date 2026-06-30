@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.76
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.77
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -17926,7 +17926,13 @@ Steven 不是在收藏電影台詞。
                           borderRadius:9, padding:'9px', textAlign:'center', fontFamily:MONO, fontSize:10, color:T.txt3 }}>
                         ↺ 重新開始
                       </div>
-                      <div onClick={() => { setMultiScenePhrases([]); setView('library') }}
+                      <div onClick={() => {
+                          const lastKey = multiScenePhrases[multiScenePhrases.length - 1]?._sortKey
+                          if (lastKey !== undefined && movieId) {
+                            localStorage.setItem(`fsi:daily:cursor:${movieId}`, String(lastKey))
+                          }
+                          setMultiScenePhrases([]); setView('library')
+                        }}
                         style={{ flex:1, cursor:'pointer', background:T.amberD, border:`1px solid ${T.amber}50`,
                           borderRadius:9, padding:'9px', textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700, color:T.amber }}>
                         ← 返回片庫
@@ -17942,29 +17948,49 @@ Steven 不是在收藏電影台詞。
                     <div style={{ height:6, background:T.surf2, borderRadius:3, overflow:'hidden' }}>
                       <div style={{ width:`${(doneCount/total)*100}%`, height:'100%', background:T.amber, transition:'width 0.3s' }} />
                     </div>
-                    <div onClick={() => {
-                        // 重新計算全部待練句子，取下一頁
-                        const allPhrasesForNext = (movie?.scenes ?? []).flatMap(s => {
-                          const sceneStart = (() => { try { return parseSceneTimeRange(s.timeRange).start ?? 0 } catch { return 0 } })()
-                          return (s.phrases ?? []).filter(p => p.starred && p.familiar !== true)
-                            .map(p => ({ ...p, _sortKey: (p.startSecs && p.startSecs > 0) ? p.startSecs : sceneStart }))
-                        })
-                        const sortedNext = [...allPhrasesForNext].sort((a, b) => a._sortKey - b._sortKey)
-                        const pageSize = Number(localStorage.getItem('fsi:daily:count')) || 30
-                        const nextPage = dailyPage + 1
-                        const nextBatch = sortedNext.slice(nextPage * pageSize, (nextPage + 1) * pageSize)
-                        if (nextBatch.length === 0) {
-                          showMovieToast?.('✓ 已經是最後一組了！')
+                    <div style={{ display:'flex', gap:8 }}>
+                      <div onClick={() => {
+                          // 寫入游標：記住這批最後一句的位置，下次接續
+                          const lastKey = multiScenePhrases[multiScenePhrases.length - 1]?._sortKey
+                          if (lastKey !== undefined && movieId) {
+                            localStorage.setItem(`fsi:daily:cursor:${movieId}`, String(lastKey))
+                          }
                           setMultiScenePhrases([])
                           setView('library')
-                          return
-                        }
-                        setDailyPage(nextPage)
-                        setMultiScenePhrases(nextBatch)
-                      }}
-                      style={{ cursor:'pointer', background:T.surf2, border:`1px solid ${T.bdr}`,
-                        borderRadius:9, padding:'8px', textAlign:'center', fontFamily:MONO, fontSize:9, color:T.txt3 }}>
-                      ✓ 完成本組（{doneCount}句）→ 下一組
+                        }}
+                        style={{ flex:1, cursor:'pointer', background:'#3a1a1a', border:'1px solid #f8717150',
+                          borderRadius:9, padding:'8px', textAlign:'center', fontFamily:MONO, fontSize:9, color:'#f87171' }}>
+                        ⏹ 結束練習
+                      </div>
+                      <div onClick={() => {
+                          // 寫入游標：記住這批最後一句的位置
+                          const lastKey = multiScenePhrases[multiScenePhrases.length - 1]?._sortKey
+                          if (lastKey !== undefined && movieId) {
+                            localStorage.setItem(`fsi:daily:cursor:${movieId}`, String(lastKey))
+                          }
+                          // 重新計算全部待練句子，取下一頁
+                          const allPhrasesForNext = (movie?.scenes ?? []).flatMap(s => {
+                            const sceneStart = (() => { try { return parseSceneTimeRange(s.timeRange).start ?? 0 } catch { return 0 } })()
+                            return (s.phrases ?? []).filter(p => p.starred && p.familiar !== true)
+                              .map(p => ({ ...p, _sortKey: (p.startSecs && p.startSecs > 0) ? p.startSecs : sceneStart }))
+                          })
+                          const sortedNext = [...allPhrasesForNext].sort((a, b) => a._sortKey - b._sortKey)
+                          const pageSize = Number(localStorage.getItem('fsi:daily:count')) || 30
+                          const nextPage = dailyPage + 1
+                          const nextBatch = sortedNext.slice(nextPage * pageSize, (nextPage + 1) * pageSize)
+                          if (nextBatch.length === 0) {
+                            showMovieToast?.('✓ 已經是最後一組了！')
+                            setMultiScenePhrases([])
+                            setView('library')
+                            return
+                          }
+                          setDailyPage(nextPage)
+                          setMultiScenePhrases(nextBatch)
+                        }}
+                        style={{ flex:2, cursor:'pointer', background:T.surf2, border:`1px solid ${T.bdr}`,
+                          borderRadius:9, padding:'8px', textAlign:'center', fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                        ✓ 完成本組（{doneCount}句）→ 下一組
+                      </div>
                     </div>
                   </>
                 )}
@@ -18479,8 +18505,17 @@ Steven 不是在收藏電影台詞。
                       return
                     }
                     const pageSize = Number(localStorage.getItem('fsi:daily:count')) || 30
-                    // 每次點擊都固定從第一頁（第一句）開始
-                    const firstBatch = sorted.slice(0, pageSize)
+                    // 游標機制：從上次停留處接續，超過結尾則循環回開頭
+                    const cursorKey = `fsi:daily:cursor:${m.id}`
+                    const lastCursor = Number(localStorage.getItem(cursorKey)) || 0
+                    let startIdx = sorted.findIndex(p => p._sortKey > lastCursor)
+                    if (startIdx === -1) startIdx = 0  // 已到結尾，循環回開頭
+                    let firstBatch = sorted.slice(startIdx, startIdx + pageSize)
+                    // 不夠 pageSize 句時，從開頭補滿（循環）
+                    if (firstBatch.length < pageSize && sorted.length > firstBatch.length) {
+                      const remain = pageSize - firstBatch.length
+                      firstBatch = [...firstBatch, ...sorted.slice(0, remain)]
+                    }
                     selectMovie(m.id)
                     setDailyPage(0)
                     setMultiScenePhrases(firstBatch)
