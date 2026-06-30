@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.61
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.62
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13300,19 +13300,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   const [sceneId,    setSceneId]    = useState(null)
   const [selectedSceneIds, setSelectedSceneIds] = useState(new Set()) // 多場景選擇播放
   const [multiScenePhrases, setMultiScenePhrases] = useState([]) // 多場景合併重點句
-
-  // 🌅 今日練習：全部句子標記完成時，才正式寫入游標（pending → 正式）
-  useEffect(() => {
-    if (multiScenePhrases.length === 0) return
-    const allDone = multiScenePhrases.every(p => p.familiar === true)
-    if (!allDone) return
-    const cursorKey = `fsi:daily:cursor:${movieId}`
-    const pending = localStorage.getItem(cursorKey + ':pending')
-    if (pending !== null) {
-      localStorage.setItem(cursorKey, pending)
-      localStorage.removeItem(cursorKey + ':pending')
-    }
-  }, [multiScenePhrases, movieId])
+  const [dailyPage, setDailyPage] = useState(0) // 重點句子練習：當前頁碼（每頁固定句數）
   const [playIdx,    setPlayIdx]    = useState(0)
   const [playing,    setPlaying]    = useState(false)
   const [looping,    setLooping]    = useState(false)
@@ -17571,7 +17559,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                 {allDone ? (
                   <>
                     <div style={{ fontFamily:DISP, fontSize:14, color:T.grn, textAlign:'center' }}>
-                      🎉 完成今日練習！共 {total} 句
+                      🎉 完成這組練習！共 {total} 句
                     </div>
                     <div style={{ display:'flex', gap:8 }}>
                       <div onClick={() => {
@@ -17591,25 +17579,35 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                 ) : (
                   <>
                     <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                      <span style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:T.amber }}>🌅 今日練習</span>
+                      <span style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:T.amber }}>⭐ 重點句子練習（第{dailyPage+1}組）</span>
                       <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>{doneCount}/{total}</span>
                     </div>
                     <div style={{ height:6, background:T.surf2, borderRadius:3, overflow:'hidden' }}>
                       <div style={{ width:`${(doneCount/total)*100}%`, height:'100%', background:T.amber, transition:'width 0.3s' }} />
                     </div>
                     <div onClick={() => {
-                        const cursorKey = `fsi:daily:cursor:${movieId}`
-                        const pending = localStorage.getItem(cursorKey + ':pending')
-                        if (pending !== null) {
-                          localStorage.setItem(cursorKey, pending)
-                          localStorage.removeItem(cursorKey + ':pending')
+                        // 重新計算全部待練句子，取下一頁
+                        const allPhrasesForNext = (movie?.scenes ?? []).flatMap(s => {
+                          const sceneStart = (() => { try { return parseSceneTimeRange(s.timeRange).start ?? 0 } catch { return 0 } })()
+                          return (s.phrases ?? []).filter(p => p.starred && p.familiar !== true)
+                            .map(p => ({ ...p, _sortKey: (p.startSecs && p.startSecs > 0) ? p.startSecs : sceneStart }))
+                        })
+                        const sortedNext = [...allPhrasesForNext].sort((a, b) => a._sortKey - b._sortKey)
+                        const pageSize = Number(localStorage.getItem('fsi:daily:count')) || 30
+                        const nextPage = dailyPage + 1
+                        const nextBatch = sortedNext.slice(nextPage * pageSize, (nextPage + 1) * pageSize)
+                        if (nextBatch.length === 0) {
+                          showMovieToast?.('✓ 已經是最後一組了！')
+                          setMultiScenePhrases([])
+                          setView('library')
+                          return
                         }
-                        setMultiScenePhrases([])
-                        setView('library')
+                        setDailyPage(nextPage)
+                        setMultiScenePhrases(nextBatch)
                       }}
                       style={{ cursor:'pointer', background:T.surf2, border:`1px solid ${T.bdr}`,
                         borderRadius:9, padding:'8px', textAlign:'center', fontFamily:MONO, fontSize:9, color:T.txt3 }}>
-                      ✓ 結束本輪（{doneCount}句）→ 下次接續下一批
+                      ✓ 完成本組（{doneCount}句）→ 下一組
                     </div>
                   </>
                 )}
@@ -18109,7 +18107,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                   <span style={{ fontFamily:MONO, fontSize:9, color:'#f97316' }}>{reinforceCount} →</span>
                 </div>
               </div>
-              {/* 🌅 今日練習 */}
+              {/* ⭐ 重點句子練習 */}
               <div style={{ padding:'0 12px 10px' }}>
                 <div onClick={() => {
                     const allPhrasesForDaily = (m.scenes ?? []).flatMap(s => {
@@ -18117,36 +18115,25 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                       return (s.phrases ?? []).filter(p => p.starred && p.familiar !== true)
                         .map(p => ({ ...p, _sortKey: (p.startSecs && p.startSecs > 0) ? p.startSecs : sceneStart }))
                     })
-                    // 排序：startSecs 為電影絕對秒數；缺失時 fallback 用場景開始時間，避免誤排最前
+                    // 排序：永遠固定依電影時間順序由小到大（startSecs 為電影絕對秒數）
                     const sorted = [...allPhrasesForDaily].sort((a, b) => a._sortKey - b._sortKey)
-                    const goalCount = Number(localStorage.getItem('fsi:daily:count')) || 30
                     if (sorted.length === 0) {
-                      showMovieToast?.('✓ 今天沒有需要複習的句子，太棒了！')
+                      showMovieToast?.('✓ 目前沒有需要複習的句子，太棒了！')
                       return
                     }
-                    // 游標機制：從上次停留處繼續往下挑，超過結尾則循環回開頭
-                    const cursorKey = `fsi:daily:cursor:${m.id}`
-                    const lastCursor = Number(localStorage.getItem(cursorKey)) || 0
-                    let startIdx = sorted.findIndex(p => p._sortKey > lastCursor)
-                    if (startIdx === -1) startIdx = 0  // 已到結尾，循環回開頭
-                    let todayBatch = sorted.slice(startIdx, startIdx + goalCount)
-                    // 不夠 goalCount 句時，從開頭補滿（循環）
-                    if (todayBatch.length < goalCount && sorted.length > todayBatch.length) {
-                      const remain = goalCount - todayBatch.length
-                      todayBatch = [...todayBatch, ...sorted.slice(0, remain)]
-                    }
-                    // 游標延後到「全部練完」才更新（存入待定游標，不立即生效）
-                    const lastBatchKey = todayBatch[todayBatch.length - 1]?._sortKey
-                    if (lastBatchKey !== undefined) localStorage.setItem(cursorKey + ':pending', String(lastBatchKey))
+                    const pageSize = Number(localStorage.getItem('fsi:daily:count')) || 30
+                    // 每次點擊都固定從第一頁（第一句）開始
+                    const firstBatch = sorted.slice(0, pageSize)
                     selectMovie(m.id)
-                    setMultiScenePhrases(todayBatch)
+                    setDailyPage(0)
+                    setMultiScenePhrases(firstBatch)
                     setTimeout(() => setView('starred'), 50)
                   }}
                   style={{ cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between',
                     background:'linear-gradient(135deg, #2a1a00, #1a0f00)',
                     border:`1px solid ${T.amber}60`, borderRadius:10, padding:'10px 14px' }}>
                   <span style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:T.amber }}>
-                    🌅 今日練習
+                    ⭐ 重點句子練習
                   </span>
                   <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
                     {Math.min(needPracticeCount, Number(localStorage.getItem('fsi:daily:count')) || 30)}/{needPracticeCount} 句 →
