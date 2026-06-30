@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.54
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.55
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -17546,6 +17546,49 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
         {/* ── 固定 Header 區（不 scroll）── */}
         <div style={{ flexShrink:0, background:T.bg, borderBottom:`1px solid ${T.bdr}`,
           padding:'46px 16px 12px', display:'flex', flexDirection:'column', gap:10 }}>
+          {/* 🌅 今日練習進度橫幅 */}
+          {multiScenePhrases.length > 0 && (() => {
+            const total = multiScenePhrases.length
+            const doneCount = multiScenePhrases.filter(p => p.familiar === true).length
+            const allDone = doneCount === total
+            return (
+              <div style={{ background: allDone ? T.grnD : '#2a1a00',
+                border:`1px solid ${allDone ? T.grn : T.amber}50`, borderRadius:12,
+                padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }}>
+                {allDone ? (
+                  <>
+                    <div style={{ fontFamily:DISP, fontSize:14, color:T.grn, textAlign:'center' }}>
+                      🎉 完成今日練習！共 {total} 句
+                    </div>
+                    <div style={{ display:'flex', gap:8 }}>
+                      <div onClick={() => {
+                          setMultiScenePhrases(prev => prev.map(p => ({ ...p, familiar: false })))
+                        }}
+                        style={{ flex:1, cursor:'pointer', background:T.surf2, border:`1px solid ${T.bdr}`,
+                          borderRadius:9, padding:'9px', textAlign:'center', fontFamily:MONO, fontSize:10, color:T.txt3 }}>
+                        ↺ 重新開始
+                      </div>
+                      <div onClick={() => { setMultiScenePhrases([]); setView('library') }}
+                        style={{ flex:1, cursor:'pointer', background:T.amberD, border:`1px solid ${T.amber}50`,
+                          borderRadius:9, padding:'9px', textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700, color:T.amber }}>
+                        ← 返回片庫
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                      <span style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:T.amber }}>🌅 今日練習</span>
+                      <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>{doneCount}/{total}</span>
+                    </div>
+                    <div style={{ height:6, background:T.surf2, borderRadius:3, overflow:'hidden' }}>
+                      <div style={{ width:`${(doneCount/total)*100}%`, height:'100%', background:T.amber, transition:'width 0.3s' }} />
+                    </div>
+                  </>
+                )}
+              </div>
+            )
+          })()}
           {/* 篩選 + 反向 + 播放列（合併）*/}
           <div style={{ display:'flex', gap:6, flexWrap:'wrap', alignItems:'center' }}>
           {[
@@ -18036,6 +18079,41 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                     justifyContent:'space-between', background: reinforceCount ? '#2a1200' : T.surf2 }}>
                   <span style={{ fontFamily:MONO, fontSize:9, color: reinforceCount ? '#f97316' : T.txt3 }}>🔥 再加強</span>
                   <span style={{ fontFamily:MONO, fontSize:9, color:'#f97316' }}>{reinforceCount} →</span>
+                </div>
+              </div>
+              {/* 🌅 今日練習 */}
+              <div style={{ padding:'0 12px 10px' }}>
+                <div onClick={() => {
+                    const allPhrasesForDaily = (m.scenes ?? []).flatMap(s =>
+                      (s.phrases ?? []).filter(p => p.starred && (p.familiar === false || p.familiar === 'reinforce'))
+                        .map(p => ({ ...p, _sceneLastVisited: s.lastVisited ?? 0 }))
+                    )
+                    // 排序：🔥再加強優先，同等級依場景最久沒練的優先
+                    const sorted = [...allPhrasesForDaily].sort((a, b) => {
+                      const aFire = a.familiar === 'reinforce' ? 0 : 1
+                      const bFire = b.familiar === 'reinforce' ? 0 : 1
+                      if (aFire !== bFire) return aFire - bFire
+                      return a._sceneLastVisited - b._sceneLastVisited
+                    })
+                    const goalCount = Number(localStorage.getItem('fsi:daily:count')) || 30
+                    const todayBatch = sorted.slice(0, goalCount)
+                    if (todayBatch.length === 0) {
+                      showMovieToast?.('✓ 今天沒有需要複習的句子，太棒了！')
+                      return
+                    }
+                    selectMovie(m.id)
+                    setMultiScenePhrases(todayBatch)
+                    setTimeout(() => setView('starred'), 50)
+                  }}
+                  style={{ cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between',
+                    background:'linear-gradient(135deg, #2a1a00, #1a0f00)',
+                    border:`1px solid ${T.amber}60`, borderRadius:10, padding:'10px 14px' }}>
+                  <span style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:T.amber }}>
+                    🌅 今日練習
+                  </span>
+                  <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                    {Math.min(reinforceCount + starredCount, Number(localStorage.getItem('fsi:daily:count')) || 30)} 句 →
+                  </span>
                 </div>
               </div>
               {/* ⚙️ MP3 設定入口 */}
