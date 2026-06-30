@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.68
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.69
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -17796,9 +17796,9 @@ Steven 不是在收藏電影台詞。
           starTimeUpdateRef.current = null
         }
         clearTimeout(starLoopRef.current)
-        loadAudioUrl(targetKey4, `${movie?.title ?? ''} ${targetFile?.label ?? 'Part'}`)
-        // 等待 canplay 後再播（loadAudioUrl 是 async，canplay 由它觸發）
+        // 先掛 canplay 再呼叫 loadAudioUrl，避免漏接事件
         el.addEventListener('canplay', doPlay, { once: true })
+        loadAudioUrl(targetKey4, `${movie?.title ?? ''} ${targetFile?.label ?? 'Part'}`)
       } else {
         doPlay()
       }
