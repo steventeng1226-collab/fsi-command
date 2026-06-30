@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.59
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.60
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13300,6 +13300,19 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   const [sceneId,    setSceneId]    = useState(null)
   const [selectedSceneIds, setSelectedSceneIds] = useState(new Set()) // 多場景選擇播放
   const [multiScenePhrases, setMultiScenePhrases] = useState([]) // 多場景合併重點句
+
+  // 🌅 今日練習：全部句子標記完成時，才正式寫入游標（pending → 正式）
+  useEffect(() => {
+    if (multiScenePhrases.length === 0) return
+    const allDone = multiScenePhrases.every(p => p.familiar === true)
+    if (!allDone) return
+    const cursorKey = `fsi:daily:cursor:${movieId}`
+    const pending = localStorage.getItem(cursorKey + ':pending')
+    if (pending !== null) {
+      localStorage.setItem(cursorKey, pending)
+      localStorage.removeItem(cursorKey + ':pending')
+    }
+  }, [multiScenePhrases, movieId])
   const [playIdx,    setPlayIdx]    = useState(0)
   const [playing,    setPlaying]    = useState(false)
   const [looping,    setLooping]    = useState(false)
@@ -18108,9 +18121,9 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                       const remain = goalCount - todayBatch.length
                       todayBatch = [...todayBatch, ...sorted.slice(0, remain)]
                     }
-                    // 更新游標為這批最後一句的 sortKey
+                    // 游標延後到「全部練完」才更新（存入待定游標，不立即生效）
                     const lastBatchKey = todayBatch[todayBatch.length - 1]?._sortKey
-                    if (lastBatchKey !== undefined) localStorage.setItem(cursorKey, String(lastBatchKey))
+                    if (lastBatchKey !== undefined) localStorage.setItem(cursorKey + ':pending', String(lastBatchKey))
                     selectMovie(m.id)
                     setMultiScenePhrases(todayBatch)
                     setTimeout(() => setView('starred'), 50)
