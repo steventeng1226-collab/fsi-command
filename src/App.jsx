@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.50
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.51
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13868,7 +13868,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
       const targetKey1 = targetFile?.idbKey ?? targetFile?.url
       const needSwitch = audioSrcKeyRef.current !== targetKey1
       if (needSwitch) {
-        loadAudioUrl(targetKey1, `${movie?.title ?? ''} ${targetFile?.label ?? 'Part'}`)
+        // 先掛 canplay 再呼叫 loadAudioUrl，確保不漏接
         const onReady = () => {
           // 確認已切換到正確檔案才播（防止舊 canplay 殘留觸發）
           if (audioSrcKeyRef.current !== targetKey1) return
@@ -13882,6 +13882,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
           el.removeEventListener('canplay', onReady)
         }
         el.addEventListener('canplay', onReady)
+        loadAudioUrl(targetKey1, `${movie?.title ?? ''} ${targetFile?.label ?? 'Part'}`)
       } else {
         el.playbackRate = rate
         el.currentTime = offsetSecs
@@ -14011,9 +14012,10 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
         })
         .catch(() => {
           // fetch 失敗（GitHub 無此檔案）→ 提示用選檔方式載入
-          const partIdx = JERRY_MP3.findIndex(f => f.url === url)
+          const parts5 = (url ?? '').split('__')
+          const pi5 = parts5.length === 3 ? parseInt(parts5[2]) + 1 : '?'
           setAudioReady(false)
-          setAudioFileName(`📁 請點 P${partIdx+1} 選檔 載入 MP3`)
+          setAudioFileName(`📁 請點 P${pi5} 選檔 載入 MP3`)
         })
     })
   }
@@ -14050,9 +14052,10 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
     const targetKey2 = targetFile?.idbKey ?? targetFile?.url
     const needSwitch = audioSrcKeyRef.current !== targetKey2
     if (needSwitch) {
-      loadAudioUrl(targetKey2, `${movie?.title ?? ''} ${targetFile?.label ?? 'Part'}`)
-      const onReady = () => { doPlay(); el.removeEventListener('canplay', onReady) }
+      // 先掛 canplay 再呼叫 loadAudioUrl，確保不漏接
+      const onReady = () => { el.removeEventListener('canplay', onReady); doPlay() }
       el.addEventListener('canplay', onReady)
+      loadAudioUrl(targetKey2, `${movie?.title ?? ''} ${targetFile?.label ?? 'Part'}`)
     } else {
       doPlay()
     }
