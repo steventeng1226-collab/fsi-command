@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.58
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.59-debug
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -17555,6 +17555,10 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               <div style={{ background: allDone ? T.grnD : '#2a1a00',
                 border:`1px solid ${allDone ? T.grn : T.amber}50`, borderRadius:12,
                 padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }}>
+                {/* 🐛 暫時除錯：顯示前5句的時間資料 */}
+                <div style={{ fontFamily:MONO, fontSize:8, color:'#d8b4fe', wordBreak:'break-all' }}>
+                  🐛 {multiScenePhrases.slice(0,5).map((p,i) => `[${i}]ss=${p.startSecs}|sk=${p._sortKey}|${(p.en??'').slice(0,15)}`).join(' / ')}
+                </div>
                 {allDone ? (
                   <>
                     <div style={{ fontFamily:DISP, fontSize:14, color:T.grn, textAlign:'center' }}>
