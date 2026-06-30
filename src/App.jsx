@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.70-debug
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.72-debug
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13564,6 +13564,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   const [starCurrentIdx,  setStarCurrentIdx]  = useState(0)        // 練習模式當前索引
   const [starReverse,     setStarReverse]     = useState(false)     // 反向開關（獨立於模式）
   const starPlayCountRef  = useRef({})          // { [phraseId]: count } 循環播放計數（自動熟悉用）
+  const starPlayGenRef    = useRef(0)           // 播放代次，避免過期的非同步 callback 干擾新播放
   const [starLoopMode,    setStarLoopMode]    = useState(null)      // null | 'familiar' | 'unfamiliar'
   const [starLoopIdx,     setStarLoopIdx]     = useState(0)
   const [starLoopPaused,  setStarLoopPaused]  = useState(false)     // 暫停狀態
@@ -17749,15 +17750,19 @@ Steven 不是在收藏電影台詞。
         })
       }
 
+      const myPlayGen = ++starPlayGenRef.current
       const doPlay = () => {
         if (!starLoopActiveRef.current || starLoopPausedRef.current) return
+        if (myPlayGen !== starPlayGenRef.current) return // 已被新的播放請求取代，放棄
         el.currentTime = secs - targetFile.start
         el.playbackRate = playRate
 
         el.play().catch(() => {
-          // play() 被拒絕時（如背景限制），等一下再試
+          // play() 被拒絕時（如背景限制、或被新 load 打斷），等一下再試
+          if (myPlayGen !== starPlayGenRef.current) return
           starLoopRef.current = setTimeout(() => {
             if (!starLoopActiveRef.current || starLoopPausedRef.current) return
+            if (myPlayGen !== starPlayGenRef.current) return
             el.play().catch(() => scheduleNext())
           }, 500)
         })
@@ -17798,9 +17803,14 @@ Steven 不是在收藏電影台詞。
           starTimeUpdateRef.current = null
         }
         clearTimeout(starLoopRef.current)
-        // 先掛 canplay 再呼叫 loadAudioUrl，避免漏接事件
-        el.addEventListener('canplay', doPlay, { once: true })
         loadAudioUrl(targetKey4, `${movie?.title ?? ''} ${targetFile?.label ?? 'Part'}`)
+        // 改用輪詢 readyState，避免 canplay 事件時序競態問題
+        const waitReady = () => {
+          if (myPlayGen !== starPlayGenRef.current) return // 已被新請求取代
+          if (el.readyState >= 2) { doPlay(); return } // HAVE_CURRENT_DATA 以上即可播放
+          starLoopRef.current = setTimeout(waitReady, 80)
+        }
+        waitReady()
       } else {
         doPlay()
       }
