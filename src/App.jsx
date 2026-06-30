@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.49
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.50
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13865,12 +13865,13 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
       const targetFile = getMovieMp3At(movie, phrase.startSecs)
       const offsetSecs = phrase.startSecs - targetFile.start
       // 用 audioSrcKeyRef 判斷是否需要切換（blob URL 下 el.src 不含檔名，不能用）
-      const needSwitch = audioSrcKeyRef.current !== targetFile.url
+      const targetKey1 = targetFile?.idbKey ?? targetFile?.url
+      const needSwitch = audioSrcKeyRef.current !== targetKey1
       if (needSwitch) {
-        loadAudioUrl(targetFile?.idbKey ?? targetFile?.url, `${movie?.title ?? ''} ${targetFile?.label ?? 'Part'}`)
+        loadAudioUrl(targetKey1, `${movie?.title ?? ''} ${targetFile?.label ?? 'Part'}`)
         const onReady = () => {
           // 確認已切換到正確檔案才播（防止舊 canplay 殘留觸發）
-          if (audioSrcKeyRef.current !== targetFile.url) return
+          if (audioSrcKeyRef.current !== targetKey1) return
           el.playbackRate = rate
           el.currentTime = offsetSecs
           el.play().catch(() => {})
@@ -14046,9 +14047,10 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
       el._practiceDateTimer = setTimeout(() => { markScenePracticed() }, 5000)
     }
 
-    const needSwitch = audioSrcKeyRef.current !== targetFile.url
+    const targetKey2 = targetFile?.idbKey ?? targetFile?.url
+    const needSwitch = audioSrcKeyRef.current !== targetKey2
     if (needSwitch) {
-      loadAudioUrl(targetFile?.idbKey ?? targetFile?.url, `${movie?.title ?? ''} ${targetFile?.label ?? 'Part'}`)
+      loadAudioUrl(targetKey2, `${movie?.title ?? ''} ${targetFile?.label ?? 'Part'}`)
       const onReady = () => { doPlay(); el.removeEventListener('canplay', onReady) }
       el.addEventListener('canplay', onReady)
     } else {
@@ -14273,7 +14275,8 @@ ${numbered}`
         audioStopRef.current = setTimeout(() => { el.pause(); advance() }, dur + 300)
       }
 
-      const needSwitch = audioSrcKeyRef.current !== targetFile.url
+      const targetKey3 = targetFile?.idbKey ?? targetFile?.url
+      const needSwitch = audioSrcKeyRef.current !== targetKey3
       if (needSwitch) {
         // 用 Promise 等待 canplay，不依賴 audioReady state 重新觸發 effect
         const waitCanPlay = new Promise(resolve => {
@@ -14283,7 +14286,7 @@ ${numbered}`
           }
           el.addEventListener('canplay', onReady)
         })
-        loadAudioUrl(targetFile?.idbKey ?? targetFile?.url, `${movie?.title ?? ''} ${targetFile?.label ?? 'Part'}`)
+        loadAudioUrl(targetKey3, `${movie?.title ?? ''} ${targetFile?.label ?? 'Part'}`)
         waitCanPlay.then(() => { if (!cancelled) playOffset() })
       } else {
         playOffset()
@@ -17428,8 +17431,9 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
         }, (phraseDur / playRate) * 1000 + 1500)
       }
 
-      // 判斷是否需要切換 MP3 檔案（用 audioSrcKeyRef 比對原始 URL，不受 blobURL 干擾）
-      const needSwitch = audioSrcKeyRef.current !== targetFile.url
+      // 判斷是否需要切換 MP3 檔案（用 audioSrcKeyRef 比對 idbKey）
+      const targetKey4 = targetFile?.idbKey ?? targetFile?.url
+      const needSwitch = audioSrcKeyRef.current !== targetKey4
 
       if (needSwitch) {
         el.pause()
@@ -17439,7 +17443,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           starTimeUpdateRef.current = null
         }
         clearTimeout(starLoopRef.current)
-        loadAudioUrl(targetFile?.idbKey ?? targetFile?.url, `${movie?.title ?? ''} ${targetFile?.label ?? 'Part'}`)
+        loadAudioUrl(targetKey4, `${movie?.title ?? ''} ${targetFile?.label ?? 'Part'}`)
         // 等待 canplay 後再播（loadAudioUrl 是 async，canplay 由它觸發）
         el.addEventListener('canplay', doPlay, { once: true })
       } else {
