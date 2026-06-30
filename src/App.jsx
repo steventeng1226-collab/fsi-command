@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.56
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.57
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -17233,7 +17233,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
     })
     // multiScenePhrases 有值時（從場景列表多選進入），優先使用它
     const allPhrases = multiScenePhrases.length > 0
-      ? [...multiScenePhrases].sort((a, b) => (a.startSecs ?? 0) - (b.startSecs ?? 0)) // 時間正序
+      ? [...multiScenePhrases].sort((a, b) => (a._absStart ?? a.startSecs ?? 0) - (b._absStart ?? b.startSecs ?? 0)) // 絕對時間正序
       : sortedScenes
           .flatMap(s => (s.phrases ?? []).map((p, idx) => ({
             ...p, sceneName: s.name ?? s.title ?? '', sceneTimeRange: s.timeRange ?? '', _sceneIdx: idx
@@ -18084,12 +18084,13 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               {/* 🌅 今日練習 */}
               <div style={{ padding:'0 12px 10px' }}>
                 <div onClick={() => {
-                    const allPhrasesForDaily = (m.scenes ?? []).flatMap(s =>
-                      (s.phrases ?? []).filter(p => p.starred && (p.familiar === false || p.familiar === 'reinforce'))
-                        .map(p => ({ ...p, _sceneStart: (() => { try { return parseSceneTimeRange(s.timeRange).start ?? 0 } catch { return 0 } })() }))
-                    )
-                    // 排序：依場景時間順序（由小到大），方便依電影播放順序複習
-                    const sorted = [...allPhrasesForDaily].sort((a, b) => (a._sceneStart - b._sceneStart) || (a.startSecs ?? 0) - (b.startSecs ?? 0))
+                    const allPhrasesForDaily = (m.scenes ?? []).flatMap(s => {
+                      const sceneStart = (() => { try { return parseSceneTimeRange(s.timeRange).start ?? 0 } catch { return 0 } })()
+                      return (s.phrases ?? []).filter(p => p.starred && (p.familiar === false || p.familiar === 'reinforce'))
+                        .map(p => ({ ...p, _absStart: sceneStart + (p.startSecs ?? 0) }))
+                    })
+                    // 排序：依場景絕對時間順序（由小到大），方便依電影播放順序複習
+                    const sorted = [...allPhrasesForDaily].sort((a, b) => a._absStart - b._absStart)
                     const goalCount = Number(localStorage.getItem('fsi:daily:count')) || 30
                     const todayBatch = sorted.slice(0, goalCount)
                     if (todayBatch.length === 0) {
