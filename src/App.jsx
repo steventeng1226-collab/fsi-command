@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.76-debug
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.76
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13428,7 +13428,6 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   const [pushSyncing,     setPushSyncing]     = useState(false)
   const [pullSyncing,     setPullSyncing]     = useState(false)
   const [movieSyncMsg,    setMovieSyncMsg]    = useState("")
-  const [movieToastMsg2,  setMovieToastMsg2]  = useState("")
   const [autoSyncStatus,  setAutoSyncStatus]  = useState('idle') // 'idle'|'syncing'|'ok'|'err'
 
   // ── 對話練習 state ──────────────────────────────────────────
@@ -13871,8 +13870,15 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
     const text = typeof textOrRate === 'string' ? textOrRate : ''
     const rate = typeof rateOverride === 'number' ? rateOverride : playRate
 
-    // 停止當前播放
+    // 停止當前播放（含循環播放殘留的 timeupdate handler）
     clearTimeout(audioStopRef.current)
+    starLoopActiveRef.current = false  // 停止循環播放旗標
+    clearTimeout(starLoopRef.current)
+    if (starTimeUpdateRef.current && audioElRef.current) {
+      audioElRef.current.removeEventListener('timeupdate', starTimeUpdateRef.current)
+      starTimeUpdateRef.current = null
+    }
+    setStarLoopMode(null)
     if (audioElRef.current) audioElRef.current.pause()
     window.speechSynthesis?.cancel()
 
@@ -17646,7 +17652,6 @@ Steven 不是在收藏電影台詞。
       // 如果 startSecs = 0（時間碼不準），改用 TTS
       const secs = p.startSecs ?? 0
       const useTTS = audioMode !== 'original' || secs === 0
-      setMovieToastMsg2?.(`▶star p=${(p.en??'').slice(0,20)} secs=${secs} useTTS=${useTTS} mode=${audioMode}`)
 
       // ── 自動熟悉邏輯：播完一句累計次數，連續 3 次 → 靜默升熟悉 ──
       const markAutoFamiliar = (phraseId) => {
@@ -17727,7 +17732,7 @@ Steven 不是在收藏電影台詞。
       }
 
       const el = audioElRef.current
-      if (!el) { setMovieToastMsg2?.('🔥 el is null!'); return }
+      if (!el) return
 
       // 停止 TTS，避免與電影音重疊
       window.speechSynthesis?.cancel()
@@ -17735,7 +17740,6 @@ Steven 不是在收藏電影台詞。
       const endSecs   = p.endSecs ?? (secs + 4)
       const phraseDur = endSecs - secs
       const targetFile = getMovieMp3At(movie, secs)
-      setMovieToastMsg2?.(`📍targetFile=${JSON.stringify(targetFile)?.slice(0,80)} movieId=${movie?.id}`)
 
       // 清除舊的 timeupdate handler
       if (starTimeUpdateRef.current) {
@@ -17757,9 +17761,7 @@ Steven 不是在收藏電影台詞。
         try {
         if (!starLoopActiveRef.current || starLoopPausedRef.current) return
         if (myPlayGen !== starPlayGenRef.current) return // 已被新的播放請求取代，放棄
-        const newCurrentTime = secs - targetFile.start
-        setMovieToastMsg2?.(`🎯doPlay: secs=${secs} tf.start=${targetFile?.start} tf.end=${targetFile?.end} newCT=${newCurrentTime} el.duration=${el.duration} el.readyState=${el.readyState} el.src=${el.src?.slice(-40)}`)
-        el.currentTime = newCurrentTime
+        el.currentTime = secs - targetFile.start
         el.playbackRate = playRate
 
         el.play().catch(() => {
@@ -17771,10 +17773,6 @@ Steven 不是在收藏電影台詞。
             el.play().catch(() => scheduleNext())
           }, 500)
         })
-
-        setTimeout(() => {
-          setMovieToastMsg2?.(`⏱️1s後: paused=${el.paused} currentTime=${el.currentTime?.toFixed(2)} volume=${el.volume} muted=${el.muted}`)
-        }, 1000)
 
         // 主要觸發：timeupdate 監聽到達 endSecs
         const handler = () => {
@@ -17798,9 +17796,7 @@ Steven 不是在收藏電影台詞。
           el.pause()
           scheduleNext()
         }, (phraseDur / playRate) * 1000 + 1500)
-        } catch (err) {
-          setMovieToastMsg2?.(`🔥doPlay ERROR: ${err.message} | ${(err.stack||'').split('\n')[1] || ''}`)
-        }
+        } catch (err) { console.error('[doPlay error]', err) }
       }
 
       // 判斷是否需要切換 MP3 檔案（用 audioSrcKeyRef 比對 idbKey）
@@ -17826,9 +17822,7 @@ Steven 不是在收藏電影台詞。
       } else {
         doPlay()
       }
-      } catch (err) {
-        setMovieToastMsg2?.(`🔥ERROR: ${err.message} | stack: ${(err.stack||'').split('\n').slice(0,2).join(' / ')}`)
-      }
+      } catch (err) { console.error('[playStarPhrase error]', err) }
     }
 
     const startStarLoop = (group) => {
@@ -17910,13 +17904,6 @@ Steven 不是在收藏電影台詞。
         {/* ── 固定 Header 區（不 scroll）── */}
         <div style={{ flexShrink:0, background:T.bg, borderBottom:`1px solid ${T.bdr}`,
           padding:'46px 16px 12px', display:'flex', flexDirection:'column', gap:10 }}>
-          {/* 🐛 暫時除錯訊息 */}
-          {movieToastMsg2 && (
-            <div style={{ background:'#1a0a2a', border:'1px solid #a855f7', borderRadius:8,
-              padding:'8px 10px', fontFamily:MONO, fontSize:9, color:'#d8b4fe', wordBreak:'break-all' }}>
-              🐛 {movieToastMsg2}
-            </div>
-          )}
           {/* 🌅 今日練習進度橫幅 */}
           {multiScenePhrases.length > 0 && (() => {
             const total = multiScenePhrases.length
