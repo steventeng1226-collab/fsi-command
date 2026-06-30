@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.74-debug
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.75-debug
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -17629,6 +17629,7 @@ Steven 不是在收藏電影台詞。
 
     const playStarPhrase = (list, idx) => {
       try {
+      alert('playStarPhrase 被呼叫了！idx=' + idx)
       // 如果暫停中，不繼續播放
       if (starLoopPausedRef.current) return
       // 無限循環
@@ -17727,7 +17728,7 @@ Steven 不是在收藏電影台詞。
       }
 
       const el = audioElRef.current
-      if (!el) return
+      if (!el) { setMovieToastMsg2?.('🔥 el is null!'); return }
 
       // 停止 TTS，避免與電影音重疊
       window.speechSynthesis?.cancel()
@@ -17735,6 +17736,7 @@ Steven 不是在收藏電影台詞。
       const endSecs   = p.endSecs ?? (secs + 4)
       const phraseDur = endSecs - secs
       const targetFile = getMovieMp3At(movie, secs)
+      setMovieToastMsg2?.(`📍targetFile=${JSON.stringify(targetFile)?.slice(0,80)} movieId=${movie?.id}`)
 
       // 清除舊的 timeupdate handler
       if (starTimeUpdateRef.current) {
