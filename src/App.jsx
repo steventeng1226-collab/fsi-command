@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.62
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.63
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13317,6 +13317,9 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   const [editingSceneDescId,   setEditingSceneDescId]   = useState(null)
   const [editingSceneDescText, setEditingSceneDescText] = useState('')
   const [autoGenSceneBusy, setAutoGenSceneBusy] = useState(false)
+  // ⚡ 自動依字幕批次建立全部場景
+  const [autoBuildProgress, setAutoBuildProgress] = useState(null) // { current, total, label, stopped }
+  const autoBuildStopRef = useRef(false)
   // 片庫新增電影 state（必須在頂層，不能放在 if 區塊內）
   const [newMovieTitle,    setNewMovieTitle]    = useState('')
   const [libraryAdding,    setLibraryAdding]    = useState(false)
@@ -14823,6 +14826,129 @@ ${numbered}`
     finally { setAddBusy(false) }
   }
 
+  // 純函數版場景解析（給批次自動建場景使用，不依賴 startTime/endTime state）
+  async function parseSceneRange(activeTranscript, rangeStart, rangeEnd) {
+    const lineObjects = extractSRTLines(activeTranscript, rangeStart, rangeEnd)
+    if (lineObjects.length === 0) return null
+    const lines = lineObjects.map(l => l.text)
+
+    const namePrompt = `給你以下英文字幕，只回傳一個中文場景名（6~10字，不要其他文字）：
+${lines.slice(0,5).map((l,i)=>`${i+1}. ${l}`).join('\n')}`
+    const nameRaw = await callAI([{ role:'user', content: namePrompt }])
+    const sceneName = nameRaw.trim().replace(/^\d+[\.|]/, '').trim() || '電影場景'
+
+    const promptBuilder = (chunk, offset) => {
+      const numbered = chunk.map((l, i) => `${offset + i + 1}. ${l}`).join('\n')
+      return `翻譯以下英文字幕為繁體中文，並評分。
+每行格式：序號|中文翻譯|推薦(1或0)|評分(1-5)|理由(10字內)
+
+評分標準（嚴格執行，大多數句子應為3星）：
+5=必背：完整句，日常對話可直接套用。★5不超過20%。
+4=推薦：有學習價值，句型可延伸。★4+★5合計不超過40%。
+3=普通：打招呼/感嘆詞/稱謂/單字/純劇情推進一律給3星
+只回傳格式，不要其他說明。
+
+範例：
+${offset+1}|我討厭我自己。|1|5|高頻情感表達
+${offset+2}|然後事情發生了。|0|3|純劇情推進
+${offset+3}|你好，泰森。|0|3|打招呼
+
+字幕：
+${numbered}`
+    }
+
+    const lineParser = (raw, offset) => {
+      const parsed = {}
+      raw.trim().split('\n').forEach(l => {
+        const clean = l.trim()
+        const m = clean.match(/^(\d+)\s*\|\s*(.+?)\s*\|\s*([01])\s*\|\s*([1-5])\s*\|\s*(.+)$/)
+        if (m) {
+          const idx = parseInt(m[1]) - 1
+          if (idx >= 0 && idx < lines.length) {
+            parsed[idx] = { zh: m[2].trim(), starred: m[3] === '1', rating: Number(m[4]), reason: m[5].trim() }
+          }
+        } else {
+          const m2 = clean.match(/^(\d+)\s*\|\s*(.+)$/)
+          if (m2) {
+            const idx = parseInt(m2[1]) - 1
+            if (idx >= 0 && idx < lines.length && !parsed[idx]) {
+              parsed[idx] = { zh: m2[2].trim(), starred: false, rating: 3, reason: '' }
+            }
+          }
+        }
+      })
+      return parsed
+    }
+
+    const { results } = await callAIChunked(lines, promptBuilder, lineParser, 8)
+
+    return {
+      name: sceneName,
+      timeRange: `${rangeStart} ~ ${rangeEnd}`,
+      phrases: lines.map((en, i) => ({
+        en,
+        zh: results[i]?.zh ?? '',
+        starred: false,
+        rating: results[i]?.rating ?? 3,
+        reason: results[i]?.reason ?? '',
+        startSecs: lineObjects[i]?.startSecs ?? 0,
+        endSecs:   lineObjects[i]?.endSecs   ?? 0,
+      }))
+    }
+  }
+
+  // ⚡ 批次自動依字幕建立全部場景（每 2.5 分鐘一段）
+  async function autoBuildAllScenes() {
+    const activeTranscript = movie?.transcript ?? ''
+    if (!activeTranscript.trim()) { showMovieToast?.('請先儲存逐字稿'); return }
+
+    // 從逐字稿找出最後一句的結束時間，當作電影總長
+    const allLines = extractSRTLines(activeTranscript, '00:00:00', '23:59:59')
+    if (allLines.length === 0) { showMovieToast?.('逐字稿內找不到任何字幕'); return }
+    const totalSecs = Math.max(...allLines.map(l => l.endSecs ?? 0))
+
+    const SEGMENT = 150 // 2.5 分鐘
+    const ranges = []
+    for (let s = 0; s < totalSecs; s += SEGMENT) {
+      ranges.push([secsToTimeStr(s), secsToTimeStr(Math.min(s + SEGMENT, totalSecs))])
+    }
+
+    autoBuildStopRef.current = false
+    setAutoBuildProgress({ current: 0, total: ranges.length, label: '', stopped: false, done: 0, errors: 0 })
+
+    let curDb = db
+    for (let i = 0; i < ranges.length; i++) {
+      if (autoBuildStopRef.current) {
+        setAutoBuildProgress(prev => ({ ...prev, stopped: true }))
+        break
+      }
+      const [rs, re] = ranges[i]
+      setAutoBuildProgress(prev => ({ ...prev, current: i, label: `${rs} ~ ${re}` }))
+      try {
+        const result = await parseSceneRange(activeTranscript, rs, re)
+        if (result && result.phrases.length > 0) {
+          const ns = {
+            id: 'scene_' + Date.now() + '_' + i,
+            timeRange: result.timeRange,
+            name: result.name,
+            phrases: result.phrases.map((p, j) => ({
+              id: 'ph_' + Date.now() + '_' + i + '_' + j,
+              en: p.en, zh: p.zh, played: false,
+              starred: p.starred ?? false, rating: p.rating ?? 3, reason: p.reason ?? '',
+              startSecs: p.startSecs ?? 0, endSecs: p.endSecs ?? 0
+            }))
+          }
+          curDb = { ...curDb, movies: curDb.movies.map(m => m.id !== movieId ? m : { ...m, scenes: [...m.scenes, ns] }) }
+          saveDb(curDb)
+          setAutoBuildProgress(prev => ({ ...prev, done: (prev.done ?? 0) + 1 }))
+        }
+      } catch (e) {
+        setAutoBuildProgress(prev => ({ ...prev, errors: (prev.errors ?? 0) + 1 }))
+      }
+    }
+    setAutoBuildProgress(prev => prev ? { ...prev, current: ranges.length } : null)
+  }
+
   function confirmAddScene() {
     if (!addPreview) return
     const ns = {
@@ -15909,6 +16035,57 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           </div>
         )}
       </div>
+
+      {/* ── 區塊一.5：⚡ 自動批次建立全部場景（場景數為0時顯示）── */}
+      {hasSaved && (movie?.scenes?.length ?? 0) === 0 && (
+        <div style={{ background:T.surf, border:`1px solid ${T.grn}50`, borderRadius:13,
+          padding:'14px 16px', display:'flex', flexDirection:'column', gap:10 }}>
+          <span style={{ fontFamily:MONO, fontSize:10, color:T.grn, fontWeight:700 }}>
+            ⚡ 自動依字幕批次建立全部場景（每 2.5 分鐘一段）
+          </span>
+          {!autoBuildProgress && (
+            <div onClick={autoBuildAllScenes}
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
+                color:T.bg, background:T.grn, borderRadius:9, padding:'11px', textAlign:'center' }}>
+              🚀 開始自動建立場景
+            </div>
+          )}
+          {autoBuildProgress && (
+            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', fontFamily:MONO, fontSize:10 }}>
+                <span style={{ color: autoBuildProgress.stopped ? T.red : autoBuildProgress.current >= autoBuildProgress.total ? T.grn : T.amber }}>
+                  {autoBuildProgress.stopped ? '已停止' : autoBuildProgress.current >= autoBuildProgress.total ? '✓ 完成！' : '建立中…'}
+                </span>
+                <span style={{ color:T.txt3 }}>{autoBuildProgress.current} / {autoBuildProgress.total}</span>
+              </div>
+              <div style={{ height:8, background:T.surf2, borderRadius:4, overflow:'hidden' }}>
+                <div style={{ height:'100%', borderRadius:4,
+                  background: autoBuildProgress.stopped ? T.red : T.grn,
+                  width:`${(autoBuildProgress.current/autoBuildProgress.total)*100}%`, transition:'width 0.3s' }}/>
+              </div>
+              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>{autoBuildProgress.label}</div>
+              <div style={{ fontFamily:MONO, fontSize:9, display:'flex', gap:10 }}>
+                <span style={{color:T.grn}}>✓ {autoBuildProgress.done ?? 0} 場景已建立</span>
+                {autoBuildProgress.errors > 0 && <span style={{color:T.red}}>✗ {autoBuildProgress.errors} 失敗</span>}
+              </div>
+              {autoBuildProgress.current < autoBuildProgress.total && !autoBuildProgress.stopped && (
+                <div onClick={() => { autoBuildStopRef.current = true }}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                    color:T.red, background:'#3a1a1a', borderRadius:8, padding:'8px', textAlign:'center' }}>
+                  ⏹ 停止
+                </div>
+              )}
+              {(autoBuildProgress.stopped || autoBuildProgress.current >= autoBuildProgress.total) && (
+                <div onClick={() => { setAutoBuildProgress(null); setView('list') }}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                    color:T.amber, background:T.amberD, borderRadius:8, padding:'8px', textAlign:'center' }}>
+                  ← 查看場景列表
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── 區塊二：時間範圍 + AI 解析 ── */}
       <div style={{ background:T.surf, border:`1px solid ${canParse ? T.amber+'40' : T.bdr}`,
