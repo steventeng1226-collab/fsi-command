@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.53
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.54-debug
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14052,6 +14052,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
     const offsetEnd   = end   - targetFile.start
 
     function doPlay() {
+      console.log('[doPlay]', { offsetStart, offsetEnd, elSrc: el.src?.slice(0,50), elDuration: el.duration, audioSrcKey: audioSrcKeyRef.current })
       el._sceneStart = offsetStart; el._sceneEnd = offsetEnd; el._sceneLoop = sceneLoop
       el.playbackRate = playRate
       el.currentTime = offsetStart
@@ -14064,9 +14065,10 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
 
     const targetKey2 = targetFile?.idbKey ?? targetFile?.url
     const needSwitch = audioSrcKeyRef.current !== targetKey2
+    console.log('[playSceneAudio]', { start, end, targetLabel: targetFile?.label, targetKey2, needSwitch, currentKey: audioSrcKeyRef.current })
     if (needSwitch) {
       // 先掛 canplay 再呼叫 loadAudioUrl，確保不漏接
-      const onReady = () => { el.removeEventListener('canplay', onReady); doPlay() }
+      const onReady = () => { console.log('[canplay fired]', { duration: el.duration }); el.removeEventListener('canplay', onReady); doPlay() }
       el.addEventListener('canplay', onReady)
       loadAudioUrl(targetKey2, `${movie?.title ?? ''} ${targetFile?.label ?? 'Part'}`)
     } else {
