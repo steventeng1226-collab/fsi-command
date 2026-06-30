@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.69
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.70-debug
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13428,6 +13428,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   const [pushSyncing,     setPushSyncing]     = useState(false)
   const [pullSyncing,     setPullSyncing]     = useState(false)
   const [movieSyncMsg,    setMovieSyncMsg]    = useState("")
+  const [movieToastMsg2,  setMovieToastMsg2]  = useState("")
   const [autoSyncStatus,  setAutoSyncStatus]  = useState('idle') // 'idle'|'syncing'|'ok'|'err'
 
   // ── 對話練習 state ──────────────────────────────────────────
@@ -17643,6 +17644,7 @@ Steven 不是在收藏電影台詞。
       // 如果 startSecs = 0（時間碼不準），改用 TTS
       const secs = p.startSecs ?? 0
       const useTTS = audioMode !== 'original' || secs === 0
+      setMovieToastMsg2?.(`▶star p=${(p.en??'').slice(0,20)} secs=${secs} useTTS=${useTTS} mode=${audioMode}`)
 
       // ── 自動熟悉邏輯：播完一句累計次數，連續 3 次 → 靜默升熟悉 ──
       const markAutoFamiliar = (phraseId) => {
@@ -17883,6 +17885,13 @@ Steven 不是在收藏電影台詞。
         {/* ── 固定 Header 區（不 scroll）── */}
         <div style={{ flexShrink:0, background:T.bg, borderBottom:`1px solid ${T.bdr}`,
           padding:'46px 16px 12px', display:'flex', flexDirection:'column', gap:10 }}>
+          {/* 🐛 暫時除錯訊息 */}
+          {movieToastMsg2 && (
+            <div style={{ background:'#1a0a2a', border:'1px solid #a855f7', borderRadius:8,
+              padding:'8px 10px', fontFamily:MONO, fontSize:9, color:'#d8b4fe', wordBreak:'break-all' }}>
+              🐛 {movieToastMsg2}
+            </div>
+          )}
           {/* 🌅 今日練習進度橫幅 */}
           {multiScenePhrases.length > 0 && (() => {
             const total = multiScenePhrases.length
