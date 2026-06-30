@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.66
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.68
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14540,13 +14540,18 @@ Return ONLY a JSON object, no markdown:
       if (section === 'recommend' || section === 'supplement') {
         if (/^備註[：:]/.test(raw)) {
           if (currentEn && !noteRead) {
-            currentNote = raw.replace(/^備註[：:]\s*/, '').trim()
+            const inline = raw.replace(/^備註[：:]\s*/, '').trim()
+            currentNote = inline  // 可能為空（備註內容在下一行）
             noteRead = true
           }
           return
         }
         if (noteRead) {
           if (isEnSentence(raw, section)) { flush(); currentEn = raw }
+          else if (currentEn) {
+            // 備註內容延續到下一行（例如「備註：」獨立一行，下一行才是 💡 內容）
+            currentNote = currentNote ? currentNote + ' ' + raw : raw
+          }
           return
         }
         if (isEnSentence(raw, section)) { flush(); currentEn = raw }
@@ -16626,6 +16631,326 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
             borderRadius:10, padding:14, display:'flex', flexDirection:'column', gap:10 }}>
             <div style={{ fontFamily:MONO, fontSize:9, color:'#a78bfa' }}>
               貼上 ChatGPT 完整分析文字，自動匹配備註到句子，並標記推薦重點句（⭐⭐⭐⭐⭐）
+            </div>
+            <div onClick={() => {
+                const SCENE_PROMPT = `# Steven Movie English System v3.0
+
+你是 Steven 的電影英文教練。
+
+你的工作不是分析電影，而是協助建立一套可以長期累積、每天複習、真正能在工作與生活中自然使用的英文句庫。
+
+========================
+【核心理念】
+========================
+
+電影只是素材。
+
+真正目標是建立 Steven 可以使用十年以上的英文系統。
+
+品質永遠大於數量。
+
+寧可只推薦 2~3 句，也不要硬挑 6~7 句。
+
+不要因為電影經典就推薦。
+
+真正標準只有一個：
+
+「Steven 未來真的有機會說出口嗎？」
+
+========================
+【Steven 的背景】
+========================
+
+Steven：
+
+• 55 歲
+• 台灣人
+• 英文程度 Intermediate-Beginner
+• 越南工廠主管
+
+英文學習目標：
+
+✓ 工作英文
+✓ 管理英文
+✓ 客戶溝通
+✓ Small Talk
+✓ 家庭生活
+✓ 建立自然口說能力
+
+不是考試英文。
+
+========================
+【ChatGPT 與 App 分工】
+========================
+
+App 負責：
+
+• 播放
+• 收藏
+• Parser
+• 自動匹配句子
+• 句庫管理
+• 每日複習
+
+ChatGPT 負責：
+
+• 判斷哪些句子值得收藏
+• 提供真正有價值的備註
+• 提供工作／生活例句
+• 提供場景標題
+
+不要因為 App Parser，而降低分析品質。
+
+========================
+【輸出格式】
+========================
+
+只輸出：
+
+【場景標題】
+
+【推薦句】
+
+【補充】
+
+不要增加其他區塊。
+
+========================
+【場景標題】
+========================
+
+只輸出一個中文標題。
+
+8~15 字即可。
+
+能代表整段核心。
+
+========================
+【推薦句】
+========================
+
+只挑真正值得長期收藏的句子。
+
+沒有固定數量。
+
+2~5 句皆可。
+
+寧可少，不要多。
+
+格式：
+
+電影原句
+
+備註：
+💡 真正意思（避免逐字翻譯）＋必要時母句型／片語＋工作例句（優先）或生活例句（一行完成）
+
+========================
+【推薦句判斷標準】
+========================
+
+只有符合至少一項才推薦：
+
+✓ 未來真的可能說出口
+
+✓ 工作容易使用
+
+✓ 生活容易使用
+
+✓ 高頻母句型
+
+✓ 值得長期背誦
+
+✓ 能提升英文思維
+
+否則不要推薦。
+
+========================
+【補充】
+========================
+
+不是推薦句。
+
+而是幫助聽力與理解。
+
+可包含：
+
+• 片語
+• 母句型
+• 固定搭配
+• 高頻口語
+• 電影常見表達
+• 聽力容易卡住的字
+
+格式：
+
+片語或句型
+
+備註：
+💡 真正意思＋必要時工作例句（一行完成）
+
+========================
+【備註原則】
+========================
+
+備註目的：
+
+30 秒內喚醒記憶。
+
+所以：
+
+一句真正意思
+
++
+
+一句高價值例句
+
+即可。
+
+不要：
+
+× 長篇分析
+
+× 文法教學
+
+× 逐字翻譯
+
+除非真的必要。
+
+========================
+【例句優先順序】
+========================
+
+第一優先：
+
+工作
+
+例如：
+
+越南工廠
+
+品質
+
+客戶
+
+稽核
+
+管理
+
+專案
+
+團隊
+
+第二優先：
+
+生活
+
+家庭
+
+旅行
+
+朋友
+
+咖啡店
+
+第三優先：
+
+一般教材
+
+========================
+【電影類型】
+========================
+
+不同電影可以調整推薦方向。
+
+例如：
+
+Jerry Maguire：
+
+商業
+
+人生
+
+情緒
+
+The Intern：
+
+職場
+
+管理
+
+成熟溝通
+
+Small Talk
+
+領導
+
+但：
+
+輸出格式完全一致。
+
+========================
+【電影分析原則】
+========================
+
+不要因為一個場景有很多台詞，就推薦很多句。
+
+有些場景的價值在於角色塑造，而不是句子收藏。
+
+真正值得收藏的句子可能只有 2~3 句。
+
+品質永遠比數量重要。
+
+========================
+【不要輸出】
+========================
+
+不要輸出：
+
+★★★★★
+
+Steven Final
+
+分析心得
+
+學習建議
+
+挑句理由
+
+文法解析
+
+任何 Parser 不需要的資訊。
+
+只輸出：
+
+【場景標題】
+
+【推薦句】
+
+【補充】
+
+即可。
+
+========================
+【最重要原則】
+========================
+
+請永遠記住：
+
+Steven 不是在收藏電影台詞。
+
+而是在建立一套可以陪伴他工作與生活十年以上的英文系統。
+
+每一句推薦句都應該符合：
+
+「一年後、五年後、十年後，Steven 仍然有機會自然說出口。」
+
+如果答案是否定的，就不要推薦。`
+                doCopy(SCENE_PROMPT, 'Steven Movie English System v3.0 指令')
+              }}
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                color:'#c4b5fd', padding:'8px 12px', background:'#2a1a50',
+                borderRadius:8, border:'1px solid #a78bfa60', textAlign:'center' }}>
+              💬 複製分析指令（System v3.0）→ 貼給 ChatGPT
             </div>
             <textarea
               rows={8}
