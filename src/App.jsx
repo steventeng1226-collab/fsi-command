@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.72-debug
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.73-debug
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -17803,14 +17803,14 @@ Steven 不是在收藏電影台詞。
           starTimeUpdateRef.current = null
         }
         clearTimeout(starLoopRef.current)
-        loadAudioUrl(targetKey4, `${movie?.title ?? ''} ${targetFile?.label ?? 'Part'}`)
-        // 改用輪詢 readyState，避免 canplay 事件時序競態問題
-        const waitReady = () => {
-          if (myPlayGen !== starPlayGenRef.current) return // 已被新請求取代
-          if (el.readyState >= 2) { doPlay(); return } // HAVE_CURRENT_DATA 以上即可播放
-          starLoopRef.current = setTimeout(waitReady, 80)
+        // 先掛 canplay 再呼叫 loadAudioUrl（比照 speakPhrase 已驗證可用的寫法）
+        const onReady = () => {
+          el.removeEventListener('canplay', onReady)
+          if (audioSrcKeyRef.current !== targetKey4) return // 已被新請求取代
+          doPlay()
         }
-        waitReady()
+        el.addEventListener('canplay', onReady)
+        loadAudioUrl(targetKey4, `${movie?.title ?? ''} ${targetFile?.label ?? 'Part'}`)
       } else {
         doPlay()
       }
