@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.75-debug
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.76-debug
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -17629,7 +17629,6 @@ Steven 不是在收藏電影台詞。
 
     const playStarPhrase = (list, idx) => {
       try {
-      alert('playStarPhrase 被呼叫了！idx=' + idx)
       // 如果暫停中，不繼續播放
       if (starLoopPausedRef.current) return
       // 無限循環
@@ -17758,7 +17757,9 @@ Steven 不是在收藏電影台詞。
         try {
         if (!starLoopActiveRef.current || starLoopPausedRef.current) return
         if (myPlayGen !== starPlayGenRef.current) return // 已被新的播放請求取代，放棄
-        el.currentTime = secs - targetFile.start
+        const newCurrentTime = secs - targetFile.start
+        setMovieToastMsg2?.(`🎯doPlay: secs=${secs} tf.start=${targetFile?.start} tf.end=${targetFile?.end} newCT=${newCurrentTime} el.duration=${el.duration} el.readyState=${el.readyState} el.src=${el.src?.slice(-40)}`)
+        el.currentTime = newCurrentTime
         el.playbackRate = playRate
 
         el.play().catch(() => {
@@ -17770,6 +17771,10 @@ Steven 不是在收藏電影台詞。
             el.play().catch(() => scheduleNext())
           }, 500)
         })
+
+        setTimeout(() => {
+          setMovieToastMsg2?.(`⏱️1s後: paused=${el.paused} currentTime=${el.currentTime?.toFixed(2)} volume=${el.volume} muted=${el.muted}`)
+        }, 1000)
 
         // 主要觸發：timeupdate 監聽到達 endSecs
         const handler = () => {
