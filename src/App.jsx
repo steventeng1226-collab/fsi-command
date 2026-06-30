@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.73-debug
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.74-debug
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -17628,6 +17628,7 @@ Steven 不是在收藏電影台詞。
     resumeFnRef.current = resumeStarLoop
 
     const playStarPhrase = (list, idx) => {
+      try {
       // 如果暫停中，不繼續播放
       if (starLoopPausedRef.current) return
       // 無限循環
@@ -17752,6 +17753,7 @@ Steven 不是在收藏電影台詞。
 
       const myPlayGen = ++starPlayGenRef.current
       const doPlay = () => {
+        try {
         if (!starLoopActiveRef.current || starLoopPausedRef.current) return
         if (myPlayGen !== starPlayGenRef.current) return // 已被新的播放請求取代，放棄
         el.currentTime = secs - targetFile.start
@@ -17789,6 +17791,9 @@ Steven 不是在收藏電影台詞。
           el.pause()
           scheduleNext()
         }, (phraseDur / playRate) * 1000 + 1500)
+        } catch (err) {
+          setMovieToastMsg2?.(`🔥doPlay ERROR: ${err.message} | ${(err.stack||'').split('\n')[1] || ''}`)
+        }
       }
 
       // 判斷是否需要切換 MP3 檔案（用 audioSrcKeyRef 比對 idbKey）
@@ -17813,6 +17818,9 @@ Steven 不是在收藏電影台詞。
         loadAudioUrl(targetKey4, `${movie?.title ?? ''} ${targetFile?.label ?? 'Part'}`)
       } else {
         doPlay()
+      }
+      } catch (err) {
+        setMovieToastMsg2?.(`🔥ERROR: ${err.message} | stack: ${(err.stack||'').split('\n').slice(0,2).join(' / ')}`)
       }
     }
 
