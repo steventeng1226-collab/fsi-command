@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.60
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.61
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -17596,6 +17596,20 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                     </div>
                     <div style={{ height:6, background:T.surf2, borderRadius:3, overflow:'hidden' }}>
                       <div style={{ width:`${(doneCount/total)*100}%`, height:'100%', background:T.amber, transition:'width 0.3s' }} />
+                    </div>
+                    <div onClick={() => {
+                        const cursorKey = `fsi:daily:cursor:${movieId}`
+                        const pending = localStorage.getItem(cursorKey + ':pending')
+                        if (pending !== null) {
+                          localStorage.setItem(cursorKey, pending)
+                          localStorage.removeItem(cursorKey + ':pending')
+                        }
+                        setMultiScenePhrases([])
+                        setView('library')
+                      }}
+                      style={{ cursor:'pointer', background:T.surf2, border:`1px solid ${T.bdr}`,
+                        borderRadius:9, padding:'8px', textAlign:'center', fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                      ✓ 結束本輪（{doneCount}句）→ 下次接續下一批
                     </div>
                   </>
                 )}
