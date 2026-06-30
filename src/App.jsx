@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.51
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.52
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -7358,7 +7358,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
       {/* 全域音軌切換 🎬 / 🔊 */}
       {toggleAudioMode && (
         <div onClick={toggleAudioMode}
-          title={audioMode === 'original' ? '切換為系統音' : '切換為電影原音'}
+          title={audioMode === 'original' ? '🎬 電影原音（點擊切換為系統音）' : '🔊 系統音（點擊切換為電影原音）'}
           style={{ cursor:'pointer', fontSize:16, padding:'5px 8px', borderRadius:8,
             background: audioMode === 'original' ? T.amberD : T.surf2,
             border:`1px solid ${audioMode === 'original' ? T.amber+'60' : T.bdr}`,
@@ -16521,7 +16521,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
         )}
 
         {/* 第三行：播放整段 + 單次 + 循環 + 逐句 */}
-        {(audioReady || audioMode === 'tts') && (
+        {(audioMode === 'original' || audioReady || audioMode === 'tts') && (
           <div style={{ display:'flex', flexDirection:'column', gap:8,
             background:T.surf, border:`1px solid ${scenePlaying || playing ? T.amber+'50' : T.bdr}`,
             borderRadius:12, padding:'10px 12px', transition:'border-color 0.2s' }}>
