@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.52
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.53
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13271,6 +13271,19 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
             ?? localStorage.getItem('fsi:movie:transcript:0')
             ?? ''
           m.transcript = t
+        }
+        // 補上 mp3Parts（舊版資料沒有這個欄位）
+        if (!m.mp3Parts || m.mp3Parts.length === 0) {
+          if (m.id === 'jerry_maguire') {
+            m.mp3Parts = [
+              { label:'Jerry_01', start:0,    end:2100  },
+              { label:'Jerry_02', start:2100, end:4200  },
+              { label:'Jerry_03', start:4200, end:6300  },
+              { label:'Jerry_04', start:6300, end:99999 },
+            ]
+          } else {
+            m.mp3Parts = []
+          }
         }
       })
       return parsed
