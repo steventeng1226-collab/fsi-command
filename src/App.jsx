@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.55
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.56
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -18086,15 +18086,10 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                 <div onClick={() => {
                     const allPhrasesForDaily = (m.scenes ?? []).flatMap(s =>
                       (s.phrases ?? []).filter(p => p.starred && (p.familiar === false || p.familiar === 'reinforce'))
-                        .map(p => ({ ...p, _sceneLastVisited: s.lastVisited ?? 0 }))
+                        .map(p => ({ ...p, _sceneStart: (() => { try { return parseSceneTimeRange(s.timeRange).start ?? 0 } catch { return 0 } })() }))
                     )
-                    // 排序：🔥再加強優先，同等級依場景最久沒練的優先
-                    const sorted = [...allPhrasesForDaily].sort((a, b) => {
-                      const aFire = a.familiar === 'reinforce' ? 0 : 1
-                      const bFire = b.familiar === 'reinforce' ? 0 : 1
-                      if (aFire !== bFire) return aFire - bFire
-                      return a._sceneLastVisited - b._sceneLastVisited
-                    })
+                    // 排序：依場景時間順序（由小到大），方便依電影播放順序複習
+                    const sorted = [...allPhrasesForDaily].sort((a, b) => (a._sceneStart - b._sceneStart) || (a.startSecs ?? 0) - (b.startSecs ?? 0))
                     const goalCount = Number(localStorage.getItem('fsi:daily:count')) || 30
                     const todayBatch = sorted.slice(0, goalCount)
                     if (todayBatch.length === 0) {
