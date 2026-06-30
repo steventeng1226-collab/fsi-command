@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.59-debug
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.59
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -17555,10 +17555,6 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               <div style={{ background: allDone ? T.grnD : '#2a1a00',
                 border:`1px solid ${allDone ? T.grn : T.amber}50`, borderRadius:12,
                 padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }}>
-                {/* 🐛 暫時除錯：顯示前5句的時間資料 */}
-                <div style={{ fontFamily:MONO, fontSize:8, color:'#d8b4fe', wordBreak:'break-all' }}>
-                  🐛 {multiScenePhrases.slice(0,5).map((p,i) => `[${i}]ss=${p.startSecs}|sk=${p._sortKey}|${(p.en??'').slice(0,15)}`).join(' / ')}
-                </div>
                 {allDone ? (
                   <>
                     <div style={{ fontFamily:DISP, fontSize:14, color:T.grn, textAlign:'center' }}>
@@ -18029,6 +18025,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           const allPhrases    = (m.scenes ?? []).flatMap(s => s.phrases ?? [])
           const starredCount  = allPhrases.filter(p => p.starred).length
           const reinforceCount = allPhrases.filter(p => p.starred && p.familiar === 'reinforce').length
+          const needPracticeCount = allPhrases.filter(p => p.starred && p.familiar !== true).length
           // 全域統計（單字庫、背誦庫跨電影共用）
           const vocabCount  = db.vocab?.length ?? 0
           const allPhrasesGlobal = (db.movies ?? []).flatMap(mv => (mv.scenes ?? []).flatMap(s => s.phrases ?? []))
@@ -18090,17 +18087,30 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                 <div onClick={() => {
                     const allPhrasesForDaily = (m.scenes ?? []).flatMap(s => {
                       const sceneStart = (() => { try { return parseSceneTimeRange(s.timeRange).start ?? 0 } catch { return 0 } })()
-                      return (s.phrases ?? []).filter(p => p.starred && (p.familiar === false || p.familiar === 'reinforce'))
+                      return (s.phrases ?? []).filter(p => p.starred && p.familiar !== true)
                         .map(p => ({ ...p, _sortKey: (p.startSecs && p.startSecs > 0) ? p.startSecs : sceneStart }))
                     })
                     // 排序：startSecs 為電影絕對秒數；缺失時 fallback 用場景開始時間，避免誤排最前
                     const sorted = [...allPhrasesForDaily].sort((a, b) => a._sortKey - b._sortKey)
                     const goalCount = Number(localStorage.getItem('fsi:daily:count')) || 30
-                    const todayBatch = sorted.slice(0, goalCount)
-                    if (todayBatch.length === 0) {
+                    if (sorted.length === 0) {
                       showMovieToast?.('✓ 今天沒有需要複習的句子，太棒了！')
                       return
                     }
+                    // 游標機制：從上次停留處繼續往下挑，超過結尾則循環回開頭
+                    const cursorKey = `fsi:daily:cursor:${m.id}`
+                    const lastCursor = Number(localStorage.getItem(cursorKey)) || 0
+                    let startIdx = sorted.findIndex(p => p._sortKey > lastCursor)
+                    if (startIdx === -1) startIdx = 0  // 已到結尾，循環回開頭
+                    let todayBatch = sorted.slice(startIdx, startIdx + goalCount)
+                    // 不夠 goalCount 句時，從開頭補滿（循環）
+                    if (todayBatch.length < goalCount && sorted.length > todayBatch.length) {
+                      const remain = goalCount - todayBatch.length
+                      todayBatch = [...todayBatch, ...sorted.slice(0, remain)]
+                    }
+                    // 更新游標為這批最後一句的 sortKey
+                    const lastBatchKey = todayBatch[todayBatch.length - 1]?._sortKey
+                    if (lastBatchKey !== undefined) localStorage.setItem(cursorKey, String(lastBatchKey))
                     selectMovie(m.id)
                     setMultiScenePhrases(todayBatch)
                     setTimeout(() => setView('starred'), 50)
@@ -18112,7 +18122,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                     🌅 今日練習
                   </span>
                   <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
-                    {Math.min(reinforceCount + starredCount, Number(localStorage.getItem('fsi:daily:count')) || 30)} 句 →
+                    {Math.min(needPracticeCount, Number(localStorage.getItem('fsi:daily:count')) || 30)}/{needPracticeCount} 句 →
                   </span>
                 </div>
               </div>
