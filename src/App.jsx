@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.54-debug
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.54
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13416,7 +13416,6 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   const [pushSyncing,     setPushSyncing]     = useState(false)
   const [pullSyncing,     setPullSyncing]     = useState(false)
   const [movieSyncMsg,    setMovieSyncMsg]    = useState("")
-  const [movieToastMsg,   setMovieToastMsg]   = useState("")
   const [autoSyncStatus,  setAutoSyncStatus]  = useState('idle') // 'idle'|'syncing'|'ok'|'err'
 
   // ── 對話練習 state ──────────────────────────────────────────
@@ -14053,7 +14052,6 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
     const offsetEnd   = end   - targetFile.start
 
     function doPlay() {
-      setMovieToastMsg?.(`▶doPlay off=${offsetStart.toFixed(0)}~${offsetEnd.toFixed(0)} dur=${el.duration?.toFixed(0)} src=${el.src?.slice(-30)}`)
       el._sceneStart = offsetStart; el._sceneEnd = offsetEnd; el._sceneLoop = sceneLoop
       el.playbackRate = playRate
       el.currentTime = offsetStart
@@ -14066,10 +14064,9 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
 
     const targetKey2 = targetFile?.idbKey ?? targetFile?.url
     const needSwitch = audioSrcKeyRef.current !== targetKey2
-    setMovieToastMsg?.(`🎬play start=${start} label=${targetFile?.label} key=${targetKey2} switch=${needSwitch} cur=${audioSrcKeyRef.current}`)
     if (needSwitch) {
       // 先掛 canplay 再呼叫 loadAudioUrl，確保不漏接
-      const onReady = () => { setMovieToastMsg?.(`✓canplay dur=${el.duration?.toFixed(0)}`); el.removeEventListener('canplay', onReady); doPlay() }
+      const onReady = () => { el.removeEventListener('canplay', onReady); doPlay() }
       el.addEventListener('canplay', onReady)
       loadAudioUrl(targetKey2, `${movie?.title ?? ''} ${targetFile?.label ?? 'Part'}`)
     } else {
@@ -16533,14 +16530,6 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               padding:'10px', textAlign:'center', cursor:'pointer',
               fontFamily:MONO, fontSize:10, color:T.blue, fontWeight:700 }}>
             🎵 補充時間碼（啟用電影原音）
-          </div>
-        )}
-
-        {/* 🐛 除錯訊息（debug 版專用，正式版要移除）*/}
-        {movieToastMsg && (
-          <div style={{ background:'#1a0a2a', border:'1px solid #a855f7', borderRadius:8,
-            padding:'8px 10px', fontFamily:MONO, fontSize:9, color:'#d8b4fe', wordBreak:'break-all' }}>
-            🐛 {movieToastMsg}
           </div>
         )}
 
