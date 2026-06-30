@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.65
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.66
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -18644,14 +18644,17 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               setTranscriptDraft(''); setTranscriptEditMode(false)
               setAddPreview(null); setAddErr('')
               setStartTime(''); setEndTime('')
-              // 自動填入時間：找時間最晚的場景結束時間 + 2.5分鐘
+              // 自動填入時間：找時間最晚的場景結束時間 + 2.5分鐘；沒有場景時從 00:00:00 開始
               try {
                 const scenes = movie?.scenes ?? []
-                if (scenes.length > 0) {
-                  const fmt = s => {
-                    const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = Math.floor(s%60)
-                    return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0')
-                  }
+                const fmt = s => {
+                  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = Math.floor(s%60)
+                  return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0')
+                }
+                if (scenes.length === 0) {
+                  setStartTime('00:00:00')
+                  setEndTime(fmt(150))
+                } else {
                   let maxEnd = 0
                   scenes.forEach(sc => {
                     try {
