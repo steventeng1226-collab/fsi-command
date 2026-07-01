@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.82
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.83
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13866,7 +13866,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
     } catch(e) { /* silent fail */ }
     finally { setAutoGenSceneBusy(false) }
   }
-  function speakPhrase(pid, textOrRate, rateOverride) {
+  function speakPhrase(pid, textOrRate, rateOverride, phraseObj) {
     const text = typeof textOrRate === 'string' ? textOrRate : ''
     const rate = typeof rateOverride === 'number' ? rateOverride : playRate
 
@@ -13888,10 +13888,8 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
     }
     setPlayingPhraseId(pid)
 
-    // 找當前場景的 phrase 取得時間碼
-    // starred view 時 phrase 來自 multiScenePhrases，不在 phrases 裡
-    const phrase = phrases.find(p => p.id === pid)
-      ?? multiScenePhrases.find(p => p.id === pid)
+    // 找 phrase：優先用直接傳入的 phraseObj（starred view），否則從 phrases/multiScenePhrases 找
+    const phrase = phraseObj ?? phrases.find(p => p.id === pid) ?? multiScenePhrases.find(p => p.id === pid)
     const hasTimestamp = phrase && (phrase.startSecs > 0 || phrase.endSecs > 0)
     // 直接從 db 取 movie（避免 closure 在 minified bundle 找不到外層 movie 變數）
     const currentMovie = db.movies.find(m => m.id === movieId)
@@ -17550,7 +17548,7 @@ Steven 不是在收藏電影台詞。
                         borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>
                     : '🔄'}
                 </div>
-                <div onClick={() => speakPhrase(p.id, p.en)}
+                <div onClick={() => speakPhrase(p.id, p.en, undefined, p)}
                   style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
                     padding:'5px 10px', borderRadius:7, flex:1, textAlign:'center',
                     background: playingPhraseId===p.id ? T.amber+'22' : T.surf2,
