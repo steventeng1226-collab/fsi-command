@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.87
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.88
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13919,13 +13919,16 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
         el.addEventListener('canplay', onReady)
         loadAudioUrl(targetKey1, `${currentMovie?.title ?? ''} ${targetFile?.label ?? 'Part'}`)
       } else {
-        el.playbackRate = rate
-        el.currentTime = offsetSecs
-        el.play().catch(() => {})
-        const dur = Math.max(0.5, (phrase.endSecs - phrase.startSecs)) * 1000 / rate
-        audioStopRef.current = setTimeout(() => {
-          el.pause(); setPlayingPhraseId(null)
-        }, dur + 200)
+        // 已在正確 MP3，直接跳時間播放（用 setTimeout 確保前面的 pause() 已生效）
+        setTimeout(() => {
+          el.playbackRate = rate
+          el.currentTime = offsetSecs
+          el.play().catch(() => {})
+          const dur = Math.max(0.5, (phrase.endSecs - phrase.startSecs)) * 1000 / rate
+          audioStopRef.current = setTimeout(() => {
+            el.pause(); setPlayingPhraseId(null)
+          }, dur + 200)
+        }, 50)
       }
     } else {
       // fallback: TTS
