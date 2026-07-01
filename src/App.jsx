@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.88
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.89
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13919,16 +13919,13 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
         el.addEventListener('canplay', onReady)
         loadAudioUrl(targetKey1, `${currentMovie?.title ?? ''} ${targetFile?.label ?? 'Part'}`)
       } else {
-        // 已在正確 MP3，直接跳時間播放（用 setTimeout 確保前面的 pause() 已生效）
-        setTimeout(() => {
-          el.playbackRate = rate
-          el.currentTime = offsetSecs
-          el.play().catch(() => {})
-          const dur = Math.max(0.5, (phrase.endSecs - phrase.startSecs)) * 1000 / rate
-          audioStopRef.current = setTimeout(() => {
-            el.pause(); setPlayingPhraseId(null)
-          }, dur + 200)
-        }, 50)
+        el.playbackRate = rate
+        el.currentTime = offsetSecs
+        el.play().catch(() => {})
+        const dur = Math.max(0.5, (phrase.endSecs - phrase.startSecs)) * 1000 / rate
+        audioStopRef.current = setTimeout(() => {
+          el.pause(); setPlayingPhraseId(null)
+        }, dur + 200)
       }
     } else {
       // fallback: TTS
@@ -17553,15 +17550,21 @@ Steven 不是在收藏電影台詞。
                 </div>
                 <div onClick={() => {
                     if (playingPhraseId === p.id) {
-                      stopStarLoop(); setPlayingPhraseId(null); return
+                      if (view === 'starred') { stopStarLoop?.(); }
+                      else { clearTimeout(audioStopRef.current); audioElRef.current?.pause() }
+                      setPlayingPhraseId(null); return
                     }
-                    stopStarLoop()
-                    window.speechSynthesis?.cancel()
-                    setPlayingPhraseId(p.id)
-                    starLoopActiveRef.current = true
-                    const singleList = [p]
-                    starLoopListRef.current = singleList
-                    playStarPhrase(singleList, 0)
+                    if (view === 'starred') {
+                      stopStarLoop?.()
+                      window.speechSynthesis?.cancel()
+                      setPlayingPhraseId(p.id)
+                      starLoopActiveRef.current = true
+                      const singleList = [p]
+                      starLoopListRef.current = singleList
+                      playStarPhrase(singleList, 0)
+                    } else {
+                      speakPhrase(p.id, p.en, undefined, p)
+                    }
                   }}
                   style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
                     padding:'5px 10px', borderRadius:7, flex:1, textAlign:'center',
