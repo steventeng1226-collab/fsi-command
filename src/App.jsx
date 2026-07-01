@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.95
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.96
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -11161,7 +11161,7 @@ function PhraseTab({ settings }) {
     })()
     if (!apiKey) { flash('請先設定 API Key'); return }
     if (!topic.trim()) return
-    if (!movieExtraPhrases.length) { flash('我的收藏目前沒有句子'); return }
+    if (!extraPhrases.length) { flash('我的收藏目前沒有句子'); return }
     setCreatingTempCat(true)
     try {
       // Step 1: AI 生成語意關鍵字（只送主題詞，payload 極小）
@@ -11408,7 +11408,7 @@ function PhraseTab({ settings }) {
                   切換分類
                 </div>
                 <div style={{ flex:1, fontFamily:MONO, fontSize:10, color:'#8b949e', textAlign:'center' }}>
-                  全部（{movieExtraPhrases.length}）
+                  全部（{extraPhrases.length}）
                 </div>
                 <div onClick={reclassifyLoading ? undefined : aiReclassify}
                   title="AI 自動重新分類"
@@ -11427,7 +11427,7 @@ function PhraseTab({ settings }) {
                     color: autoListen ? '#050810' : '#58a6ff', flexShrink:0, transition:'all 0.14s' }}>
                   {autoListen ? '⏸' : '▶'}
                 </div>
-                {movieExtraPhrases.some(p => !p.zh) && (
+                {extraPhrases.some(p => !p.zh) && (
                   <div onClick={async () => {
                     const apiKey = settings?.apiKey || (() => { try { return JSON.parse(localStorage.getItem('fsi:se')||'{}')?.apiKey??'' } catch { return '' } })()
                     if (!apiKey) return
@@ -11453,13 +11453,13 @@ function PhraseTab({ settings }) {
                   </div>
                 )}
               </div>
-              {movieExtraPhrases.length === 0 && (
+              {extraPhrases.length === 0 && (
                 <div style={{ fontFamily:MONO, fontSize:11, color:'#7a8390', textAlign:'center', padding:'24px 0' }}>
                   尚無收藏句子，點 ＋ 新增
                 </div>
               )}
               {/* 子分類篩選列（清單模式 - 收合式）*/}
-              {showSubcatFilter && movieExtraPhrases.length > 0 && (() => {
+              {showSubcatFilter && extraPhrases.length > 0 && (() => {
                 const subcatList = ['all', ...Object.keys(mySubcatCounts).filter(k => k !== 'all').sort()]
                 return (
                   <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
@@ -11476,7 +11476,7 @@ function PhraseTab({ settings }) {
                   </div>
                 )
               })()}
-              {(mySubcat === 'all' ? movieExtraPhrases : movieExtraPhrases.filter(p => (p.subcat ?? '未分類') === mySubcat)).map(p => (
+              {(mySubcat === 'all' ? extraPhrases : extraPhrases.filter(p => (p.subcat ?? '未分類') === mySubcat)).map(p => (
                 <div key={p.id} style={{ background:'#0d1117', border:'1px solid '+(deleteConfirm===p.id ? '#f85149aa' : editingPhrase?.id===p.id ? '#58a6ffaa' : '#21262d'),
                   borderRadius:10, padding:'12px 14px', display:'flex', flexDirection:'column', gap:6,
                   transition:'border-color 0.15s' }}>
@@ -11783,14 +11783,14 @@ function PhraseTab({ settings }) {
                       </div>
                     )
                   })()}
-                  {cat === 'my' && movieExtraPhrases.length > 0 && (
+                  {cat === 'my' && extraPhrases.length > 0 && (
                     <MySubcatPanel counts={mySubcatCounts} selected={mySubcat}
                       onSelect={s => { setMySubcat(s); setIdx(0); setPhase('listen'); setAutoPlayed(false) }}
                       onReclassify={aiReclassify} reclassifyLoading={reclassifyLoading} reclassifyProgress={reclassifyProgress}
                       autoListen={autoListen} onToggleAuto={() => { const n=!autoListen; setAutoListen(n); autoListenRef.current=n; if(n) setAutoPlayed(false); if(!n){setSleepEnd(null);setSleepMins(null)} }}
                       shuffleMode={shuffleMode} onToggleShuffle={() => setShuffleMode(m => !m)}
                       sleepMins={sleepMins} sleepLeft={sleepLeft}
-                      pendingCount={movieExtraPhrases.filter(p=>p.subcat==='life').length}
+                      pendingCount={extraPhrases.filter(p=>p.subcat==='life').length}
                       onSleepPick={m => {
                         if (!m || m === sleepMins) { setSleepMins(null); setSleepEnd(null) }
                         else { setSleepMins(m); setSleepEnd(Date.now() + m * 60000) }
