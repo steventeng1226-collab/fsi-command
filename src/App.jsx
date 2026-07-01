@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.96
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.97
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13588,9 +13588,6 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   const activePhrases = starFilter ? phrases.filter(p => p.starred) : phrases
   const playedCount = activePhrases.filter(p => p.played).length
   const starredCount = phrases.filter(p => p.starred).length
-  // 各電影獨立的單字庫和背誦庫（依 movieId 篩選，舊資料預設歸屬 jerry_maguire）
-  const movieVocab = (db.vocab ?? []).filter(v => (v.movieId ?? 'jerry_maguire') === movieId)
-  const movieExtraPhrases = extraPhrases.filter(p => (p.movieId ?? 'jerry_maguire') === movieId)
 
   // 監聽 Sheets 同步還原事件，自動重載電影資料
   useEffect(() => {
@@ -15637,7 +15634,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
         <BackBtn label="← 返回句子" to="scene"/>
         <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-          <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>📖 單字庫 · {movieVocab.length} 個</span>
+          <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>📖 單字庫 · {db.vocab.length} 個</span>
           <div onClick={() => { setManualOpen(o=>!o); setManualInput(''); setManualResult(null); setManualExample('') }}
             style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
               padding:'4px 12px', borderRadius:8, transition:'all 0.15s',
@@ -15718,14 +15715,14 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
       )}
 
       {/* 空狀態 */}
-      {movieVocab.length === 0 && !manualOpen && (
+      {db.vocab.length === 0 && !manualOpen && (
         <div style={{ textAlign:'center', padding:'40px 0', fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:2 }}>
           點句子中的單字自動加入<br/>或點右上角「＋ 新增」手動輸入
         </div>
       )}
 
       {/* 單字列表 */}
-      {movieVocab.map(v => (
+      {db.vocab.map(v => (
         <div key={v.id} style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:12, padding:'14px 16px' }}>
           <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:5 }}>
             <span style={{ fontFamily:MONO, fontSize:15, color:T.amber, fontWeight:700 }}>{v.word}</span>
@@ -16507,11 +16504,11 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
             <div style={{ fontFamily:MONO, fontSize:13, color:T.amber, fontWeight:700, flex:1 }}>{scene.name}</div>
             <div onClick={() => setView('vocab')}
               style={{ cursor:'pointer', fontFamily:MONO, fontSize:10,
-                color: movieVocab.length ? T.blue : T.txt3,
-                background: movieVocab.length ? T.blueD : T.surf2,
-                border:`1px solid ${movieVocab.length ? T.blue+'50' : T.bdr}`,
+                color: db.vocab.length ? T.blue : T.txt3,
+                background: db.vocab.length ? T.blueD : T.surf2,
+                border:`1px solid ${db.vocab.length ? T.blue+'50' : T.bdr}`,
                 borderRadius:7, padding:'3px 9px' }}>
-              📖 {movieVocab.length}
+              📖 {db.vocab.length}
             </div>
           </div>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
@@ -18492,8 +18489,8 @@ Steven 不是在收藏電影台詞。
           const reinforceCount = allPhrases.filter(p => p.starred && p.familiar === 'reinforce').length
           const needPracticeCount = allPhrases.filter(p => p.starred && p.familiar !== true).length
           // 全域統計（單字庫、背誦庫跨電影共用）
-          const vocabCount  = (db.vocab ?? []).filter(v => (v.movieId ?? 'jerry_maguire') === m.id).length
-          const allPhrasesGlobal = (m.scenes ?? []).flatMap(s => s.phrases ?? [])
+          const vocabCount  = db.vocab?.length ?? 0
+          const allPhrasesGlobal = (db.movies ?? []).flatMap(mv => (mv.scenes ?? []).flatMap(s => s.phrases ?? []))
           const memCount    = allPhrasesGlobal.filter(p => Number(p.rating) === 4 || Number(p.rating) === 5).length
           return (
             <div key={m.id} style={{ background:T.surf,
