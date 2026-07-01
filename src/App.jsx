@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.78
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.79
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13893,6 +13893,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
     const phrase = phrases.find(p => p.id === pid)
       ?? multiScenePhrases.find(p => p.id === pid)
     const hasTimestamp = phrase && (phrase.startSecs > 0 || phrase.endSecs > 0)
+    showMovieToast?.(`ss=${phrase?.startSecs} es=${phrase?.endSecs} ht=${hasTimestamp} mode=${audioMode} rdy=${audioReady}`)
 
     // 優先用電影原音（audioMode === 'original' 且 MP3 已載入且有時間碼）
     if (audioMode === 'original' && audioElRef.current && hasTimestamp) {
