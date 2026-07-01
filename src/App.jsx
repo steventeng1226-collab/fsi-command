@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.79
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.80
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13893,12 +13893,13 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
     const phrase = phrases.find(p => p.id === pid)
       ?? multiScenePhrases.find(p => p.id === pid)
     const hasTimestamp = phrase && (phrase.startSecs > 0 || phrase.endSecs > 0)
-    showMovieToast?.(`ss=${phrase?.startSecs} es=${phrase?.endSecs} ht=${hasTimestamp} mode=${audioMode} rdy=${audioReady}`)
+    // 直接從 db 取 movie（避免 closure 在 minified bundle 找不到外層 movie 變數）
+    const currentMovie = db.movies.find(m => m.id === movieId)
 
     // 優先用電影原音（audioMode === 'original' 且 MP3 已載入且有時間碼）
     if (audioMode === 'original' && audioElRef.current && hasTimestamp) {
       const el = audioElRef.current
-      const targetFile = getMovieMp3At(movie, phrase.startSecs)
+      const targetFile = getMovieMp3At(currentMovie, phrase.startSecs)
       const offsetSecs = phrase.startSecs - targetFile.start
       // 用 audioSrcKeyRef 判斷是否需要切換（blob URL 下 el.src 不含檔名，不能用）
       const targetKey1 = targetFile?.idbKey ?? targetFile?.url
@@ -13918,7 +13919,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
           el.removeEventListener('canplay', onReady)
         }
         el.addEventListener('canplay', onReady)
-        loadAudioUrl(targetKey1, `${movie?.title ?? ''} ${targetFile?.label ?? 'Part'}`)
+        loadAudioUrl(targetKey1, `${currentMovie?.title ?? ''} ${targetFile?.label ?? 'Part'}`)
       } else {
         el.playbackRate = rate
         el.currentTime = offsetSecs
