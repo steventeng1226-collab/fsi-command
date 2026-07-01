@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.91
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.93
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -10989,7 +10989,7 @@ function PhraseTab({ settings }) {
       try {
         if (apiKey) { zh = (await callClaude(apiKey, [{ role:'user', content: en }], sys)).trim() }
       } catch(e) { zh = '' }
-      const newPhrase = { id: 'ph_my_' + Date.now() + '_' + i, cat: 'my', subcat: catId, en, zh }
+      const newPhrase = { id: 'ph_my_' + Date.now() + '_' + i, cat: 'my', subcat: catId, en, zh, movieId }
       updated = [...updated, newPhrase]
       lastPhrase = newPhrase
     }
@@ -11161,7 +11161,7 @@ function PhraseTab({ settings }) {
     })()
     if (!apiKey) { flash('請先設定 API Key'); return }
     if (!topic.trim()) return
-    if (!extraPhrases.length) { flash('我的收藏目前沒有句子'); return }
+    if (!movieExtraPhrases.length) { flash('我的收藏目前沒有句子'); return }
     setCreatingTempCat(true)
     try {
       // Step 1: AI 生成語意關鍵字（只送主題詞，payload 極小）
@@ -11408,7 +11408,7 @@ function PhraseTab({ settings }) {
                   切換分類
                 </div>
                 <div style={{ flex:1, fontFamily:MONO, fontSize:10, color:'#8b949e', textAlign:'center' }}>
-                  全部（{extraPhrases.length}）
+                  全部（{movieExtraPhrases.length}）
                 </div>
                 <div onClick={reclassifyLoading ? undefined : aiReclassify}
                   title="AI 自動重新分類"
@@ -11427,7 +11427,7 @@ function PhraseTab({ settings }) {
                     color: autoListen ? '#050810' : '#58a6ff', flexShrink:0, transition:'all 0.14s' }}>
                   {autoListen ? '⏸' : '▶'}
                 </div>
-                {extraPhrases.some(p => !p.zh) && (
+                {movieExtraPhrases.some(p => !p.zh) && (
                   <div onClick={async () => {
                     const apiKey = settings?.apiKey || (() => { try { return JSON.parse(localStorage.getItem('fsi:se')||'{}')?.apiKey??'' } catch { return '' } })()
                     if (!apiKey) return
@@ -11453,13 +11453,13 @@ function PhraseTab({ settings }) {
                   </div>
                 )}
               </div>
-              {extraPhrases.length === 0 && (
+              {movieExtraPhrases.length === 0 && (
                 <div style={{ fontFamily:MONO, fontSize:11, color:'#7a8390', textAlign:'center', padding:'24px 0' }}>
                   尚無收藏句子，點 ＋ 新增
                 </div>
               )}
               {/* 子分類篩選列（清單模式 - 收合式）*/}
-              {showSubcatFilter && extraPhrases.length > 0 && (() => {
+              {showSubcatFilter && movieExtraPhrases.length > 0 && (() => {
                 const subcatList = ['all', ...Object.keys(mySubcatCounts).filter(k => k !== 'all').sort()]
                 return (
                   <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
@@ -11476,7 +11476,7 @@ function PhraseTab({ settings }) {
                   </div>
                 )
               })()}
-              {(mySubcat === 'all' ? extraPhrases : extraPhrases.filter(p => (p.subcat ?? '未分類') === mySubcat)).map(p => (
+              {(mySubcat === 'all' ? movieExtraPhrases : movieExtraPhrases.filter(p => (p.subcat ?? '未分類') === mySubcat)).map(p => (
                 <div key={p.id} style={{ background:'#0d1117', border:'1px solid '+(deleteConfirm===p.id ? '#f85149aa' : editingPhrase?.id===p.id ? '#58a6ffaa' : '#21262d'),
                   borderRadius:10, padding:'12px 14px', display:'flex', flexDirection:'column', gap:6,
                   transition:'border-color 0.15s' }}>
@@ -11783,14 +11783,14 @@ function PhraseTab({ settings }) {
                       </div>
                     )
                   })()}
-                  {cat === 'my' && extraPhrases.length > 0 && (
+                  {cat === 'my' && movieExtraPhrases.length > 0 && (
                     <MySubcatPanel counts={mySubcatCounts} selected={mySubcat}
                       onSelect={s => { setMySubcat(s); setIdx(0); setPhase('listen'); setAutoPlayed(false) }}
                       onReclassify={aiReclassify} reclassifyLoading={reclassifyLoading} reclassifyProgress={reclassifyProgress}
                       autoListen={autoListen} onToggleAuto={() => { const n=!autoListen; setAutoListen(n); autoListenRef.current=n; if(n) setAutoPlayed(false); if(!n){setSleepEnd(null);setSleepMins(null)} }}
                       shuffleMode={shuffleMode} onToggleShuffle={() => setShuffleMode(m => !m)}
                       sleepMins={sleepMins} sleepLeft={sleepLeft}
-                      pendingCount={extraPhrases.filter(p=>p.subcat==='life').length}
+                      pendingCount={movieExtraPhrases.filter(p=>p.subcat==='life').length}
                       onSleepPick={m => {
                         if (!m || m === sleepMins) { setSleepMins(null); setSleepEnd(null) }
                         else { setSleepMins(m); setSleepEnd(Date.now() + m * 60000) }
@@ -13585,6 +13585,9 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   const movie   = db.movies.find(m => m.id === movieId)
   const scene   = sceneId ? movie?.scenes.find(s => s.id === sceneId) : null
   const phrases     = scene?.phrases ?? []
+  // 各電影獨立的單字庫和背誦庫
+  const movieVocab = (db.vocab ?? []).filter(v => (v.movieId ?? 'jerry_maguire') === movieId)
+  const movieExtraPhrases = extraPhrases.filter(p => (p.movieId ?? 'jerry_maguire') === movieId)
   const activePhrases = starFilter ? phrases.filter(p => p.starred) : phrases
   const playedCount = activePhrases.filter(p => p.played).length
   const starredCount = phrases.filter(p => p.starred).length
@@ -15634,7 +15637,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
         <BackBtn label="← 返回句子" to="scene"/>
         <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-          <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>📖 單字庫 · {db.vocab.length} 個</span>
+          <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>📖 單字庫 · {movieVocab.length} 個</span>
           <div onClick={() => { setManualOpen(o=>!o); setManualInput(''); setManualResult(null); setManualExample('') }}
             style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
               padding:'4px 12px', borderRadius:8, transition:'all 0.15s',
@@ -15715,14 +15718,14 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
       )}
 
       {/* 空狀態 */}
-      {db.vocab.length === 0 && !manualOpen && (
+      {movieVocab.length === 0 && !manualOpen && (
         <div style={{ textAlign:'center', padding:'40px 0', fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:2 }}>
           點句子中的單字自動加入<br/>或點右上角「＋ 新增」手動輸入
         </div>
       )}
 
       {/* 單字列表 */}
-      {db.vocab.map(v => (
+      {movieVocab.map(v => (
         <div key={v.id} style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:12, padding:'14px 16px' }}>
           <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:5 }}>
             <span style={{ fontFamily:MONO, fontSize:15, color:T.amber, fontWeight:700 }}>{v.word}</span>
@@ -16504,11 +16507,11 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
             <div style={{ fontFamily:MONO, fontSize:13, color:T.amber, fontWeight:700, flex:1 }}>{scene.name}</div>
             <div onClick={() => setView('vocab')}
               style={{ cursor:'pointer', fontFamily:MONO, fontSize:10,
-                color: db.vocab.length ? T.blue : T.txt3,
-                background: db.vocab.length ? T.blueD : T.surf2,
-                border:`1px solid ${db.vocab.length ? T.blue+'50' : T.bdr}`,
+                color: movieVocab.length ? T.blue : T.txt3,
+                background: movieVocab.length ? T.blueD : T.surf2,
+                border:`1px solid ${movieVocab.length ? T.blue+'50' : T.bdr}`,
                 borderRadius:7, padding:'3px 9px' }}>
-              📖 {db.vocab.length}
+              📖 {movieVocab.length}
             </div>
           </div>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
@@ -17972,7 +17975,31 @@ Steven 不是在收藏電影台詞。
                 ) : (
                   <>
                     <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                      <span style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:T.amber }}>⭐ 重點句子練習（第{dailyPage+1}組／共{totalPages}組）</span>
+                      <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                        <span style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:T.amber }}>⭐ 重點句子練習</span>
+                        <select
+                          value={dailyPage}
+                          onChange={e => {
+                            const targetPage = Number(e.target.value)
+                            const allPhrasesForJump = (currentMovie?.scenes ?? []).flatMap(s => {
+                              const sceneStart = (() => { try { return parseSceneTimeRange(s.timeRange).start ?? 0 } catch { return 0 } })()
+                              return (s.phrases ?? []).filter(p => p.starred && p.familiar !== true)
+                                .map(p => ({ ...p, _sortKey: (p.startSecs && p.startSecs > 0) ? p.startSecs : sceneStart }))
+                            })
+                            const sortedJump = [...allPhrasesForJump].sort((a, b) => a._sortKey - b._sortKey)
+                            const ps = Number(localStorage.getItem('fsi:daily:count')) || 30
+                            const batch = sortedJump.slice(targetPage * ps, (targetPage + 1) * ps)
+                            if (batch.length === 0) return
+                            setDailyPage(targetPage)
+                            setMultiScenePhrases(batch)
+                          }}
+                          style={{ fontFamily:MONO, fontSize:9, color:T.amber, background:T.surf2,
+                            border:`1px solid ${T.amber}60`, borderRadius:6, padding:'2px 4px', cursor:'pointer' }}>
+                          {Array.from({ length: totalPages }, (_, i) => (
+                            <option key={i} value={i}>第{i+1}組／共{totalPages}組</option>
+                          ))}
+                        </select>
+                      </div>
                       <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>{doneCount}/{total}</span>
                     </div>
                     <div style={{ height:6, background:T.surf2, borderRadius:3, overflow:'hidden' }}>
@@ -18465,8 +18492,8 @@ Steven 不是在收藏電影台詞。
           const reinforceCount = allPhrases.filter(p => p.starred && p.familiar === 'reinforce').length
           const needPracticeCount = allPhrases.filter(p => p.starred && p.familiar !== true).length
           // 全域統計（單字庫、背誦庫跨電影共用）
-          const vocabCount  = db.vocab?.length ?? 0
-          const allPhrasesGlobal = (db.movies ?? []).flatMap(mv => (mv.scenes ?? []).flatMap(s => s.phrases ?? []))
+          const vocabCount  = (db.vocab ?? []).filter(v => (v.movieId ?? 'jerry_maguire') === m.id).length
+          const allPhrasesGlobal = (m.scenes ?? []).flatMap(s => s.phrases ?? [])
           const memCount    = allPhrasesGlobal.filter(p => Number(p.rating) === 4 || Number(p.rating) === 5).length
           return (
             <div key={m.id} style={{ background:T.surf,
