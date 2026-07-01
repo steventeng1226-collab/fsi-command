@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.99
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.00
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -19122,6 +19122,7 @@ Steven 不是在收藏電影台詞。
             type="text"
             placeholder="搜尋句子、片語、場景標題…"
             value={sceneSearch}
+            onFocus={e => setTimeout(() => e.target.scrollIntoView({ behavior:'smooth', block:'start' }), 300)}
             onChange={e => {
               const q = e.target.value
               setSceneSearch(q)
