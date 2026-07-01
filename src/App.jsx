@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.85-debug
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.86
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -17549,54 +17549,16 @@ Steven 不是在收藏電影台詞。
                     : '🔄'}
                 </div>
                 <div onClick={() => {
-                    // 獨立播放邏輯，不走 speakPhrase，避免所有 closure 問題
-                    const el = audioElRef.current
-                    if (!el) return
-                    // 如果正在播這句，就停
                     if (playingPhraseId === p.id) {
-                      el.pause()
-                      window.speechSynthesis?.cancel()
-                      clearTimeout(audioStopRef.current)
-                      setPlayingPhraseId(null)
-                      return
+                      stopStarLoop(); setPlayingPhraseId(null); return
                     }
-                    el.pause()
+                    stopStarLoop()
                     window.speechSynthesis?.cancel()
-                    clearTimeout(audioStopRef.current)
                     setPlayingPhraseId(p.id)
-                    const secs = p.startSecs ?? 0
-                    const endSecs = p.endSecs ?? (secs + 4)
-                    const mv = db.movies.find(m => m.id === movieId)
-                    const targetFile = (secs > 0 && mv) ? getMovieMp3At(mv, secs) : null
-                    alert(`secs=${secs} audioMode=${audioMode} mv=${mv?.id} tf=${targetFile?.idbKey}`)
-                    if (audioMode === 'original' && targetFile && secs > 0) {
-                      const key = targetFile.idbKey ?? targetFile.url
-                      const dur = Math.max(0.5, endSecs - secs) * 1000 / playRate
-                      const doPlay = () => {
-                        el.currentTime = secs - targetFile.start
-                        el.playbackRate = playRate
-                        el.play().catch(() => {})
-                        audioStopRef.current = setTimeout(() => {
-                          el.pause(); setPlayingPhraseId(null)
-                        }, dur + 200)
-                      }
-                      if (audioSrcKeyRef.current === key) {
-                        doPlay()
-                      } else {
-                        el.addEventListener('canplay', function onReady() {
-                          el.removeEventListener('canplay', onReady)
-                          if (audioSrcKeyRef.current !== key) return
-                          doPlay()
-                        })
-                        loadAudioUrl(key, `${mv?.title ?? ''} ${targetFile?.label ?? ''}`)
-                      }
-                    } else {
-                      // TTS fallback
-                      const u = new SpeechSynthesisUtterance(p.en ?? '')
-                      u.lang = 'en-US'; u.rate = playRate
-                      u.onend = u.onerror = () => setPlayingPhraseId(null)
-                      window.speechSynthesis?.speak(u)
-                    }
+                    starLoopActiveRef.current = true
+                    const singleList = [p]
+                    starLoopListRef.current = singleList
+                    playStarPhrase(singleList, 0)
                   }}
                   style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
                     padding:'5px 10px', borderRadius:7, flex:1, textAlign:'center',
