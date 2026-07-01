@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.98
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.99
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -19258,6 +19258,8 @@ Steven 不是在收藏電影台詞。
           String(sceneNo) === q ||                // 純數字直接符合（如 '1'）
           matchedPhrases.length > 0              // 句子/備註符合
         )
+        // 搜尋模式下，只顯示匹配的場景
+        if (q !== '' && !isMatch) return null
         const isFirstMatch = isMatch && [...(movie?.scenes ?? [])].sort((a, b) => {
           try { return parseSceneTimeRange(b.timeRange).start - parseSceneTimeRange(a.timeRange).start } catch { return 0 }
         }).findIndex((sc, i2) => {
