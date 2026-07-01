@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.86
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.87
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -17883,20 +17883,13 @@ Steven 不是在收藏電影台詞。
         window.speechSynthesis?.speak(utt)
         return
       }
-      if (!audioElRef.current) return
-      const secs = p.startSecs ?? 0
-      const end  = p.endSecs   ?? (secs + 4)
-      const targetFile = getMovieMp3At(currentMovie, secs)
-      const el = audioElRef.current
-      const targetKey = targetFile?.idbKey ?? targetFile?.url
-      if (targetKey && !el.src?.includes(targetKey)) {
-        loadAudioUrl(targetKey, `${currentMovie?.title ?? ''} ${targetFile?.label ?? 'Part'}`)
-      }
-      el.currentTime = secs - (targetFile?.start ?? 0)
-      el.playbackRate = playRate
-      el.play()
-      clearTimeout(audioStopRef.current)
-      audioStopRef.current = setTimeout(() => el.pause(), (end - secs) * 1000 / playRate + 300)
+      // 電影原音：直接用 playStarPhrase（已驗證可正確處理非同步 IDB 載入）
+      stopStarLoop()
+      window.speechSynthesis?.cancel()
+      starLoopActiveRef.current = true
+      const singleList = [{ ...p }]
+      starLoopListRef.current = singleList
+      playStarPhrase(singleList, 0)
     }
 
     const copyTxt = (txt) => {
