@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.84
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.85-debug
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -17568,6 +17568,7 @@ Steven 不是在收藏電影台詞。
                     const endSecs = p.endSecs ?? (secs + 4)
                     const mv = db.movies.find(m => m.id === movieId)
                     const targetFile = (secs > 0 && mv) ? getMovieMp3At(mv, secs) : null
+                    alert(`secs=${secs} audioMode=${audioMode} mv=${mv?.id} tf=${targetFile?.idbKey}`)
                     if (audioMode === 'original' && targetFile && secs > 0) {
                       const key = targetFile.idbKey ?? targetFile.url
                       const dur = Math.max(0.5, endSecs - secs) * 1000 / playRate
