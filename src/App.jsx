@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.93
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.95
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13585,12 +13585,12 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   const movie   = db.movies.find(m => m.id === movieId)
   const scene   = sceneId ? movie?.scenes.find(s => s.id === sceneId) : null
   const phrases     = scene?.phrases ?? []
-  // 各電影獨立的單字庫和背誦庫
-  const movieVocab = (db.vocab ?? []).filter(v => (v.movieId ?? 'jerry_maguire') === movieId)
-  const movieExtraPhrases = extraPhrases.filter(p => (p.movieId ?? 'jerry_maguire') === movieId)
   const activePhrases = starFilter ? phrases.filter(p => p.starred) : phrases
   const playedCount = activePhrases.filter(p => p.played).length
   const starredCount = phrases.filter(p => p.starred).length
+  // 各電影獨立的單字庫和背誦庫（依 movieId 篩選，舊資料預設歸屬 jerry_maguire）
+  const movieVocab = (db.vocab ?? []).filter(v => (v.movieId ?? 'jerry_maguire') === movieId)
+  const movieExtraPhrases = extraPhrases.filter(p => (p.movieId ?? 'jerry_maguire') === movieId)
 
   // 監聽 Sheets 同步還原事件，自動重載電影資料
   useEffect(() => {
