@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.97
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.98
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -19120,7 +19120,7 @@ Steven 不是在收藏電影台詞。
           <span style={{ fontSize:12 }}>🔍</span>
           <input
             type="text"
-            placeholder="搜尋場景標題…"
+            placeholder="搜尋句子、片語、場景標題…"
             value={sceneSearch}
             onChange={e => {
               const q = e.target.value
@@ -19246,10 +19246,17 @@ Steven 不是在收藏電影台詞。
         const sceneName = s.name ?? s.title ?? ''
         const sceneNoStr = String(sceneNo).padStart(2,'0') // '01','02'…
         const q = sceneSearch.trim().toLowerCase()
+        // 句子搜尋：找場景內是否有符合的句子
+        const matchedPhrases = q !== '' ? (s.phrases ?? []).filter(p =>
+          (p.en ?? '').toLowerCase().includes(q) ||
+          (p.note ?? '').toLowerCase().includes(q) ||
+          (p.zh ?? '').toLowerCase().includes(q)
+        ) : []
         const isMatch = q !== '' && (
           sceneName.toLowerCase().includes(q) ||  // 標題符合
           sceneNoStr.includes(q) ||               // 序號符合（如 '01','18'）
-          String(sceneNo) === q                   // 純數字直接符合（如 '1'）
+          String(sceneNo) === q ||                // 純數字直接符合（如 '1'）
+          matchedPhrases.length > 0              // 句子/備註符合
         )
         const isFirstMatch = isMatch && [...(movie?.scenes ?? [])].sort((a, b) => {
           try { return parseSceneTimeRange(b.timeRange).start - parseSceneTimeRange(a.timeRange).start } catch { return 0 }
@@ -19421,6 +19428,24 @@ Steven 不是在收藏電影台詞。
               })()}
               {isDone && <span style={{ color:T.grn, marginLeft:6 }}>✓ 訓練完畢</span>}
             </div>
+            {/* 搜尋結果：顯示匹配的句子 */}
+            {matchedPhrases.length > 0 && (
+              <div style={{ marginTop:8, display:'flex', flexDirection:'column', gap:4 }}>
+                {matchedPhrases.slice(0, 3).map(p => (
+                  <div key={p.id} style={{ fontFamily:MONO, fontSize:9, color:T.txt3,
+                    background:T.surf2, borderRadius:6, padding:'4px 8px',
+                    borderLeft:`2px solid ${T.amber}` }}>
+                    <span style={{ color:T.txt }}>{p.en}</span>
+                    {p.zh && <span style={{ color:T.txt3, marginLeft:6 }}>· {p.zh}</span>}
+                  </div>
+                ))}
+                {matchedPhrases.length > 3 && (
+                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                    +{matchedPhrases.length - 3} 句…
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )
       })}
