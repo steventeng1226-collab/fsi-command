@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.89
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.91
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -17591,6 +17591,10 @@ Steven 不是在收藏電影台詞。
   if (view === 'starred') {
     // starred view 內不使用外層 movie（minification 可能找不到），統一從 db 重新取
     const currentMovie = db.movies.find(m => m.id === movieId)
+    // 計算總組數（用於顯示「第X組/共Y組」）
+    const _pageSize = Number(localStorage.getItem('fsi:daily:count')) || 30
+    const _totalNeedPractice = (currentMovie?.scenes ?? []).flatMap(s => (s.phrases ?? []).filter(p => p.starred && p.familiar !== true)).length
+    const totalPages = Math.max(1, Math.ceil(_totalNeedPractice / _pageSize))
     const allScenes  = db.movies.flatMap(m => m.scenes ?? [])
     // 先按場景開始時間排，場景內按句子索引順序排
     const sortedScenes = [...allScenes].sort((a, b) => {
@@ -17889,13 +17893,25 @@ Steven 不是在收藏電影台詞。
         window.speechSynthesis?.speak(utt)
         return
       }
-      // 電影原音：直接用 playStarPhrase（已驗證可正確處理非同步 IDB 載入）
+      // 電影原音：直接用 playStarPhrase，但限制播放2次後自動停止
       stopStarLoop()
       window.speechSynthesis?.cancel()
       starLoopActiveRef.current = true
+      starPlayCountRef.current = {}  // 重置計數
       const singleList = [{ ...p }]
       starLoopListRef.current = singleList
       playStarPhrase(singleList, 0)
+      // 監聽播放次數，第2次播完後停止
+      const checkStop = setInterval(() => {
+        const count = starPlayCountRef.current[p.id] ?? 0
+        if (count >= 2) {
+          clearInterval(checkStop)
+          stopStarLoop()
+          setPlayingPhraseId(null)
+        }
+      }, 200)
+      // 保險：最多播10秒後強制停
+      setTimeout(() => { clearInterval(checkStop); stopStarLoop(); setPlayingPhraseId(null) }, 10000)
     }
 
     const copyTxt = (txt) => {
@@ -17956,7 +17972,7 @@ Steven 不是在收藏電影台詞。
                 ) : (
                   <>
                     <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                      <span style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:T.amber }}>⭐ 重點句子練習（第{dailyPage+1}組）</span>
+                      <span style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:T.amber }}>⭐ 重點句子練習（第{dailyPage+1}組／共{totalPages}組）</span>
                       <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>{doneCount}/{total}</span>
                     </div>
                     <div style={{ height:6, background:T.surf2, borderRadius:3, overflow:'hidden' }}>
@@ -18531,7 +18547,9 @@ Steven 不是在收藏電影台詞。
                       firstBatch = [...firstBatch, ...sorted.slice(0, remain)]
                     }
                     selectMovie(m.id)
-                    setDailyPage(0)
+                    // 計算實際當前組數（游標位置 / pageSize）
+                    const realPage = startIdx === 0 ? 0 : Math.floor(startIdx / pageSize)
+                    setDailyPage(realPage)
                     setMultiScenePhrases(firstBatch)
                     setTimeout(() => setView('starred'), 50)
                   }}
