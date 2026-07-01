@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.81-debug
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v4.82
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13895,7 +13895,6 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
     const hasTimestamp = phrase && (phrase.startSecs > 0 || phrase.endSecs > 0)
     // 直接從 db 取 movie（避免 closure 在 minified bundle 找不到外層 movie 變數）
     const currentMovie = db.movies.find(m => m.id === movieId)
-    showMovieToast?.(`ht=${hasTimestamp} ss=${phrase?.startSecs} mode=${audioMode} mv=${currentMovie?.id}`)
 
     // 優先用電影原音（audioMode === 'original' 且 MP3 已載入且有時間碼）
     if (audioMode === 'original' && audioElRef.current && hasTimestamp) {
@@ -17575,6 +17574,8 @@ Steven 不是在收藏電影台詞。
   // ── ⭐ 重點句 view ─────────────────────────────────────────
   // ── ⭐ 重點句 view ─────────────────────────────────────────
   if (view === 'starred') {
+    // starred view 內不使用外層 movie（minification 可能找不到），統一從 db 重新取
+    const currentMovie = db.movies.find(m => m.id === movieId)
     const allScenes  = db.movies.flatMap(m => m.scenes ?? [])
     // 先按場景開始時間排，場景內按句子索引順序排
     const sortedScenes = [...allScenes].sort((a, b) => {
@@ -17744,7 +17745,7 @@ Steven 不是在收藏電影台詞。
 
       const endSecs   = p.endSecs ?? (secs + 4)
       const phraseDur = endSecs - secs
-      const targetFile = getMovieMp3At(movie, secs)
+      const targetFile = getMovieMp3At(currentMovie, secs)
 
       // 清除舊的 timeupdate handler
       if (starTimeUpdateRef.current) {
@@ -17823,7 +17824,7 @@ Steven 不是在收藏電影台詞。
           doPlay()
         }
         el.addEventListener('canplay', onReady)
-        loadAudioUrl(targetKey4, `${movie?.title ?? ''} ${targetFile?.label ?? 'Part'}`)
+        loadAudioUrl(targetKey4, `${currentMovie?.title ?? ''} ${targetFile?.label ?? 'Part'}`)
       } else {
         doPlay()
       }
@@ -17876,11 +17877,11 @@ Steven 不是在收藏電影台詞。
       if (!audioElRef.current) return
       const secs = p.startSecs ?? 0
       const end  = p.endSecs   ?? (secs + 4)
-      const targetFile = getMovieMp3At(movie, secs)
+      const targetFile = getMovieMp3At(currentMovie, secs)
       const el = audioElRef.current
       const targetKey = targetFile?.idbKey ?? targetFile?.url
       if (targetKey && !el.src?.includes(targetKey)) {
-        loadAudioUrl(targetKey, `${movie?.title ?? ''} ${targetFile?.label ?? 'Part'}`)
+        loadAudioUrl(targetKey, `${currentMovie?.title ?? ''} ${targetFile?.label ?? 'Part'}`)
       }
       el.currentTime = secs - (targetFile?.start ?? 0)
       el.playbackRate = playRate
@@ -17974,7 +17975,7 @@ Steven 不是在收藏電影台詞。
                             localStorage.setItem(`fsi:daily:cursor:${movieId}`, String(lastKey))
                           }
                           // 重新計算全部待練句子，取下一頁
-                          const allPhrasesForNext = (movie?.scenes ?? []).flatMap(s => {
+                          const allPhrasesForNext = (currentMovie?.scenes ?? []).flatMap(s => {
                             const sceneStart = (() => { try { return parseSceneTimeRange(s.timeRange).start ?? 0 } catch { return 0 } })()
                             return (s.phrases ?? []).filter(p => p.starred && p.familiar !== true)
                               .map(p => ({ ...p, _sortKey: (p.startSecs && p.startSecs > 0) ? p.startSecs : sceneStart }))
