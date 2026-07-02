@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.13
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.15
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -18031,7 +18031,13 @@ Steven 不是在收藏電影台詞。
                           )
                         })}
                       </select>
-                      <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3, marginLeft:'auto' }}>{doneCount}/{total}</span>
+                      {(() => {
+                        const flippedCount = multiScenePhrases.filter(p => starFlip[p.id]).length
+                        const practiceCount = isReverse ? flippedCount : doneCount
+                        return practiceCount > 0
+                          ? <span style={{ fontFamily:MONO, fontSize:10, color:T.grn, marginLeft:'auto' }}>{practiceCount}/{total}</span>
+                          : null
+                      })()}
                     </div>
                     <div style={{ height:6, background:T.surf2, borderRadius:3, overflow:'hidden' }}>
                       <div style={{ width:`${(doneCount/total)*100}%`, height:'100%', background:T.amber, transition:'width 0.3s' }} />
