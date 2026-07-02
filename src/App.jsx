@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.04
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.05
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -18523,9 +18523,17 @@ Steven 不是在收藏電影台詞。
                         {m.titleEn}{m.year ? ` · ${m.year}` : ''}
                       </span>
                     </div>
-                    <div style={{ display:'flex', gap:8, marginTop:3, flexWrap:'wrap' }}>
+                    <div style={{ display:'flex', gap:8, marginTop:3, flexWrap:'wrap', alignItems:'center' }}>
                       <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2 }}>{sceneCount} 場景</span>
                       {hasTranscript && <span style={{ fontFamily:MONO, fontSize:9, color:T.grn }}>✓ 逐字稿</span>}
+                      <span onClick={e => { e.stopPropagation(); selectMovie(m.id); setTimeout(() => setView('starred'), 50) }}
+                        style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#f87171' }}>
+                        ✗ {starredCount}
+                      </span>
+                      <span onClick={e => { e.stopPropagation(); selectMovie(m.id); setStarMode('reinforce'); setMultiScenePhrases([]); setTimeout(() => setView('starred'), 50) }}
+                        style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#f97316' }}>
+                        🔥 {reinforceCount}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -18555,23 +18563,7 @@ Steven 不是在收藏電影台詞。
                   ⚙️ {m.mp3Parts?.length ? `${m.mp3Parts.length}段` : 'MP3'}
                 </div>
               </div>
-              {/* 快捷卡片 — 各電影獨立 */}
-              <div style={{ padding:'0 12px 14px', display:'grid', gridTemplateColumns:'1fr 1fr', gap:6 }}>
-                <div onClick={() => { selectMovie(m.id); setTimeout(() => setView('starred'), 50) }}
-                  style={{ cursor:'pointer', border:`1px solid ${starredCount ? T.amber+'50' : T.bdr}`,
-                    borderRadius:10, padding:'8px 10px', display:'flex', alignItems:'center',
-                    justifyContent:'space-between', background: starredCount ? T.amberD : T.surf2 }}>
-                  <span style={{ fontFamily:MONO, fontSize:9, color: starredCount ? '#f87171' : T.txt3 }}>✗ 加強</span>
-                  <span style={{ fontFamily:MONO, fontSize:9, color:'#f87171' }}>{starredCount} →</span>
-                </div>
-                <div onClick={() => { selectMovie(m.id); setStarMode('reinforce'); setMultiScenePhrases([]); setTimeout(() => setView('starred'), 50) }}
-                  style={{ cursor:'pointer', border:`1px solid ${reinforceCount ? '#f97316' : T.bdr}`,
-                    borderRadius:10, padding:'8px 10px', display:'flex', alignItems:'center',
-                    justifyContent:'space-between', background: reinforceCount ? '#2a1200' : T.surf2 }}>
-                  <span style={{ fontFamily:MONO, fontSize:9, color: reinforceCount ? '#f97316' : T.txt3 }}>🔥 再加強</span>
-                  <span style={{ fontFamily:MONO, fontSize:9, color:'#f97316' }}>{reinforceCount} →</span>
-                </div>
-              </div>
+              {/* 快捷卡片區移除，加強/再加強已移到標題列 */}
               {/* ⭐ 重點句子練習 */}
               <div style={{ padding:'0 12px 10px' }}>
                 <div onClick={() => {
