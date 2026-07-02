@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.05
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.06
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -18077,26 +18077,6 @@ Steven 不是在收藏電影台詞。
               border:`1px solid ${starReverse ? T.blue+'60' : T.bdr}` }}>
             🔄 反向{starReverse ? ' ON' : ''}
           </div>
-          {/* ▶ 播放當前篩選 / ⏹ 停止 */}
-          {starLoopMode != null ? (
-            <div onClick={stopStarLoop}
-              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
-                color:'#f87171', padding:'6px 10px', background:'#3a1a1a',
-                borderRadius:8, border:'1px solid #f8717150', animation:'micPulse 1s infinite' }}>
-              ⏹ 停止
-            </div>
-          ) : (
-            <div onClick={() => {
-              const group = starMode === 'familiar' ? 'familiar'
-                          : starMode === 'unfamiliar' ? 'unfamiliar' : 'all'
-              startStarLoop(group)
-            }}
-              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
-                color:T.amber, padding:'6px 10px', background:T.amberD,
-                borderRadius:8, border:`1px solid ${T.amber}50` }}>
-              🔁 播放
-            </div>
-          )}
           {/* 語速選擇器 */}
           <div style={{ display:'flex', alignItems:'center', gap:6 }}>
             <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>🔊 語速：</span>
@@ -18114,7 +18094,7 @@ Steven 不是在收藏電影台詞。
               </div>
             ))}
           </div>
-          {/* 睡眠計時器 */}
+          {/* 睡眠計時器 + 播放按鈕 */}
           <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>😴 睡眠計時：</span>
           {[0, 10, 20, 30].map(m => (
@@ -18131,6 +18111,26 @@ Steven 不是在收藏電影台詞。
             <span style={{ fontFamily:MONO, fontSize:9, color:T.amber, fontWeight:700 }}>
               ⏱ {Math.floor(starSleepRemain/60)}:{String(starSleepRemain%60).padStart(2,'0')}
             </span>
+          )}
+          {/* 播放/停止按鈕 — 移到睡眠計時後面 */}
+          {starLoopMode != null ? (
+            <div onClick={stopStarLoop}
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                color:'#f87171', padding:'4px 10px', background:'#3a1a1a',
+                borderRadius:8, border:'1px solid #f8717150', animation:'micPulse 1s infinite' }}>
+              ⏹ 停止
+            </div>
+          ) : (
+            <div onClick={() => {
+              const group = starMode === 'familiar' ? 'familiar'
+                          : starMode === 'unfamiliar' ? 'unfamiliar' : 'all'
+              startStarLoop(group)
+            }}
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                color:T.amber, padding:'4px 10px', background:T.amberD,
+                borderRadius:8, border:`1px solid ${T.amber}50` }}>
+              🔁 播放
+            </div>
           )}
           </div>
           {/* 循環播放進度 */}
