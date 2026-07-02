@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.01
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.02
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -18479,7 +18479,18 @@ Steven 不是在收藏電影台詞。
 
     return (
       <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:14 }} className="fadeUp">
-        <div style={{ fontFamily:DISP, fontSize:18, color:T.txt, paddingTop:4 }}>🎬 我的電影片庫</div>
+        {/* 片庫標題 + 全域統計 */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <div style={{ fontFamily:DISP, fontSize:18, color:T.txt, paddingTop:4 }}>🎬 我的電影片庫</div>
+          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+            <span style={{ fontFamily:MONO, fontSize:9, color:T.blue }}>
+              📖 {db.vocab?.length ?? 0}
+            </span>
+            <span style={{ fontFamily:MONO, fontSize:9, color:T.amber }}>
+              📚 {(db.movies ?? []).flatMap(mv => (mv.scenes ?? []).flatMap(s => s.phrases ?? [])).filter(p => Number(p.rating) === 4 || Number(p.rating) === 5).length}
+            </span>
+          </div>
+        </div>
 
         {[...db.movies].reverse().map(m => {
           const sceneCount    = m.scenes?.length ?? 0
@@ -18497,21 +18508,47 @@ Steven 不是在收藏電影台詞。
                 border:`1px solid ${movieId === m.id ? T.amber+'60' : T.bdr}`,
                 borderRadius:16, overflow:'hidden' }}>
               {/* 電影標題列 — 點擊進入 */}
-              <div onClick={() => selectMovie(m.id)}
-                style={{ cursor:'pointer', padding:'16px 18px',
-                  display:'flex', alignItems:'center', gap:12 }}>
-                <div style={{ fontSize:28, flexShrink:0 }}>🎬</div>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontFamily:DISP, fontSize:15, color:T.txt }}>{m.title}</div>
-                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginTop:2 }}>
-                    {m.titleEn}{m.year ? ` · ${m.year}` : ''}
-                  </div>
-                  <div style={{ display:'flex', gap:8, marginTop:5, flexWrap:'wrap' }}>
-                    <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2 }}>{sceneCount} 場景</span>
-                    {hasTranscript && <span style={{ fontFamily:MONO, fontSize:9, color:T.grn }}>✓ 逐字稿</span>}
+              <div style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 14px' }}>
+                <div onClick={() => selectMovie(m.id)} style={{ cursor:'pointer', flex:1, display:'flex', alignItems:'center', gap:10 }}>
+                  <div style={{ fontSize:22, flexShrink:0 }}>🎬</div>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontFamily:DISP, fontSize:14, color:T.txt }}>
+                      {m.title}
+                      <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginLeft:6 }}>
+                        {m.titleEn}{m.year ? ` · ${m.year}` : ''}
+                      </span>
+                    </div>
+                    <div style={{ display:'flex', gap:8, marginTop:3, flexWrap:'wrap' }}>
+                      <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2 }}>{sceneCount} 場景</span>
+                      {hasTranscript && <span style={{ fontFamily:MONO, fontSize:9, color:T.grn }}>✓ 逐字稿</span>}
+                    </div>
                   </div>
                 </div>
-                <div style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>▶</div>
+                {/* ⚙️ MP3 設定 — 移到標題列右側 */}
+                <div onClick={() => {
+                    if (mp3SettingId === m.id) {
+                      setMp3SettingId(null)
+                    } else {
+                      setMp3SettingId(m.id)
+                      const existing = m.mp3Parts ?? []
+                      setMp3SettingParts(existing.length > 0
+                        ? existing.map(p => ({ ...p }))
+                        : [
+                            { label:'Part_01', start:0,    end:1800  },
+                            { label:'Part_02', start:1800, end:3600  },
+                            { label:'Part_03', start:3600, end:5400  },
+                            { label:'Part_04', start:5400, end:99999 },
+                          ]
+                      )
+                    }
+                  }}
+                  style={{ cursor:'pointer', flexShrink:0,
+                    background: mp3SettingId === m.id ? T.amberD : T.surf2,
+                    border:`1px solid ${mp3SettingId === m.id ? T.amber+'50' : T.bdr}`,
+                    borderRadius:8, padding:'5px 8px',
+                    fontFamily:MONO, fontSize:8, color: mp3SettingId === m.id ? T.amber : T.txt3 }}>
+                  ⚙️ {m.mp3Parts?.length ? `${m.mp3Parts.length}段` : 'MP3'}
+                </div>
               </div>
               {/* 快捷卡片 — 各電影獨立 */}
               <div style={{ padding:'0 12px 14px', display:'grid', gridTemplateColumns:'1fr 1fr', gap:6 }}>
@@ -18588,35 +18625,8 @@ Steven 不是在收藏電影台詞。
                   </span>
                 </div>
               </div>
-              {/* ⚙️ MP3 設定入口 */}
-              <div style={{ padding:'0 12px 12px' }}>
-                <div onClick={() => {
-                    if (mp3SettingId === m.id) {
-                      setMp3SettingId(null)
-                    } else {
-                      setMp3SettingId(m.id)
-                      const existing = m.mp3Parts ?? []
-                      setMp3SettingParts(existing.length > 0
-                        ? existing.map(p => ({ ...p }))
-                        : [
-                            { label:'Part_01', start:0,    end:1800  },
-                            { label:'Part_02', start:1800, end:3600  },
-                            { label:'Part_03', start:3600, end:5400  },
-                            { label:'Part_04', start:5400, end:99999 },
-                          ]
-                      )
-                    }
-                  }}
-                  style={{ cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between',
-                    background: mp3SettingId === m.id ? T.amberD : T.surf2,
-                    border:`1px solid ${mp3SettingId === m.id ? T.amber+'50' : T.bdr}`,
-                    borderRadius:9, padding:'7px 12px' }}>
-                  <span style={{ fontFamily:MONO, fontSize:9, color: mp3SettingId === m.id ? T.amber : T.txt3 }}>
-                    ⚙️ MP3 設定 {m.mp3Parts?.length ? `(${m.mp3Parts.length} 段)` : '(未設定)'}
-                  </span>
-                  <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>{mp3SettingId === m.id ? '▲' : '▼'}</span>
-                </div>
-                {mp3SettingId === m.id && (
+              {/* ⚙️ MP3 設定展開內容 */}
+              {mp3SettingId === m.id && (
                   <div style={{ marginTop:8, display:'flex', flexDirection:'column', gap:8,
                     background:T.surf2, borderRadius:10, padding:'12px', border:`1px solid ${T.bdr}` }}>
                     <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
@@ -18669,7 +18679,6 @@ Steven 不是在收藏電影台詞。
                     </div>
                   </div>
                 )}
-              </div>
             </div>
           )
         })}
