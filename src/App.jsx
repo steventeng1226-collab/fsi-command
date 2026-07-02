@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.16
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.17
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13257,6 +13257,61 @@ const DEFAULT_MOVIE_DB = {
   vocab: []
 }
 
+// ═══════════════════════════════════════════════════════════════
+// 今日用句 ＋ 間隔複習 — 純 localStorage 工具函式（不依賴 component state）
+// ═══════════════════════════════════════════════════════════════
+const REVIEW_INTERVALS = [3, 7, 16, 35] // 天
+
+function getTodayStr() { return new Date().toISOString().slice(0,10) }
+function getYesterdayStr() {
+  const d = new Date(); d.setDate(d.getDate() - 1)
+  return d.toISOString().slice(0,10)
+}
+
+function saveTodayPicks(movieId, phraseIds) {
+  const today = getTodayStr()
+  const feedback = {}
+  phraseIds.forEach(id => { feedback[id] = null })
+  try { localStorage.setItem(`fsi:review:picks:${today}`, JSON.stringify({ movieId, phraseIds, feedback })) } catch(e) {}
+}
+function getPicksForDate(dateStr) {
+  try { return JSON.parse(localStorage.getItem(`fsi:review:picks:${dateStr}`) ?? 'null') } catch { return null }
+}
+function saveTodayPickFeedback(dateStr, phraseId, val) {
+  const data = getPicksForDate(dateStr)
+  if (!data) return
+  data.feedback = { ...(data.feedback ?? {}), [phraseId]: val }
+  try { localStorage.setItem(`fsi:review:picks:${dateStr}`, JSON.stringify(data)) } catch(e) {}
+}
+
+function markBatchCompleted(movieId, batchIdx) {
+  const key = `fsi:review:batches:${movieId}`
+  let all = {}
+  try { all = JSON.parse(localStorage.getItem(key) ?? '{}') } catch {}
+  const existing = all[batchIdx] ?? { completedDates: [], reviewStage: 0, nextReviewDate: null }
+  const today = getTodayStr()
+  const completedDates = [...new Set([...(existing.completedDates ?? []), today])]
+  const stage = existing.reviewStage ?? 0
+  const intervalDays = REVIEW_INTERVALS[Math.min(stage, REVIEW_INTERVALS.length - 1)]
+  const nextDate = new Date(); nextDate.setDate(nextDate.getDate() + intervalDays)
+  all[batchIdx] = {
+    completedDates,
+    reviewStage: Math.min(stage + 1, REVIEW_INTERVALS.length - 1),
+    nextReviewDate: nextDate.toISOString().slice(0,10),
+  }
+  try { localStorage.setItem(key, JSON.stringify(all)) } catch(e) {}
+}
+function getDueReviews(movieId) {
+  try {
+    const all = JSON.parse(localStorage.getItem(`fsi:review:batches:${movieId}`) ?? '{}')
+    const today = getTodayStr()
+    return Object.entries(all)
+      .filter(([, v]) => v.nextReviewDate && v.nextReviewDate <= today)
+      .map(([idx, v]) => ({ batchIdx: Number(idx), ...v }))
+      .sort((a, b) => a.nextReviewDate.localeCompare(b.nextReviewDate))
+  } catch { return [] }
+}
+
 function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   const [db, setDb] = useState(() => {
     try {
@@ -13316,6 +13371,8 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   const [selectedSceneIds, setSelectedSceneIds] = useState(new Set()) // 多場景選擇播放
   const [multiScenePhrases, setMultiScenePhrases] = useState([]) // 多場景合併重點句
   const [dailyPage, setDailyPage] = useState(0) // 重點句子練習：當前頁碼（每頁固定句數）
+  const [reviewPickMode, setReviewPickMode] = useState(false) // 完成一組後：挑選「今日用句」
+  const [reviewPicks, setReviewPicks] = useState(new Set())   // 已勾選的今日用句 phraseId
   const [playIdx,    setPlayIdx]    = useState(0)
   const [playing,    setPlaying]    = useState(false)
   const [looping,    setLooping]    = useState(false)
@@ -17980,11 +18037,82 @@ Steven 不是在收藏電影台詞。
             const total = multiScenePhrases.length
             const doneCount = multiScenePhrases.filter(p => p.familiar === true).length
             const allDone = doneCount === total
+            // 完成一組後統一收尾：寫游標＋練習日期＋間隔複習排程＋返回片庫
+            const finishBatchAndReturn = () => {
+              const lastKey = multiScenePhrases[multiScenePhrases.length - 1]?._sortKey
+              if (lastKey !== undefined && movieId) {
+                localStorage.setItem(`fsi:daily:cursor:${movieId}`, String(lastKey))
+              }
+              const todayShort = new Date().toLocaleDateString('zh-TW', { month:'2-digit', day:'2-digit' }).replace('/','/').slice(-5)
+              const _dk = `fsi:daily:date:${movieId}:${dailyPage}`
+              const _prev = localStorage.getItem(_dk) ?? ''
+              if (!_prev.includes(todayShort)) localStorage.setItem(_dk, _prev ? _prev + '\n' + todayShort : todayShort)
+              markBatchCompleted(movieId, dailyPage)
+              setReviewPickMode(false); setReviewPicks(new Set())
+              setMultiScenePhrases([]); setView('library')
+            }
             return (
               <div style={{ background: allDone ? T.grnD : '#2a1a00',
                 border:`1px solid ${allDone ? T.grn : T.amber}50`, borderRadius:12,
                 padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }}>
-                {allDone ? (
+                {allDone && reviewPickMode ? (
+                  <>
+                    <div style={{ fontFamily:DISP, fontSize:13, color:T.amber, textAlign:'center' }}>
+                      🎯 挑 2-3 句「今天要用」
+                    </div>
+                    <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, textAlign:'center', lineHeight:1.6 }}>
+                      明天打開 App 會提醒你昨天挑的句子有沒有用出來
+                    </div>
+                    <div style={{ display:'flex', flexDirection:'column', gap:7, maxHeight:260, overflowY:'auto' }}>
+                      {multiScenePhrases.map(p => {
+                        const checked = reviewPicks.has(p.id)
+                        return (
+                          <div key={p.id}
+                            onClick={() => {
+                              setReviewPicks(prev => {
+                                const next = new Set(prev)
+                                if (next.has(p.id)) next.delete(p.id)
+                                else if (next.size < 3) next.add(p.id)
+                                return next
+                              })
+                            }}
+                            style={{ cursor:'pointer', display:'flex', alignItems:'flex-start', gap:8,
+                              background: checked ? T.amberD : T.surf2,
+                              border:`1px solid ${checked ? T.amber+'70' : T.bdr}`,
+                              borderRadius:9, padding:'8px 10px', transition:'all 0.14s' }}>
+                            <span style={{ fontSize:14, flexShrink:0, marginTop:1, color: checked ? T.amber : T.txt3 }}>
+                              {checked ? '☑' : '☐'}
+                            </span>
+                            <div style={{ flex:1, minWidth:0 }}>
+                              <div style={{ fontFamily:MONO, fontSize:11, color:T.txt, lineHeight:1.5 }}>{p.en}</div>
+                              {p.zh && <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginTop:2 }}>{p.zh}</div>}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <div style={{ display:'flex', gap:8 }}>
+                      <div onClick={finishBatchAndReturn}
+                        style={{ flex:1, cursor:'pointer', background:T.surf2, border:`1px solid ${T.bdr}`,
+                          borderRadius:9, padding:'9px', textAlign:'center', fontFamily:MONO, fontSize:10, color:T.txt3 }}>
+                        略過
+                      </div>
+                      <div onClick={() => {
+                          if (reviewPicks.size === 0) return
+                          saveTodayPicks(movieId, [...reviewPicks])
+                          showMovieToast?.(`✓ 已記錄 ${reviewPicks.size} 句今日用句`)
+                          finishBatchAndReturn()
+                        }}
+                        style={{ flex:2, cursor: reviewPicks.size === 0 ? 'default' : 'pointer',
+                          background: reviewPicks.size === 0 ? T.surf2 : T.amber,
+                          border:`1px solid ${reviewPicks.size === 0 ? T.bdr : T.amber}`,
+                          borderRadius:9, padding:'9px', textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
+                          color: reviewPicks.size === 0 ? T.txt3 : T.bg }}>
+                        確認（{reviewPicks.size}/3）
+                      </div>
+                    </div>
+                  </>
+                ) : allDone ? (
                   <>
                     <div style={{ fontFamily:DISP, fontSize:14, color:T.grn, textAlign:'center' }}>
                       🎉 完成這組練習！共 {total} 句
@@ -17997,21 +18125,15 @@ Steven 不是在收藏電影台詞。
                           borderRadius:9, padding:'9px', textAlign:'center', fontFamily:MONO, fontSize:10, color:T.txt3 }}>
                         ↺ 重新開始
                       </div>
-                      <div onClick={() => {
-                          const lastKey = multiScenePhrases[multiScenePhrases.length - 1]?._sortKey
-                          if (lastKey !== undefined && movieId) {
-                            localStorage.setItem(`fsi:daily:cursor:${movieId}`, String(lastKey))
-                          }
-                          const today = new Date().toLocaleDateString('zh-TW', { month:'2-digit', day:'2-digit' }).replace('/','/').slice(-5)
-                          const _dk = `fsi:daily:date:${movieId}:${dailyPage}`
-                          const _prev = localStorage.getItem(_dk) ?? ''
-                          if (!_prev.includes(today)) localStorage.setItem(_dk, _prev ? _prev + '\n' + today : today)
-                          setMultiScenePhrases([]); setView('library')
-                        }}
+                      <div onClick={() => setReviewPickMode(true)}
                         style={{ flex:1, cursor:'pointer', background:T.amberD, border:`1px solid ${T.amber}50`,
                           borderRadius:9, padding:'9px', textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700, color:T.amber }}>
-                        ← 返回片庫
+                        🎯 挑今日用句 →
                       </div>
+                    </div>
+                    <div onClick={finishBatchAndReturn}
+                      style={{ textAlign:'center', cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3, textDecoration:'underline', textUnderlineOffset:2 }}>
+                      略過，直接返回片庫
                     </div>
                   </>
                 ) : (
@@ -18529,6 +18651,100 @@ Steven 不是在收藏電影台詞。
             📚 背誦庫 {(db.movies ?? []).flatMap(mv => (mv.scenes ?? []).flatMap(s => s.phrases ?? [])).filter(p => Number(p.rating) === 4 || Number(p.rating) === 5).length}
           </span>
         </div>
+
+        {/* ── 💭 昨日回顧：提醒昨天挑的今日用句有沒有用出來 ── */}
+        {(() => {
+          const yData = getPicksForDate(getYesterdayStr())
+          if (!yData || !(yData.phraseIds?.length)) return null
+          const allPhrasesFlat = db.movies.flatMap(mv => (mv.scenes ?? []).flatMap(s => s.phrases ?? []))
+          const yPhrases = yData.phraseIds.map(id => allPhrasesFlat.find(p => p.id === id)).filter(Boolean)
+          if (yPhrases.length === 0) return null
+          return (
+            <div style={{ background:T.surf, border:`1px solid ${T.blue}40`, borderRadius:13,
+              padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }}>
+              <div style={{ fontFamily:MONO, fontSize:10, color:T.blue, fontWeight:700 }}>
+                💭 昨天你選了這幾句，用出來了嗎？
+              </div>
+              {yPhrases.map(p => {
+                const fb = yData.feedback?.[p.id]
+                return (
+                  <div key={p.id} style={{ display:'flex', alignItems:'center', gap:8,
+                    background:T.surf2, borderRadius:9, padding:'8px 10px' }}>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontFamily:MONO, fontSize:11, color:T.txt, lineHeight:1.5 }}>{p.en}</div>
+                      {p.zh && <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginTop:2 }}>{p.zh}</div>}
+                    </div>
+                    <div style={{ display:'flex', gap:5, flexShrink:0 }}>
+                      <div onClick={() => {
+                          saveTodayPickFeedback(getYesterdayStr(), p.id, true)
+                          setDb(prev => ({ ...prev })) // 觸發重新渲染
+                          showMovieToast?.('✓ 太好了，記住了')
+                        }}
+                        style={{ cursor:'pointer', fontSize:13, padding:'4px 8px', borderRadius:7,
+                          background: fb === true ? T.grnD : T.surf,
+                          border:`1px solid ${fb === true ? T.grn : T.bdr}`,
+                          color: fb === true ? T.grn : T.txt3 }}>✓</div>
+                      <div onClick={() => {
+                          saveTodayPickFeedback(getYesterdayStr(), p.id, false)
+                          setDb(prev => ({ ...prev }))
+                          showMovieToast?.('沒關係，今天再試試看')
+                        }}
+                        style={{ cursor:'pointer', fontSize:13, padding:'4px 8px', borderRadius:7,
+                          background: fb === false ? '#3a1a1a' : T.surf,
+                          border:`1px solid ${fb === false ? '#f87171' : T.bdr}`,
+                          color: fb === false ? '#f87171' : T.txt3 }}>✗</div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })()}
+
+        {/* ── 🔁 該複習了：間隔複習提醒（3/7/16/35 天）── */}
+        {(() => {
+          const dueList = db.movies.flatMap(mv => getDueReviews(mv.id).map(r => ({ ...r, movieId: mv.id, movieTitle: mv.title })))
+          if (dueList.length === 0) return null
+          return (
+            <div style={{ background:T.surf, border:`1px solid ${T.amber}40`, borderRadius:13,
+              padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }}>
+              <div style={{ fontFamily:MONO, fontSize:10, color:T.amber, fontWeight:700 }}>
+                🔁 該複習了
+              </div>
+              {dueList.map(r => {
+                const lastDate = r.completedDates?.[r.completedDates.length - 1]
+                const daysSince = lastDate ? Math.max(0, Math.floor((Date.now() - new Date(lastDate).getTime()) / 86400000)) : null
+                return (
+                  <div key={r.movieId + '_' + r.batchIdx}
+                    onClick={() => {
+                      const mv = db.movies.find(mm => mm.id === r.movieId)
+                      if (!mv) return
+                      const allP = (mv.scenes ?? []).flatMap(s => {
+                        const sceneStart = (() => { try { return parseSceneTimeRange(s.timeRange).start ?? 0 } catch { return 0 } })()
+                        return (s.phrases ?? []).filter(p => p.starred)
+                          .map(p => ({ ...p, _sortKey: (p.startSecs && p.startSecs > 0) ? p.startSecs : sceneStart }))
+                      })
+                      const sorted = [...allP].sort((a, b) => a._sortKey - b._sortKey)
+                      const pageSize = Number(localStorage.getItem('fsi:daily:count')) || 30
+                      const batch = sorted.slice(r.batchIdx * pageSize, (r.batchIdx + 1) * pageSize)
+                      if (batch.length === 0) { showMovieToast?.('這組句子已經變動，無法複習'); return }
+                      selectMovie(r.movieId)
+                      setDailyPage(r.batchIdx)
+                      setMultiScenePhrases(batch.map(p => ({ ...p, familiar: false })))
+                      setTimeout(() => setView('starred'), 50)
+                    }}
+                    style={{ cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between',
+                      background:T.amberD, borderRadius:9, padding:'9px 12px', border:`1px solid ${T.amber}30` }}>
+                    <span style={{ fontFamily:MONO, fontSize:10, color:T.amber }}>
+                      {r.movieTitle} · 第{r.batchIdx+1}組{daysSince !== null ? `（上次練習 ${daysSince} 天前）` : ''}
+                    </span>
+                    <span style={{ fontFamily:MONO, fontSize:9, color:T.amber, flexShrink:0 }}>複習 →</span>
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })()}
 
         {[...db.movies].reverse().map(m => {
           const sceneCount    = m.scenes?.length ?? 0
