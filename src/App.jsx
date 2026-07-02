@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.10
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.11
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -18018,9 +18018,14 @@ Steven 不是在收藏電影台詞。
                         }}
                         style={{ fontFamily:MONO, fontSize:9, color:T.amber, background:T.surf2,
                           border:`1px solid ${T.amber}60`, borderRadius:6, padding:'2px 4px', cursor:'pointer' }}>
-                        {Array.from({ length: totalPages }, (_, i) => (
-                          <option key={i} value={i}>第{i+1}組／共{totalPages}組</option>
-                        ))}
+                        {Array.from({ length: totalPages }, (_, i) => {
+                          const d = localStorage.getItem(`fsi:daily:date:${movieId}:${i}`)
+                          return (
+                            <option key={i} value={i}>
+                              第{i+1}組／共{totalPages}組{d ? `　${d}` : ''}
+                            </option>
+                          )
+                        })}
                       </select>
                       <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3, marginLeft:'auto' }}>{doneCount}/{total}</span>
                     </div>
