@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.06
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.08
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13301,10 +13301,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
     }
     catch { return DEFAULT_MOVIE_DB }
   })
-  const [view,       setView]       = useState(() => {
-    const saved = localStorage.getItem('fsi:movie:selected')
-    return saved ? 'list' : 'library'
-  })
+  const [view,       setView]       = useState('library')
   const [movieId,    setMovieId]    = useState(() => {
     return localStorage.getItem('fsi:movie:selected') || 'jerry_maguire'
   })
@@ -17961,6 +17958,8 @@ Steven 不是在收藏電影台詞。
                           if (lastKey !== undefined && movieId) {
                             localStorage.setItem(`fsi:daily:cursor:${movieId}`, String(lastKey))
                           }
+                          const today = new Date().toLocaleDateString('zh-TW', { month:'2-digit', day:'2-digit' }).replace('/','/').slice(-5)
+                          localStorage.setItem(`fsi:daily:date:${movieId}:${dailyPage}`, today)
                           setMultiScenePhrases([]); setView('library')
                         }}
                         style={{ flex:1, cursor:'pointer', background:T.amberD, border:`1px solid ${T.amber}50`,
@@ -17971,80 +17970,55 @@ Steven 不是在收藏電影台詞。
                   </>
                 ) : (
                   <>
-                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                      <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                        <span style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:T.amber }}>⭐ 重點句子練習</span>
-                        <select
-                          value={dailyPage}
-                          onChange={e => {
-                            const targetPage = Number(e.target.value)
-                            const allPhrasesForJump = (currentMovie?.scenes ?? []).flatMap(s => {
-                              const sceneStart = (() => { try { return parseSceneTimeRange(s.timeRange).start ?? 0 } catch { return 0 } })()
-                              return (s.phrases ?? []).filter(p => p.starred && p.familiar !== true)
-                                .map(p => ({ ...p, _sortKey: (p.startSecs && p.startSecs > 0) ? p.startSecs : sceneStart }))
-                            })
-                            const sortedJump = [...allPhrasesForJump].sort((a, b) => a._sortKey - b._sortKey)
-                            const ps = Number(localStorage.getItem('fsi:daily:count')) || 30
-                            const batch = sortedJump.slice(targetPage * ps, (targetPage + 1) * ps)
-                            if (batch.length === 0) return
-                            setDailyPage(targetPage)
-                            setMultiScenePhrases(batch)
-                          }}
-                          style={{ fontFamily:MONO, fontSize:9, color:T.amber, background:T.surf2,
-                            border:`1px solid ${T.amber}60`, borderRadius:6, padding:'2px 4px', cursor:'pointer' }}>
-                          {Array.from({ length: totalPages }, (_, i) => (
-                            <option key={i} value={i}>第{i+1}組／共{totalPages}組</option>
-                          ))}
-                        </select>
-                      </div>
-                      <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>{doneCount}/{total}</span>
-                    </div>
-                    <div style={{ height:6, background:T.surf2, borderRadius:3, overflow:'hidden' }}>
-                      <div style={{ width:`${(doneCount/total)*100}%`, height:'100%', background:T.amber, transition:'width 0.3s' }} />
-                    </div>
-                    <div style={{ display:'flex', gap:8 }}>
+                    {/* 標題行：⭐標題 + 結束練習 + 日期 + 組別選單 + 進度 */}
+                    <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+                      <span style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:T.amber }}>⭐ 重點句子練習</span>
                       <div onClick={() => {
-                          // 寫入游標：記住這批最後一句的位置，下次接續
+                          // 寫入游標和練習日期
                           const lastKey = multiScenePhrases[multiScenePhrases.length - 1]?._sortKey
                           if (lastKey !== undefined && movieId) {
                             localStorage.setItem(`fsi:daily:cursor:${movieId}`, String(lastKey))
                           }
+                          const today = new Date().toLocaleDateString('zh-TW', { month:'2-digit', day:'2-digit' }).replace('/','/').slice(-5)
+                          localStorage.setItem(`fsi:daily:date:${movieId}:${dailyPage}`, today)
                           setMultiScenePhrases([])
                           setView('library')
                         }}
-                        style={{ flex:1, cursor:'pointer', background:'#3a1a1a', border:'1px solid #f8717150',
-                          borderRadius:9, padding:'8px', textAlign:'center', fontFamily:MONO, fontSize:9, color:'#f87171' }}>
-                        ⏹ 結束練習
+                        style={{ cursor:'pointer', background:'#3a1a1a', border:'1px solid #f8717150',
+                          borderRadius:7, padding:'3px 8px', fontFamily:MONO, fontSize:9, color:'#f87171' }}>
+                        ⏹ 結束
                       </div>
-                      <div onClick={() => {
-                          // 寫入游標：記住這批最後一句的位置
-                          const lastKey = multiScenePhrases[multiScenePhrases.length - 1]?._sortKey
-                          if (lastKey !== undefined && movieId) {
-                            localStorage.setItem(`fsi:daily:cursor:${movieId}`, String(lastKey))
-                          }
-                          // 重新計算全部待練句子，取下一頁
-                          const allPhrasesForNext = (currentMovie?.scenes ?? []).flatMap(s => {
+                      {(() => {
+                        const dateKey = `fsi:daily:date:${movieId}:${dailyPage}`
+                        const d = localStorage.getItem(dateKey)
+                        return d ? <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>{d}</span> : null
+                      })()}
+                      <select
+                        value={dailyPage}
+                        onChange={e => {
+                          const targetPage = Number(e.target.value)
+                          const allPhrasesForJump = (currentMovie?.scenes ?? []).flatMap(s => {
                             const sceneStart = (() => { try { return parseSceneTimeRange(s.timeRange).start ?? 0 } catch { return 0 } })()
                             return (s.phrases ?? []).filter(p => p.starred && p.familiar !== true)
                               .map(p => ({ ...p, _sortKey: (p.startSecs && p.startSecs > 0) ? p.startSecs : sceneStart }))
                           })
-                          const sortedNext = [...allPhrasesForNext].sort((a, b) => a._sortKey - b._sortKey)
-                          const pageSize = Number(localStorage.getItem('fsi:daily:count')) || 30
-                          const nextPage = dailyPage + 1
-                          const nextBatch = sortedNext.slice(nextPage * pageSize, (nextPage + 1) * pageSize)
-                          if (nextBatch.length === 0) {
-                            showMovieToast?.('✓ 已經是最後一組了！')
-                            setMultiScenePhrases([])
-                            setView('library')
-                            return
-                          }
-                          setDailyPage(nextPage)
-                          setMultiScenePhrases(nextBatch)
+                          const sortedJump = [...allPhrasesForJump].sort((a, b) => a._sortKey - b._sortKey)
+                          const ps = Number(localStorage.getItem('fsi:daily:count')) || 30
+                          const batch = sortedJump.slice(targetPage * ps, (targetPage + 1) * ps)
+                          if (batch.length === 0) return
+                          setDailyPage(targetPage)
+                          setMultiScenePhrases(batch)
                         }}
-                        style={{ flex:2, cursor:'pointer', background:T.surf2, border:`1px solid ${T.bdr}`,
-                          borderRadius:9, padding:'8px', textAlign:'center', fontFamily:MONO, fontSize:9, color:T.txt3 }}>
-                        ✓ 完成本組（{doneCount}句）→ 下一組
-                      </div>
+                        style={{ fontFamily:MONO, fontSize:9, color:T.amber, background:T.surf2,
+                          border:`1px solid ${T.amber}60`, borderRadius:6, padding:'2px 4px', cursor:'pointer' }}>
+                        {Array.from({ length: totalPages }, (_, i) => (
+                          <option key={i} value={i}>第{i+1}組／共{totalPages}組</option>
+                        ))}
+                      </select>
+                      <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3, marginLeft:'auto' }}>{doneCount}/{total}</span>
+                    </div>
+                    <div style={{ height:6, background:T.surf2, borderRadius:3, overflow:'hidden' }}>
+                      <div style={{ width:`${(doneCount/total)*100}%`, height:'100%', background:T.amber, transition:'width 0.3s' }} />
                     </div>
                   </>
                 )}
