@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.15
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.16
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14873,9 +14873,17 @@ ${numbered}`
   async function pushMovieDB() {
     setPushSyncing(true); setMovieSyncMsg('推送中…')
     try {
+      // 練習狀態備份：背誦庫 + 游標 + 練習日期（都在 localStorage，換裝置會消失）
+      const practiceState = { extraPhrases: [], dailyKeys: {} }
+      try { practiceState.extraPhrases = JSON.parse(localStorage.getItem('fsi:ph:extra') ?? '[]') } catch {}
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i)
+        if (k?.startsWith('fsi:daily:')) practiceState.dailyKeys[k] = localStorage.getItem(k)
+      }
       const dbToSync = {
         ...db,
         updatedAt: Date.now(),
+        practiceState,
         movies: db.movies.map(m => {
           const { transcript, ...rest } = m
           return rest
@@ -14918,7 +14926,7 @@ ${numbered}`
           const sc = db.movies?.reduce((a,m) => a + (m.scenes?.length ?? 0), 0) ?? 0
           const vc = db.vocab?.length ?? 0
           const dataSize = JSON.stringify(dbToSync).length
-          setMovieSyncMsg(`✓ 已推送：${mc} 部 · ${sc} 場景 · 單字庫 ${vc} 個 (${Math.round(dataSize/1000)}KB)`)
+          setMovieSyncMsg(`✓ 已推送：${mc} 部 · ${sc} 場景 · 單字庫 ${vc} 個 · 背誦庫 ${practiceState.extraPhrases.length} 句 (${Math.round(dataSize/1000)}KB)`)
         } else {
           setMovieSyncMsg('⚠ 已送出，請至 Sheets 確認')
         }
@@ -14979,6 +14987,35 @@ ${numbered}`
 
       setDb(merged)
       localStorage.setItem('fsi:movie:db', JSON.stringify(merged))
+
+      // 還原練習狀態（背誦庫 + 游標 + 練習日期）
+      let psMsg = ''
+      if (nd.practiceState) {
+        const ps = nd.practiceState
+        // 背誦庫：Sheets 的句數 >= 本機才還原（避免舊備份蓋掉新資料）
+        try {
+          const localExtra = JSON.parse(localStorage.getItem('fsi:ph:extra') ?? '[]')
+          if (Array.isArray(ps.extraPhrases) && ps.extraPhrases.length >= localExtra.length && ps.extraPhrases.length > 0) {
+            localStorage.setItem('fsi:ph:extra', JSON.stringify(ps.extraPhrases))
+            psMsg = ` · 背誦庫 ${ps.extraPhrases.length} 句`
+          }
+        } catch {}
+        // 游標：取較大值（練得較遠的）；日期：合併兩邊
+        Object.entries(ps.dailyKeys ?? {}).forEach(([k, v]) => {
+          if (v == null) return
+          const local = localStorage.getItem(k)
+          if (k.includes(':cursor:')) {
+            if (!local || Number(v) > Number(local)) localStorage.setItem(k, v)
+          } else if (k.includes(':date:')) {
+            const localDates = (local ?? '').split('\n').filter(Boolean)
+            const sheetDates = String(v).split('\n').filter(Boolean)
+            const mergedDates = [...new Set([...localDates, ...sheetDates])]
+            if (mergedDates.length > 0) localStorage.setItem(k, mergedDates.join('\n'))
+          } else if (!local) {
+            localStorage.setItem(k, v)
+          }
+        })
+      }
       const mc = merged.movies?.length ?? 0
       const sc = merged.movies?.reduce((a,m) => a + (m.scenes?.length ?? 0), 0) ?? 0
       const vc = merged.vocab?.length ?? 0
@@ -14986,7 +15023,7 @@ ${numbered}`
       const tMsg = tCount > 0
         ? ` · 逐字稿 ${tCount} 部已同步`
         : (transcriptDB.length === 0 ? ' · ⚠ Sheets 無逐字稿（請先從有逐字稿的裝置推送）' : ' · 逐字稿同步中')
-      setMovieSyncMsg(`✓ 已還原：${mc} 部 · ${sc} 場景 · 單字庫 ${vc} 個${tMsg}`)
+      setMovieSyncMsg(`✓ 已還原：${mc} 部 · ${sc} 場景 · 單字庫 ${vc} 個${psMsg}${tMsg}`)
     } catch(e) {
       if (e.name === 'AbortError') setMovieSyncMsg('✗ 讀取超時，請重試')
       else setMovieSyncMsg('✗ ' + (e.message ?? 'Sync failed'))
@@ -19524,7 +19561,7 @@ Steven 不是在收藏電影台詞。
           🎬 電影資料同步 (Google Sheets)
         </div>
         <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.7 }}>
-          同步範圍：場景、句子、⭐收藏、單字庫、逐字稿、📚知識庫
+          同步範圍：場景、句子、⭐收藏、單字庫、逐字稿、📚知識庫、📚背誦庫、練習日期與游標
         </div>
         <div style={{ display:'flex', gap:8 }}>
           <div onClick={pushSyncing ? undefined : pushMovieDB}
