@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.02
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.04
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -18479,17 +18479,22 @@ Steven 不是在收藏電影台詞。
 
     return (
       <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:14 }} className="fadeUp">
-        {/* 片庫標題 + 全域統計 */}
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-          <div style={{ fontFamily:DISP, fontSize:18, color:T.txt, paddingTop:4 }}>🎬 我的電影片庫</div>
-          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-            <span style={{ fontFamily:MONO, fontSize:9, color:T.blue }}>
-              📖 {db.vocab?.length ?? 0}
-            </span>
-            <span style={{ fontFamily:MONO, fontSize:9, color:T.amber }}>
-              📚 {(db.movies ?? []).flatMap(mv => (mv.scenes ?? []).flatMap(s => s.phrases ?? [])).filter(p => Number(p.rating) === 4 || Number(p.rating) === 5).length}
-            </span>
-          </div>
+        {/* 片庫標題 + 新增電影 + 全域統計 */}
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <div style={{ fontFamily:DISP, fontSize:18, color:T.txt, paddingTop:4, flex:1 }}>🎬 我的電影片庫</div>
+          {!libraryAdding && (
+            <div onClick={() => setLibraryAdding(true)}
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
+                background:T.surf2, border:`1px dashed ${T.bdr2}`, borderRadius:8, padding:'4px 8px' }}>
+              ＋ 新增
+            </div>
+          )}
+          <span style={{ fontFamily:MONO, fontSize:9, color:T.blue }}>
+            📖 單字庫 {db.vocab?.length ?? 0}
+          </span>
+          <span style={{ fontFamily:MONO, fontSize:9, color:T.amber }}>
+            📚 背誦庫 {(db.movies ?? []).flatMap(mv => (mv.scenes ?? []).flatMap(s => s.phrases ?? [])).filter(p => Number(p.rating) === 4 || Number(p.rating) === 5).length}
+          </span>
         </div>
 
         {[...db.movies].reverse().map(m => {
@@ -18552,20 +18557,6 @@ Steven 不是在收藏電影台詞。
               </div>
               {/* 快捷卡片 — 各電影獨立 */}
               <div style={{ padding:'0 12px 14px', display:'grid', gridTemplateColumns:'1fr 1fr', gap:6 }}>
-                <div onClick={() => { selectMovie(m.id); setTimeout(() => setView('vocab'), 50) }}
-                  style={{ cursor:'pointer', border:`1px solid ${vocabCount ? T.blue+'50' : T.bdr}`,
-                    borderRadius:10, padding:'8px 10px', display:'flex', alignItems:'center',
-                    justifyContent:'space-between', background: vocabCount ? T.blueD : T.surf2 }}>
-                  <span style={{ fontFamily:MONO, fontSize:9, color: vocabCount ? T.blue : T.txt3 }}>📖 單字庫</span>
-                  <span style={{ fontFamily:MONO, fontSize:9, color:T.amber }}>{vocabCount} →</span>
-                </div>
-                <div onClick={() => { selectMovie(m.id); setTimeout(() => setView('memory'), 50) }}
-                  style={{ cursor:'pointer', border:`1px solid ${memCount ? T.amber+'50' : T.bdr}`,
-                    borderRadius:10, padding:'8px 10px', display:'flex', alignItems:'center',
-                    justifyContent:'space-between', background: memCount ? T.amberD : T.surf2 }}>
-                  <span style={{ fontFamily:MONO, fontSize:9, color: memCount ? T.amber : T.txt3 }}>📚 背誦庫</span>
-                  <span style={{ fontFamily:MONO, fontSize:9, color:T.amber }}>{memCount} →</span>
-                </div>
                 <div onClick={() => { selectMovie(m.id); setTimeout(() => setView('starred'), 50) }}
                   style={{ cursor:'pointer', border:`1px solid ${starredCount ? T.amber+'50' : T.bdr}`,
                     borderRadius:10, padding:'8px 10px', display:'flex', alignItems:'center',
@@ -18683,7 +18674,7 @@ Steven 不是在收藏電影台詞。
           )
         })}
 
-        {libraryAdding ? (
+        {libraryAdding && (
           <div style={{ background:T.surf, border:`1px solid ${T.bdr2}`, borderRadius:14, padding:'16px',
             display:'flex', flexDirection:'column', gap:10 }}>
             <div style={{ fontFamily:MONO, fontSize:10, color:T.txt2, fontWeight:700 }}>新增電影</div>
@@ -18712,13 +18703,6 @@ Steven 不是在收藏電影台詞。
                 取消
               </div>
             </div>
-          </div>
-        ) : (
-          <div onClick={() => setLibraryAdding(true)}
-            style={{ cursor:'pointer', background:T.surf2,
-              border:`1px dashed ${T.bdr2}`, borderRadius:14, padding:'18px',
-              textAlign:'center', fontFamily:MONO, fontSize:11, color:T.txt3 }}>
-            ＋ 新增電影
           </div>
         )}
 
