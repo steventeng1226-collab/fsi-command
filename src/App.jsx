@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.11
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.13
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -17966,7 +17966,9 @@ Steven 不是在收藏電影台詞。
                             localStorage.setItem(`fsi:daily:cursor:${movieId}`, String(lastKey))
                           }
                           const today = new Date().toLocaleDateString('zh-TW', { month:'2-digit', day:'2-digit' }).replace('/','/').slice(-5)
-                          localStorage.setItem(`fsi:daily:date:${movieId}:${dailyPage}`, today)
+                          const _dk = `fsi:daily:date:${movieId}:${dailyPage}`
+                          const _prev = localStorage.getItem(_dk) ?? ''
+                          if (!_prev.includes(today)) localStorage.setItem(_dk, _prev ? _prev + '\n' + today : today)
                           setMultiScenePhrases([]); setView('library')
                         }}
                         style={{ flex:1, cursor:'pointer', background:T.amberD, border:`1px solid ${T.amber}50`,
@@ -17987,7 +17989,9 @@ Steven 不是在收藏電影台詞。
                             localStorage.setItem(`fsi:daily:cursor:${movieId}`, String(lastKey))
                           }
                           const today = new Date().toLocaleDateString('zh-TW', { month:'2-digit', day:'2-digit' }).replace('/','/').slice(-5)
-                          localStorage.setItem(`fsi:daily:date:${movieId}:${dailyPage}`, today)
+                          const _dk = `fsi:daily:date:${movieId}:${dailyPage}`
+                          const _prev = localStorage.getItem(_dk) ?? ''
+                          if (!_prev.includes(today)) localStorage.setItem(_dk, _prev ? _prev + '\n' + today : today)
                           setMultiScenePhrases([])
                           setView('library')
                         }}
@@ -17998,7 +18002,7 @@ Steven 不是在收藏電影台詞。
                       {(() => {
                         const dateKey = `fsi:daily:date:${movieId}:${dailyPage}`
                         const d = localStorage.getItem(dateKey)
-                        return d ? <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>{d}</span> : null
+                        return d ? <span style={{ fontFamily:MONO, fontSize:8, color:T.grn, lineHeight:'1.4', whiteSpace:'pre-wrap' }}>{d}</span> : null
                       })()}
                       <select
                         value={dailyPage}
@@ -18022,7 +18026,7 @@ Steven 不是在收藏電影台詞。
                           const d = localStorage.getItem(`fsi:daily:date:${movieId}:${i}`)
                           return (
                             <option key={i} value={i}>
-                              第{i+1}組／共{totalPages}組{d ? `　${d}` : ''}
+                              第{i+1}組{d ? ` ✓${d}` : ''}
                             </option>
                           )
                         })}
