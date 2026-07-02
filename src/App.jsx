@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.08
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.09
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13297,6 +13297,13 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
         })
         if (migratedKb.length > 0) parsed.knowledgeBase = migratedKb
       }
+      // 修正高年級實習生的英文名稱和年份
+      ;(parsed.movies ?? []).forEach(m => {
+        if (m.title === '高年級實習生' || m.id === 'intern') {
+          if (!m.titleEn || m.titleEn !== 'The Intern') m.titleEn = 'The Intern'
+          if (!m.year || m.year !== 2015) m.year = 2015
+        }
+      })
       return parsed
     }
     catch { return DEFAULT_MOVIE_DB }
