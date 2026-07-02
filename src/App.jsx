@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.00
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.01
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -19116,7 +19116,8 @@ Steven 不是在收藏電影台詞。
         {/* 場景搜尋列 */}
         <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:6,
           background:T.surf2, borderRadius:9, padding:'6px 10px',
-          border:`1px solid ${sceneSearch ? T.amber+'50' : T.bdr}` }}>
+          border:`1px solid ${sceneSearch ? T.amber+'50' : T.bdr}`,
+          position:'sticky', top:0, zIndex:50 }}>
           <span style={{ fontSize:12 }}>🔍</span>
           <input
             type="text"
