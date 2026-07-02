@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.09
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.10
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -18507,9 +18507,12 @@ Steven 不是在收藏電影台詞。
                     <div style={{ display:'flex', gap:8, marginTop:3, flexWrap:'wrap', alignItems:'center' }}>
                       <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2 }}>{sceneCount} 場景</span>
                       {hasTranscript && <span style={{ fontFamily:MONO, fontSize:9, color:T.grn }}>✓ 逐字稿</span>}
+                      <span style={{ fontFamily:MONO, fontSize:9, color:T.grn }}>
+                        ✓ {allPhrases.filter(p => p.starred && p.familiar === true).length}
+                      </span>
                       <span onClick={e => { e.stopPropagation(); selectMovie(m.id); setTimeout(() => setView('starred'), 50) }}
                         style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#f87171' }}>
-                        ✗ {starredCount}
+                        ⭐ {starredCount}
                       </span>
                       <span onClick={e => { e.stopPropagation(); selectMovie(m.id); setStarMode('reinforce'); setMultiScenePhrases([]); setTimeout(() => setView('starred'), 50) }}
                         style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#f97316' }}>
