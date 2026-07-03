@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.19
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.23
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13646,11 +13646,15 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   // ── 🎤 跟讀錄音（不落地儲存，只存在當次分頁記憶體）──────────
   const [recordingPhraseId, setRecordingPhraseId] = useState(null) // 正在錄音的 phraseId
   const [myRecordings, setMyRecordings] = useState({})             // { [phraseId]: objectURL }，換頁/關閉即消失
+  const [myRecordingResults, setMyRecordingResults] = useState({}) // { [phraseId]: { transcript, diff } }，語音辨識比對結果
   const recStreamRef   = useRef(null)
   const recMediaRecRef = useRef(null)
   const recChunksRef   = useRef([])
   const recTimeoutRef  = useRef(null)
   const recAudioElRef  = useRef(null)   // 專門播放「我的錄音」，跟電影原音 audioElRef 分開
+  const recSpeechRef   = useRef(null)   // SpeechRecognition 實例（跟錄音同時跑）
+  const recTranscriptRef = useRef('')   // 累積辨識出來的文字
+  const recSessionIdRef  = useRef(0)    // 每次錄音的世代編號，避免舊的辨識結果覆蓋新錄音
   const myRecordingsRef = useRef({})
   useEffect(() => { myRecordingsRef.current = myRecordings }, [myRecordings])
   useEffect(() => {
@@ -13668,7 +13672,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
     return ''
   }
 
-  async function startRecording(phraseId) {
+  async function startRecording(phraseId, phraseText) {
     // 錄音前先確保完全靜音：停掉電影原音、TTS、循環播放，避免錄進回音
     starLoopActiveRef.current = false
     starLoopPausedRef.current = false
@@ -13689,6 +13693,43 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
     if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
       showMovieToast?.('此裝置不支援錄音功能'); return
     }
+
+    // 世代編號 +1：確保上一次錄音的非同步辨識結果不會蓋掉這一次
+    const mySession = ++recSessionIdRef.current
+    recTranscriptRef.current = ''
+    setMyRecordingResults(prev => { const n = { ...prev }; delete n[phraseId]; return n })
+
+    // 語音辨識與錄音同時啟動（best-effort，辨識失敗不影響錄音本身）
+    try {
+      const SR = window.SpeechRecognition ?? window.webkitSpeechRecognition
+      if (SR && phraseText) {
+        const recog = new SR()
+        recog.lang = 'en-US'
+        recog.continuous = false
+        recog.interimResults = false
+        recog.maxAlternatives = 1
+        recog.onresult = e => {
+          let finalT = ''
+          for (let i = e.resultIndex; i < e.results.length; i++) {
+            if (e.results[i].isFinal) finalT += e.results[i][0].transcript
+          }
+          if (finalT) recTranscriptRef.current = (recTranscriptRef.current + ' ' + finalT).trim()
+        }
+        recog.onend = () => {
+          if (mySession !== recSessionIdRef.current) return // 已經開始新一次錄音，捨棄過期結果
+          if (recTranscriptRef.current) {
+            const diff = dictDiff(phraseText, recTranscriptRef.current)
+            setMyRecordingResults(prev => ({ ...prev, [phraseId]: { transcript: recTranscriptRef.current, diff } }))
+          }
+        }
+        recog.onerror = () => { /* 語音辨識失敗不影響錄音，靜默忽略 */ }
+        recSpeechRef.current = recog
+        recog.start()
+      } else {
+        recSpeechRef.current = null
+      }
+    } catch(e) { recSpeechRef.current = null }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       recStreamRef.current = stream
@@ -13719,10 +13760,9 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
       mr.start()
       setRecordingPhraseId(phraseId)
       clearTimeout(recTimeoutRef.current)
-      recTimeoutRef.current = setTimeout(() => {
-        if (recMediaRecRef.current?.state === 'recording') recMediaRecRef.current.stop()
-      }, 6000)
+      recTimeoutRef.current = setTimeout(() => { stopRecording() }, 6000)
     } catch(e) {
+      try { recSpeechRef.current?.stop() } catch(e2) {}
       if (e?.name === 'NotAllowedError' || e?.name === 'PermissionDeniedError') {
         showMovieToast?.('⚠ 麥克風權限被拒絕，請到瀏覽器設定開啟')
       } else if (e?.name === 'NotFoundError') {
@@ -13737,6 +13777,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   function stopRecording() {
     clearTimeout(recTimeoutRef.current)
     if (recMediaRecRef.current?.state === 'recording') recMediaRecRef.current.stop()
+    try { recSpeechRef.current?.stop() } catch(e) {}
   }
 
   function playMyRecording(phraseId) {
@@ -17718,73 +17759,77 @@ Steven 不是在收藏電影台詞。
               )}
             </div>
 
-            {/* 底部按鈕列：📝 備註 | 🎬 畫面 | ✎ 編輯英文 | 🔄 重譯 | 🔊 播放 */}
+            {/* 底部按鈕列：分兩行，方框加大、文字不換行 */}
             {deletingPhraseId !== p.id && (
-              <div style={{ display:'flex', gap:6, marginTop:10, paddingRight:38 }}>
-                <div onClick={() => { setEditingNoteId(p.id); setEditingNoteText(p.note ?? '') }}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
-                    padding:'5px 10px', borderRadius:7, flex:1, textAlign:'center',
-                    background: p.note ? T.blueD : T.surf2,
-                    border:`1px solid ${p.note ? T.blue+'60' : T.bdr}`,
-                    color: p.note ? T.blue : T.txt3 }}>
-                  📝 備註
+              <div style={{ display:'flex', flexDirection:'column', gap:6, marginTop:10, paddingRight:38 }}>
+                <div style={{ display:'flex', gap:6 }}>
+                  <div onClick={() => { setEditingNoteId(p.id); setEditingNoteText(p.note ?? '') }}
+                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                      padding:'9px 6px', borderRadius:8, flex:1, textAlign:'center', whiteSpace:'nowrap',
+                      background: p.note ? T.blueD : T.surf2,
+                      border:`1px solid ${p.note ? T.blue+'60' : T.bdr}`,
+                      color: p.note ? T.blue : T.txt3 }}>
+                    📝 備註
+                  </div>
+                  <div onClick={() => { setEditingEnId(p.id); setEditingEnText(p.en) }}
+                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                      padding:'9px 6px', borderRadius:8, flex:1, textAlign:'center', whiteSpace:'nowrap',
+                      background: editingEnId===p.id ? T.amberD : T.surf2,
+                      border:`1px solid ${editingEnId===p.id ? T.amber+'60' : T.bdr}`,
+                      color: editingEnId===p.id ? T.amber : T.txt3 }}>
+                    ✎ 英文
+                  </div>
+                  <div onClick={() => { setEditingSceneDescId(p.id); setEditingSceneDescText(p.sceneDesc ?? '') }}
+                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                      padding:'9px 6px', borderRadius:8, flex:1, textAlign:'center', whiteSpace:'nowrap',
+                      background: p.sceneDesc ? T.amberD : T.surf2,
+                      border:`1px solid ${p.sceneDesc ? T.amber+'60' : T.bdr}`,
+                      color: p.sceneDesc ? T.amber : T.txt3 }}>
+                    🎬 畫面
+                  </div>
                 </div>
-                <div onClick={() => { setEditingEnId(p.id); setEditingEnText(p.en) }}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
-                    padding:'5px 10px', borderRadius:7, flex:1, textAlign:'center',
-                    background: editingEnId===p.id ? T.amberD : T.surf2,
-                    border:`1px solid ${editingEnId===p.id ? T.amber+'60' : T.bdr}`,
-                    color: editingEnId===p.id ? T.amber : T.txt3 }}>
-                  ✎ 英文
-                </div>
-                <div onClick={() => { setEditingSceneDescId(p.id); setEditingSceneDescText(p.sceneDesc ?? '') }}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
-                    padding:'5px 10px', borderRadius:7, flex:1, textAlign:'center',
-                    background: p.sceneDesc ? T.amberD : T.surf2,
-                    border:`1px solid ${p.sceneDesc ? T.amber+'60' : T.bdr}`,
-                    color: p.sceneDesc ? T.amber : T.txt3 }}>
-                  🎬 畫面
-                </div>
-                <div onClick={() => retranslatingId !== p.id && retranslatePhrase(p.id, p.en)}
-                  style={{ cursor: retranslatingId === p.id ? 'default' : 'pointer',
-                    fontFamily:MONO, fontSize:9, fontWeight:700,
-                    padding:'5px 10px', borderRadius:7, flex:1, textAlign:'center',
-                    background: T.surf2,
-                    border:`1px solid ${T.bdr}`,
-                    color: retranslatingId === p.id ? T.txt3 : T.grn,
-                    transition:'all 0.15s',
-                    display:'flex', alignItems:'center', justifyContent:'center', gap:3 }}>
-                  {retranslatingId === p.id
-                    ? <span style={{ display:'inline-block', width:8, height:8,
-                        border:'1.5px solid transparent', borderTopColor:T.txt3,
-                        borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>
-                    : '🔄'}
-                </div>
-                <div onClick={() => {
-                    if (playingPhraseId === p.id) {
-                      if (view === 'starred') { stopStarLoop?.(); }
-                      else { clearTimeout(audioStopRef.current); audioElRef.current?.pause() }
-                      setPlayingPhraseId(null); return
-                    }
-                    if (view === 'starred') {
-                      stopStarLoop?.()
-                      window.speechSynthesis?.cancel()
-                      setPlayingPhraseId(p.id)
-                      starLoopActiveRef.current = true
-                      const singleList = [p]
-                      starLoopListRef.current = singleList
-                      playStarPhrase(singleList, 0)
-                    } else {
-                      speakPhrase(p.id, p.en, undefined, p)
-                    }
-                  }}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
-                    padding:'5px 10px', borderRadius:7, flex:1, textAlign:'center',
-                    background: playingPhraseId===p.id ? T.amber+'22' : T.surf2,
-                    border:`1px solid ${playingPhraseId===p.id ? T.amber : T.bdr}`,
+                <div style={{ display:'flex', gap:6 }}>
+                  <div onClick={() => retranslatingId !== p.id && retranslatePhrase(p.id, p.en)}
+                    style={{ cursor: retranslatingId === p.id ? 'default' : 'pointer',
+                      fontFamily:MONO, fontSize:10, fontWeight:700,
+                      padding:'9px 6px', borderRadius:8, flex:1, textAlign:'center', whiteSpace:'nowrap',
+                      background: T.surf2,
+                      border:`1px solid ${T.bdr}`,
+                      color: retranslatingId === p.id ? T.txt3 : T.grn,
+                      transition:'all 0.15s',
+                      display:'flex', alignItems:'center', justifyContent:'center', gap:4 }}>
+                    {retranslatingId === p.id
+                      ? <span style={{ display:'inline-block', width:8, height:8,
+                          border:'1.5px solid transparent', borderTopColor:T.txt3,
+                          borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>
+                      : '🔄'} 重譯
+                  </div>
+                  <div onClick={() => {
+                      if (playingPhraseId === p.id) {
+                        if (view === 'starred') { stopStarLoop?.(); }
+                        else { clearTimeout(audioStopRef.current); audioElRef.current?.pause() }
+                        setPlayingPhraseId(null); return
+                      }
+                      if (view === 'starred') {
+                        stopStarLoop?.()
+                        window.speechSynthesis?.cancel()
+                        setPlayingPhraseId(p.id)
+                        starLoopActiveRef.current = true
+                        const singleList = [p]
+                        starLoopListRef.current = singleList
+                        playStarPhrase(singleList, 0)
+                      } else {
+                        speakPhrase(p.id, p.en, undefined, p)
+                      }
+                    }}
+                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                      padding:'9px 6px', borderRadius:8, flex:1, textAlign:'center', whiteSpace:'nowrap',
+                      background: playingPhraseId===p.id ? T.amber+'22' : T.surf2,
+                      border:`1px solid ${playingPhraseId===p.id ? T.amber : T.bdr}`,
                     color: playingPhraseId===p.id ? T.amber : T.txt3,
                     transition:'all 0.15s' }}>
-                  {playingPhraseId===p.id ? '⏹' : '🔊'}
+                    {playingPhraseId===p.id ? '⏹' : '🔊'} 播放
+                  </div>
                 </div>
               </div>
             )}
@@ -17901,20 +17946,21 @@ Steven 不是在收藏電影台詞。
           starPlayCountRef.current[phraseId] = 0
         }
       }
-      // 再加強：每次循環重複播放3次再前進
-      const isReinforcePhrase = getFam(p) === 'reinforce'
-      const reinforceKey = `reinforce_${p.id}`
+      // 加強 / 再加強：分別重複播放 2 / 3 次再前進，其餘（熟悉／未標記）維持播 1 次
+      const famVal = getFam(p)
+      const repeatTarget = famVal === 'reinforce' ? 3 : famVal === false ? 2 : 1
+      const repeatKey = `repeat_${p.id}`
       const advanceOrRepeat = (afterPlay) => {
-        if (isReinforcePhrase) {
-          const cnt = (starPlayCountRef.current[reinforceKey] ?? 0) + 1
-          starPlayCountRef.current[reinforceKey] = cnt
-          if (cnt < 3) {
-            // 還沒播夠3次，重播
+        if (repeatTarget > 1) {
+          const cnt = (starPlayCountRef.current[repeatKey] ?? 0) + 1
+          starPlayCountRef.current[repeatKey] = cnt
+          if (cnt < repeatTarget) {
+            // 還沒播夠指定次數，重播
             starLoopRef.current = setTimeout(() => playStarPhrase(list, realIdx), 400)
             return
           } else {
-            // 播完3次，重置計數，前進
-            starPlayCountRef.current[reinforceKey] = 0
+            // 播完指定次數，重置計數，前進
+            starPlayCountRef.current[repeatKey] = 0
           }
         }
         afterPlay()
@@ -18202,17 +18248,28 @@ Steven 不是在收藏電影台詞。
                               {p.zh && <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginTop:2 }}>{p.zh}</div>}
                               {myRecordings[p.id] && (
                                 <div onClick={e => { e.stopPropagation(); playMyRecording(p.id) }}
-                                  style={{ display:'inline-flex', alignItems:'center', gap:4, marginTop:5,
+                                  style={{ display:'inline-flex', alignItems:'center', gap:5, marginTop:5,
                                     cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.blue,
                                     padding:'2px 8px', background:T.blueD, borderRadius:7, border:`1px solid ${T.blue}40` }}>
                                   ▶ 我的錄音
+                                  {myRecordingResults[p.id]?.diff && (() => {
+                                    const sc = myRecordingResults[p.id].diff.score
+                                    const scColor = sc>=90?T.grn:sc>=60?T.amber:T.red
+                                    return <span style={{ color:scColor, fontWeight:700 }}>{sc}分</span>
+                                  })()}
+                                </div>
+                              )}
+                              {myRecordingResults[p.id]?.diff && (
+                                <div onClick={e => e.stopPropagation()}
+                                  style={{ background:T.surf, borderRadius:8, padding:'6px 9px', marginTop:5 }}>
+                                  <DiffDisplay tokens={myRecordingResults[p.id].diff.tokens}/>
                                 </div>
                               )}
                             </div>
                             <div onClick={e => {
                                 e.stopPropagation()
                                 if (recordingPhraseId === p.id) stopRecording()
-                                else if (!recordingPhraseId) startRecording(p.id)
+                                else if (!recordingPhraseId) startRecording(p.id, p.en)
                               }}
                               title="錄一次今天的跟讀，留個印象"
                               style={{ flexShrink:0, cursor: (recordingPhraseId && recordingPhraseId !== p.id) ? 'default' : 'pointer',
@@ -18471,7 +18528,7 @@ Steven 不是在收藏電影台詞。
                   </div>
                   <div onClick={() => {
                       if (recordingPhraseId === p.id) stopRecording()
-                      else if (!recordingPhraseId) startRecording(p.id)
+                      else if (!recordingPhraseId) startRecording(p.id, p.en)
                     }}
                     title={recordingPhraseId === p.id ? '停止錄音' : '跟讀錄音（最長 6 秒）'}
                     style={{ cursor: (recordingPhraseId && recordingPhraseId !== p.id) ? 'default' : 'pointer',
@@ -18554,6 +18611,16 @@ Steven 不是在收藏電影台詞。
                     cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.blue,
                     padding:'3px 10px', background:T.blueD, borderRadius:8, border:`1px solid ${T.blue}40` }}>
                   ▶ 我的錄音
+                  {myRecordingResults[p.id]?.diff && (() => {
+                    const sc = myRecordingResults[p.id].diff.score
+                    const scColor = sc>=90?T.grn:sc>=60?T.amber:T.red
+                    return <span style={{ color:scColor, fontWeight:700 }}>{sc}分</span>
+                  })()}
+                </div>
+              )}
+              {myRecordingResults[p.id]?.diff && (
+                <div style={{ background:T.surf2, borderRadius:8, padding:'8px 10px' }}>
+                  <DiffDisplay tokens={myRecordingResults[p.id].diff.tokens}/>
                 </div>
               )}
 
@@ -18838,17 +18905,27 @@ Steven 不是在收藏電影台詞。
                       {p.zh && <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginTop:2 }}>{p.zh}</div>}
                       {myRecordings[p.id] && (
                         <div onClick={() => playMyRecording(p.id)}
-                          style={{ display:'inline-flex', alignItems:'center', gap:4, marginTop:5,
+                          style={{ display:'inline-flex', alignItems:'center', gap:5, marginTop:5,
                             cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.blue,
                             padding:'2px 8px', background:T.blueD, borderRadius:7, border:`1px solid ${T.blue}40` }}>
                           ▶ 我的錄音
+                          {myRecordingResults[p.id]?.diff && (() => {
+                            const sc = myRecordingResults[p.id].diff.score
+                            const scColor = sc>=90?T.grn:sc>=60?T.amber:T.red
+                            return <span style={{ color:scColor, fontWeight:700 }}>{sc}分</span>
+                          })()}
+                        </div>
+                      )}
+                      {myRecordingResults[p.id]?.diff && (
+                        <div style={{ background:T.surf, borderRadius:8, padding:'6px 9px', marginTop:5 }}>
+                          <DiffDisplay tokens={myRecordingResults[p.id].diff.tokens}/>
                         </div>
                       )}
                     </div>
                     <div style={{ display:'flex', gap:5, flexShrink:0 }}>
                       <div onClick={() => {
                           if (recordingPhraseId === p.id) stopRecording()
-                          else if (!recordingPhraseId) startRecording(p.id)
+                          else if (!recordingPhraseId) startRecording(p.id, p.en)
                         }}
                         title="再錄一次今天說的，跟印象比一下"
                         style={{ cursor: (recordingPhraseId && recordingPhraseId !== p.id) ? 'default' : 'pointer',
@@ -19792,51 +19869,6 @@ Steven 不是在收藏電影台詞。
                   {s.name}
                 </span>
               )}
-              <div onClick={e => {
-                  e.stopPropagation()
-                  const sceneTitle = s.name ?? s.title ?? ''
-                  const starred = (s.phrases ?? []).filter(p => p.starred)
-                  const phraseList = starred.slice(0, 7).map((p, i) => (i+1) + '. ' + p.en).join('\n')
-                  const firstPhrase = starred.length > 0 ? starred[0].en : (s.phrases?.[0]?.en ?? '')
-                  const gptPrompt = 'You are my FSI English Coach.\n\n' +
-                    'Student Profile:\n' +
-                    '- 55-year-old Taiwanese adult\n' +
-                    '- English level: Intermediate-Beginner\n' +
-                    '- Works in Vietnam factory management\n' +
-                    '- Goal: Speak English automatically in meetings and daily conversations\n\n' +
-                    'Teaching Method:\n' +
-                    'Use FSI-style drills only.\n' +
-                    'Do NOT explain grammar unless necessary.\n' +
-                    'Do NOT ask discussion questions.\n' +
-                    'Do NOT ask movie analysis questions.\n' +
-                    'Do NOT ask personal opinion questions.\n\n' +
-                    'Focus on: Repetition / Substitution / Transformation / Automatic speaking\n\n' +
-                    'Rules:\n' +
-                    '- Speak very slowly.\n' +
-                    '- Use simple English only.\n' +
-                    '- One instruction at a time.\n' +
-                    '- Wait for my answer.\n' +
-                    '- Correct only major mistakes.\n' +
-                    '- Keep responses under 15 words.\n' +
-                    '- No long explanations.\n' +
-                    '- No Chinese.\n\n' +
-                    'STEP 1 - Repeat: Read the sentence slowly. Ask me to repeat.\n\n' +
-                    'STEP 2 - Substitution Drill: Change one word. Wait for my answer. Do 5-10 substitutions.\n\n' +
-                    'STEP 3 - Transformation Drill: Change I / You / We / They / Present / Past / Future\n\n' +
-                    'STEP 4 - Vietnam Factory Drill: Create 5 examples related to Quality / Customer complaint / Production / Meeting / Teamwork\n\n' +
-                    'STEP 5 - Speed Round: Ask 5 rapid substitutions. Then move to the next phrase.\n\n' +
-                    'Movie: Jerry Maguire\n' +
-                    'Scene: ' + sceneTitle + '\n' +
-                    'Phrases:\n' + (phraseList || '（此場景尚無重點句）') + '\n\n' +
-                    'Start immediately. Do not explain. Do not analyze. Only drill.'
-                  const fallback = () => { const el = document.createElement('textarea'); el.value = gptPrompt; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el) }
-                  if (navigator.clipboard?.writeText) navigator.clipboard.writeText(gptPrompt).then(() => {}).catch(fallback)
-                  else fallback()
-                  showMovieToast('✅「' + sceneTitle + '」指令已複製')
-                }}
-                style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#c084fc',
-                  padding:'2px 6px', background:'#2d1a4a', borderRadius:5,
-                  border:'1px solid #c084fc50', marginRight:4, fontWeight:700 }}>🤖 GPT</div>
               <div onClick={e => { e.stopPropagation(); setEditingSceneNameId(s.id); setEditingSceneNameText(s.name) }}
                 style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
                   padding:'2px 6px', background:T.surf2, borderRadius:5, border:`1px solid ${T.bdr}`,
@@ -19844,6 +19876,54 @@ Steven 不是在收藏電影台詞。
               <div onClick={e=>{e.stopPropagation();deleteScene(s.id)}}
                 style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
                   padding:'2px 6px', background:T.surf2, borderRadius:5, border:`1px solid ${T.bdr}` }}>✕</div>
+            </div>
+            <div onClick={e => {
+                e.stopPropagation()
+                const sceneTitle = s.name ?? s.title ?? ''
+                const starred = (s.phrases ?? []).filter(p => p.starred)
+                const phraseList = starred.slice(0, 7).map((p, i) => (i+1) + '. ' + p.en).join('\n')
+                const firstPhrase = starred.length > 0 ? starred[0].en : (s.phrases?.[0]?.en ?? '')
+                const gptPrompt = 'You are my FSI English Coach.\n\n' +
+                  'Student Profile:\n' +
+                  '- 55-year-old Taiwanese adult\n' +
+                  '- English level: Intermediate-Beginner\n' +
+                  '- Works in Vietnam factory management\n' +
+                  '- Goal: Speak English automatically in meetings and daily conversations\n\n' +
+                  'Teaching Method:\n' +
+                  'Use FSI-style drills only.\n' +
+                  'Do NOT explain grammar unless necessary.\n' +
+                  'Do NOT ask discussion questions.\n' +
+                  'Do NOT ask movie analysis questions.\n' +
+                  'Do NOT ask personal opinion questions.\n\n' +
+                  'Focus on: Repetition / Substitution / Transformation / Automatic speaking\n\n' +
+                  'Rules:\n' +
+                  '- Speak very slowly.\n' +
+                  '- Use simple English only.\n' +
+                  '- One instruction at a time.\n' +
+                  '- Wait for my answer.\n' +
+                  '- Correct only major mistakes.\n' +
+                  '- Keep responses under 15 words.\n' +
+                  '- No long explanations.\n' +
+                  '- No Chinese.\n\n' +
+                  'STEP 1 - Repeat: Read the sentence slowly. Ask me to repeat.\n\n' +
+                  'STEP 2 - Substitution Drill: Change one word. Wait for my answer. Do 5-10 substitutions.\n\n' +
+                  'STEP 3 - Transformation Drill: Change I / You / We / They / Present / Past / Future\n\n' +
+                  'STEP 4 - Vietnam Factory Drill: Create 5 examples related to Quality / Customer complaint / Production / Meeting / Teamwork\n\n' +
+                  'STEP 5 - Speed Round: Ask 5 rapid substitutions. Then move to the next phrase.\n\n' +
+                  'Movie: Jerry Maguire\n' +
+                  'Scene: ' + sceneTitle + '\n' +
+                  'Phrases:\n' + (phraseList || '（此場景尚無重點句）') + '\n\n' +
+                  'Start immediately. Do not explain. Do not analyze. Only drill.'
+                const fallback = () => { const el = document.createElement('textarea'); el.value = gptPrompt; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el) }
+                if (navigator.clipboard?.writeText) navigator.clipboard.writeText(gptPrompt).then(() => {}).catch(fallback)
+                else fallback()
+                showMovieToast('✅「' + sceneTitle + '」指令已複製')
+              }}
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#c084fc',
+                padding:'4px 9px', background:'#2d1a4a', borderRadius:6,
+                border:'1px solid #c084fc50', fontWeight:700, display:'inline-flex',
+                alignItems:'center', gap:4, alignSelf:'flex-start', marginBottom:7 }}>
+              🤖 GPT
             </div>
             <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom: spc>0?7:0 }}>
               {s.timeRange} · {s.phrases.length} 句
