@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.23
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.24
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -19877,63 +19877,65 @@ Steven 不是在收藏電影台詞。
                 style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
                   padding:'2px 6px', background:T.surf2, borderRadius:5, border:`1px solid ${T.bdr}` }}>✕</div>
             </div>
-            <div onClick={e => {
-                e.stopPropagation()
-                const sceneTitle = s.name ?? s.title ?? ''
-                const starred = (s.phrases ?? []).filter(p => p.starred)
-                const phraseList = starred.slice(0, 7).map((p, i) => (i+1) + '. ' + p.en).join('\n')
-                const firstPhrase = starred.length > 0 ? starred[0].en : (s.phrases?.[0]?.en ?? '')
-                const gptPrompt = 'You are my FSI English Coach.\n\n' +
-                  'Student Profile:\n' +
-                  '- 55-year-old Taiwanese adult\n' +
-                  '- English level: Intermediate-Beginner\n' +
-                  '- Works in Vietnam factory management\n' +
-                  '- Goal: Speak English automatically in meetings and daily conversations\n\n' +
-                  'Teaching Method:\n' +
-                  'Use FSI-style drills only.\n' +
-                  'Do NOT explain grammar unless necessary.\n' +
-                  'Do NOT ask discussion questions.\n' +
-                  'Do NOT ask movie analysis questions.\n' +
-                  'Do NOT ask personal opinion questions.\n\n' +
-                  'Focus on: Repetition / Substitution / Transformation / Automatic speaking\n\n' +
-                  'Rules:\n' +
-                  '- Speak very slowly.\n' +
-                  '- Use simple English only.\n' +
-                  '- One instruction at a time.\n' +
-                  '- Wait for my answer.\n' +
-                  '- Correct only major mistakes.\n' +
-                  '- Keep responses under 15 words.\n' +
-                  '- No long explanations.\n' +
-                  '- No Chinese.\n\n' +
-                  'STEP 1 - Repeat: Read the sentence slowly. Ask me to repeat.\n\n' +
-                  'STEP 2 - Substitution Drill: Change one word. Wait for my answer. Do 5-10 substitutions.\n\n' +
-                  'STEP 3 - Transformation Drill: Change I / You / We / They / Present / Past / Future\n\n' +
-                  'STEP 4 - Vietnam Factory Drill: Create 5 examples related to Quality / Customer complaint / Production / Meeting / Teamwork\n\n' +
-                  'STEP 5 - Speed Round: Ask 5 rapid substitutions. Then move to the next phrase.\n\n' +
-                  'Movie: Jerry Maguire\n' +
-                  'Scene: ' + sceneTitle + '\n' +
-                  'Phrases:\n' + (phraseList || '（此場景尚無重點句）') + '\n\n' +
-                  'Start immediately. Do not explain. Do not analyze. Only drill.'
-                const fallback = () => { const el = document.createElement('textarea'); el.value = gptPrompt; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el) }
-                if (navigator.clipboard?.writeText) navigator.clipboard.writeText(gptPrompt).then(() => {}).catch(fallback)
-                else fallback()
-                showMovieToast('✅「' + sceneTitle + '」指令已複製')
-              }}
-              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#c084fc',
-                padding:'4px 9px', background:'#2d1a4a', borderRadius:6,
-                border:'1px solid #c084fc50', fontWeight:700, display:'inline-flex',
-                alignItems:'center', gap:4, alignSelf:'flex-start', marginBottom:7 }}>
-              🤖 GPT
-            </div>
-            <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom: spc>0?7:0 }}>
-              {s.timeRange} · {s.phrases.length} 句
-              {(() => {
-                const starCount = s.phrases.filter(p => p.starred).length
-                return starCount > 0
-                  ? <span style={{ color:T.amber, marginLeft:4 }}>· ⭐{starCount} 重點</span>
-                  : null
-              })()}
-              {isDone && <span style={{ color:T.grn, marginLeft:6 }}>✓ 訓練完畢</span>}
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, marginBottom: spc>0?7:0 }}>
+              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                {s.timeRange} · {s.phrases.length} 句
+                {(() => {
+                  const starCount = s.phrases.filter(p => p.starred).length
+                  return starCount > 0
+                    ? <span style={{ color:T.amber, marginLeft:4 }}>· ⭐{starCount} 重點</span>
+                    : null
+                })()}
+                {isDone && <span style={{ color:T.grn, marginLeft:6 }}>✓ 訓練完畢</span>}
+              </div>
+              <div onClick={e => {
+                  e.stopPropagation()
+                  const sceneTitle = s.name ?? s.title ?? ''
+                  const starred = (s.phrases ?? []).filter(p => p.starred)
+                  const phraseList = starred.slice(0, 7).map((p, i) => (i+1) + '. ' + p.en).join('\n')
+                  const firstPhrase = starred.length > 0 ? starred[0].en : (s.phrases?.[0]?.en ?? '')
+                  const gptPrompt = 'You are my FSI English Coach.\n\n' +
+                    'Student Profile:\n' +
+                    '- 55-year-old Taiwanese adult\n' +
+                    '- English level: Intermediate-Beginner\n' +
+                    '- Works in Vietnam factory management\n' +
+                    '- Goal: Speak English automatically in meetings and daily conversations\n\n' +
+                    'Teaching Method:\n' +
+                    'Use FSI-style drills only.\n' +
+                    'Do NOT explain grammar unless necessary.\n' +
+                    'Do NOT ask discussion questions.\n' +
+                    'Do NOT ask movie analysis questions.\n' +
+                    'Do NOT ask personal opinion questions.\n\n' +
+                    'Focus on: Repetition / Substitution / Transformation / Automatic speaking\n\n' +
+                    'Rules:\n' +
+                    '- Speak very slowly.\n' +
+                    '- Use simple English only.\n' +
+                    '- One instruction at a time.\n' +
+                    '- Wait for my answer.\n' +
+                    '- Correct only major mistakes.\n' +
+                    '- Keep responses under 15 words.\n' +
+                    '- No long explanations.\n' +
+                    '- No Chinese.\n\n' +
+                    'STEP 1 - Repeat: Read the sentence slowly. Ask me to repeat.\n\n' +
+                    'STEP 2 - Substitution Drill: Change one word. Wait for my answer. Do 5-10 substitutions.\n\n' +
+                    'STEP 3 - Transformation Drill: Change I / You / We / They / Present / Past / Future\n\n' +
+                    'STEP 4 - Vietnam Factory Drill: Create 5 examples related to Quality / Customer complaint / Production / Meeting / Teamwork\n\n' +
+                    'STEP 5 - Speed Round: Ask 5 rapid substitutions. Then move to the next phrase.\n\n' +
+                    'Movie: Jerry Maguire\n' +
+                    'Scene: ' + sceneTitle + '\n' +
+                    'Phrases:\n' + (phraseList || '（此場景尚無重點句）') + '\n\n' +
+                    'Start immediately. Do not explain. Do not analyze. Only drill.'
+                  const fallback = () => { const el = document.createElement('textarea'); el.value = gptPrompt; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el) }
+                  if (navigator.clipboard?.writeText) navigator.clipboard.writeText(gptPrompt).then(() => {}).catch(fallback)
+                  else fallback()
+                  showMovieToast('✅「' + sceneTitle + '」指令已複製')
+                }}
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#c084fc',
+                  padding:'3px 8px', background:'#2d1a4a', borderRadius:6,
+                  border:'1px solid #c084fc50', fontWeight:700, display:'inline-flex',
+                  alignItems:'center', gap:4, flexShrink:0 }}>
+                🤖 GPT
+              </div>
             </div>
             {/* 搜尋結果：顯示匹配的句子 */}
             {matchedPhrases.length > 0 && (
