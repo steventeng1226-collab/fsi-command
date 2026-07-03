@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.17
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.19
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13643,6 +13643,120 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   const starSleepRef = useRef(null)                               // 睡眠計時器
   const [starSleepEnd,    setStarSleepEnd]    = useState(null)    // 睡眠結束時間戳
   const [starSleepRemain, setStarSleepRemain] = useState(null)    // 倒數秒數
+  // ── 🎤 跟讀錄音（不落地儲存，只存在當次分頁記憶體）──────────
+  const [recordingPhraseId, setRecordingPhraseId] = useState(null) // 正在錄音的 phraseId
+  const [myRecordings, setMyRecordings] = useState({})             // { [phraseId]: objectURL }，換頁/關閉即消失
+  const recStreamRef   = useRef(null)
+  const recMediaRecRef = useRef(null)
+  const recChunksRef   = useRef([])
+  const recTimeoutRef  = useRef(null)
+  const recAudioElRef  = useRef(null)   // 專門播放「我的錄音」，跟電影原音 audioElRef 分開
+  const myRecordingsRef = useRef({})
+  useEffect(() => { myRecordingsRef.current = myRecordings }, [myRecordings])
+  useEffect(() => {
+    return () => {
+      Object.values(myRecordingsRef.current).forEach(url => { try { URL.revokeObjectURL(url) } catch(e) {} })
+      if (recStreamRef.current) recStreamRef.current.getTracks().forEach(t => t.stop())
+    }
+  }, [])
+
+  function pickRecordingMime() {
+    const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/aac']
+    for (const c of candidates) {
+      if (window.MediaRecorder?.isTypeSupported?.(c)) return c
+    }
+    return ''
+  }
+
+  async function startRecording(phraseId) {
+    // 錄音前先確保完全靜音：停掉電影原音、TTS、循環播放，避免錄進回音
+    starLoopActiveRef.current = false
+    starLoopPausedRef.current = false
+    clearTimeout(starLoopRef.current)
+    clearTimeout(starSleepRef.current)
+    if (audioElRef.current && starTimeUpdateRef.current) {
+      audioElRef.current.removeEventListener('timeupdate', starTimeUpdateRef.current)
+      starTimeUpdateRef.current = null
+    }
+    setStarLoopMode(null)
+    setStarLoopPaused(false)
+    setStarSleepEnd(null)
+    window.speechSynthesis?.cancel()
+    if (audioElRef.current) audioElRef.current.pause()
+    if (recAudioElRef.current) recAudioElRef.current.pause()
+    setPlayingPhraseId(null)
+
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+      showMovieToast?.('此裝置不支援錄音功能'); return
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      recStreamRef.current = stream
+      const mime = pickRecordingMime()
+      const mr = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream)
+      recMediaRecRef.current = mr
+      recChunksRef.current = []
+      mr.ondataavailable = e => { if (e.data && e.data.size > 0) recChunksRef.current.push(e.data) }
+      mr.onstop = () => {
+        const blobType = mr.mimeType || mime || 'audio/webm'
+        const blob = new Blob(recChunksRef.current, { type: blobType })
+        const url = URL.createObjectURL(blob)
+        setMyRecordings(prev => {
+          const old = prev[phraseId]
+          if (old) { try { URL.revokeObjectURL(old) } catch(e) {} }
+          return { ...prev, [phraseId]: url }
+        })
+        stream.getTracks().forEach(t => t.stop())
+        recStreamRef.current = null
+        setRecordingPhraseId(null)
+      }
+      mr.onerror = () => {
+        showMovieToast?.('⚠ 錄音發生錯誤，請重試')
+        stream.getTracks().forEach(t => t.stop())
+        recStreamRef.current = null
+        setRecordingPhraseId(null)
+      }
+      mr.start()
+      setRecordingPhraseId(phraseId)
+      clearTimeout(recTimeoutRef.current)
+      recTimeoutRef.current = setTimeout(() => {
+        if (recMediaRecRef.current?.state === 'recording') recMediaRecRef.current.stop()
+      }, 6000)
+    } catch(e) {
+      if (e?.name === 'NotAllowedError' || e?.name === 'PermissionDeniedError') {
+        showMovieToast?.('⚠ 麥克風權限被拒絕，請到瀏覽器設定開啟')
+      } else if (e?.name === 'NotFoundError') {
+        showMovieToast?.('⚠ 找不到麥克風裝置')
+      } else {
+        showMovieToast?.('⚠ 無法啟動錄音：' + (e?.message ?? '未知錯誤'))
+      }
+      setRecordingPhraseId(null)
+    }
+  }
+
+  function stopRecording() {
+    clearTimeout(recTimeoutRef.current)
+    if (recMediaRecRef.current?.state === 'recording') recMediaRecRef.current.stop()
+  }
+
+  function playMyRecording(phraseId) {
+    const url = myRecordings[phraseId]
+    if (!url) return
+    if (!recAudioElRef.current) recAudioElRef.current = new Audio()
+    const el = recAudioElRef.current
+    if (audioElRef.current) audioElRef.current.pause()
+    window.speechSynthesis?.cancel()
+    el.src = url
+    el.currentTime = 0
+    el.play().catch(() => {})
+  }
+
+  useEffect(() => {
+    if (view !== 'starred' && recMediaRecRef.current?.state === 'recording') {
+      stopRecording()
+    }
+  }, [view])
+
   const movie   = db.movies.find(m => m.id === movieId)
   const scene   = sceneId ? movie?.scenes.find(s => s.id === sceneId) : null
   const phrases     = scene?.phrases ?? []
@@ -18086,6 +18200,30 @@ Steven 不是在收藏電影台詞。
                             <div style={{ flex:1, minWidth:0 }}>
                               <div style={{ fontFamily:MONO, fontSize:11, color:T.txt, lineHeight:1.5 }}>{p.en}</div>
                               {p.zh && <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginTop:2 }}>{p.zh}</div>}
+                              {myRecordings[p.id] && (
+                                <div onClick={e => { e.stopPropagation(); playMyRecording(p.id) }}
+                                  style={{ display:'inline-flex', alignItems:'center', gap:4, marginTop:5,
+                                    cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.blue,
+                                    padding:'2px 8px', background:T.blueD, borderRadius:7, border:`1px solid ${T.blue}40` }}>
+                                  ▶ 我的錄音
+                                </div>
+                              )}
+                            </div>
+                            <div onClick={e => {
+                                e.stopPropagation()
+                                if (recordingPhraseId === p.id) stopRecording()
+                                else if (!recordingPhraseId) startRecording(p.id)
+                              }}
+                              title="錄一次今天的跟讀，留個印象"
+                              style={{ flexShrink:0, cursor: (recordingPhraseId && recordingPhraseId !== p.id) ? 'default' : 'pointer',
+                                fontFamily:MONO, fontSize:10,
+                                color: recordingPhraseId === p.id ? '#fff' : T.txt3,
+                                padding:'3px 7px', borderRadius:6,
+                                background: recordingPhraseId === p.id ? '#f85149' : T.surf,
+                                border:`1px solid ${recordingPhraseId === p.id ? '#f85149' : T.bdr}`,
+                                animation: recordingPhraseId === p.id ? 'micPulse 0.8s infinite' : 'none',
+                                opacity: (recordingPhraseId && recordingPhraseId !== p.id) ? 0.4 : 1 }}>
+                              {recordingPhraseId === p.id ? '⏺' : '🎤'}
                             </div>
                           </div>
                         )
@@ -18332,6 +18470,21 @@ Steven 不是在收藏電影台詞。
                     🔊
                   </div>
                   <div onClick={() => {
+                      if (recordingPhraseId === p.id) stopRecording()
+                      else if (!recordingPhraseId) startRecording(p.id)
+                    }}
+                    title={recordingPhraseId === p.id ? '停止錄音' : '跟讀錄音（最長 6 秒）'}
+                    style={{ cursor: (recordingPhraseId && recordingPhraseId !== p.id) ? 'default' : 'pointer',
+                      fontFamily:MONO, fontSize:10,
+                      color: recordingPhraseId === p.id ? '#fff' : T.txt2,
+                      padding:'2px 7px', borderRadius:6,
+                      background: recordingPhraseId === p.id ? '#f85149' : T.surf2,
+                      border:`1px solid ${recordingPhraseId === p.id ? '#f85149' : T.bdr}`,
+                      animation: recordingPhraseId === p.id ? 'micPulse 0.8s infinite' : 'none',
+                      opacity: (recordingPhraseId && recordingPhraseId !== p.id) ? 0.4 : 1 }}>
+                    {recordingPhraseId === p.id ? '⏺' : '🎤'}
+                  </div>
+                  <div onClick={() => {
                       setStarNoteId(p.id)
                       setStarNoteText(p.note ?? '')
                     }}
@@ -18393,6 +18546,16 @@ Steven 不是在收藏電影台詞。
                   </div>
                 </div>
               </div>
+
+              {/* 🎤 跟讀錄音回放（不落地儲存，換頁即消失）*/}
+              {myRecordings[p.id] && (
+                <div onClick={() => playMyRecording(p.id)}
+                  style={{ alignSelf:'flex-start', display:'inline-flex', alignItems:'center', gap:5,
+                    cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.blue,
+                    padding:'3px 10px', background:T.blueD, borderRadius:8, border:`1px solid ${T.blue}40` }}>
+                  ▶ 我的錄音
+                </div>
+              )}
 
               {/* 反向模式：先顯示中文，點翻牌看英文 */}
               {isReverse ? (
@@ -18673,8 +18836,31 @@ Steven 不是在收藏電影台詞。
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ fontFamily:MONO, fontSize:11, color:T.txt, lineHeight:1.5 }}>{p.en}</div>
                       {p.zh && <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginTop:2 }}>{p.zh}</div>}
+                      {myRecordings[p.id] && (
+                        <div onClick={() => playMyRecording(p.id)}
+                          style={{ display:'inline-flex', alignItems:'center', gap:4, marginTop:5,
+                            cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.blue,
+                            padding:'2px 8px', background:T.blueD, borderRadius:7, border:`1px solid ${T.blue}40` }}>
+                          ▶ 我的錄音
+                        </div>
+                      )}
                     </div>
                     <div style={{ display:'flex', gap:5, flexShrink:0 }}>
+                      <div onClick={() => {
+                          if (recordingPhraseId === p.id) stopRecording()
+                          else if (!recordingPhraseId) startRecording(p.id)
+                        }}
+                        title="再錄一次今天說的，跟印象比一下"
+                        style={{ cursor: (recordingPhraseId && recordingPhraseId !== p.id) ? 'default' : 'pointer',
+                          fontFamily:MONO, fontSize:10,
+                          color: recordingPhraseId === p.id ? '#fff' : T.txt3,
+                          padding:'4px 7px', borderRadius:7,
+                          background: recordingPhraseId === p.id ? '#f85149' : T.surf,
+                          border:`1px solid ${recordingPhraseId === p.id ? '#f85149' : T.bdr}`,
+                          animation: recordingPhraseId === p.id ? 'micPulse 0.8s infinite' : 'none',
+                          opacity: (recordingPhraseId && recordingPhraseId !== p.id) ? 0.4 : 1 }}>
+                        {recordingPhraseId === p.id ? '⏺' : '🎤'}
+                      </div>
                       <div onClick={() => {
                           saveTodayPickFeedback(getYesterdayStr(), p.id, true)
                           setDb(prev => ({ ...prev })) // 觸發重新渲染
