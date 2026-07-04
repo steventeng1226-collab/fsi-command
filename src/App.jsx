@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.25
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.26
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13627,6 +13627,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   const starPlayCountRef  = useRef({})          // { [phraseId]: count } 循環播放計數（自動熟悉用）
   const starPlayGenRef    = useRef(0)           // 播放代次，避免過期的非同步 callback 干擾新播放
   const [starLoopMode,    setStarLoopMode]    = useState(null)      // null | 'familiar' | 'unfamiliar'
+  const [starBikeMode,    setStarBikeMode]    = useState(false)     // 🚴 騎車模式：每句強制播3次，不自動標記熟悉
   const [starLoopIdx,     setStarLoopIdx]     = useState(0)
   const [starLoopPaused,  setStarLoopPaused]  = useState(false)     // 暫停狀態
   const starLoopRef      = useRef(null)   // setTimeout handle
@@ -17945,7 +17946,9 @@ Steven 不是在收藏電影台詞。
       const useTTS = audioMode !== 'original' || secs === 0
 
       // ── 自動熟悉邏輯：播完一句累計次數，連續 3 次 → 靜默升熟悉 ──
+      // 騎車模式下沒空看畫面標記，完全跳過自動熟悉判定
       const markAutoFamiliar = (phraseId) => {
+        if (starBikeMode) return
         if (starFamiliar[phraseId]) return // 已是熟悉，跳過
         const prev = starPlayCountRef.current[phraseId] ?? 0
         const next = prev + 1
@@ -17956,8 +17959,9 @@ Steven 不是在收藏電影台詞。
         }
       }
       // 加強 / 再加強：分別重複播放 2 / 3 次再前進，其餘（熟悉／未標記）維持播 1 次
+      // 騎車模式：不管標記為何，一律強制連續播 3 次，避免騎車時環境吵聽不清楚
       const famVal = getFam(p)
-      const repeatTarget = famVal === 'reinforce' ? 3 : famVal === false ? 2 : 1
+      const repeatTarget = starBikeMode ? 3 : (famVal === 'reinforce' ? 3 : famVal === false ? 2 : 1)
       const repeatKey = `repeat_${p.id}`
       const advanceOrRepeat = (afterPlay) => {
         if (repeatTarget > 1) {
@@ -18436,6 +18440,16 @@ Steven 不是在收藏電影台詞。
               border:`1px solid ${starReverse ? T.blue+'60' : T.bdr}` }}>
             🔄 反向{starReverse ? ' ON' : ''}
           </div>
+          {/* 🚴 騎車模式：每句強制播3次，不自動標記熟悉 */}
+          <div onClick={() => setStarBikeMode(v => !v)}
+            title="騎車環境吵，每句連續播3次，且不自動標記熟悉度"
+            style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+              padding:'6px 10px', borderRadius:8,
+              color: starBikeMode ? T.grn : T.txt3,
+              background: starBikeMode ? T.grnD : T.surf2,
+              border:`1px solid ${starBikeMode ? T.grn+'60' : T.bdr}` }}>
+            🚴 騎車{starBikeMode ? ' ON' : ''}
+          </div>
           {/* 語速選擇器 */}
           <div style={{ display:'flex', alignItems:'center', gap:6 }}>
             <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>🔊 語速：</span>
@@ -18499,6 +18513,7 @@ Steven 不是在收藏電影台詞。
               textAlign:'center', padding:'6px', background:T.surf2, borderRadius:8 }}>
               🔁 {starLoopMode==='familiar' ? '熟悉' : starLoopMode==='unfamiliar' ? '加強' : '全部'} 無限循環
               · 第 {starLoopIdx+1} / {(starLoopMode==='familiar' ? familiarList : starLoopMode==='unfamiliar' ? unfamiliarList : allPhrases).length} 句
+              {starBikeMode && <span style={{ color:T.grn, marginLeft:6 }}>🚴 每句播3次</span>}
             </div>
           )}
         </div>{/* end fixed header */}
