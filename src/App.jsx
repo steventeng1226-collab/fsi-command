@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.26
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.27
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14068,6 +14068,9 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
         ...s, phrases: (s.phrases ?? []).map(p => p.id === pid ? { ...p, starred: !p.starred } : p)
       }))
     }))})
+    // multiScenePhrases 是進入練習時凍結的一份清單，資料庫改了不會自動反映
+    // 這裡手動同步：取消星號後，立刻把這句從目前這輪練習清單移除
+    setMultiScenePhrases(prev => prev.length > 0 ? prev.filter(p => p.id !== pid) : prev)
   }
   function saveZh(pid, newZh) {
     updateScenePhrases(ps => ps.map(p => p.id === pid ? { ...p, zh: newZh.trim() } : p))
