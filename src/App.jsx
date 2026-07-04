@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.24
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.25
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13519,6 +13519,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   const [kbOpen,    setKbOpen]    = useState(null)   // 展開的知識庫 id
   const [kbEditId,  setKbEditId]  = useState(null)   // 編輯中的知識庫 id
   const [kbNewMode, setKbNewMode] = useState(false)  // 新增模式
+  const [kbDupConfirm, setKbDupConfirm] = useState(null) // { existingId, title, content, cat } 標題重複時的確認
   const [kbTitle,   setKbTitle]   = useState('')
   const [kbContent, setKbContent] = useState('')
   const [kbCat,     setKbCat]     = useState('other') // 選中的分類
@@ -13983,6 +13984,14 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   function updateKbItem(id, title, content, cat) {
     const latestKb = db.knowledgeBase ?? []
     saveKb(latestKb.map(k => k.id === id ? { ...k, title, content, cat: cat ?? k.cat } : k))
+  }
+  function appendKbItem(id, newContent) {
+    const latestKb = db.knowledgeBase ?? []
+    const dateStr = new Date().toISOString().slice(0,10)
+    saveKb(latestKb.map(k => k.id === id
+      ? { ...k, content: (k.content ?? '') + `\n\n── 補充於 ${dateStr} ──\n` + newContent }
+      : k
+    ))
   }
   function deleteKbItem(id, idx) {
     const latestKb = db.knowledgeBase ?? []
@@ -19396,6 +19405,7 @@ Steven 不是在收藏電影台詞。
                   color:'#fff', outline:'none', resize:'vertical' }}/>
               <div style={{ display:'flex', gap:8 }}>
                 <div onClick={() => {
+                    if (kbSavingRef.current) { console.log('[KB] blocked duplicate save'); return }
                     // 標題空白時，從內容找【標題】區塊，或跳過【分類】行取第一個有意義的行
                     let autoTitle = kbTitle.trim()
                     if (!autoTitle) {
@@ -19411,10 +19421,6 @@ Steven 不是在收藏電影台詞。
                         autoTitle = lines.find(l => l.trim().length > 2 && !/^【/.test(l.trim()))?.trim().slice(0,40) || '未命名筆記'
                       }
                     }
-                    // 防重複：已在儲存中則跳過
-                    if (kbSavingRef.current) { console.log('[KB] blocked duplicate save'); return }
-                    kbSavingRef.current = true
-                    setTimeout(() => { kbSavingRef.current = false }, 3000)
                     // 從內容的【分類】行自動偵測分類
                     let finalCat = kbCat
                     // 支援【分類】同行或換行兩種格式
@@ -19433,11 +19439,31 @@ Steven 不是在收藏電影台詞。
                       else if (/易混淆|混淆/.test(catText)) finalCat = 'confuse'
                       else if (/關聯/.test(catText)) finalCat = 'link'
                     }
+
+                    // 編輯既有項目：直接更新，不做重複標題檢查
                     if (kbEditId) {
+                      kbSavingRef.current = true
+                      setTimeout(() => { kbSavingRef.current = false }, 3000)
                       updateKbItem(kbEditId, autoTitle, kbContent, finalCat)
-                    } else {
-                      addKbItem(autoTitle, kbContent, finalCat)
+                      setKbNewMode(false)
+                      setKbEditId(null)
+                      setKbTitle('')
+                      setKbContent('')
+                      setKbCat('other')
+                      return
                     }
+
+                    // 新增項目：標題 trim 後完全比對，重複的話先跳確認，不直接寫入
+                    const latestKbForDup = db.knowledgeBase ?? []
+                    const dup = latestKbForDup.find(k => (k.title ?? '').trim() === autoTitle.trim())
+                    if (dup) {
+                      setKbDupConfirm({ existingId: dup.id, title: autoTitle, content: kbContent, cat: finalCat })
+                      return
+                    }
+
+                    kbSavingRef.current = true
+                    setTimeout(() => { kbSavingRef.current = false }, 3000)
+                    addKbItem(autoTitle, kbContent, finalCat)
                     // 儲存後立即關閉並清空，防止重複觸發
                     setKbNewMode(false)
                     setKbEditId(null)
@@ -19453,6 +19479,54 @@ Steven 不是在收藏電影台詞。
                   style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt3,
                     padding:'8px 14px', background:T.surf2, borderRadius:8,
                     border:`1px solid ${T.bdr}`, textAlign:'center' }}>
+                  取消
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 知識庫標題重複時的確認對話框 */}
+          {kbDupConfirm && (
+            <div style={{ display:'flex', flexDirection:'column', gap:8,
+              background:'#2a1f00', border:`1px solid ${T.amber}60`, borderRadius:10, padding:12 }} className="fadeUp">
+              <div style={{ fontFamily:MONO, fontSize:10, color:T.amber, fontWeight:700 }}>
+                ⚠ 已存在相同標題「{kbDupConfirm.title}」，是否補充到原項目？
+              </div>
+              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
+                補充會把新內容加到原有內容下方並標記日期；覆蓋會直接取代原本內容。
+              </div>
+              <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                <div onClick={() => {
+                    appendKbItem(kbDupConfirm.existingId, kbDupConfirm.content)
+                    setKbDupConfirm(null)
+                    setKbNewMode(false)
+                    setKbEditId(null)
+                    setKbTitle('')
+                    setKbContent('')
+                    setKbCat('other')
+                  }}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                    color:T.bg, background:T.grn, borderRadius:8, padding:'9px', textAlign:'center' }}>
+                  ➕ 補充到原項目
+                </div>
+                <div onClick={() => {
+                    updateKbItem(kbDupConfirm.existingId, kbDupConfirm.title, kbDupConfirm.content, kbDupConfirm.cat)
+                    setKbDupConfirm(null)
+                    setKbNewMode(false)
+                    setKbEditId(null)
+                    setKbTitle('')
+                    setKbContent('')
+                    setKbCat('other')
+                  }}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                    color:T.red, background:T.redD, border:`1px solid ${T.red}50`,
+                    borderRadius:8, padding:'9px', textAlign:'center' }}>
+                  ♻ 覆蓋原項目
+                </div>
+                <div onClick={() => setKbDupConfirm(null)}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt3,
+                    background:T.surf2, border:`1px solid ${T.bdr}`,
+                    borderRadius:8, padding:'9px', textAlign:'center' }}>
                   取消
                 </div>
               </div>
