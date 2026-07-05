@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.31
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.32
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13277,6 +13277,34 @@ function appendDailyDate(dateKey, todayShort) {
   localStorage.setItem(dateKey, trimmed.join('\n'))
 }
 
+// 把「07/02\n07/05」這種原始日期字串，轉成「首次 + 每次間隔天數」，支援跨年份
+function formatDateHistory(dateStr) {
+  const dates = (dateStr ?? '').split('\n').filter(Boolean)
+  if (dates.length === 0) return ''
+  const now = new Date()
+  const n = dates.length
+  const fullDates = new Array(n)
+  // 從最新一筆開始，用今年當基準；若換算出來比現在晚，代表其實是去年
+  const [lm, ld] = dates[n-1].split('/').map(Number)
+  let lastDate = new Date(now.getFullYear(), (lm||1)-1, ld||1)
+  if (lastDate.getTime() > now.getTime() + 86400000) {
+    lastDate = new Date(now.getFullYear() - 1, (lm||1)-1, ld||1)
+  }
+  fullDates[n-1] = lastDate
+  // 從最新往回推：若某一筆換算出來比後一筆晚，代表要往前推一年（跨年份）
+  for (let i = n - 2; i >= 0; i--) {
+    const [mm, dd] = dates[i].split('/').map(Number)
+    const y = fullDates[i+1].getFullYear()
+    let d = new Date(y, (mm||1)-1, dd||1)
+    if (d.getTime() > fullDates[i+1].getTime()) d = new Date(y - 1, (mm||1)-1, dd||1)
+    fullDates[i] = d
+  }
+  return dates.map((d, i) => i === 0
+    ? `${d} 首次`
+    : `${d} +${Math.round((fullDates[i]-fullDates[i-1]) / 86400000)}天`
+  ).join('\n')
+}
+
 function saveTodayPicks(movieId, phraseIds) {
   const today = getTodayStr()
   const feedback = {}
@@ -18357,7 +18385,7 @@ Steven 不是在收藏電影台詞。
                       {(() => {
                         const dateKey = `fsi:daily:date:${movieId}:${dailyPage}`
                         const d = localStorage.getItem(dateKey)
-                        return d ? <span style={{ fontFamily:MONO, fontSize:7, color:T.grn, lineHeight:'1.4', whiteSpace:'pre-wrap' }}>{d}</span> : null
+                        return d ? <span style={{ fontFamily:MONO, fontSize:7, color:T.grn, lineHeight:'1.4', whiteSpace:'pre-wrap' }}>{formatDateHistory(d)}</span> : null
                       })()}
                       <select
                         value={dailyPage}
