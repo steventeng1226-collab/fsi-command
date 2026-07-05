@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.38
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.39
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13517,6 +13517,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
     }
   }, [movieId]) // movieId 切換時重新載入 // eslint-disable-line react-hooks/exhaustive-deps
   const [scenePlaying, setScenePlaying] = useState(false)
+  const [scenePaused,  setScenePaused]  = useState(false) // 真正的暫停（保留位置），跟完全停止分開
   const [scenePlayPos,  setScenePlayPos]  = useState(0)
   const [scenePlayingPhraseId, setScenePlayingPhraseId] = useState(null) // 播放整段時，目前播到哪一句
   const scenePhraseCardRefs = useRef({}) // { [phraseId]: DOM element }，播放整段同步標亮時自動捲動用
@@ -13524,7 +13525,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   const [sceneRate,     setSceneRate]     = useState(0.6) // 0~1 進度
   const [sceneLoop,     setSceneLoop]     = useState(false)
   const [playRate, setPlayRate] = useState(
-    () => parseFloat(localStorage.getItem('fsi:movie:playRate') ?? '0.6')
+    () => parseFloat(localStorage.getItem('fsi:movie:playRate') ?? '0.8')
   )
   const [pushSyncing,     setPushSyncing]     = useState(false)
   const [pullSyncing,     setPullSyncing]     = useState(false)
@@ -14218,6 +14219,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
         } else {
           el.pause(); el._sceneEnd = null
           setScenePlaying(false); setScenePlayPos(0)
+          setScenePaused(false)
           setSleepMins(null); setSleepSecs(null)
           scenePlayingIdRef.current = null
           setScenePlayingPhraseId(null)
@@ -14363,7 +14365,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
       el.playbackRate = playRate
       el.currentTime = offsetStart
       el.play().catch(() => setScenePlaying(false))
-      setScenePlaying(true); setScenePlayPos(0)
+      setScenePlaying(true); setScenePlayPos(0); setScenePaused(false)
       // 播放超過5秒才算真正練習，記錄日期
       clearTimeout(el._practiceDateTimer)
       el._practiceDateTimer = setTimeout(() => { markScenePracticed() }, 5000)
@@ -14387,8 +14389,20 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
     audioElRef.current.pause()
     audioElRef.current._sceneEnd = null
     setScenePlaying(false); setScenePlayPos(0)
+    setScenePaused(false)
     scenePlayingIdRef.current = null
     setScenePlayingPhraseId(null)
+  }
+  // 真正的暫停／繼續：保留播放位置，不影響 scenePlaying，浮動鍵不會消失
+  function pauseSceneAudio() {
+    if (!audioElRef.current) return
+    audioElRef.current.pause()
+    setScenePaused(true)
+  }
+  function resumeSceneAudio() {
+    if (!audioElRef.current) return
+    audioElRef.current.play().catch(() => {})
+    setScenePaused(false)
   }
   function deleteScene(sid) {
     const scene = db.movies.find(m => m.id === movieId)?.scenes.find(s => s.id === sid)
@@ -15959,21 +15973,22 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
     const fab = sceneFabRef.current
     if (!fab) return
     if (view === 'scene' && scenePlaying) {
+      const color = scenePaused ? '#3fb950' : T.amber
       fab.style.display = 'flex'
-      fab.style.background = T.amber
-      fab.style.boxShadow = '0 4px 16px ' + T.amber + '60'
-      fab.style.borderColor = T.amber + '80'
-      fab.textContent = '⏸'
+      fab.style.background = color
+      fab.style.boxShadow = '0 4px 16px ' + color + '60'
+      fab.style.borderColor = color + '80'
+      fab.textContent = scenePaused ? '▶' : '⏸'
     } else {
       fab.style.display = 'none'
     }
-  }, [view, scenePlaying])
+  }, [view, scenePlaying, scenePaused])
 
   useEffect(() => {
     const fab = sceneFabRef.current
     if (!fab) return
-    fab.onclick = () => { scenePlaying ? stopSceneAudio() : playSceneAudio() }
-  }, [scenePlaying])
+    fab.onclick = () => { scenePaused ? resumeSceneAudio() : pauseSceneAudio() }
+  }, [scenePaused])
 
   function goBack(to='list') { setView(to); setPlaying(false); window.speechSynthesis?.cancel() }
 
