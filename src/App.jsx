@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.35
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.37
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13300,7 +13300,7 @@ function formatDateHistory(dateStr) {
     fullDates[i] = d
   }
   return dates.map((d, i) => i === 0
-    ? `${d}首次`
+    ? `${d}`
     : `${d}+${Math.round((fullDates[i]-fullDates[i-1]) / 86400000)}天`
   ).join('　·　')
 }
@@ -13518,6 +13518,9 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   }, [movieId]) // movieId 切換時重新載入 // eslint-disable-line react-hooks/exhaustive-deps
   const [scenePlaying, setScenePlaying] = useState(false)
   const [scenePlayPos,  setScenePlayPos]  = useState(0)
+  const [scenePlayingPhraseId, setScenePlayingPhraseId] = useState(null) // 播放整段時，目前播到哪一句
+  const scenePhraseCardRefs = useRef({}) // { [phraseId]: DOM element }，播放整段同步標亮時自動捲動用
+  const scenePlayingIdRef = useRef(null) // 同步比對用，避免每次 timeupdate 都重複觸發捲動
   const [sceneRate,     setSceneRate]     = useState(0.6) // 0~1 進度
   const [sceneLoop,     setSceneLoop]     = useState(false)
   const [playRate, setPlayRate] = useState(
@@ -14231,10 +14234,15 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
           el.pause(); el._sceneEnd = null
           setScenePlaying(false); setScenePlayPos(0)
           setSleepMins(null); setSleepSecs(null)
+          scenePlayingIdRef.current = null
+          setScenePlayingPhraseId(null)
         }
       } else if (el._sceneStart !== undefined && el._sceneEnd) {
         const pos = (el.currentTime - el._sceneStart) / (el._sceneEnd - el._sceneStart)
         setScenePlayPos(Math.min(1, Math.max(0, pos)))
+        if (el._sceneAbsStart !== undefined) {
+          updateScenePlayingHighlight(el._sceneAbsStart + (el.currentTime - el._sceneStart))
+        }
       }
     }
     setAudioFileName(file.name)
@@ -14260,10 +14268,15 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
           el.pause(); el._sceneEnd = null
           setScenePlaying(false); setScenePlayPos(0)
           setSleepMins(null); setSleepSecs(null)
+          scenePlayingIdRef.current = null
+          setScenePlayingPhraseId(null)
         }
       } else if (el._sceneStart !== undefined && el._sceneEnd) {
         const pos = (el.currentTime - el._sceneStart) / (el._sceneEnd - el._sceneStart)
         setScenePlayPos(Math.min(1, Math.max(0, pos)))
+        if (el._sceneAbsStart !== undefined) {
+          updateScenePlayingHighlight(el._sceneAbsStart + (el.currentTime - el._sceneStart))
+        }
       }
     }
 
@@ -14328,6 +14341,21 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
     return { start: timeToSecs(parts[0]?.trim()), end: timeToSecs(parts[1]?.trim()) }
   }
 
+  // 播放整段時，依目前絕對秒數比對是哪一句，標亮並自動捲動
+  function updateScenePlayingHighlight(absTime) {
+    const match = phrases.find(p => p.startSecs > 0 && absTime >= p.startSecs && absTime < (p.endSecs || p.startSecs + 4))
+    const matchId = match ? match.id : null
+    if (matchId === scenePlayingIdRef.current) return
+    scenePlayingIdRef.current = matchId
+    setScenePlayingPhraseId(matchId)
+    if (matchId) {
+      setTimeout(() => {
+        const el2 = scenePhraseCardRefs.current[matchId]
+        if (el2) el2.scrollIntoView({ behavior:'smooth', block:'center' })
+      }, 50)
+    }
+  }
+
   function playSceneAudio() {
     if (!audioElRef.current || !scene) return
     const { start, end } = parseSceneTimeRange(scene.timeRange)
@@ -14342,6 +14370,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
 
     function doPlay() {
       el._sceneStart = offsetStart; el._sceneEnd = offsetEnd; el._sceneLoop = sceneLoop
+      el._sceneAbsStart = start // 場景在整部電影裡的絕對開始秒數，供同步標亮換算用
       el.playbackRate = playRate
       el.currentTime = offsetStart
       el.play().catch(() => setScenePlaying(false))
@@ -14369,6 +14398,8 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
     audioElRef.current.pause()
     audioElRef.current._sceneEnd = null
     setScenePlaying(false); setScenePlayPos(0)
+    scenePlayingIdRef.current = null
+    setScenePlayingPhraseId(null)
   }
   function deleteScene(sid) {
     const scene = db.movies.find(m => m.id === movieId)?.scenes.find(s => s.id === sid)
@@ -15938,7 +15969,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
   useEffect(() => {
     const fab = sceneFabRef.current
     if (!fab) return
-    if (view === 'list' && scenePlaying) {
+    if (view === 'scene' && scenePlaying) {
       fab.style.display = 'flex'
       fab.style.background = T.amber
       fab.style.boxShadow = '0 4px 16px ' + T.amber + '60'
@@ -17536,9 +17567,11 @@ Steven 不是在收藏電影台詞。
         <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>⭐ 收藏重點句 · 👆 點單字加入單字庫 · ✎ 長按英文編輯 · ✕ 刪除句子</div>
         {/* Sentence list */}
         {(starFilter ? phrases.filter(p=>p.starred) : phrases).map(p => (
-          <div key={p.id} style={{ background:T.surf,
-            border:`1px solid ${p.starred ? T.amber+'60' : p.played ? T.amber+'25' : T.bdr}`,
-            borderRadius:12, padding:'14px 16px', position:'relative' }}>
+          <div key={p.id}
+            ref={el => { if (el) scenePhraseCardRefs.current[p.id] = el }}
+            style={{ background: scenePlayingPhraseId === p.id ? T.amberD : T.surf,
+            border:`1px solid ${scenePlayingPhraseId === p.id ? T.amber : p.starred ? T.amber+'60' : p.played ? T.amber+'25' : T.bdr}`,
+            borderRadius:12, padding:'14px 16px', position:'relative', transition:'background 0.2s, border-color 0.2s' }}>
             {/* EN tokens — 長按 1 秒觸發查詢，滑動自動取消 */}
             <div
               onPointerMove={e => {
