@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.29
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.30
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -18372,11 +18372,23 @@ Steven 不是在收藏電影台詞。
                           border:`1px solid ${T.amber}60`, borderRadius:6, padding:'2px 4px', cursor:'pointer' }}>
                         {Array.from({ length: totalPages }, (_, i) => {
                           const d = localStorage.getItem(`fsi:daily:date:${movieId}:${i}`)
-                          return (
-                            <option key={i} value={i}>
-                              第{i+1}組{d ? ` · ${d}` : ''}
-                            </option>
-                          )
+                          let label = `第${i+1}組`
+                          if (d) {
+                            const dates = d.split('\n').filter(Boolean)
+                            const count = dates.length
+                            const lastStr = dates[dates.length - 1] // "MM/DD"
+                            const [mm, dd] = lastStr.split('/').map(Number)
+                            const now = new Date()
+                            let lastDate = new Date(now.getFullYear(), (mm||1) - 1, dd||1)
+                            // 算出來比今天還晚，代表其實是去年跨年的紀錄，往前推一年
+                            if (lastDate.getTime() > now.getTime() + 86400000) {
+                              lastDate = new Date(now.getFullYear() - 1, (mm||1) - 1, dd||1)
+                            }
+                            const daysAgo = Math.max(0, Math.floor((now - lastDate) / 86400000))
+                            const intervalText = daysAgo === 0 ? '今天' : `${daysAgo}天前`
+                            label = `第${i+1}組 · 練${count}次 · ${intervalText}`
+                          }
+                          return <option key={i} value={i}>{label}</option>
                         })}
                       </select>
                       {(() => {
