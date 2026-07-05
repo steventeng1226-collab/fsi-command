@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.40
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.42
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13518,6 +13518,16 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   }, [movieId]) // movieId 切換時重新載入 // eslint-disable-line react-hooks/exhaustive-deps
   const [scenePlaying, setScenePlaying] = useState(false)
   const [scenePaused,  setScenePaused]  = useState(false) // 真正的暫停（保留位置），跟完全停止分開
+  // ── 場景時間碼整批校正 ────────────────────────────────────────
+  const [tcOpen,      setTcOpen]      = useState(false)   // 展開校正面板
+  const [tcMode,      setTcMode]      = useState('manual') // 'manual'=手動輸入秒差 | 'anchor'=用某句校正
+  const [tcAnchorId,  setTcAnchorId]  = useState('')       // 校正錨點：選中的句子 id
+  const [tcAnchorTime, setTcAnchorTime] = useState('')     // 校正錨點：逐字稿上真正的時間（可直接貼 00:01:17,680 這種格式）
+  const [tcDir,       setTcDir]       = useState('early') // 'early'=目前標記比實際提早 → 要加時間；'late'=標記比實際延後 → 要減時間
+  const [tcSecs,      setTcSecs]      = useState('')      // 秒
+  const [tcMs,        setTcMs]        = useState('')      // 毫秒
+  const [tcMsg,       setTcMsg]       = useState('')
+  const [tcUndoData,  setTcUndoData]  = useState(null)    // { sceneId, timeRange, phrases } 上一次校正前的備份
   const [scenePlayPos,  setScenePlayPos]  = useState(0)
   const [scenePlayingPhraseId, setScenePlayingPhraseId] = useState(null) // 播放整段時，目前播到哪一句
   const scenePhraseCardRefs = useRef({}) // { [phraseId]: DOM element }，播放整段同步標亮時自動捲動用
@@ -14327,6 +14337,104 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
     // "00:05:57 ~ 00:07:59" 或 "00:08:02,498 ~ 00:10:00,382"
     const parts = timeRange.split(/\s*[~～]\s*/)
     return { start: timeToSecs(parts[0]?.trim()), end: timeToSecs(parts[1]?.trim()) }
+  }
+
+  // 秒數轉回 "HH:MM:SS,mmm" 格式，精度到毫秒，供時間碼校正輸出用
+  function secsToFullTimeStr(s) {
+    const totalMs = Math.max(0, Math.round(s * 1000))
+    const h = Math.floor(totalMs / 3600000)
+    const m = Math.floor((totalMs % 3600000) / 60000)
+    const sec = Math.floor((totalMs % 60000) / 1000)
+    const ms = totalMs % 1000
+    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')},${String(ms).padStart(3,'0')}`
+  }
+
+  // 核心位移函式：把整個場景的起訖時間 + 所有句子時間碼，統一位移 offset 秒（可正可負）
+  function shiftSceneTimestamps(offset) {
+    if (!scene || !offset) return false
+
+    // 備份目前狀態，供「復原上次」使用
+    setTcUndoData({
+      sceneId: scene.id,
+      timeRange: scene.timeRange,
+      phrases: (scene.phrases ?? []).map(p => ({ id: p.id, startSecs: p.startSecs, endSecs: p.endSecs })),
+    })
+
+    const { start, end } = parseSceneTimeRange(scene.timeRange)
+    const newTimeRange = `${secsToFullTimeStr(start + offset)} ~ ${secsToFullTimeStr(end + offset)}`
+
+    const newPhrases = (scene.phrases ?? []).map(p => {
+      if (!p.startSecs || p.startSecs <= 0) return p
+      const newStart = Math.max(0, p.startSecs + offset)
+      const newEnd = (p.endSecs && p.endSecs > 0) ? Math.max(0, p.endSecs + offset) : p.endSecs
+      return { ...p, startSecs: newStart, endSecs: newEnd }
+    })
+
+    const newMovies = db.movies.map(m => {
+      if (m.id !== movieId) return m
+      const newScenes = m.scenes.map(sc => {
+        if (sc.id !== sceneId) return sc
+        return { ...sc, timeRange: newTimeRange, phrases: newPhrases }
+      })
+      return { ...m, scenes: newScenes }
+    })
+    saveDb({ ...db, movies: newMovies })
+    return true
+  }
+
+  // 模式一：手動輸入秒差＋方向
+  function applySceneTimeCorrection() {
+    if (!scene) return
+    const secsNum = parseFloat(tcSecs) || 0
+    const msNum = parseFloat(tcMs) || 0
+    const magnitude = secsNum + msNum / 1000
+    if (magnitude <= 0) { setTcMsg('請輸入要校正的秒數或毫秒數'); return }
+    const offset = tcDir === 'early' ? magnitude : -magnitude
+
+    const ok = shiftSceneTimestamps(offset)
+    if (!ok) return
+    setTcMsg(`✓ 已${tcDir==='early' ? '延後' : '提早'} ${magnitude.toFixed(3)} 秒`)
+    setTcSecs(''); setTcMs('')
+  }
+
+  // 模式二：選一句已有時間碼的句子，貼上逐字稿上真正的時間，自動算出校正量
+  function applySceneTimeCorrectionByAnchor() {
+    if (!scene) return
+    const anchorPhrase = (scene.phrases ?? []).find(p => p.id === tcAnchorId)
+    if (!anchorPhrase || !anchorPhrase.startSecs) { setTcMsg('請選擇一句已有時間碼的句子'); return }
+    if (!tcAnchorTime.trim()) { setTcMsg('請輸入這句在逐字稿上真正的時間'); return }
+    const correctSecs = timeToSecs(tcAnchorTime.trim())
+    if (!correctSecs && tcAnchorTime.trim().replace(/[0:,.]/g, '') !== '') {
+      setTcMsg('時間格式看不懂，請用 00:01:17,680 這種格式'); return
+    }
+    const offset = correctSecs - anchorPhrase.startSecs
+    if (Math.abs(offset) < 0.01) { setTcMsg('時間跟目前記錄的一樣，不需校正'); return }
+
+    const ok = shiftSceneTimestamps(offset)
+    if (!ok) return
+    setTcMsg(`✓ 已校正 ${offset > 0 ? '+' : ''}${offset.toFixed(3)} 秒`)
+    setTcAnchorTime('')
+  }
+
+  function undoSceneTimeCorrection() {
+    if (!tcUndoData || tcUndoData.sceneId !== sceneId) { setTcMsg('沒有可復原的校正紀錄'); return }
+
+    const newMovies = db.movies.map(m => {
+      if (m.id !== movieId) return m
+      const newScenes = m.scenes.map(sc => {
+        if (sc.id !== sceneId) return sc
+        const restoredPhrases = (sc.phrases ?? []).map(p => {
+          const backup = tcUndoData.phrases.find(b => b.id === p.id)
+          return backup ? { ...p, startSecs: backup.startSecs, endSecs: backup.endSecs } : p
+        })
+        return { ...sc, timeRange: tcUndoData.timeRange, phrases: restoredPhrases }
+      })
+      return { ...m, scenes: newScenes }
+    })
+    saveDb({ ...db, movies: newMovies })
+
+    setTcUndoData(null)
+    setTcMsg('↺ 已復原上一次校正')
   }
 
   // 播放整段時，依目前絕對秒數比對是哪一句，標亮並自動捲動
@@ -16959,6 +17067,136 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
             🎵 補充時間碼（啟用電影原音）
           </div>
         )}
+
+        {/* 場景時間碼整批校正 */}
+        <div style={{ background:T.surf, border:`1px solid ${tcOpen ? T.amber+'50' : T.bdr}`, borderRadius:11, overflow:'hidden' }}>
+          <div onClick={() => { setTcOpen(v => !v); setTcMsg('') }}
+            style={{ cursor:'pointer', padding:'10px 14px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+            <span style={{ fontFamily:MONO, fontSize:10, color:T.amber, fontWeight:700 }}>⏱ 時間碼整批校正</span>
+            <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>{tcOpen ? '▲' : '▼'}</span>
+          </div>
+          {tcOpen && (
+            <div style={{ padding:'0 14px 14px', display:'flex', flexDirection:'column', gap:10 }} className="fadeUp">
+              {/* 模式切換 */}
+              <div style={{ display:'flex', gap:6 }}>
+                {[{id:'manual', l:'手動輸入秒差'}, {id:'anchor', l:'用某句校正'}].map(o => (
+                  <div key={o.id} onClick={() => { setTcMode(o.id); setTcMsg('') }}
+                    style={{ flex:1, cursor:'pointer', textAlign:'center', padding:'7px 4px', borderRadius:8,
+                      fontFamily:MONO, fontSize:9, fontWeight: tcMode===o.id ? 700 : 400,
+                      background: tcMode===o.id ? T.amber : T.surf2,
+                      border:`1px solid ${tcMode===o.id ? T.amber : T.bdr}`,
+                      color: tcMode===o.id ? T.bg : T.txt3 }}>
+                    {o.l}
+                  </div>
+                ))}
+              </div>
+
+              {tcMode === 'manual' ? (
+                <>
+                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
+                    目前這個場景的時間碼，相對實際情況：
+                  </div>
+                  <div style={{ display:'flex', gap:6 }}>
+                    {[{id:'early', l:'標早了（要往後調）'}, {id:'late', l:'標晚了（要往前調）'}].map(o => (
+                      <div key={o.id} onClick={() => setTcDir(o.id)}
+                        style={{ flex:1, cursor:'pointer', textAlign:'center', padding:'8px 4px', borderRadius:8,
+                          fontFamily:MONO, fontSize:9,
+                          background: tcDir===o.id ? T.amberD : T.surf2,
+                          border:`1px solid ${tcDir===o.id ? T.amber+'60' : T.bdr}`,
+                          color: tcDir===o.id ? T.amber : T.txt3 }}>
+                        {o.l}
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display:'flex', gap:8 }}>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:3 }}>秒</div>
+                      <input type="number" min="0" value={tcSecs}
+                        onChange={e => setTcSecs(e.target.value)}
+                        placeholder="9"
+                        style={{ width:'100%', boxSizing:'border-box' }}/>
+                    </div>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:3 }}>毫秒</div>
+                      <input type="number" min="0" max="999" value={tcMs}
+                        onChange={e => setTcMs(e.target.value)}
+                        placeholder="500"
+                        style={{ width:'100%', boxSizing:'border-box' }}/>
+                    </div>
+                  </div>
+                  <div style={{ display:'flex', gap:8 }}>
+                    <div onClick={applySceneTimeCorrection}
+                      style={{ flex:2, cursor:'pointer', background:T.amber, borderRadius:9, padding:'10px',
+                        textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700, color:T.bg }}>
+                      ✓ 套用校正
+                    </div>
+                    <div onClick={undoSceneTimeCorrection}
+                      style={{ flex:1, cursor: (tcUndoData?.sceneId === sceneId) ? 'pointer' : 'default',
+                        background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:9, padding:'10px',
+                        textAlign:'center', fontFamily:MONO, fontSize:10,
+                        color: (tcUndoData?.sceneId === sceneId) ? T.txt2 : T.txt3,
+                        opacity: (tcUndoData?.sceneId === sceneId) ? 1 : 0.5 }}>
+                      ↺ 復原上次
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
+                    選一句已經有時間碼的句子，貼上這句在逐字稿上真正的時間，程式自動算出要校正多少
+                  </div>
+                  <div>
+                    <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:3 }}>選擇句子</div>
+                    <select value={tcAnchorId} onChange={e => setTcAnchorId(e.target.value)}
+                      style={{ width:'100%', fontFamily:MONO, fontSize:10, color:T.txt, background:T.surf2,
+                        border:`1px solid ${T.bdr2}`, borderRadius:8, padding:'8px', boxSizing:'border-box' }}>
+                      <option value="">— 請選擇 —</option>
+                      {(scene.phrases ?? []).filter(p => p.startSecs > 0).map(p => (
+                        <option key={p.id} value={p.id}>
+                          {secsToFullTimeStr(p.startSecs).slice(0, 8)} － {p.en.slice(0, 26)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:3 }}>
+                      這句在逐字稿上真正的時間（可直接貼 00:01:17,680）
+                    </div>
+                    <input type="text" value={tcAnchorTime}
+                      onChange={e => setTcAnchorTime(e.target.value)}
+                      placeholder="00:01:17,680"
+                      style={{ width:'100%', boxSizing:'border-box' }}/>
+                  </div>
+                  <div style={{ display:'flex', gap:8 }}>
+                    <div onClick={applySceneTimeCorrectionByAnchor}
+                      style={{ flex:2, cursor:'pointer', background:T.amber, borderRadius:9, padding:'10px',
+                        textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700, color:T.bg }}>
+                      ✓ 套用校正
+                    </div>
+                    <div onClick={undoSceneTimeCorrection}
+                      style={{ flex:1, cursor: (tcUndoData?.sceneId === sceneId) ? 'pointer' : 'default',
+                        background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:9, padding:'10px',
+                        textAlign:'center', fontFamily:MONO, fontSize:10,
+                        color: (tcUndoData?.sceneId === sceneId) ? T.txt2 : T.txt3,
+                        opacity: (tcUndoData?.sceneId === sceneId) ? 1 : 0.5 }}>
+                      ↺ 復原上次
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
+                會同時校正這個場景的起訖時間，以及場景內所有句子的時間碼
+              </div>
+              {tcMsg && (
+                <div style={{ fontFamily:MONO, fontSize:9, textAlign:'center',
+                  color: (tcMsg.startsWith('✓') || tcMsg.startsWith('↺')) ? T.grn : T.red }}>
+                  {tcMsg}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* 第三行：播放整段 + 單次 + 循環 + 逐句 */}
         {(audioMode === 'original' || audioReady || audioMode === 'tts') && (
