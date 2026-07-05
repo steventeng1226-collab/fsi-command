@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.32
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.33
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -18382,11 +18382,6 @@ Steven 不是在收藏電影台詞。
                           borderRadius:7, padding:'3px 8px', fontFamily:MONO, fontSize:8, color:'#f87171' }}>
                         ⏹ 結束
                       </div>
-                      {(() => {
-                        const dateKey = `fsi:daily:date:${movieId}:${dailyPage}`
-                        const d = localStorage.getItem(dateKey)
-                        return d ? <span style={{ fontFamily:MONO, fontSize:7, color:T.grn, lineHeight:'1.4', whiteSpace:'pre-wrap' }}>{formatDateHistory(d)}</span> : null
-                      })()}
                       <select
                         value={dailyPage}
                         onChange={e => {
@@ -18424,6 +18419,16 @@ Steven 不是在收藏電影台詞。
                           : null
                       })()}
                     </div>
+                    {/* 日期歷史（首次+間隔天數）：獨立一整行，避免跟標題列擠在一起 */}
+                    {(() => {
+                      const dateKey = `fsi:daily:date:${movieId}:${dailyPage}`
+                      const d = localStorage.getItem(dateKey)
+                      return d ? (
+                        <div style={{ fontFamily:MONO, fontSize:7, color:T.grn, lineHeight:1.5, whiteSpace:'pre-wrap' }}>
+                          {formatDateHistory(d)}
+                        </div>
+                      ) : null
+                    })()}
                     <div style={{ height:6, background:T.surf2, borderRadius:3, overflow:'hidden' }}>
                       <div style={{ width:`${(doneCount/total)*100}%`, height:'100%', background:T.amber, transition:'width 0.3s' }} />
                     </div>
@@ -19649,6 +19654,49 @@ Steven 不是在收藏電影台詞。
         </div>
           )
         })()}
+
+        {/* ── 電影資料同步（全域，只在片庫首頁出現一次）── */}
+        <div style={{ display:'flex', flexDirection:'column', gap:8,
+          background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:13, padding:'14px 16px' }}>
+          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>
+            🎬 電影資料同步 (Google Sheets)
+          </div>
+          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.7 }}>
+            同步範圍：場景、句子、⭐收藏、單字庫、逐字稿、📚知識庫、📚背誦庫、練習日期與游標（涵蓋所有電影）
+          </div>
+          <div style={{ display:'flex', gap:8 }}>
+            <div onClick={pushSyncing ? undefined : pushMovieDB}
+              style={{ flex:1, cursor: pushSyncing ? 'default' : 'pointer',
+                background: pushSyncing ? T.surf2 : T.blueD,
+                border:`1px solid ${pushSyncing ? T.bdr : T.blue+'50'}`,
+                borderRadius:9, padding:'10px', textAlign:'center',
+                fontFamily:MONO, fontSize:10, color: pushSyncing ? T.txt3 : T.blue,
+                display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+              {pushSyncing && <span style={{ display:'inline-block', width:8, height:8,
+                border:'1.5px solid transparent', borderTopColor:T.blue,
+                borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>}
+              ☁ 推送到 Sheets
+            </div>
+            <div onClick={pullSyncing ? undefined : pullMovieDB}
+              style={{ flex:1, cursor: pullSyncing ? 'default' : 'pointer',
+                background: pullSyncing ? T.surf2 : T.grnD,
+                border:`1px solid ${pullSyncing ? T.bdr : T.grn+'50'}`,
+                borderRadius:9, padding:'10px', textAlign:'center',
+                fontFamily:MONO, fontSize:10, color: pullSyncing ? T.txt3 : T.grn,
+                display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+              {pullSyncing && <span style={{ display:'inline-block', width:8, height:8,
+                border:'1.5px solid transparent', borderTopColor:T.grn,
+                borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>}
+              ⟳ 從 Sheets 讀入
+            </div>
+          </div>
+          {movieSyncMsg && (
+            <div style={{ fontFamily:MONO, fontSize:9, lineHeight:1.7,
+              color: movieSyncMsg.startsWith('✓') ? T.grn : movieSyncMsg.startsWith('✗') ? T.red : T.txt3 }}>
+              {movieSyncMsg}
+            </div>
+          )}
+        </div>
       </div>
     )
   }
@@ -20144,49 +20192,6 @@ Steven 不是在收藏電影台詞。
                 )}
               </div>
             )}
-
-            {/* ── 電影資料同步 ── */}
-      <div style={{ display:'flex', flexDirection:'column', gap:8,
-        background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:13, padding:'14px 16px' }}>
-        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>
-          🎬 電影資料同步 (Google Sheets)
-        </div>
-        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.7 }}>
-          同步範圍：場景、句子、⭐收藏、單字庫、逐字稿、📚知識庫、📚背誦庫、練習日期與游標
-        </div>
-        <div style={{ display:'flex', gap:8 }}>
-          <div onClick={pushSyncing ? undefined : pushMovieDB}
-            style={{ flex:1, cursor: pushSyncing ? 'default' : 'pointer',
-              background: pushSyncing ? T.surf2 : T.blueD,
-              border:`1px solid ${pushSyncing ? T.bdr : T.blue+'50'}`,
-              borderRadius:9, padding:'10px', textAlign:'center',
-              fontFamily:MONO, fontSize:10, color: pushSyncing ? T.txt3 : T.blue,
-              display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
-            {pushSyncing && <span style={{ display:'inline-block', width:8, height:8,
-              border:'1.5px solid transparent', borderTopColor:T.blue,
-              borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>}
-            ☁ 推送到 Sheets
-          </div>
-          <div onClick={pullSyncing ? undefined : pullMovieDB}
-            style={{ flex:1, cursor: pullSyncing ? 'default' : 'pointer',
-              background: pullSyncing ? T.surf2 : T.grnD,
-              border:`1px solid ${pullSyncing ? T.bdr : T.grn+'50'}`,
-              borderRadius:9, padding:'10px', textAlign:'center',
-              fontFamily:MONO, fontSize:10, color: pullSyncing ? T.txt3 : T.grn,
-              display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
-            {pullSyncing && <span style={{ display:'inline-block', width:8, height:8,
-              border:'1.5px solid transparent', borderTopColor:T.grn,
-              borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>}
-            ⟳ 從 Sheets 讀入
-          </div>
-        </div>
-        {movieSyncMsg && (
-          <div style={{ fontFamily:MONO, fontSize:9, lineHeight:1.7,
-            color: movieSyncMsg.startsWith('✓') ? T.grn : movieSyncMsg.startsWith('✗') ? T.red : T.txt3 }}>
-            {movieSyncMsg}
-          </div>
-        )}
-      </div>
     </div>
   )
 }
