@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.27
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.29
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -17995,31 +17995,9 @@ Steven 不是在收藏電影台詞。
           })
         }
 
-        if (isReverse) {
-          // 反向模式：先播中文 → 停頓 1.2 秒 → 再播英文
-          const uttZh = new SpeechSynthesisUtterance(p.zh || p.en)
-          uttZh.lang = 'zh-TW'; uttZh.rate = playRate
-          uttZh.onend = () => {
-            if (!starLoopActiveRef.current || starLoopPausedRef.current) return
-            starLoopRef.current = setTimeout(() => {
-              if (!starLoopActiveRef.current || starLoopPausedRef.current) return
-              const uttEn = new SpeechSynthesisUtterance(p.en)
-              uttEn.lang = 'en-US'; uttEn.rate = playRate
-              uttEn.onend  = goNext
-              uttEn.onerror = goNext
-              window.speechSynthesis?.speak(uttEn)
-            }, 1200)
-          }
-          uttZh.onerror = () => {
-            // 中文 TTS 失敗，直接播英文
-            if (!starLoopActiveRef.current || starLoopPausedRef.current) return
-            const uttEn = new SpeechSynthesisUtterance(p.en)
-            uttEn.lang = 'en-US'; uttEn.rate = playRate
-            uttEn.onend = goNext; uttEn.onerror = goNext
-            window.speechSynthesis?.speak(uttEn)
-          }
-          window.speechSynthesis?.speak(uttZh)
-        } else {
+        // 音訊一律只播英文（反向模式的「先看中文」只是畫面呈現，不影響播放內容，
+        // 跟有精確時間碼、走電影原聲的句子行為保持一致）
+        {
           // 一般模式：只播英文
           const utt = new SpeechSynthesisUtterance(p.en)
           utt.lang = 'en-US'; utt.rate = playRate
@@ -18396,7 +18374,7 @@ Steven 不是在收藏電影台詞。
                           const d = localStorage.getItem(`fsi:daily:date:${movieId}:${i}`)
                           return (
                             <option key={i} value={i}>
-                              第{i+1}組{d ? ` ✓${d}` : ''}
+                              第{i+1}組{d ? ` · ${d}` : ''}
                             </option>
                           )
                         })}
