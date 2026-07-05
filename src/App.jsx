@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.33
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.34
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13300,9 +13300,9 @@ function formatDateHistory(dateStr) {
     fullDates[i] = d
   }
   return dates.map((d, i) => i === 0
-    ? `${d} 首次`
-    : `${d} +${Math.round((fullDates[i]-fullDates[i-1]) / 86400000)}天`
-  ).join('\n')
+    ? `${d}首次`
+    : `${d}+${Math.round((fullDates[i]-fullDates[i-1]) / 86400000)}天`
+  ).join('　·　')
 }
 
 function saveTodayPicks(movieId, phraseIds) {
@@ -18424,7 +18424,7 @@ Steven 不是在收藏電影台詞。
                       const dateKey = `fsi:daily:date:${movieId}:${dailyPage}`
                       const d = localStorage.getItem(dateKey)
                       return d ? (
-                        <div style={{ fontFamily:MONO, fontSize:7, color:T.grn, lineHeight:1.5, whiteSpace:'pre-wrap' }}>
+                        <div style={{ fontFamily:MONO, fontSize:7, color:T.grn, lineHeight:1.5, whiteSpace:'normal' }}>
                           {formatDateHistory(d)}
                         </div>
                       ) : null
