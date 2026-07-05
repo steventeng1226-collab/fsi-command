@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.37
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.38
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14206,6 +14206,32 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
     }
   }
 
+  // 場景整段播放的 timeupdate 處理邏輯抽成共用函式
+  // 每次呼叫都會重新綁定，確保用的是「當下」這個場景的 phrases，不會殘留舊場景的資料
+  function attachSceneTimeUpdate(el) {
+    el.ontimeupdate = () => {
+      if (el._sceneEnd && el.currentTime >= el._sceneEnd) {
+        if (el._sceneLoop) {
+          el.currentTime = el._sceneStart ?? 0
+          el.play().catch(() => { setScenePlaying(false); setScenePlayPos(0) })
+          setScenePlayPos(0)
+        } else {
+          el.pause(); el._sceneEnd = null
+          setScenePlaying(false); setScenePlayPos(0)
+          setSleepMins(null); setSleepSecs(null)
+          scenePlayingIdRef.current = null
+          setScenePlayingPhraseId(null)
+        }
+      } else if (el._sceneStart !== undefined && el._sceneEnd) {
+        const pos = (el.currentTime - el._sceneStart) / (el._sceneEnd - el._sceneStart)
+        setScenePlayPos(Math.min(1, Math.max(0, pos)))
+        if (el._sceneAbsStart !== undefined) {
+          updateScenePlayingHighlight(el._sceneAbsStart + (el.currentTime - el._sceneStart))
+        }
+      }
+    }
+  }
+
   function loadAudioFile(file, idbKey) {
     if (!file) return
     if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current)
@@ -14224,27 +14250,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
     el.oncanplay = () => setAudioReady(true)
     el.onerror = () => setAudioReady(false)
     // 整段播放進度追蹤
-    el.ontimeupdate = () => {
-      if (el._sceneEnd && el.currentTime >= el._sceneEnd) {
-        if (el._sceneLoop) {
-          el.currentTime = el._sceneStart ?? 0
-          el.play().catch(() => { setScenePlaying(false); setScenePlayPos(0) })
-          setScenePlayPos(0)
-        } else {
-          el.pause(); el._sceneEnd = null
-          setScenePlaying(false); setScenePlayPos(0)
-          setSleepMins(null); setSleepSecs(null)
-          scenePlayingIdRef.current = null
-          setScenePlayingPhraseId(null)
-        }
-      } else if (el._sceneStart !== undefined && el._sceneEnd) {
-        const pos = (el.currentTime - el._sceneStart) / (el._sceneEnd - el._sceneStart)
-        setScenePlayPos(Math.min(1, Math.max(0, pos)))
-        if (el._sceneAbsStart !== undefined) {
-          updateScenePlayingHighlight(el._sceneAbsStart + (el.currentTime - el._sceneStart))
-        }
-      }
-    }
+    attachSceneTimeUpdate(el)
     setAudioFileName(file.name)
     localStorage.setItem('fsi:movie:audioName', file.name)
     setAudioSource('local')
@@ -14258,27 +14264,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
     const displayName = label || url.split('/').pop()
 
     // 共用 ontimeupdate handler
-    el.ontimeupdate = () => {
-      if (el._sceneEnd && el.currentTime >= el._sceneEnd) {
-        if (el._sceneLoop) {
-          el.currentTime = el._sceneStart ?? 0
-          el.play().catch(() => { setScenePlaying(false); setScenePlayPos(0) })
-          setScenePlayPos(0)
-        } else {
-          el.pause(); el._sceneEnd = null
-          setScenePlaying(false); setScenePlayPos(0)
-          setSleepMins(null); setSleepSecs(null)
-          scenePlayingIdRef.current = null
-          setScenePlayingPhraseId(null)
-        }
-      } else if (el._sceneStart !== undefined && el._sceneEnd) {
-        const pos = (el.currentTime - el._sceneStart) / (el._sceneEnd - el._sceneStart)
-        setScenePlayPos(Math.min(1, Math.max(0, pos)))
-        if (el._sceneAbsStart !== undefined) {
-          updateScenePlayingHighlight(el._sceneAbsStart + (el.currentTime - el._sceneStart))
-        }
-      }
-    }
+    attachSceneTimeUpdate(el)
 
     setAudioFileName(displayName)
     setAudioSource('cloud')
@@ -14371,6 +14357,9 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
     function doPlay() {
       el._sceneStart = offsetStart; el._sceneEnd = offsetEnd; el._sceneLoop = sceneLoop
       el._sceneAbsStart = start // 場景在整部電影裡的絕對開始秒數，供同步標亮換算用
+      attachSceneTimeUpdate(el) // 重新綁定，避免用到切換 MP3 檔案前殘留的舊場景 phrases
+      scenePlayingIdRef.current = null
+      setScenePlayingPhraseId(null)
       el.playbackRate = playRate
       el.currentTime = offsetStart
       el.play().catch(() => setScenePlaying(false))
