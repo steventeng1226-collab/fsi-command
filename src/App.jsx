@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.30
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.31
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13268,6 +13268,15 @@ function getYesterdayStr() {
   return d.toISOString().slice(0,10)
 }
 
+// 寫入某組的練習日期，只保留最近 5 筆，避免無限累積
+function appendDailyDate(dateKey, todayShort) {
+  const prev = localStorage.getItem(dateKey) ?? ''
+  if (prev.includes(todayShort)) return
+  const dates = prev ? [...prev.split('\n').filter(Boolean), todayShort] : [todayShort]
+  const trimmed = dates.slice(-5) // 只留最近 5 筆
+  localStorage.setItem(dateKey, trimmed.join('\n'))
+}
+
 function saveTodayPicks(movieId, phraseIds) {
   const today = getTodayStr()
   const feedback = {}
@@ -18199,8 +18208,7 @@ Steven 不是在收藏電影台詞。
               }
               const todayShort = new Date().toLocaleDateString('zh-TW', { month:'2-digit', day:'2-digit' }).replace('/','/').slice(-5)
               const _dk = `fsi:daily:date:${movieId}:${dailyPage}`
-              const _prev = localStorage.getItem(_dk) ?? ''
-              if (!_prev.includes(todayShort)) localStorage.setItem(_dk, _prev ? _prev + '\n' + todayShort : todayShort)
+              appendDailyDate(_dk, todayShort)
               markBatchCompleted(movieId, dailyPage)
               setReviewPickMode(false); setReviewPicks(new Set())
               setMultiScenePhrases([]); setView('library')
@@ -18329,7 +18337,7 @@ Steven 不是在收藏電影台詞。
                   <>
                     {/* 標題行：⭐標題 + 結束練習 + 日期 + 組別選單 + 進度 */}
                     <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
-                      <span style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:T.amber }}>⭐ 重點句子練習</span>
+                      <span style={{ fontFamily:MONO, fontSize:9, fontWeight:700, color:T.amber }}>⭐ 重點句子練習</span>
                       <div onClick={() => {
                           // 寫入游標和練習日期
                           const lastKey = multiScenePhrases[multiScenePhrases.length - 1]?._sortKey
@@ -18338,19 +18346,18 @@ Steven 不是在收藏電影台詞。
                           }
                           const today = new Date().toLocaleDateString('zh-TW', { month:'2-digit', day:'2-digit' }).replace('/','/').slice(-5)
                           const _dk = `fsi:daily:date:${movieId}:${dailyPage}`
-                          const _prev = localStorage.getItem(_dk) ?? ''
-                          if (!_prev.includes(today)) localStorage.setItem(_dk, _prev ? _prev + '\n' + today : today)
+                          appendDailyDate(_dk, today)
                           setMultiScenePhrases([])
                           setView('library')
                         }}
                         style={{ cursor:'pointer', background:'#3a1a1a', border:'1px solid #f8717150',
-                          borderRadius:7, padding:'3px 8px', fontFamily:MONO, fontSize:9, color:'#f87171' }}>
+                          borderRadius:7, padding:'3px 8px', fontFamily:MONO, fontSize:8, color:'#f87171' }}>
                         ⏹ 結束
                       </div>
                       {(() => {
                         const dateKey = `fsi:daily:date:${movieId}:${dailyPage}`
                         const d = localStorage.getItem(dateKey)
-                        return d ? <span style={{ fontFamily:MONO, fontSize:8, color:T.grn, lineHeight:'1.4', whiteSpace:'pre-wrap' }}>{d}</span> : null
+                        return d ? <span style={{ fontFamily:MONO, fontSize:7, color:T.grn, lineHeight:'1.4', whiteSpace:'pre-wrap' }}>{d}</span> : null
                       })()}
                       <select
                         value={dailyPage}
@@ -18368,25 +18375,15 @@ Steven 不是在收藏電影台詞。
                           setDailyPage(targetPage)
                           setMultiScenePhrases(batch)
                         }}
-                        style={{ fontFamily:MONO, fontSize:9, color:T.amber, background:T.surf2,
+                        style={{ fontFamily:MONO, fontSize:8, color:T.amber, background:T.surf2,
                           border:`1px solid ${T.amber}60`, borderRadius:6, padding:'2px 4px', cursor:'pointer' }}>
                         {Array.from({ length: totalPages }, (_, i) => {
                           const d = localStorage.getItem(`fsi:daily:date:${movieId}:${i}`)
                           let label = `第${i+1}組`
                           if (d) {
                             const dates = d.split('\n').filter(Boolean)
-                            const count = dates.length
-                            const lastStr = dates[dates.length - 1] // "MM/DD"
-                            const [mm, dd] = lastStr.split('/').map(Number)
-                            const now = new Date()
-                            let lastDate = new Date(now.getFullYear(), (mm||1) - 1, dd||1)
-                            // 算出來比今天還晚，代表其實是去年跨年的紀錄，往前推一年
-                            if (lastDate.getTime() > now.getTime() + 86400000) {
-                              lastDate = new Date(now.getFullYear() - 1, (mm||1) - 1, dd||1)
-                            }
-                            const daysAgo = Math.max(0, Math.floor((now - lastDate) / 86400000))
-                            const intervalText = daysAgo === 0 ? '今天' : `${daysAgo}天前`
-                            label = `第${i+1}組 · 練${count}次 · ${intervalText}`
+                            const lastStr = dates[dates.length - 1] // "MM/DD"，最近一次練習日期
+                            label = `第${i+1}組 · ${lastStr}`
                           }
                           return <option key={i} value={i}>{label}</option>
                         })}
