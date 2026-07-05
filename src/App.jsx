@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.39
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.40
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14512,9 +14512,9 @@ ${numbered}`
       setAiStarBusy(false)
     }
   }
-  function addToVocab(word, phonetic, zh, example) {
+  function addToVocab(word, phonetic, zh, example, pos) {
     if (db.vocab.find(v => v.word.toLowerCase() === word.toLowerCase())) return false
-    saveDb({ ...db, vocab:[...db.vocab, { id:'v_'+Date.now(), word, phonetic, zh, example, movieId }] })
+    saveDb({ ...db, vocab:[...db.vocab, { id:'v_'+Date.now(), word, phonetic, zh, example, pos, movieId }] })
     return true
   }
   function deleteVocab(vid) { saveDb({ ...db, vocab: db.vocab.filter(v => v.id !== vid) }) }
@@ -14654,7 +14654,7 @@ ${numbered}`
     try {
       const prompt = `For the English word/phrase "${word}" used in: "${sentence}"
 Return ONLY a JSON object, no markdown:
-{"phonetic":"/IPA/","zh":"中文意思（3~5字）","example":"${sentence}"}`
+{"phonetic":"/IPA/","pos":"詞性（例如：名詞/動詞/形容詞/副詞/介系詞/連接詞/片語，用繁體中文2-4字表示）","zh":"中文意思（3~5字）","example":"${sentence}"}`
       const raw = await callAI([{ role:'user', content:prompt }])
       const info = JSON.parse(raw.replace(/```json|```/g,'').trim())
       setInlineLookup(prev => prev?.word === word ? { ...prev, busy: false, info } : prev)
@@ -14670,7 +14670,7 @@ Return ONLY a JSON object, no markdown:
     setManualBusy(true); setManualResult(null)
     try {
       const prompt = `For the English word or phrase "${input.trim()}", return ONLY JSON, no markdown:
-{"phonetic":"/IPA/","zh":"繁體中文意思（5~15字）","example":"一句自然的英文例句"}`
+{"phonetic":"/IPA/","pos":"詞性（例如：名詞/動詞/形容詞/副詞/介系詞/連接詞/片語，用繁體中文2-4字表示，若是片語則標示「片語」）","zh":"繁體中文意思（5~15字）","example":"一句自然的英文例句"}`
       const raw = await callAI([{ role:'user', content:prompt }])
       const res = JSON.parse(raw.replace(/```json|```/g,'').trim())
       setManualResult(res)
@@ -16072,6 +16072,13 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                 <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                   {manualResult.phonetic}
                 </span>
+                {manualResult.pos && (
+                  <span style={{ fontFamily:MONO, fontSize:9, color:T.blue,
+                    background:T.blueD, border:`1px solid ${T.blue}40`,
+                    borderRadius:6, padding:'2px 7px' }}>
+                    {manualResult.pos}
+                  </span>
+                )}
               </div>
               <div style={{ fontFamily:MONO, fontSize:13, color:T.txt2 }}>{manualResult.zh}</div>
               {/* 例句（可編輯） */}
@@ -16086,7 +16093,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               <div onClick={() => {
                   const word = manualInput.trim()
                   if (!word) return
-                  const ok = addToVocab(word, manualResult.phonetic, manualResult.zh, manualExample)
+                  const ok = addToVocab(word, manualResult.phonetic, manualResult.zh, manualExample, manualResult.pos)
                   if (ok) { setManualOpen(false); setManualInput(''); setManualResult(null) }
                   else alert('已存在單字庫')
                 }}
@@ -16113,6 +16120,13 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:5 }}>
             <span style={{ fontFamily:MONO, fontSize:15, color:T.amber, fontWeight:700 }}>{v.word}</span>
             <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>{v.phonetic}</span>
+            {v.pos && (
+              <span style={{ fontFamily:MONO, fontSize:9, color:T.blue,
+                background:T.blueD, border:`1px solid ${T.blue}40`,
+                borderRadius:6, padding:'2px 7px' }}>
+                {v.pos}
+              </span>
+            )}
             <div onClick={() => speakPhrase('vocab_'+v.id, v.word)}
               style={{ cursor:'pointer', width:24, height:24, borderRadius:6,
                 display:'flex', alignItems:'center', justifyContent:'center',
@@ -17799,6 +17813,13 @@ Steven 不是在收藏電影台詞。
                       {inlineLookup.info.phonetic}
                     </span>
                   )}
+                  {inlineLookup.info?.pos && (
+                    <span style={{ fontFamily:MONO, fontSize:9, color:T.blue,
+                      background:T.blueD, border:`1px solid ${T.blue}40`,
+                      borderRadius:6, padding:'2px 7px' }}>
+                      {inlineLookup.info.pos}
+                    </span>
+                  )}
                   {/* 🔊 系統 TTS 播放單字 */}
                   <span onClick={() => speak(inlineLookup.word, 0.8)}
                     style={{ cursor:'pointer', fontSize:14, padding:'2px 6px',
@@ -17824,7 +17845,7 @@ Steven 不是在收藏電影台詞。
                     </div>
                     <div onClick={() => {
                         addToVocab(inlineLookup.word, inlineLookup.info.phonetic,
-                          inlineLookup.info.zh, inlineLookup.info.example)
+                          inlineLookup.info.zh, inlineLookup.info.example, inlineLookup.info.pos)
                         setInlineLookup(null)
                       }}
                       style={{ cursor:'pointer', background:T.blue, borderRadius:8,
