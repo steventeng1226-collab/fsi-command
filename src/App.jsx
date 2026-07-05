@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.34
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.35
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13673,6 +13673,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   const starLoopActiveRef = useRef(false) // 是否循環中
   const starLoopPausedRef = useRef(false) // 暫停 ref（供 callback 讀取）
   const fabRef = useRef(null)      // FAB DOM element
+  const sceneFabRef = useRef(null) // 場景「播放整段」專用浮動按鈕
   const backBtnRef = useRef(null)  // 浮動返回鍵 DOM element
   const pauseFnRef = useRef(null)  // pause function ref
   const resumeFnRef = useRef(null) // resume function ref
@@ -15906,6 +15907,53 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
     fab.addEventListener('click', handler)
     return () => fab.removeEventListener('click', handler)
   }, [])
+
+  // ── 場景「播放整段」浮動播放/暫停鍵：掛到 document.body，捲動也能控制 ──
+  useEffect(() => {
+    const fab = document.createElement('div')
+    fab.id = 'scene-play-fab'
+    Object.assign(fab.style, {
+      position: 'fixed',
+      bottom: '88px',
+      right: '20px',
+      zIndex: '9999',
+      width: '56px',
+      height: '56px',
+      borderRadius: '50%',
+      display: 'none',
+      alignItems: 'center',
+      justifyContent: 'center',
+      cursor: 'pointer',
+      fontSize: '22px',
+      userSelect: 'none',
+      fontFamily: 'monospace',
+      transition: 'background 0.2s, box-shadow 0.2s',
+      border: '2px solid',
+    })
+    document.body.appendChild(fab)
+    sceneFabRef.current = fab
+    return () => { fab.remove() }
+  }, [])
+
+  useEffect(() => {
+    const fab = sceneFabRef.current
+    if (!fab) return
+    if (view === 'list' && scenePlaying) {
+      fab.style.display = 'flex'
+      fab.style.background = T.amber
+      fab.style.boxShadow = '0 4px 16px ' + T.amber + '60'
+      fab.style.borderColor = T.amber + '80'
+      fab.textContent = '⏸'
+    } else {
+      fab.style.display = 'none'
+    }
+  }, [view, scenePlaying])
+
+  useEffect(() => {
+    const fab = sceneFabRef.current
+    if (!fab) return
+    fab.onclick = () => { scenePlaying ? stopSceneAudio() : playSceneAudio() }
+  }, [scenePlaying])
 
   function goBack(to='list') { setView(to); setPlaying(false); window.speechSynthesis?.cancel() }
 
