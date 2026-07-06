@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.42
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.43
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13870,25 +13870,28 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
     return () => window.removeEventListener('storage', onStorage)
   }, [])
 
-  // ── File System Access API: 自動恢復上次 MP3 ──────────────────
+  // ── File System Access API: 自動恢復上次 MP3（依電影+檔案分開記憶，不會跨電影污染）──
   useEffect(() => {
     async function restoreAudioHandle() {
       if (!('showOpenFilePicker' in window)) return
+      const parts = getMovieMp3Parts(movie)
+      const targetKey = parts[0]?.idbKey // 只嘗試還原「目前這部電影」的 Part 1
+      if (!targetKey) return
       try {
         const req = indexedDB.open('fsi_audio', 1)
         req.onupgradeneeded = e => e.target.result.createObjectStore('handles')
         req.onsuccess = async e => {
           const db2 = e.target.result
           const tx  = db2.transaction('handles', 'readonly')
-          const getReq = tx.objectStore('handles').get('mp3')
+          const getReq = tx.objectStore('handles').get(targetKey)
           getReq.onsuccess = async ev => {
             const handle = ev.target.result
-            if (!handle) return
+            if (!handle) return // 這部電影沒存過檔案，不動作，交給雲端/快取邏輯處理
             try {
               // timeout 保護：5秒內未完成視為失敗
               const timeoutId = setTimeout(() => {
                 setAudioFileName('')
-                clearAudioHandle()
+                clearAudioHandle(targetKey)
               }, 5000)
               let perm = await handle.queryPermission({ mode:'read' })
               if (perm === 'prompt') {
@@ -13896,44 +13899,44 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
               }
               if (perm !== 'granted') {
                 clearTimeout(timeoutId)
-                clearAudioHandle()
+                clearAudioHandle(targetKey)
                 return
               }
               const file = await handle.getFile()
               clearTimeout(timeoutId)
-              loadAudioFile(file)
+              loadAudioFile(file, targetKey) // 帶入 idbKey，確保 audioSrcKeyRef 正確標記是哪個檔案
             } catch {
-              clearAudioHandle()
+              clearAudioHandle(targetKey)
             }
           }
         }
       } catch {}
     }
     restoreAudioHandle()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [movieId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  function clearAudioHandle() {
+  function clearAudioHandle(idbKey) {
     try {
       const req = indexedDB.open('fsi_audio', 1)
       req.onsuccess = e => {
         const db2 = e.target.result
         const tx = db2.transaction('handles', 'readwrite')
-        tx.objectStore('handles').delete('mp3')
+        tx.objectStore('handles').delete(idbKey)
       }
     } catch {}
     setAudioFileName('')
     setAudioReady(false)
   }
 
-  async function saveAudioHandle(handle) {
-    if (!handle) return
+  async function saveAudioHandle(handle, idbKey) {
+    if (!handle || !idbKey) return
     try {
       const req = indexedDB.open('fsi_audio', 1)
       req.onupgradeneeded = e => e.target.result.createObjectStore('handles')
       req.onsuccess = e => {
         const db2 = e.target.result
         const tx = db2.transaction('handles', 'readwrite')
-        tx.objectStore('handles').put(handle, 'mp3')
+        tx.objectStore('handles').put(handle, idbKey)
       }
     } catch {}
   }
@@ -13945,7 +13948,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
           types:[{ description:'Audio', accept:{'audio/*':['.mp3','.m4a','.aac','.wav','.ogg']} }]
         })
         const file = await handle.getFile()
-        await saveAudioHandle(handle)
+        await saveAudioHandle(handle, idbKey) // 用 idbKey 分開記憶，不會覆蓋別部電影/別個檔案的記錄
         loadAudioFile(file, idbKey)
       } catch(e) {
         if (e.name !== 'AbortError') console.error(e)
@@ -13959,6 +13962,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
       inp?.click()
     }
   }
+
 
   // ── auto push debounce ref ───────────────────────────────────
   const autoPushTimer = useRef(null)
