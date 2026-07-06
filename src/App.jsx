@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.44
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.45
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13531,7 +13531,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   const [scenePaused,  setScenePaused]  = useState(false) // 真正的暫停（保留位置），跟完全停止分開
   // ── 場景時間碼整批校正 ────────────────────────────────────────
   const [tcOpen,      setTcOpen]      = useState(false)   // 展開校正面板
-  const [tcMode,      setTcMode]      = useState('manual') // 'manual'=手動輸入秒差 | 'anchor'=用某句校正
+  const [tcMode,      setTcMode]      = useState('anchor') // 'manual'=手動輸入秒差 | 'anchor'=用某句校正（預設，不用判斷方向）
   const [tcAnchorId,  setTcAnchorId]  = useState('')       // 校正錨點：選中的句子 id
   const [tcAnchorTime, setTcAnchorTime] = useState('')     // 校正錨點：逐字稿上真正的時間（可直接貼 00:01:17,680 這種格式）
   const [tcDir,       setTcDir]       = useState('early') // 'early'=目前標記比實際提早 → 要加時間；'late'=標記比實際延後 → 要減時間
@@ -17117,17 +17117,21 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               {tcMode === 'manual' ? (
                 <>
                   <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
-                    目前這個場景的時間碼，相對實際情況：
+                    播放時，你聽到的聲音內容，跟畫面顯示的句子相比：
                   </div>
                   <div style={{ display:'flex', gap:6 }}>
-                    {[{id:'early', l:'標早了（要往後調）'}, {id:'late', l:'標晚了（要往前調）'}].map(o => (
+                    {[
+                      {id:'early', l:'我聽到的是「後面」的劇情', sub:'畫面標太早，要往後調'},
+                      {id:'late',  l:'我聽到的是「前面」的劇情', sub:'畫面標太晚，要往前調'},
+                    ].map(o => (
                       <div key={o.id} onClick={() => setTcDir(o.id)}
                         style={{ flex:1, cursor:'pointer', textAlign:'center', padding:'8px 4px', borderRadius:8,
                           fontFamily:MONO, fontSize:9,
                           background: tcDir===o.id ? T.amberD : T.surf2,
                           border:`1px solid ${tcDir===o.id ? T.amber+'60' : T.bdr}`,
                           color: tcDir===o.id ? T.amber : T.txt3 }}>
-                        {o.l}
+                        <div>{o.l}</div>
+                        <div style={{ fontSize:8, opacity:0.75, marginTop:3 }}>{o.sub}</div>
                       </div>
                     ))}
                   </div>
@@ -17147,6 +17151,28 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                         style={{ width:'100%', boxSizing:'border-box' }}/>
                     </div>
                   </div>
+                  {/* 套用前的即時預覽：不用只靠猜方向，直接看數字對不對 */}
+                  {(() => {
+                    if (!scene) return null
+                    const secsNum = parseFloat(tcSecs) || 0
+                    const msNum = parseFloat(tcMs) || 0
+                    const magnitude = secsNum + msNum / 1000
+                    if (magnitude <= 0) return null
+                    const offset = tcDir === 'early' ? magnitude : -magnitude
+                    const { start, end } = parseSceneTimeRange(scene.timeRange)
+                    return (
+                      <div style={{ background:T.surf2, borderRadius:8, padding:'8px 10px',
+                        display:'flex', flexDirection:'column', gap:3 }}>
+                        <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>套用後預覽（尚未套用）</div>
+                        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                          目前：{scene.timeRange}
+                        </div>
+                        <div style={{ fontFamily:MONO, fontSize:9, color:T.amber }}>
+                          套用後：{secsToFullTimeStr(start + offset)} ~ {secsToFullTimeStr(end + offset)}
+                        </div>
+                      </div>
+                    )
+                  })()}
                   <div style={{ display:'flex', gap:8 }}>
                     <div onClick={applySceneTimeCorrection}
                       style={{ flex:2, cursor:'pointer', background:T.amber, borderRadius:9, padding:'10px',
