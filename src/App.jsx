@@ -7327,16 +7327,12 @@ function AppIcon({ size = 36 }) {
 // ═══════════════════════════════════════════════════════════════
 // HEADER
 // ═══════════════════════════════════════════════════════════════
-function Header({ stats, audioMode, toggleAudioMode }) {
-  const xp = stats?.xp ?? 0
-  const lvl = [...LEVELS].reverse().find(l => xp >= l.min) ?? LEVELS[0]
-  const nxt = LEVELS[LEVELS.indexOf(lvl) + 1]
-  const pct = nxt ? Math.min(100, ((xp - lvl.min) / (nxt.min - lvl.min)) * 100) : 100
+function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase }) {
   return (
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.45
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.46
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -7347,13 +7343,16 @@ function Header({ stats, audioMode, toggleAudioMode }) {
               letterSpacing:'0.06em', fontWeight:700 }}>{label}</span>
           })()}
         </div>
-        <div style={{ display:'flex', alignItems:'center', gap:7, marginTop:5 }}>
-          <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2, whiteSpace:'nowrap' }}>{lvl.name}</span>
-          <div style={{ flex:1, height:3, background:T.bdr2, borderRadius:2, overflow:'hidden' }}>
-            <div style={{ width:`${pct}%`, height:'100%', background:lvl.clr, borderRadius:2, transition:'width 0.7s ease' }}/>
+        {/* 知識庫快速切換：隨時可以跳過去存東西，存完馬上切回原本畫面 */}
+        {onOpenKnowledgeBase && (
+          <div onClick={onOpenKnowledgeBase}
+            style={{ display:'inline-flex', alignItems:'center', gap:5, marginTop:5,
+              cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.amber,
+              background:T.amberD, border:`1px solid ${T.amber}40`,
+              borderRadius:7, padding:'3px 9px' }}>
+            📚 知識庫
           </div>
-          <span style={{ fontFamily:MONO, fontSize:9, color:T.amber, whiteSpace:'nowrap' }}>{xp} XP</span>
-        </div>
+        )}
       </div>
       {/* 全域音軌切換 🎬 / 🔊 */}
       {toggleAudioMode && (
@@ -13349,7 +13348,7 @@ function getDueReviews(movieId) {
   } catch { return [] }
 }
 
-function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
+function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpSignal, onReturnFromKb }) {
   const [db, setDb] = useState(() => {
     try {
       const s = localStorage.getItem('fsi:movie:db')
@@ -13405,6 +13404,15 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
     return localStorage.getItem('fsi:movie:selected') || 'jerry_maguire'
   })
   const [sceneId,    setSceneId]    = useState(null)
+  const [kbReturnState, setKbReturnState] = useState(null) // { view, sceneId } 從知識庫快速跳轉前的畫面快照
+  // 存完知識庫後，如果是從快速跳轉過來的，自動切回原本畫面
+  function autoReturnFromKbIfNeeded() {
+    if (!kbReturnState) return
+    setView(kbReturnState.view)
+    setSceneId(kbReturnState.sceneId)
+    setKbReturnState(null)
+    onReturnFromKb?.()
+  }
   const [selectedSceneIds, setSelectedSceneIds] = useState(new Set()) // 多場景選擇播放
   const [multiScenePhrases, setMultiScenePhrases] = useState([]) // 多場景合併重點句
   const [dailyPage, setDailyPage] = useState(0) // 重點句子練習：當前頁碼（每頁固定句數）
@@ -13463,6 +13471,16 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   const [cloudAudioUrl, setCloudAudioUrl] = useState('')
   const [partStatus, setPartStatus] = useState(['idle','idle','idle','idle']) // 4個 MP3 各自狀態
   const setPartN = (n, v) => setPartStatus(prev => prev.map((s,i) => i===n ? v : s))
+
+  // ── 知識庫快速切換：收到訊號時記住目前畫面，跳到片庫首頁並捲動到知識庫區塊 ──
+  useEffect(() => {
+    if (!kbJumpSignal) return // 初次掛載時是 0，不動作
+    setKbReturnState({ view, sceneId })
+    setView('library')
+    setTimeout(() => {
+      document.getElementById('kb-section')?.scrollIntoView({ behavior:'smooth', block:'start' })
+    }, 100)
+  }, [kbJumpSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 請求瀏覽器「持久化儲存」：一般網頁的 IndexedDB 快取是「盡力而為」，
   // 系統可能在儲存壓力大或判定為不常用時自動清掉，即使手機還有很多空間。
@@ -13539,6 +13557,10 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   const [tcMs,        setTcMs]        = useState('')      // 毫秒
   const [tcMsg,       setTcMsg]       = useState('')
   const [tcUndoData,  setTcUndoData]  = useState(null)    // { sceneId, timeRange, phrases } 上一次校正前的備份
+  // 切換場景時，把校正輸入欄位清空，避免上一個場景殘留的秒差/錨點被誤套用到新場景
+  useEffect(() => {
+    setTcSecs(''); setTcMs(''); setTcAnchorId(''); setTcAnchorTime(''); setTcMsg('')
+  }, [sceneId])
   const [scenePlayPos,  setScenePlayPos]  = useState(0)
   const [scenePlayingPhraseId, setScenePlayingPhraseId] = useState(null) // 播放整段時，目前播到哪一句
   const scenePhraseCardRefs = useRef({}) // { [phraseId]: DOM element }，播放整段同步標亮時自動捲動用
@@ -19668,8 +19690,16 @@ Steven 不是在收藏電影台詞。
             { id:'other',   label:'📝 其他',          color:'#94a3b8' },
           ]
           return (
-        <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:13, padding:'14px 16px',
+        <div id="kb-section" style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:13, padding:'14px 16px',
           display:'flex', flexDirection:'column', gap:10 }}>
+          {kbReturnState && (
+            <div onClick={autoReturnFromKbIfNeeded}
+              style={{ cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6,
+                fontFamily:MONO, fontSize:11, fontWeight:700, color:T.bg,
+                background:T.amber, borderRadius:10, padding:'11px' }}>
+              ← 返回練習
+            </div>
+          )}
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
             <span style={{ fontFamily:MONO, fontSize:11, color:T.amber, fontWeight:700 }}>📚 知識庫</span>
             <div style={{ display:'flex', gap:6 }}>
@@ -19881,6 +19911,7 @@ Steven 不是在收藏電影台詞。
                       setKbTitle('')
                       setKbContent('')
                       setKbCat('other')
+                      autoReturnFromKbIfNeeded()
                       return
                     }
 
@@ -19901,6 +19932,7 @@ Steven 不是在收藏電影台詞。
                     setKbTitle('')
                     setKbContent('')
                     setKbCat('other')
+                    autoReturnFromKbIfNeeded()
                   }}
                   style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
                     color:'#000', padding:'8px', background:T.amber, borderRadius:8, textAlign:'center' }}>
@@ -21817,6 +21849,18 @@ export default function App() {
     setMovieToast(msg)
     setTimeout(() => setMovieToast(''), 2000)
   }
+  // 知識庫快速切換：記住原本在哪個分頁，存完知識庫可以馬上切回去
+  const [kbJumpSignal, setKbJumpSignal] = useState(0)
+  const [returnTab, setReturnTab] = useState(null)
+  function openKnowledgeBase() {
+    setReturnTab(tab)
+    setTab('movie')
+    setKbJumpSignal(s => s + 1)
+  }
+  function returnFromKnowledgeBase() {
+    if (returnTab && returnTab !== 'movie') setTab(returnTab)
+    setReturnTab(null)
+  }
 
   function toggleAudioMode() {
     const next = audioMode === 'original' ? 'tts' : 'original'
@@ -21960,7 +22004,7 @@ export default function App() {
   return (
     <div style={{ background:T.bg, minHeight:'100vh', maxWidth:480, margin:'0 auto', display:'flex', flexDirection:'column', position:'relative' }}>
       <style>{G}</style>
-      <Header stats={stats} audioMode={audioMode} toggleAudioMode={toggleAudioMode}/>
+      <Header audioMode={audioMode} toggleAudioMode={toggleAudioMode} onOpenKnowledgeBase={openKnowledgeBase}/>
       <div style={{ flex:1, overflowY:'auto', paddingBottom:'calc(110px + env(safe-area-inset-bottom, 20px))' }}>
         {tab==='phrase'   && <PhraseTab   settings={settings}/>}
         {tab==='practice' && <PracticeTab {...P}/>}
@@ -21968,7 +22012,8 @@ export default function App() {
         {tab==='vocab'    && <VocabTab    {...P}/>}
         {tab==='email'    && <EmailTab    {...P}/>}
         <div style={{display: tab==='movie' ? 'flex' : 'none', flexDirection:'column', flex:1, minHeight:0}}>
-          <MovieTab audioMode={audioMode} setAudioMode={setAudioMode} movieToast={movieToast} showMovieToast={showMovieToast}/>
+          <MovieTab audioMode={audioMode} setAudioMode={setAudioMode} movieToast={movieToast} showMovieToast={showMovieToast}
+            kbJumpSignal={kbJumpSignal} onReturnFromKb={returnFromKnowledgeBase}/>
         </div>
         {tab==='settings' && <SettingsTab {...P} movieToast={movieToast} showMovieToast={showMovieToast}/>}
       </div>
