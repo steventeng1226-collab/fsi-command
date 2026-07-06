@@ -7336,7 +7336,7 @@ function Header({ stats, audioMode, toggleAudioMode }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.43
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.44
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13464,6 +13464,17 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
   const [partStatus, setPartStatus] = useState(['idle','idle','idle','idle']) // 4個 MP3 各自狀態
   const setPartN = (n, v) => setPartStatus(prev => prev.map((s,i) => i===n ? v : s))
 
+  // ── 請求瀏覽器「持久化儲存」：一般網頁的 IndexedDB 快取是「盡力而為」，
+  // 系統可能在儲存壓力大或判定為不常用時自動清掉，即使手機還有很多空間。
+  // 請求 persist 之後，瀏覽器會盡量避免自動清除，MP3 快取才不會關閉 App 後又消失。
+  useEffect(() => {
+    if (navigator.storage?.persist) {
+      navigator.storage.persisted().then(already => {
+        if (!already) navigator.storage.persist()
+      }).catch(() => {})
+    }
+  }, [])
+
   // ── 開 App 自動載入 MP3（動態架構，支援多部電影）──
   useEffect(() => {
     localStorage.removeItem('fsi:movie:cloudUrl')
@@ -14307,7 +14318,11 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
 
       // 沒有快取，用網路載入並同時快取
       if (!navigator.onLine) {
-        // 離線且沒快取
+        // 離線且沒快取：徹底清空播放器，避免誤播到別部電影/別個檔案殘留的舊音檔
+        el.pause()
+        el.removeAttribute('src')
+        el.load()
+        audioSrcKeyRef.current = null
         setAudioReady(false)
         setAudioFileName('❌ 離線且無快取：' + displayName)
         return
@@ -14328,9 +14343,13 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast }) {
           el.load()
         })
         .catch(() => {
-          // fetch 失敗（GitHub 無此檔案）→ 提示用選檔方式載入
+          // fetch 失敗（GitHub 無此檔案）→ 徹底清空播放器，避免殘留其他電影的舊音檔被誤播
           const parts5 = (url ?? '').split('__')
           const pi5 = parts5.length === 3 ? parseInt(parts5[2]) + 1 : '?'
+          el.pause()
+          el.removeAttribute('src')
+          el.load()
+          audioSrcKeyRef.current = null
           setAudioReady(false)
           setAudioFileName(`📁 請點 P${pi5} 選檔 載入 MP3`)
         })
