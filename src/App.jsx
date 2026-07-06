@@ -7332,7 +7332,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.46
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.48
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14419,7 +14419,13 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
       if (m.id !== movieId) return m
       const newScenes = m.scenes.map(sc => {
         if (sc.id !== sceneId) return sc
-        return { ...sc, timeRange: newTimeRange, phrases: newPhrases }
+        return {
+          ...sc,
+          timeRange: newTimeRange,
+          phrases: newPhrases,
+          // 存進場景資料本身（不是只留在記憶體），重開頁面也能看到上次校正了多少
+          lastCorrection: { offset, appliedAt: new Date().toISOString().slice(0,10) },
+        }
       })
       return { ...m, scenes: newScenes }
     })
@@ -17122,6 +17128,14 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           </div>
           {tcOpen && (
             <div style={{ padding:'0 14px 14px', display:'flex', flexDirection:'column', gap:10 }} className="fadeUp">
+              {/* 上次校正紀錄：存在場景資料本身，重開頁面也看得到 */}
+              {scene?.lastCorrection && (
+                <div style={{ fontFamily:MONO, fontSize:9, color:T.grn,
+                  background:T.surf2, borderRadius:8, padding:'6px 10px' }}>
+                  📌 上次校正：{scene.lastCorrection.offset > 0 ? '+' : ''}{scene.lastCorrection.offset.toFixed(3)} 秒
+                  （{scene.lastCorrection.appliedAt}）
+                </div>
+              )}
               {/* 模式切換 */}
               <div style={{ display:'flex', gap:6 }}>
                 {[{id:'manual', l:'手動輸入秒差'}, {id:'anchor', l:'用某句校正'}].map(o => (
@@ -17162,14 +17176,14 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                       <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:3 }}>秒</div>
                       <input type="number" min="0" value={tcSecs}
                         onChange={e => setTcSecs(e.target.value)}
-                        placeholder="9"
+                        placeholder="0"
                         style={{ width:'100%', boxSizing:'border-box' }}/>
                     </div>
                     <div style={{ flex:1 }}>
                       <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:3 }}>毫秒</div>
                       <input type="number" min="0" max="999" value={tcMs}
                         onChange={e => setTcMs(e.target.value)}
-                        placeholder="500"
+                        placeholder="0"
                         style={{ width:'100%', boxSizing:'border-box' }}/>
                     </div>
                   </div>
@@ -20164,10 +20178,8 @@ Steven 不是在收藏電影台詞。
               // 自動填入時間：找時間最晚的場景結束時間 + 2.5分鐘；沒有場景時從 00:00:00 開始
               try {
                 const scenes = movie?.scenes ?? []
-                const fmt = s => {
-                  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = Math.floor(s%60)
-                  return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0')
-                }
+                // 用有毫秒精度的格式，避免每次新增場景都把小數點位數截斷、誤差持續累積
+                const fmt = secsToFullTimeStr
                 if (scenes.length === 0) {
                   setStartTime('00:00:00')
                   setEndTime(fmt(150))
