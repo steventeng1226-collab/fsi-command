@@ -7332,7 +7332,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.48
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.49
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14430,6 +14430,16 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
       return { ...m, scenes: newScenes }
     })
     saveDb({ ...db, movies: newMovies })
+
+    // 若目前多場景練習模式正在使用中（multiScenePhrases 是進入當下凍結的快照，
+    // 資料庫改了不會自動反映），同步更新裡面對應句子的時間碼，避免必須手動退出重進
+    if (multiScenePhrases.length > 0) {
+      setMultiScenePhrases(prev => prev.map(p => {
+        const updated = newPhrases.find(np => np.id === p.id)
+        return updated ? { ...p, startSecs: updated.startSecs, endSecs: updated.endSecs } : p
+      }))
+    }
+
     return true
   }
 
@@ -17238,7 +17248,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                       <option value="">— 請選擇 —</option>
                       {(scene.phrases ?? []).filter(p => p.startSecs > 0).map(p => (
                         <option key={p.id} value={p.id}>
-                          {secsToFullTimeStr(p.startSecs).slice(0, 8)} － {p.en.slice(0, 26)}
+                          {secsToFullTimeStr(p.startSecs)} － {p.en.slice(0, 26)}
                         </option>
                       ))}
                     </select>
