@@ -7332,7 +7332,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.49
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.51
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13618,6 +13618,12 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
       if (!navigator.onLine) return
       setAutoSyncStatus('syncing')
       try {
+        // 若上次有變更還沒確認推送成功（例如上次3秒debounce到期前就關閉/切背景App），
+        // 先補推一次，避免等下比對時間戳記時，雲端的舊資料反過來把本機新資料覆蓋掉
+        let hasPending = false
+        try { hasPending = localStorage.getItem(PENDING_PUSH_KEY) === '1' } catch(e) {}
+        if (hasPending) { await autoPush(db) }
+
         const r    = await fetch(APPS_SCRIPT_URL)
         const json = await r.json()
         if (!json.ok || !json.movieDB) { setAutoSyncStatus('idle'); return }
@@ -13999,6 +14005,11 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
 
   // ── auto push debounce ref ───────────────────────────────────
   const autoPushTimer = useRef(null)
+  const autoPushRetryTimer = useRef(null)
+  const PENDING_PUSH_KEY = 'fsi:movie:pendingPush'
+  // 隨時保存目前最新的 db，供離線/背景重試時使用（避免 closure 抓到舊資料）
+  const dbRef = useRef(db)
+  useEffect(() => { dbRef.current = db }, [db])
 
   function saveDb(nd) {
     const ndWithTs = { ...nd, updatedAt: Date.now() }
@@ -14027,12 +14038,17 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
       // QuotaExceededError：movieDB 仍然太大，告警但不崩潰
       console.warn('saveDb quota exceeded:', e)
     }
+    // 標記「這次變更尚未確認推送成功」。同步在這裡（而非debounce之後）立刻寫入，
+    // 是為了避免App在3秒debounce到期前就被關閉/切背景，導致這次變更完全沒被記錄要重推
+    try { localStorage.setItem(PENDING_PUSH_KEY, '1') } catch(e) {}
     if (autoPushTimer.current) clearTimeout(autoPushTimer.current)
     autoPushTimer.current = setTimeout(() => autoPush(ndWithTs), 3000)
   }
 
-  async function autoPush(ndWithTs) {
-    if (!navigator.onLine) return
+  // attempt: 重試次數(從0開始)，用來算指數退避的等待時間，最多重試5次
+  async function autoPush(ndWithTs, attempt = 0) {
+    if (!navigator.onLine) return // 離線：保留 pending 旗標，等 online 事件觸發重試
+    setAutoSyncStatus('syncing')
     try {
       const dbToSync = {
         ...ndWithTs,
@@ -14055,8 +14071,38 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
       const form = new FormData()
       form.append('data', JSON.stringify({ movieDB: dbToSync, transcriptDB }))
       await fetch(APPS_SCRIPT_URL, { method:'POST', mode:'no-cors', body:form })
-    } catch { /* 靜默失敗，下次再試 */ }
+      // no-cors 模式看不到真正的 HTTP 回應狀態，只要 fetch 沒丟例外就視為已送出成功
+      try { localStorage.removeItem(PENDING_PUSH_KEY) } catch(e) {}
+      setAutoSyncStatus('ok')
+    } catch {
+      // 推送失敗：保留 pending 旗標，並排一次重試（指數退避，最多5次：3s→6s→12s→24s→30s）
+      setAutoSyncStatus('err')
+      if (attempt < 5) {
+        const delay = Math.min(30000, 3000 * Math.pow(2, attempt))
+        if (autoPushRetryTimer.current) clearTimeout(autoPushRetryTimer.current)
+        autoPushRetryTimer.current = setTimeout(() => autoPush(ndWithTs, attempt + 1), delay)
+      }
+    }
   }
+
+  // 回到前景 / 網路恢復時，若還有未確認推送成功的變更，主動補推一次
+  useEffect(() => {
+    function retryPendingPush() {
+      let pending = false
+      try { pending = localStorage.getItem(PENDING_PUSH_KEY) === '1' } catch(e) {}
+      if (pending && navigator.onLine) autoPush(dbRef.current)
+    }
+    function onVisible() {
+      if (document.visibilityState === 'visible') retryPendingPush()
+    }
+    window.addEventListener('online', retryPendingPush)
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      window.removeEventListener('online', retryPendingPush)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [])
+
 
   // 記錄場景最後練習日期（實際按播放才觸發）
   // 知識庫 CRUD
@@ -15392,7 +15438,10 @@ ${numbered}`
           const sc = db.movies?.reduce((a,m) => a + (m.scenes?.length ?? 0), 0) ?? 0
           const vc = db.vocab?.length ?? 0
           const dataSize = JSON.stringify(dbToSync).length
-          setMovieSyncMsg(`✓ 已推送：${mc} 部 · ${sc} 場景 · 單字庫 ${vc} 個 · 背誦庫 ${practiceState.extraPhrases.length} 句 (${Math.round(dataSize/1000)}KB)`)
+          // 「背誦庫」= 所有電影裡標記重點(rating 4或5)的句子數，不是舊版'fsi:ph:extra'（現在已不使用，永遠是0）
+          const memCount = (db.movies ?? []).flatMap(mv => (mv.scenes ?? []).flatMap(s => s.phrases ?? []))
+            .filter(p => Number(p.rating) === 4 || Number(p.rating) === 5).length
+          setMovieSyncMsg(`✓ 已推送：${mc} 部 · ${sc} 場景 · 單字庫 ${vc} 個 · 背誦庫 ${memCount} 句 (${Math.round(dataSize/1000)}KB)`)
         } else {
           setMovieSyncMsg('⚠ 已送出，請至 Sheets 確認')
         }
@@ -19525,7 +19574,7 @@ Steven 不是在收藏電影台詞。
                       <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2 }}>{sceneCount} 場景</span>
                       {hasTranscript && <span style={{ fontFamily:MONO, fontSize:9, color:T.grn }}>✓ 逐字稿</span>}
                       <span style={{ fontFamily:MONO, fontSize:9, color:T.grn }}>
-                        ✓ {allPhrases.filter(p => p.starred && p.familiar === true).length}
+                        ✓ 已熟悉 {allPhrases.filter(p => p.starred && p.familiar === true).length}
                       </span>
                       <span onClick={e => { e.stopPropagation(); selectMovie(m.id); setTimeout(() => setView('starred'), 50) }}
                         style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#f87171' }}>
@@ -19605,7 +19654,7 @@ Steven 不是在收藏電影台詞。
                     ⭐ 重點句子練習
                   </span>
                   <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
-                    {Math.min(needPracticeCount, Number(localStorage.getItem('fsi:daily:count')) || 30)}/{needPracticeCount} 句 →
+                    →
                   </span>
                 </div>
               </div>
@@ -20177,9 +20226,11 @@ Steven 不是在收藏電影台詞。
           {/* 自動同步狀態 */}
           <div style={{ fontFamily:MONO, fontSize:8, color:
             autoSyncStatus === 'syncing' ? T.amber :
-            autoSyncStatus === 'ok' ? T.grn : T.txt3 }}>
+            autoSyncStatus === 'ok' ? T.grn :
+            autoSyncStatus === 'err' ? T.red : T.txt3 }}>
             {autoSyncStatus === 'syncing' ? '⟳ 同步中' :
-             autoSyncStatus === 'ok' ? '✓ 已同步' : ''}
+             autoSyncStatus === 'ok' ? '✓ 已同步' :
+             autoSyncStatus === 'err' ? '⚠ 推送失敗，重試中' : ''}
           </div>
           <div onClick={() => {
               setTranscriptDraft(''); setTranscriptEditMode(false)
