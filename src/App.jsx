@@ -7332,7 +7332,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.52
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.53
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14133,6 +14133,43 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     const latestKb = db.knowledgeBase ?? []
     saveKb(latestKb.filter((k, i) => i !== idx))
   }
+  // 從內容的【分類】行偵測分類（供新增/編輯儲存與批次重新分類共用）
+  function detectKbCatFromContent(content, fallback) {
+    let finalCat = fallback
+    const kbLines = (content ?? '').split('\n')
+    const catIdx = kbLines.findIndex(l => /^【分類】/.test(l.trim()))
+    if (catIdx >= 0) {
+      const sameLine = kbLines[catIdx].replace(/^【分類】/, '').trim()
+      const catText = sameLine || kbLines.slice(catIdx+1).find(l => l.trim())?.trim() || ''
+      if (/動詞/.test(catText)) finalCat = 'verb'
+      else if (/電影固定/.test(catText)) finalCat = 'movie'
+      else if (/文法易混淆/.test(catText)) finalCat = 'grammar'
+      else if (/文法/.test(catText)) finalCat = 'grammar'
+      else if (/電影金句|金句/.test(catText)) finalCat = 'quote'
+      else if (/工作/.test(catText)) finalCat = 'work'
+      else if (/易混淆|混淆/.test(catText)) finalCat = 'confuse'
+      else if (/管理智慧|管理/.test(catText)) finalCat = 'mgmt'
+      else if (/人生智慧|人生/.test(catText)) finalCat = 'life'
+      else if (/關聯/.test(catText)) finalCat = 'link'
+    }
+    return finalCat
+  }
+  // 批次重新分類：掃描目前分類為「其他」的知識庫項目，重新讀取內容裡的【分類】文字歸位
+  function reclassifyOtherKbItems() {
+    const latestKb = db.knowledgeBase ?? []
+    let changedCount = 0
+    const updated = latestKb.map(k => {
+      if (k.cat !== 'other') return k
+      const detected = detectKbCatFromContent(k.content, 'other')
+      if (detected !== 'other' && detected !== k.cat) {
+        changedCount++
+        return { ...k, cat: detected }
+      }
+      return k
+    })
+    saveKb(updated)
+    return changedCount
+  }
 
   function markScenePracticed() {
     // 只在沒有日期時才記錄（保留第一次練習日期，不覆蓋）
@@ -19805,6 +19842,18 @@ Steven 不是在收藏電影台詞。
                   🗑 去重複
                 </div>
               )}
+              {/* 重新分類按鈕（舊資料修復用）：掃描「其他」分類，依內容【分類】文字重新歸位 */}
+              {kbList.some(k => k.cat === 'other' && detectKbCatFromContent(k.content, 'other') !== 'other') && (
+                <div onClick={() => {
+                    const changed = reclassifyOtherKbItems()
+                    showMovieToast(changed > 0 ? `✅ 已重新分類 ${changed} 筆` : '沒有需要調整的項目')
+                  }}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:8, color:'#38bdf8',
+                    padding:'4px 8px', background:'#0d2a3a', borderRadius:7,
+                    border:'1px solid #38bdf850' }}>
+                  🔄 重新分類
+                </div>
+              )}
             </div>
           </div>
           {/* ChatGPT 指令面板 */}
@@ -19960,25 +20009,7 @@ Steven 不是在收藏電影台詞。
                       }
                     }
                     // 從內容的【分類】行自動偵測分類
-                    let finalCat = kbCat
-                    // 支援【分類】同行或換行兩種格式
-                    const kbLines = kbContent.split('\n')
-                    const catIdx = kbLines.findIndex(l => /^【分類】/.test(l.trim()))
-                    if (catIdx >= 0) {
-                      // 同行：【分類】文法易混淆，或換行：下一非空行
-                      const sameLine = kbLines[catIdx].replace(/^【分類】/, '').trim()
-                      const catText = sameLine || kbLines.slice(catIdx+1).find(l => l.trim())?.trim() || ''
-                      if (/動詞/.test(catText)) finalCat = 'verb'
-                      else if (/電影固定/.test(catText)) finalCat = 'movie'
-                      else if (/文法易混淆/.test(catText)) finalCat = 'grammar'
-                      else if (/文法/.test(catText)) finalCat = 'grammar'
-                      else if (/電影金句|金句/.test(catText)) finalCat = 'quote'
-                      else if (/工作/.test(catText)) finalCat = 'work'
-                      else if (/易混淆|混淆/.test(catText)) finalCat = 'confuse'
-                      else if (/管理智慧|管理/.test(catText)) finalCat = 'mgmt'
-                      else if (/人生智慧|人生/.test(catText)) finalCat = 'life'
-                      else if (/關聯/.test(catText)) finalCat = 'link'
-                    }
+                    const finalCat = detectKbCatFromContent(kbContent, kbCat)
 
                     // 編輯既有項目：直接更新，不做重複標題檢查
                     if (kbEditId) {
