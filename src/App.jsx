@@ -7332,7 +7332,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.61
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.63
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13606,6 +13606,8 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const [kbOpen,    setKbOpen]    = useState(null)   // 展開的知識庫 id
   const [kbEditId,  setKbEditId]  = useState(null)   // 編輯中的知識庫 id
   const [kbNewMode, setKbNewMode] = useState(false)  // 新增模式
+  const [kbSearch, setKbSearch] = useState('')       // 知識庫搜尋關鍵字（比對標題+內容）
+  const [kbSortAZ, setKbSortAZ] = useState(false)     // 知識庫分類內排序：false=新增順序, true=依標題排序
   const [kbDupConfirm, setKbDupConfirm] = useState(null) // { existingId, title, content, cat } 標題重複時的確認
   const [kbTitle,   setKbTitle]   = useState('')
   const [kbContent, setKbContent] = useState('')
@@ -14242,6 +14244,41 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     })
     saveKb(updated)
     return changedCount
+  }
+
+  // 知識庫匯出成文字檔：依分類分組，觸發瀏覽器下載，供本機備份
+  function exportKbToText() {
+    const latestKb = db.knowledgeBase ?? []
+    if (latestKb.length === 0) { showMovieToast('知識庫目前是空的，沒有可匯出的內容'); return }
+    const CAT_LABELS = {
+      verb:'📚 動詞家族', movie:'🎬 電影固定句', grammar:'🧠 文法易混淆', quote:'❤️ 電影金句',
+      work:'💼 工作英文', confuse:'⚠️ 易混淆', mgmt:'👔 管理智慧', life:'🌱 人生智慧',
+      link:'🔗 關聯知識', other:'📝 其他',
+    }
+    const order = Object.keys(CAT_LABELS)
+    let out = `FSI Command 知識庫匯出\n匯出時間：${new Date().toLocaleString('zh-TW')}\n共 ${latestKb.length} 筆\n\n`
+    order.forEach(catId => {
+      const items = latestKb.filter(k => (k.cat ?? 'other') === catId)
+      if (items.length === 0) return
+      out += `\n══════════════════\n${CAT_LABELS[catId]}（${items.length}筆）\n══════════════════\n\n`
+      items.forEach(k => {
+        out += `── ${k.title} ──\n${k.content ?? ''}\n\n`
+      })
+    })
+    try {
+      const blob = new Blob([out], { type: 'text/plain;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `FSI知識庫備份_${new Date().toISOString().slice(0,10)}.txt`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(url), 5000)
+      showMovieToast(`✅ 已匯出 ${latestKb.length} 筆到文字檔`)
+    } catch (e) {
+      showMovieToast('匯出失敗：' + (e?.message ?? '未知錯誤'))
+    }
   }
 
   // targetSceneId 可選：批次練習（多場景）時，應該傳入該句子實際所屬的場景id，
@@ -20064,6 +20101,37 @@ Steven 不是在收藏電影台詞。
               )}
             </div>
           </div>
+          {/* 搜尋 + 排序切換 + 匯出備份 */}
+          <div style={{ display:'flex', gap:6 }}>
+            <input value={kbSearch} onChange={e => setKbSearch(e.target.value)}
+              placeholder="🔍 搜尋標題或內容…"
+              style={{ flex:1, fontFamily:MONO, fontSize:11, background:'#0d0d1a',
+                border:`1px solid ${T.bdr}`, borderRadius:7, padding:'6px 10px',
+                color:'#fff', outline:'none' }}/>
+            {kbSearch && (
+              <div onClick={() => setKbSearch('')}
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
+                  padding:'6px 10px', background:T.surf2, borderRadius:7, border:`1px solid ${T.bdr}` }}>
+                ✕
+              </div>
+            )}
+            <div onClick={() => setKbSortAZ(v => !v)}
+              title="切換排序方式"
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, whiteSpace:'nowrap',
+                color: kbSortAZ ? T.amber : T.txt3,
+                background: kbSortAZ ? T.amberD : T.surf2,
+                padding:'6px 10px', borderRadius:7, border:`1px solid ${kbSortAZ ? T.amber+'50' : T.bdr}` }}>
+              {kbSortAZ ? '🔤 A-Z' : '🕐 新增序'}
+            </div>
+            <div onClick={exportKbToText}
+              title="匯出成文字檔備份"
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, whiteSpace:'nowrap',
+                color:T.grn, background:T.grnD, padding:'6px 10px', borderRadius:7,
+                border:`1px solid ${T.grn}50` }}>
+              💾 匯出
+            </div>
+          </div>
+
           {/* ChatGPT 指令面板 */}
           {kbOpen === '__prompt__' && (
             <div style={{ background:'#0d0820', border:'1px solid #a78bfa40',
@@ -20319,8 +20387,21 @@ Steven 不是在收藏電影台詞。
               尚無筆記，點「＋ 新增」加入動詞家族等學習整理
             </div>
           )}
+          {kbList.length > 0 && kbSearch.trim() && kbList.every(k => {
+            const q = kbSearch.trim().toLowerCase()
+            return !((k.title ?? '').toLowerCase().includes(q) || (k.content ?? '').toLowerCase().includes(q))
+          }) && (
+            <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, textAlign:'center', padding:'8px 0' }}>
+              🔍 找不到符合「{kbSearch}」的筆記
+            </div>
+          )}
           {KB_CATS.map(cat => {
-            const catItems = kbList.filter(k => k.cat === cat.id)
+            const q = kbSearch.trim().toLowerCase()
+            let catItems = kbList.filter(k => k.cat === cat.id)
+            if (q) catItems = catItems.filter(k =>
+              (k.title ?? '').toLowerCase().includes(q) || (k.content ?? '').toLowerCase().includes(q)
+            )
+            if (kbSortAZ) catItems = [...catItems].sort((a, b) => (a.title ?? '').localeCompare(b.title ?? ''))
             if (catItems.length === 0) return null
             return (
               <div key={cat.id}>
@@ -20560,8 +20641,14 @@ Steven 不是在收藏電影台詞。
               const from = Number(sceneRangeFrom), to = Number(sceneRangeTo)
               if (!from || !to || from > to) { showMovieToast('請輸入正確的起訖場景號'); return }
               const total = movie?.scenes?.length ?? 0
-              const ids = (movie?.scenes ?? [])
-                .map((s, i) => ({ id: s.id, no: total - i })) // 跟畫面上的場景號算法一致（倒序編號）
+              // 場景號算法必須跟畫面顯示完全一致：先依開始時間「倒序」排序，
+              // 排序後第i個(0-based)的場景號 = total - i。之前直接用movie.scenes原始陣列順序算，
+              // 方向剛好相反，導致「範圍1~10」選到的其實是最新的10個場景。
+              const sorted = [...(movie?.scenes ?? [])].sort((a, b) => {
+                try { return parseSceneTimeRange(b.timeRange).start - parseSceneTimeRange(a.timeRange).start } catch { return 0 }
+              })
+              const ids = sorted
+                .map((s, i) => ({ id: s.id, no: total - i }))
                 .filter(x => x.no >= from && x.no <= to)
                 .map(x => x.id)
               if (ids.length === 0) { showMovieToast('這個範圍沒有場景'); return }
