@@ -7332,7 +7332,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.58
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.59
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14300,6 +14300,54 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     return force ? { patched, notFound } : patched
   }
 
+  // 全片批次版：一次對「目前這部電影」所有場景都做強制重新比對逐字稿，
+  // 用於MP3重新擷取後，一次清掉所有場景先前為了將就舊MP3而做的人工校正
+  function forcePatchAllScenes() {
+    const transcript = movie?.transcript ?? ''
+    if (!transcript) return null
+    const normalized = normalizeSRT(transcript)
+    const lookup = {}
+    for (const block of normalized.split(/\n{2,}/)) {
+      const blines = block.trim().split('\n')
+      const tsLine = blines.find(l => /\d{2}:\d{2}:\d{2},\d+\s*-->\s*\d{2}:\d{2}:\d{2},\d+/.test(l))
+      if (!tsLine) continue
+      const [tsStart, tsEnd] = tsLine.split('-->')
+      const ls = timeToSecs(tsStart.trim())
+      const le = timeToSecs((tsEnd ?? '').trim()) || ls + 3
+      const txt = blines
+        .filter(l => !/^\s*\d+\s*$/.test(l) && !/\d{2}:\d{2}:\d{2}/.test(l))
+        .join(' ').replace(/\s+/g,' ').replace(/[.!?,…]+$/,'').trim().toLowerCase()
+      if (txt.length > 1) lookup[txt] = { startSecs: ls, endSecs: le }
+    }
+    let patched = 0, notFound = 0, scenesTouched = 0
+    const newMovies = db.movies.map(m => {
+      if (m.id !== movieId) return m
+      return {
+        ...m,
+        scenes: (m.scenes ?? []).map(sc => {
+          let changedInScene = false
+          const newPhrases = (sc.phrases ?? []).map(p => {
+            const key = p.en.replace(/[.!?,…]+$/,'').trim().toLowerCase()
+            if (lookup[key]) { patched++; changedInScene = true; return { ...p, ...lookup[key] } }
+            const found = Object.entries(lookup).find(([k]) =>
+              k.length > 8 && (k.includes(key) || key.includes(k))
+            )
+            if (found) { patched++; changedInScene = true; return { ...p, ...found[1] } }
+            notFound++
+            return p
+          })
+          if (!changedInScene) return sc
+          scenesTouched++
+          // 清掉舊的人工校正紀錄，因為時間碼已經直接來自逐字稿重新比對，舊紀錄不再有參考意義
+          const { lastCorrection, ...rest } = sc
+          return { ...rest, phrases: newPhrases }
+        })
+      }
+    })
+    saveDb({ ...db, movies: newMovies })
+    return { patched, notFound, scenesTouched }
+  }
+
   function markPlayed(pid) {
     updateScenePhrases(ps => ps.map(p => p.id === pid ? { ...p, played:true } : p))
   }
@@ -17351,189 +17399,6 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           </div>
         )}
 
-        {/* 強制用逐字稿重新比對：不管句子原本有沒有時間碼，逐句用文字比對逐字稿直接覆蓋，
-            解決「憑感覺調場景邊界」造成每句各自偏移、單一offset校正不了的問題 */}
-        {movie?.transcript && (
-          <div onClick={() => {
-              if (!window.confirm('這會逐句重新比對逐字稿，並覆蓋這個場景目前所有句子的時間碼（包含已經校正過的）。確定要繼續嗎？')) return
-              const result = patchTimestamps(true)
-              if (result.patched > 0) {
-                alert(`✅ 已用逐字稿重新比對 ${result.patched} 句` +
-                  (result.notFound > 0 ? `\n⚠ 有 ${result.notFound} 句在逐字稿裡找不到對應文字，維持原本時間碼` : ''))
-              } else {
-                alert('⚠ 無法比對，請確認逐字稿內容是否包含這個場景的句子')
-              }
-            }}
-            style={{ background:'#1a0f2e', border:'1px solid #a78bfa50', borderRadius:11,
-              padding:'10px', textAlign:'center', cursor:'pointer',
-              fontFamily:MONO, fontSize:10, color:'#a78bfa', fontWeight:700 }}>
-            🔁 強制用逐字稿重新比對（覆蓋現有時間碼）
-          </div>
-        )}
-
-        {/* 場景時間碼整批校正 */}
-        <div style={{ background:T.surf, border:`1px solid ${tcOpen ? T.amber+'50' : T.bdr}`, borderRadius:11, overflow:'hidden' }}>
-          <div onClick={() => { setTcOpen(v => !v); setTcMsg('') }}
-            style={{ cursor:'pointer', padding:'10px 14px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-            <span style={{ fontFamily:MONO, fontSize:10, color:T.amber, fontWeight:700 }}>⏱ 時間碼整批校正</span>
-            <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>{tcOpen ? '▲' : '▼'}</span>
-          </div>
-          {tcOpen && (
-            <div style={{ padding:'0 14px 14px', display:'flex', flexDirection:'column', gap:10 }} className="fadeUp">
-              {/* 上次校正紀錄：存在場景資料本身，重開頁面也看得到 */}
-              {scene?.lastCorrection && (
-                <div style={{ fontFamily:MONO, fontSize:9, color:T.grn,
-                  background:T.surf2, borderRadius:8, padding:'6px 10px' }}>
-                  📌 上次校正：{scene.lastCorrection.offset > 0 ? '+' : ''}{scene.lastCorrection.offset.toFixed(3)} 秒
-                  （{scene.lastCorrection.appliedAt}）
-                </div>
-              )}
-              {/* 模式切換 */}
-              <div style={{ display:'flex', gap:6 }}>
-                {[{id:'manual', l:'手動輸入秒差'}, {id:'anchor', l:'用某句校正'}].map(o => (
-                  <div key={o.id} onClick={() => { setTcMode(o.id); setTcMsg('') }}
-                    style={{ flex:1, cursor:'pointer', textAlign:'center', padding:'7px 4px', borderRadius:8,
-                      fontFamily:MONO, fontSize:9, fontWeight: tcMode===o.id ? 700 : 400,
-                      background: tcMode===o.id ? T.amber : T.surf2,
-                      border:`1px solid ${tcMode===o.id ? T.amber : T.bdr}`,
-                      color: tcMode===o.id ? T.bg : T.txt3 }}>
-                    {o.l}
-                  </div>
-                ))}
-              </div>
-
-              {tcMode === 'manual' ? (
-                <>
-                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
-                    播放時，你聽到的聲音內容，跟畫面顯示的句子相比：
-                  </div>
-                  <div style={{ display:'flex', gap:6 }}>
-                    {[
-                      {id:'early', l:'我聽到的是「後面」的劇情', sub:'畫面標太早，要往後調'},
-                      {id:'late',  l:'我聽到的是「前面」的劇情', sub:'畫面標太晚，要往前調'},
-                    ].map(o => (
-                      <div key={o.id} onClick={() => setTcDir(o.id)}
-                        style={{ flex:1, cursor:'pointer', textAlign:'center', padding:'8px 4px', borderRadius:8,
-                          fontFamily:MONO, fontSize:9,
-                          background: tcDir===o.id ? T.amberD : T.surf2,
-                          border:`1px solid ${tcDir===o.id ? T.amber+'60' : T.bdr}`,
-                          color: tcDir===o.id ? T.amber : T.txt3 }}>
-                        <div>{o.l}</div>
-                        <div style={{ fontSize:8, opacity:0.75, marginTop:3 }}>{o.sub}</div>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{ display:'flex', gap:8 }}>
-                    <div style={{ flex:1 }}>
-                      <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:3 }}>秒</div>
-                      <input type="number" min="0" value={tcSecs}
-                        onChange={e => setTcSecs(e.target.value)}
-                        placeholder="0"
-                        style={{ width:'100%', boxSizing:'border-box' }}/>
-                    </div>
-                    <div style={{ flex:1 }}>
-                      <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:3 }}>毫秒</div>
-                      <input type="number" min="0" max="999" value={tcMs}
-                        onChange={e => setTcMs(e.target.value)}
-                        placeholder="0"
-                        style={{ width:'100%', boxSizing:'border-box' }}/>
-                    </div>
-                  </div>
-                  {/* 套用前的即時預覽：不用只靠猜方向，直接看數字對不對 */}
-                  {(() => {
-                    if (!scene) return null
-                    const secsNum = parseFloat(tcSecs) || 0
-                    const msNum = parseFloat(tcMs) || 0
-                    const magnitude = secsNum + msNum / 1000
-                    if (magnitude <= 0) return null
-                    const offset = tcDir === 'early' ? magnitude : -magnitude
-                    const { start, end } = parseSceneTimeRange(scene.timeRange)
-                    return (
-                      <div style={{ background:T.surf2, borderRadius:8, padding:'8px 10px',
-                        display:'flex', flexDirection:'column', gap:3 }}>
-                        <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>套用後預覽（尚未套用）</div>
-                        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
-                          目前：{scene.timeRange}
-                        </div>
-                        <div style={{ fontFamily:MONO, fontSize:9, color:T.amber }}>
-                          套用後：{secsToFullTimeStr(start + offset)} ~ {secsToFullTimeStr(end + offset)}
-                        </div>
-                      </div>
-                    )
-                  })()}
-                  <div style={{ display:'flex', gap:8 }}>
-                    <div onClick={applySceneTimeCorrection}
-                      style={{ flex:2, cursor:'pointer', background:T.amber, borderRadius:9, padding:'10px',
-                        textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700, color:T.bg }}>
-                      ✓ 套用校正
-                    </div>
-                    <div onClick={undoSceneTimeCorrection}
-                      style={{ flex:1, cursor: (tcUndoData?.sceneId === sceneId) ? 'pointer' : 'default',
-                        background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:9, padding:'10px',
-                        textAlign:'center', fontFamily:MONO, fontSize:10,
-                        color: (tcUndoData?.sceneId === sceneId) ? T.txt2 : T.txt3,
-                        opacity: (tcUndoData?.sceneId === sceneId) ? 1 : 0.5 }}>
-                      ↺ 復原上次
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
-                    選一句已經有時間碼的句子，貼上這句在逐字稿上真正的時間，程式自動算出要校正多少
-                  </div>
-                  <div>
-                    <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:3 }}>選擇句子</div>
-                    <select value={tcAnchorId} onChange={e => setTcAnchorId(e.target.value)}
-                      style={{ width:'100%', fontFamily:MONO, fontSize:10, color:T.txt, background:T.surf2,
-                        border:`1px solid ${T.bdr2}`, borderRadius:8, padding:'8px', boxSizing:'border-box' }}>
-                      <option value="">— 請選擇 —</option>
-                      {(scene.phrases ?? []).filter(p => p.startSecs > 0).map(p => (
-                        <option key={p.id} value={p.id}>
-                          {secsToFullTimeStr(p.startSecs)} － {p.en.slice(0, 26)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:3 }}>
-                      這句在逐字稿上真正的時間（可直接貼 00:01:17,680）
-                    </div>
-                    <input type="text" value={tcAnchorTime}
-                      onChange={e => setTcAnchorTime(e.target.value)}
-                      placeholder="00:01:17,680"
-                      style={{ width:'100%', boxSizing:'border-box' }}/>
-                  </div>
-                  <div style={{ display:'flex', gap:8 }}>
-                    <div onClick={applySceneTimeCorrectionByAnchor}
-                      style={{ flex:2, cursor:'pointer', background:T.amber, borderRadius:9, padding:'10px',
-                        textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700, color:T.bg }}>
-                      ✓ 套用校正
-                    </div>
-                    <div onClick={undoSceneTimeCorrection}
-                      style={{ flex:1, cursor: (tcUndoData?.sceneId === sceneId) ? 'pointer' : 'default',
-                        background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:9, padding:'10px',
-                        textAlign:'center', fontFamily:MONO, fontSize:10,
-                        color: (tcUndoData?.sceneId === sceneId) ? T.txt2 : T.txt3,
-                        opacity: (tcUndoData?.sceneId === sceneId) ? 1 : 0.5 }}>
-                      ↺ 復原上次
-                    </div>
-                  </div>
-                </>
-              )}
-
-              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
-                會同時校正這個場景的起訖時間，以及場景內所有句子的時間碼
-              </div>
-              {tcMsg && (
-                <div style={{ fontFamily:MONO, fontSize:9, textAlign:'center',
-                  color: (tcMsg.startsWith('✓') || tcMsg.startsWith('↺')) ? T.grn : T.red }}>
-                  {tcMsg}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
 
         {/* 第三行：播放整段 + 單次 + 循環 + 逐句 */}
         {(audioMode === 'original' || audioReady || audioMode === 'tts') && (
@@ -18013,150 +17878,6 @@ Steven 不是在收藏電影台詞。
           </div>
         )}
 
-        {/* ── Speak / ChatGPT 課程按鈕 ── */}
-        <div onClick={() => {
-            if (scene?.speakEasy) { setSpeakOpen(o => !o) }
-            else { generateSpeakCourses() }
-          }}
-          style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
-            color:'#c084fc', padding:'10px', background:'#2d1a4a',
-            borderRadius:10, border:'1px solid #c084fc50',
-            display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
-          {speakBusy ? '⏳ 產生中…' : '📤 產生 Speak / ChatGPT 課程'}
-        </div>
-
-        {/* ── Speak / ChatGPT 課程面板 ── */}
-        {speakOpen && (scene?.speakEasy || speakBusy) && (
-          <div style={{ display:'flex', flexDirection:'column', gap:10, background:'#1a1025',
-            border:'1px solid #c084fc40', borderRadius:14, padding:14 }} className="fadeUp">
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <span style={{ fontFamily:MONO, fontSize:10, color:'#c084fc', fontWeight:700 }}>
-                📤 Speak / ChatGPT 課程
-              </span>
-              <span onClick={() => setSpeakOpen(false)}
-                style={{ fontFamily:MONO, fontSize:10, color:'#888', cursor:'pointer', padding:'2px 8px' }}>✕</span>
-            </div>
-            {speakBusy ? (
-              <div style={{ fontFamily:MONO, fontSize:10, color:'#888', textAlign:'center', padding:8 }}>
-                ⏳ 產生中…
-              </div>
-            ) : (
-              <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-                <div style={{ fontFamily:MONO, fontSize:9, color:'#888', lineHeight:1.6 }}>
-                  複製後貼到對應 App 練習
-                </div>
-
-                {/* ChatGPT 含逐字稿（最推薦） */}
-                <div style={{ display:'flex', flexDirection:'column', gap:6, background:'#0d1f35',
-                  borderRadius:10, padding:'10px 12px', border:'2px solid #60a5fa60' }}>
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                    <div>
-                      <span style={{ fontFamily:MONO, fontSize:10, color:'#60a5fa', fontWeight:700 }}>
-                        🤖 ChatGPT 陪練（含逐字稿）
-                      </span>
-                      <span style={{ fontFamily:MONO, fontSize:8, color:'#888', marginLeft:6 }}>
-                        最完整・場景原文＋追問＋糾正
-                      </span>
-                    </div>
-                    <div onClick={copyChatGPTWithTranscript}
-                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
-                        color: speakCopied==='cgpt_transcript' ? '#60a5fa' : '#888',
-                        padding:'4px 10px', background: speakCopied==='cgpt_transcript' ? '#1a2a3a' : '#222',
-                        borderRadius:7, border:'1px solid ' + (speakCopied==='cgpt_transcript' ? '#60a5fa60' : '#333'),
-                        whiteSpace:'nowrap' }}>
-                      {speakCopied==='cgpt_transcript' ? '✅ 已複製' : '📋 複製'}
-                    </div>
-                  </div>
-                  <div style={{ fontFamily:MONO, fontSize:9, color:'#60a5fa80', lineHeight:1.6 }}>
-                    {movie?.transcript ? '✓ 逐字稿已存入，可直接複製' : '⚠ 請先儲存逐字稿'}
-                  </div>
-                </div>
-
-                {/* Speak 簡單組 + 進階組：三個獨立複製按鈕 */}
-                {[
-                  { type:'easy',     label:'🟢 Speak 簡單組', sub:'高頻短句，早晨練習', color:T.grn,   bg:T.grnD },
-                  { type:'advanced', label:'🟡 Speak 進階組', sub:'完整重點句，挑戰用', color:T.amber, bg:T.amberD },
-                ].map(({ type, label, sub, color, bg }) => {
-                  const textMap = { easy: scene?.speakEasy, advanced: scene?.speakAdvanced }
-                  const txt = textMap[type]
-                  if (!txt) return null
-                  return (
-                    <div key={type} style={{ display:'flex', flexDirection:'column', gap:6, background:'#111',
-                      borderRadius:10, padding:'10px 12px', border:`1px solid ${color}30` }}>
-                      {/* 標題 */}
-                      <div>
-                        <span style={{ fontFamily:MONO, fontSize:10, color, fontWeight:700 }}>{label}</span>
-                        <span style={{ fontFamily:MONO, fontSize:8, color:'#888', marginLeft:8 }}>{sub}</span>
-                      </div>
-                      {/* 三個複製按鈕 */}
-                      <div style={{ display:'flex', gap:6 }}>
-                        {[
-                          { key:'my',  label:'你的角色', val: scene?.speakMyRole ?? 'Rod Tidwell, an NFL player' },
-                          { key:'ai',  label:'AI 角色',  val: scene?.speakAIRole ?? 'Jerry Maguire, your sports agent' },
-                          { key:'sit', label:'情境描述', val: txt },
-                        ].map(({ key, label: btnLabel, val }) => {
-                          const copyKey = type + '_' + key
-                          return (
-                            <div key={key} onClick={() => {
-                                const fallback = () => { const el = document.createElement('textarea'); el.value = val; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el) }
-                                if (navigator.clipboard?.writeText) { navigator.clipboard.writeText(val).catch(fallback) } else { fallback() }
-                                setSpeakCopied(copyKey); setTimeout(() => setSpeakCopied(null), 2000)
-                              }}
-                              style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
-                                color: speakCopied===copyKey ? color : '#888',
-                                padding:'6px 4px', background: speakCopied===copyKey ? bg : '#222',
-                                borderRadius:7, border:`1px solid ${speakCopied===copyKey ? color+'60' : '#333'}`,
-                                textAlign:'center', lineHeight:1.4 }}>
-                              {speakCopied===copyKey ? '✅' : '📋'}<br/>{btnLabel}
-                            </div>
-                          )
-                        })}
-                      </div>
-                      {/* 情境預覽 */}
-                      <div style={{ fontFamily:MONO, fontSize:9, color:'#666', lineHeight:1.7,
-                        maxHeight:80, overflowY:'auto', whiteSpace:'pre-wrap',
-                        WebkitOverflowScrolling:'touch' }}>
-                        {txt.split('\n').slice(0, 4).join('\n')}…
-                      </div>
-                    </div>
-                  )
-                })}
-
-                {/* ChatGPT 陪練指令 */}
-                {scene?.chatgptEasy && (
-                  <div style={{ display:'flex', flexDirection:'column', gap:6, background:'#111',
-                    borderRadius:10, padding:'10px 12px', border:'1px solid #60a5fa30' }}>
-                    <div>
-                      <span style={{ fontFamily:MONO, fontSize:10, color:'#60a5fa', fontWeight:700 }}>🤖 ChatGPT 陪練指令</span>
-                      <span style={{ fontFamily:MONO, fontSize:8, color:'#888', marginLeft:8 }}>場景導入，自由追問，糾正文法</span>
-                    </div>
-                    <div onClick={() => copySpeak('cgpt_easy')}
-                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
-                        color: speakCopied==='cgpt_easy' ? '#60a5fa' : '#888',
-                        padding:'7px', background: speakCopied==='cgpt_easy' ? '#1a2a3a' : '#222',
-                        borderRadius:7, border:`1px solid ${speakCopied==='cgpt_easy' ? '#60a5fa60' : '#333'}`,
-                        textAlign:'center' }}>
-                      {speakCopied==='cgpt_easy' ? '✅ 已複製' : '📋 複製'}
-                    </div>
-                    <div style={{ fontFamily:MONO, fontSize:9, color:'#666', lineHeight:1.7,
-                      maxHeight:80, overflowY:'auto', whiteSpace:'pre-wrap',
-                      WebkitOverflowScrolling:'touch' }}>
-                      {scene?.chatgptEasy?.split('\n').slice(0, 4).join('\n')}…
-                    </div>
-                  </div>
-                )}
-
-                <div onClick={() => generateSpeakCourses()}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#888',
-                    textAlign:'center', padding:'6px', borderRadius:8,
-                    background:'#222', border:'1px solid #333' }}>
-                  🔄 重新產生（隨機換句子）
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
         <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>⭐ 收藏重點句 · 👆 點單字加入單字庫 · ✎ 長按英文編輯 · ✕ 刪除句子</div>
         {/* Sentence list */}
         {(starFilter ? phrases.filter(p=>p.starred) : phrases).map(p => (
@@ -18567,6 +18288,335 @@ Steven 不是在收藏電影台詞。
             {p.played && <span style={{ position:'absolute', bottom:8, right:10, fontSize:9, color:T.txt3 }}>✅</span>}
           </div>
         ))}
+
+        {/* ── 以下移到最下面：進階時間碼工具與課程產生（減少場景頁上方雜亂） ── */}
+        {/* 強制用逐字稿重新比對：不管句子原本有沒有時間碼，逐句用文字比對逐字稿直接覆蓋，
+            解決「憑感覺調場景邊界」造成每句各自偏移、單一offset校正不了的問題 */}
+        {movie?.transcript && (
+          <div onClick={() => {
+              if (!window.confirm('這會逐句重新比對逐字稿，並覆蓋這個場景目前所有句子的時間碼（包含已經校正過的）。確定要繼續嗎？')) return
+              const result = patchTimestamps(true)
+              if (result.patched > 0) {
+                alert(`✅ 已用逐字稿重新比對 ${result.patched} 句` +
+                  (result.notFound > 0 ? `\n⚠ 有 ${result.notFound} 句在逐字稿裡找不到對應文字，維持原本時間碼` : ''))
+              } else {
+                alert('⚠ 無法比對，請確認逐字稿內容是否包含這個場景的句子')
+              }
+            }}
+            style={{ background:'#1a0f2e', border:'1px solid #a78bfa50', borderRadius:11,
+              padding:'10px', textAlign:'center', cursor:'pointer',
+              fontFamily:MONO, fontSize:10, color:'#a78bfa', fontWeight:700 }}>
+            🔁 強制用逐字稿重新比對（覆蓋現有時間碼）
+          </div>
+        )}
+
+        {/* 場景時間碼整批校正 */}
+        <div style={{ background:T.surf, border:`1px solid ${tcOpen ? T.amber+'50' : T.bdr}`, borderRadius:11, overflow:'hidden' }}>
+          <div onClick={() => { setTcOpen(v => !v); setTcMsg('') }}
+            style={{ cursor:'pointer', padding:'10px 14px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+            <span style={{ fontFamily:MONO, fontSize:10, color:T.amber, fontWeight:700 }}>⏱ 時間碼整批校正</span>
+            <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>{tcOpen ? '▲' : '▼'}</span>
+          </div>
+          {tcOpen && (
+            <div style={{ padding:'0 14px 14px', display:'flex', flexDirection:'column', gap:10 }} className="fadeUp">
+              {/* 上次校正紀錄：存在場景資料本身，重開頁面也看得到 */}
+              {scene?.lastCorrection && (
+                <div style={{ fontFamily:MONO, fontSize:9, color:T.grn,
+                  background:T.surf2, borderRadius:8, padding:'6px 10px' }}>
+                  📌 上次校正：{scene.lastCorrection.offset > 0 ? '+' : ''}{scene.lastCorrection.offset.toFixed(3)} 秒
+                  （{scene.lastCorrection.appliedAt}）
+                </div>
+              )}
+              {/* 模式切換 */}
+              <div style={{ display:'flex', gap:6 }}>
+                {[{id:'manual', l:'手動輸入秒差'}, {id:'anchor', l:'用某句校正'}].map(o => (
+                  <div key={o.id} onClick={() => { setTcMode(o.id); setTcMsg('') }}
+                    style={{ flex:1, cursor:'pointer', textAlign:'center', padding:'7px 4px', borderRadius:8,
+                      fontFamily:MONO, fontSize:9, fontWeight: tcMode===o.id ? 700 : 400,
+                      background: tcMode===o.id ? T.amber : T.surf2,
+                      border:`1px solid ${tcMode===o.id ? T.amber : T.bdr}`,
+                      color: tcMode===o.id ? T.bg : T.txt3 }}>
+                    {o.l}
+                  </div>
+                ))}
+              </div>
+
+              {tcMode === 'manual' ? (
+                <>
+                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
+                    播放時，你聽到的聲音內容，跟畫面顯示的句子相比：
+                  </div>
+                  <div style={{ display:'flex', gap:6 }}>
+                    {[
+                      {id:'early', l:'我聽到的是「後面」的劇情', sub:'畫面標太早，要往後調'},
+                      {id:'late',  l:'我聽到的是「前面」的劇情', sub:'畫面標太晚，要往前調'},
+                    ].map(o => (
+                      <div key={o.id} onClick={() => setTcDir(o.id)}
+                        style={{ flex:1, cursor:'pointer', textAlign:'center', padding:'8px 4px', borderRadius:8,
+                          fontFamily:MONO, fontSize:9,
+                          background: tcDir===o.id ? T.amberD : T.surf2,
+                          border:`1px solid ${tcDir===o.id ? T.amber+'60' : T.bdr}`,
+                          color: tcDir===o.id ? T.amber : T.txt3 }}>
+                        <div>{o.l}</div>
+                        <div style={{ fontSize:8, opacity:0.75, marginTop:3 }}>{o.sub}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display:'flex', gap:8 }}>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:3 }}>秒</div>
+                      <input type="number" min="0" value={tcSecs}
+                        onChange={e => setTcSecs(e.target.value)}
+                        placeholder="0"
+                        style={{ width:'100%', boxSizing:'border-box' }}/>
+                    </div>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:3 }}>毫秒</div>
+                      <input type="number" min="0" max="999" value={tcMs}
+                        onChange={e => setTcMs(e.target.value)}
+                        placeholder="0"
+                        style={{ width:'100%', boxSizing:'border-box' }}/>
+                    </div>
+                  </div>
+                  {/* 套用前的即時預覽：不用只靠猜方向，直接看數字對不對 */}
+                  {(() => {
+                    if (!scene) return null
+                    const secsNum = parseFloat(tcSecs) || 0
+                    const msNum = parseFloat(tcMs) || 0
+                    const magnitude = secsNum + msNum / 1000
+                    if (magnitude <= 0) return null
+                    const offset = tcDir === 'early' ? magnitude : -magnitude
+                    const { start, end } = parseSceneTimeRange(scene.timeRange)
+                    return (
+                      <div style={{ background:T.surf2, borderRadius:8, padding:'8px 10px',
+                        display:'flex', flexDirection:'column', gap:3 }}>
+                        <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>套用後預覽（尚未套用）</div>
+                        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                          目前：{scene.timeRange}
+                        </div>
+                        <div style={{ fontFamily:MONO, fontSize:9, color:T.amber }}>
+                          套用後：{secsToFullTimeStr(start + offset)} ~ {secsToFullTimeStr(end + offset)}
+                        </div>
+                      </div>
+                    )
+                  })()}
+                  <div style={{ display:'flex', gap:8 }}>
+                    <div onClick={applySceneTimeCorrection}
+                      style={{ flex:2, cursor:'pointer', background:T.amber, borderRadius:9, padding:'10px',
+                        textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700, color:T.bg }}>
+                      ✓ 套用校正
+                    </div>
+                    <div onClick={undoSceneTimeCorrection}
+                      style={{ flex:1, cursor: (tcUndoData?.sceneId === sceneId) ? 'pointer' : 'default',
+                        background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:9, padding:'10px',
+                        textAlign:'center', fontFamily:MONO, fontSize:10,
+                        color: (tcUndoData?.sceneId === sceneId) ? T.txt2 : T.txt3,
+                        opacity: (tcUndoData?.sceneId === sceneId) ? 1 : 0.5 }}>
+                      ↺ 復原上次
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
+                    選一句已經有時間碼的句子，貼上這句在逐字稿上真正的時間，程式自動算出要校正多少
+                  </div>
+                  <div>
+                    <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:3 }}>選擇句子</div>
+                    <select value={tcAnchorId} onChange={e => setTcAnchorId(e.target.value)}
+                      style={{ width:'100%', fontFamily:MONO, fontSize:10, color:T.txt, background:T.surf2,
+                        border:`1px solid ${T.bdr2}`, borderRadius:8, padding:'8px', boxSizing:'border-box' }}>
+                      <option value="">— 請選擇 —</option>
+                      {(scene.phrases ?? []).filter(p => p.startSecs > 0).map(p => (
+                        <option key={p.id} value={p.id}>
+                          {secsToFullTimeStr(p.startSecs)} － {p.en.slice(0, 26)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:3 }}>
+                      這句在逐字稿上真正的時間（可直接貼 00:01:17,680）
+                    </div>
+                    <input type="text" value={tcAnchorTime}
+                      onChange={e => setTcAnchorTime(e.target.value)}
+                      placeholder="00:01:17,680"
+                      style={{ width:'100%', boxSizing:'border-box' }}/>
+                  </div>
+                  <div style={{ display:'flex', gap:8 }}>
+                    <div onClick={applySceneTimeCorrectionByAnchor}
+                      style={{ flex:2, cursor:'pointer', background:T.amber, borderRadius:9, padding:'10px',
+                        textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700, color:T.bg }}>
+                      ✓ 套用校正
+                    </div>
+                    <div onClick={undoSceneTimeCorrection}
+                      style={{ flex:1, cursor: (tcUndoData?.sceneId === sceneId) ? 'pointer' : 'default',
+                        background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:9, padding:'10px',
+                        textAlign:'center', fontFamily:MONO, fontSize:10,
+                        color: (tcUndoData?.sceneId === sceneId) ? T.txt2 : T.txt3,
+                        opacity: (tcUndoData?.sceneId === sceneId) ? 1 : 0.5 }}>
+                      ↺ 復原上次
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
+                會同時校正這個場景的起訖時間，以及場景內所有句子的時間碼
+              </div>
+              {tcMsg && (
+                <div style={{ fontFamily:MONO, fontSize:9, textAlign:'center',
+                  color: (tcMsg.startsWith('✓') || tcMsg.startsWith('↺')) ? T.grn : T.red }}>
+                  {tcMsg}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        {/* ── Speak / ChatGPT 課程按鈕 ── */}
+        <div onClick={() => {
+            if (scene?.speakEasy) { setSpeakOpen(o => !o) }
+            else { generateSpeakCourses() }
+          }}
+          style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+            color:'#c084fc', padding:'10px', background:'#2d1a4a',
+            borderRadius:10, border:'1px solid #c084fc50',
+            display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+          {speakBusy ? '⏳ 產生中…' : '📤 產生 Speak / ChatGPT 課程'}
+        </div>
+
+        {/* ── Speak / ChatGPT 課程面板 ── */}
+        {speakOpen && (scene?.speakEasy || speakBusy) && (
+          <div style={{ display:'flex', flexDirection:'column', gap:10, background:'#1a1025',
+            border:'1px solid #c084fc40', borderRadius:14, padding:14 }} className="fadeUp">
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <span style={{ fontFamily:MONO, fontSize:10, color:'#c084fc', fontWeight:700 }}>
+                📤 Speak / ChatGPT 課程
+              </span>
+              <span onClick={() => setSpeakOpen(false)}
+                style={{ fontFamily:MONO, fontSize:10, color:'#888', cursor:'pointer', padding:'2px 8px' }}>✕</span>
+            </div>
+            {speakBusy ? (
+              <div style={{ fontFamily:MONO, fontSize:10, color:'#888', textAlign:'center', padding:8 }}>
+                ⏳ 產生中…
+              </div>
+            ) : (
+              <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                <div style={{ fontFamily:MONO, fontSize:9, color:'#888', lineHeight:1.6 }}>
+                  複製後貼到對應 App 練習
+                </div>
+
+                {/* ChatGPT 含逐字稿（最推薦） */}
+                <div style={{ display:'flex', flexDirection:'column', gap:6, background:'#0d1f35',
+                  borderRadius:10, padding:'10px 12px', border:'2px solid #60a5fa60' }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                    <div>
+                      <span style={{ fontFamily:MONO, fontSize:10, color:'#60a5fa', fontWeight:700 }}>
+                        🤖 ChatGPT 陪練（含逐字稿）
+                      </span>
+                      <span style={{ fontFamily:MONO, fontSize:8, color:'#888', marginLeft:6 }}>
+                        最完整・場景原文＋追問＋糾正
+                      </span>
+                    </div>
+                    <div onClick={copyChatGPTWithTranscript}
+                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                        color: speakCopied==='cgpt_transcript' ? '#60a5fa' : '#888',
+                        padding:'4px 10px', background: speakCopied==='cgpt_transcript' ? '#1a2a3a' : '#222',
+                        borderRadius:7, border:'1px solid ' + (speakCopied==='cgpt_transcript' ? '#60a5fa60' : '#333'),
+                        whiteSpace:'nowrap' }}>
+                      {speakCopied==='cgpt_transcript' ? '✅ 已複製' : '📋 複製'}
+                    </div>
+                  </div>
+                  <div style={{ fontFamily:MONO, fontSize:9, color:'#60a5fa80', lineHeight:1.6 }}>
+                    {movie?.transcript ? '✓ 逐字稿已存入，可直接複製' : '⚠ 請先儲存逐字稿'}
+                  </div>
+                </div>
+
+                {/* Speak 簡單組 + 進階組：三個獨立複製按鈕 */}
+                {[
+                  { type:'easy',     label:'🟢 Speak 簡單組', sub:'高頻短句，早晨練習', color:T.grn,   bg:T.grnD },
+                  { type:'advanced', label:'🟡 Speak 進階組', sub:'完整重點句，挑戰用', color:T.amber, bg:T.amberD },
+                ].map(({ type, label, sub, color, bg }) => {
+                  const textMap = { easy: scene?.speakEasy, advanced: scene?.speakAdvanced }
+                  const txt = textMap[type]
+                  if (!txt) return null
+                  return (
+                    <div key={type} style={{ display:'flex', flexDirection:'column', gap:6, background:'#111',
+                      borderRadius:10, padding:'10px 12px', border:`1px solid ${color}30` }}>
+                      {/* 標題 */}
+                      <div>
+                        <span style={{ fontFamily:MONO, fontSize:10, color, fontWeight:700 }}>{label}</span>
+                        <span style={{ fontFamily:MONO, fontSize:8, color:'#888', marginLeft:8 }}>{sub}</span>
+                      </div>
+                      {/* 三個複製按鈕 */}
+                      <div style={{ display:'flex', gap:6 }}>
+                        {[
+                          { key:'my',  label:'你的角色', val: scene?.speakMyRole ?? 'Rod Tidwell, an NFL player' },
+                          { key:'ai',  label:'AI 角色',  val: scene?.speakAIRole ?? 'Jerry Maguire, your sports agent' },
+                          { key:'sit', label:'情境描述', val: txt },
+                        ].map(({ key, label: btnLabel, val }) => {
+                          const copyKey = type + '_' + key
+                          return (
+                            <div key={key} onClick={() => {
+                                const fallback = () => { const el = document.createElement('textarea'); el.value = val; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el) }
+                                if (navigator.clipboard?.writeText) { navigator.clipboard.writeText(val).catch(fallback) } else { fallback() }
+                                setSpeakCopied(copyKey); setTimeout(() => setSpeakCopied(null), 2000)
+                              }}
+                              style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                                color: speakCopied===copyKey ? color : '#888',
+                                padding:'6px 4px', background: speakCopied===copyKey ? bg : '#222',
+                                borderRadius:7, border:`1px solid ${speakCopied===copyKey ? color+'60' : '#333'}`,
+                                textAlign:'center', lineHeight:1.4 }}>
+                              {speakCopied===copyKey ? '✅' : '📋'}<br/>{btnLabel}
+                            </div>
+                          )
+                        })}
+                      </div>
+                      {/* 情境預覽 */}
+                      <div style={{ fontFamily:MONO, fontSize:9, color:'#666', lineHeight:1.7,
+                        maxHeight:80, overflowY:'auto', whiteSpace:'pre-wrap',
+                        WebkitOverflowScrolling:'touch' }}>
+                        {txt.split('\n').slice(0, 4).join('\n')}…
+                      </div>
+                    </div>
+                  )
+                })}
+
+                {/* ChatGPT 陪練指令 */}
+                {scene?.chatgptEasy && (
+                  <div style={{ display:'flex', flexDirection:'column', gap:6, background:'#111',
+                    borderRadius:10, padding:'10px 12px', border:'1px solid #60a5fa30' }}>
+                    <div>
+                      <span style={{ fontFamily:MONO, fontSize:10, color:'#60a5fa', fontWeight:700 }}>🤖 ChatGPT 陪練指令</span>
+                      <span style={{ fontFamily:MONO, fontSize:8, color:'#888', marginLeft:8 }}>場景導入，自由追問，糾正文法</span>
+                    </div>
+                    <div onClick={() => copySpeak('cgpt_easy')}
+                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                        color: speakCopied==='cgpt_easy' ? '#60a5fa' : '#888',
+                        padding:'7px', background: speakCopied==='cgpt_easy' ? '#1a2a3a' : '#222',
+                        borderRadius:7, border:`1px solid ${speakCopied==='cgpt_easy' ? '#60a5fa60' : '#333'}`,
+                        textAlign:'center' }}>
+                      {speakCopied==='cgpt_easy' ? '✅ 已複製' : '📋 複製'}
+                    </div>
+                    <div style={{ fontFamily:MONO, fontSize:9, color:'#666', lineHeight:1.7,
+                      maxHeight:80, overflowY:'auto', whiteSpace:'pre-wrap',
+                      WebkitOverflowScrolling:'touch' }}>
+                      {scene?.chatgptEasy?.split('\n').slice(0, 4).join('\n')}…
+                    </div>
+                  </div>
+                )}
+
+                <div onClick={() => generateSpeakCourses()}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#888',
+                    textAlign:'center', padding:'6px', borderRadius:8,
+                    background:'#222', border:'1px solid #333' }}>
+                  🔄 重新產生（隨機換句子）
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
       </div>
     )
   }
@@ -20611,6 +20661,22 @@ Steven 不是在收藏電影台詞。
                 border:'1px solid #38bdf850',
                 padding:'2px 9px', borderRadius:8 }}>
               🩺 新片健檢
+            </span>
+            <span onClick={() => {
+                if (!movie?.transcript) { showMovieToast('⚠ 請先儲存逐字稿'); return }
+                if (!window.confirm('這會對「這部電影所有場景」逐句重新比對逐字稿，覆蓋現有時間碼（包含之前手動校正過的），並清除舊的校正紀錄。確定要繼續嗎？')) return
+                const result = forcePatchAllScenes()
+                if (!result) { showMovieToast('⚠ 請先儲存逐字稿'); return }
+                showMovieToast(
+                  `✅ 已重新比對 ${result.scenesTouched} 個場景、共 ${result.patched} 句` +
+                  (result.notFound > 0 ? `（${result.notFound}句找不到對應，維持原時間碼）` : '')
+                )
+              }}
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9,
+                color: '#a78bfa', background:'#1a0f2e',
+                border:'1px solid #a78bfa40',
+                padding:'2px 9px', borderRadius:8 }}>
+              🔁 全片重新比對
             </span>
             <span onClick={() => setCorrectionPanelOpen(v => !v)}
               style={{ cursor:'pointer', fontFamily:MONO, fontSize:9,
