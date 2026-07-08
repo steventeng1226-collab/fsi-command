@@ -7332,7 +7332,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.63
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.64
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14563,19 +14563,23 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
       }
 
       const diff = maxEndSecs - totalDuration
-      const absDiff = Math.abs(diff)
-      if (absDiff > 8) {
+      // diff > 0 代表逐字稿最後一句，比MP3實際長度還晚 → MP3內容不夠長，可能被截斷或起點沒對齊，是真正的問題
+      // diff < 0 代表MP3比逐字稿長 → 通常只是片尾工作人員名單等正常空白時間，不是版本不一致，不用警告
+      if (diff > 8) {
         alert(
           `⚠ 健檢發現落差\n\n` +
           `逐字稿最後時間碼：${secsToTimeStr(maxEndSecs)}\n` +
           `MP3實際總長度：${secsToTimeStr(totalDuration)}\n` +
-          `落差：${diff > 0 ? '+' : ''}${diff.toFixed(1)} 秒\n\n` +
-          `落差超過8秒，逐字稿跟這份MP3很可能不是同一個版本對出來的` +
+          `落差：+${diff.toFixed(1)} 秒（逐字稿比MP3長）\n\n` +
+          `MP3實際內容比逐字稿最後一句還短，代表這份MP3可能沒切完整、或起點沒對齊` +
           `（不同剪輯版、不同片頭長度、或抽音軌起點沒對齊）。\n` +
           `建議先確認字幕來源版本，再開始切場景，避免之後每個場景都要個別校正。`
         )
+      } else if (diff < -8) {
+        // MP3比逐字稿長很多：通常是片尾空白時間，屬正常現象，只提示不警告
+        showMovieToast(`✅ 健檢通過（片尾約 ${Math.abs(diff/60).toFixed(1)} 分鐘空白屬正常，可放心切場景）`)
       } else {
-        showMovieToast(`✅ 健檢通過，落差僅 ${diff.toFixed(1)} 秒，可以放心切場景`)
+        showMovieToast(`✅ 健檢通過，落差僅 ${Math.abs(diff).toFixed(1)} 秒，可以放心切場景`)
       }
     } catch (e) {
       showMovieToast('健檢失敗：' + (e?.message ?? '未知錯誤'))
