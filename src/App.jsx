@@ -7332,7 +7332,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.51
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.52
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -19759,6 +19759,8 @@ Steven 不是在收藏電影台詞。
             { id:'quote',   label:'❤️ 電影金句',      color:'#a78bfa' },
             { id:'work',    label:'💼 工作英文',      color:'#34d399' },
             { id:'confuse', label:'⚠️ 易混淆',        color:'#fb923c' },
+            { id:'mgmt',    label:'👔 管理智慧',      color:'#38bdf8' },
+            { id:'life',    label:'🌱 人生智慧',      color:'#4ade80' },
             { id:'link',    label:'🔗 關聯知識',      color:'#22d3ee' },
             { id:'other',   label:'📝 其他',          color:'#94a3b8' },
           ]
@@ -19836,6 +19838,8 @@ Steven 不是在收藏電影台詞。
 - 電影金句
 - 工作英文
 - 易混淆
+- 管理智慧
+- 人生智慧
 - 其他
 
 【標題】
@@ -19895,7 +19899,7 @@ Steven 不是在收藏電影台詞。
 12. 若已有成熟的動詞家族（如 Get 家族），新的例句應優先補充至該家族，而不是建立新的知識。
 13. 若內容不值得長期保存（僅限單一句情境、低頻用法或一次性解釋），不要建立知識庫。`}</div>
               <div onClick={() => {
-                  navigator.clipboard?.writeText(`從現在開始，每當我說「加入知識庫」，請不要輸出聊天內容，只輸出可直接貼入 APP 的知識。\n請遵守以下原則：\n━━━━━━━━━━━━━━━━━━━━\n一、優先整理原則（最重要）\n━━━━━━━━━━━━━━━━━━━━\n請優先整理「可重複使用的英文知識」，而不是單一句電影台詞。\n優先順序：\n1. 動詞家族（Get、Go、Come、Take、Make、Put、See…）\n2. 固定 Chunk（What if...、I've got...、be proud of...）\n3. 文法易混淆（do + 原形、be + V-ing、this vs that）\n4. 電影金句（We determine our worth.）\n5. 工作可套用句型\n如果一句電影台詞可以整理成更大的知識，請優先整理成知識，而不是整理成該句台詞。\n━━━━━━━━━━━━━━━━━━━━\n二、固定格式\n━━━━━━━━━━━━━━━━━━━━\n【分類】\n只能選一個：\n- 動詞家族\n- 電影固定句\n- 文法易混淆\n- 電影金句\n- 工作英文\n- 易混淆\n- 其他\n\n【標題】\n由 ChatGPT 自行決定。\n標題必須：\n- 簡短（建議 30 字內）\n- 容易搜尋\n- 同主題保持一致命名\n- 使用未來最可能搜尋的關鍵字\n- 不可使用完整說明、結論或核心觀念\n標題只使用以下三種形式：\n1. 家族：Get 家族 / Go 家族 / Take 家族\n2. Chunk：What if... / I've got = I have / How about...\n3. 比較：This vs That / Hear vs Listen / in vs at\n\n【核心觀念】\n50 字內，只保留最重要概念。\n\n【Chunk】\n列出 3~8 個最值得背的固定搭配，每行一個。\n\n【電影例句】\n保留 1~3 句最值得背的電影例句。\n\n【工作例句】\n若適合工作情境，提供 1 句；否則省略。\n\n【易混淆】\n只有容易犯錯時才建立。\n格式：\n❌ ...\n✅ ...\n\n【易混淆比較】\n只有真的需要比較時才建立。\n例如：think vs thinking / hear vs listen / this vs that\n\n【關聯知識】\n列出可延伸閱讀的知識，不超過 6 個。\n\n【口訣】\n一句最好記的中文。\n━━━━━━━━━━━━━━━━━━━━\n三、整理規則\n━━━━━━━━━━━━━━━━━━━━\n1. 不要加入聊天內容。\n2. 不要加入鼓勵文字。\n3. 不要加入「Steven，我覺得……」等對話。\n4. 不要重複說明。\n5. 內容以方便直接貼入 APP 為主。\n6. 標題、分類由 ChatGPT 自行決定。\n7. 相同知識保持相同命名。\n8. 優先整理成「家族知識」，不要只整理一句電影台詞。\n9. 若知識可以套用到工作或生活，優先整理成可重複使用的知識。\n10. 如果同一知識已存在，不要建立新的知識，而是補充到原有知識。\n11. 若同時符合多個分類，選擇最有利於長期學習與搜尋的分類，不重複建立。\n12. 若已有成熟的動詞家族（如 Get 家族），新的例句應優先補充至該家族，而不是建立新的知識。\n13. 若內容不值得長期保存（僅限單一句情境、低頻用法或一次性解釋），不要建立知識庫。`)
+                  navigator.clipboard?.writeText(`從現在開始，每當我說「加入知識庫」，請不要輸出聊天內容，只輸出可直接貼入 APP 的知識。\n請遵守以下原則：\n━━━━━━━━━━━━━━━━━━━━\n一、優先整理原則（最重要）\n━━━━━━━━━━━━━━━━━━━━\n請優先整理「可重複使用的英文知識」，而不是單一句電影台詞。\n優先順序：\n1. 動詞家族（Get、Go、Come、Take、Make、Put、See…）\n2. 固定 Chunk（What if...、I've got...、be proud of...）\n3. 文法易混淆（do + 原形、be + V-ing、this vs that）\n4. 電影金句（We determine our worth.）\n5. 工作可套用句型\n如果一句電影台詞可以整理成更大的知識，請優先整理成知識，而不是整理成該句台詞。\n━━━━━━━━━━━━━━━━━━━━\n二、固定格式\n━━━━━━━━━━━━━━━━━━━━\n【分類】\n只能選一個：\n- 動詞家族\n- 電影固定句\n- 文法易混淆\n- 電影金句\n- 工作英文\n- 易混淆\n- 管理智慧\n- 人生智慧\n- 其他\n\n【標題】\n由 ChatGPT 自行決定。\n標題必須：\n- 簡短（建議 30 字內）\n- 容易搜尋\n- 同主題保持一致命名\n- 使用未來最可能搜尋的關鍵字\n- 不可使用完整說明、結論或核心觀念\n標題只使用以下三種形式：\n1. 家族：Get 家族 / Go 家族 / Take 家族\n2. Chunk：What if... / I've got = I have / How about...\n3. 比較：This vs That / Hear vs Listen / in vs at\n\n【核心觀念】\n50 字內，只保留最重要概念。\n\n【Chunk】\n列出 3~8 個最值得背的固定搭配，每行一個。\n\n【電影例句】\n保留 1~3 句最值得背的電影例句。\n\n【工作例句】\n若適合工作情境，提供 1 句；否則省略。\n\n【易混淆】\n只有容易犯錯時才建立。\n格式：\n❌ ...\n✅ ...\n\n【易混淆比較】\n只有真的需要比較時才建立。\n例如：think vs thinking / hear vs listen / this vs that\n\n【關聯知識】\n列出可延伸閱讀的知識，不超過 6 個。\n\n【口訣】\n一句最好記的中文。\n━━━━━━━━━━━━━━━━━━━━\n三、整理規則\n━━━━━━━━━━━━━━━━━━━━\n1. 不要加入聊天內容。\n2. 不要加入鼓勵文字。\n3. 不要加入「Steven，我覺得……」等對話。\n4. 不要重複說明。\n5. 內容以方便直接貼入 APP 為主。\n6. 標題、分類由 ChatGPT 自行決定。\n7. 相同知識保持相同命名。\n8. 優先整理成「家族知識」，不要只整理一句電影台詞。\n9. 若知識可以套用到工作或生活，優先整理成可重複使用的知識。\n10. 如果同一知識已存在，不要建立新的知識，而是補充到原有知識。\n11. 若同時符合多個分類，選擇最有利於長期學習與搜尋的分類，不重複建立。\n12. 若已有成熟的動詞家族（如 Get 家族），新的例句應優先補充至該家族，而不是建立新的知識。\n13. 若內容不值得長期保存（僅限單一句情境、低頻用法或一次性解釋），不要建立知識庫。`)
                     .then(() => showMovieToast('✅ 已複製！貼到 ChatGPT 設定一次即可'))
                     .catch(() => showMovieToast('請長按上方文字複製'))
                 }}
@@ -19971,6 +19975,8 @@ Steven 不是在收藏電影台詞。
                       else if (/電影金句|金句/.test(catText)) finalCat = 'quote'
                       else if (/工作/.test(catText)) finalCat = 'work'
                       else if (/易混淆|混淆/.test(catText)) finalCat = 'confuse'
+                      else if (/管理智慧|管理/.test(catText)) finalCat = 'mgmt'
+                      else if (/人生智慧|人生/.test(catText)) finalCat = 'life'
                       else if (/關聯/.test(catText)) finalCat = 'link'
                     }
 
