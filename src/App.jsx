@@ -7332,7 +7332,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.57
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.58
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14264,7 +14264,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   }
 
   // ── 補充時間碼（不重新解析，保留所有備註和收藏）──────────────
-  function patchTimestamps() {
+  function patchTimestamps(force = false) {
     const transcript = movie?.transcript ?? ''
     if (!transcript) return false
     const normalized = normalizeSRT(transcript)
@@ -14283,8 +14283,9 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
       if (txt.length > 1) lookup[txt] = { startSecs: ls, endSecs: le }
     }
     let patched = 0
+    let notFound = 0
     updateScenePhrases(ps => ps.map(p => {
-      if (p.startSecs > 0) return p
+      if (!force && p.startSecs > 0) return p
       const key = p.en.replace(/[.!?,…]+$/,'').trim().toLowerCase()
       // 完全比對
       if (lookup[key]) { patched++; return { ...p, ...lookup[key] } }
@@ -14293,9 +14294,10 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
         k.length > 8 && (k.includes(key) || key.includes(k))
       )
       if (found) { patched++; return { ...p, ...found[1] } }
+      if (force) notFound++
       return p
     }))
-    return patched
+    return force ? { patched, notFound } : patched
   }
 
   function markPlayed(pid) {
@@ -17346,6 +17348,26 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               padding:'10px', textAlign:'center', cursor:'pointer',
               fontFamily:MONO, fontSize:10, color:T.blue, fontWeight:700 }}>
             🎵 補充時間碼（啟用電影原音）
+          </div>
+        )}
+
+        {/* 強制用逐字稿重新比對：不管句子原本有沒有時間碼，逐句用文字比對逐字稿直接覆蓋，
+            解決「憑感覺調場景邊界」造成每句各自偏移、單一offset校正不了的問題 */}
+        {movie?.transcript && (
+          <div onClick={() => {
+              if (!window.confirm('這會逐句重新比對逐字稿，並覆蓋這個場景目前所有句子的時間碼（包含已經校正過的）。確定要繼續嗎？')) return
+              const result = patchTimestamps(true)
+              if (result.patched > 0) {
+                alert(`✅ 已用逐字稿重新比對 ${result.patched} 句` +
+                  (result.notFound > 0 ? `\n⚠ 有 ${result.notFound} 句在逐字稿裡找不到對應文字，維持原本時間碼` : ''))
+              } else {
+                alert('⚠ 無法比對，請確認逐字稿內容是否包含這個場景的句子')
+              }
+            }}
+            style={{ background:'#1a0f2e', border:'1px solid #a78bfa50', borderRadius:11,
+              padding:'10px', textAlign:'center', cursor:'pointer',
+              fontFamily:MONO, fontSize:10, color:'#a78bfa', fontWeight:700 }}>
+            🔁 強制用逐字稿重新比對（覆蓋現有時間碼）
           </div>
         )}
 
