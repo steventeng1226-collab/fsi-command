@@ -7332,7 +7332,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.53
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.57
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13414,6 +13414,9 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     onReturnFromKb?.()
   }
   const [selectedSceneIds, setSelectedSceneIds] = useState(new Set()) // 多場景選擇播放
+  const [correctionPanelOpen, setCorrectionPanelOpen] = useState(false) // 校正紀錄總覽面板開關
+  const [sceneRangeFrom, setSceneRangeFrom] = useState('') // 場景範圍選取：起始場景號
+  const [sceneRangeTo,   setSceneRangeTo]   = useState('') // 場景範圍選取：結束場景號
   const [multiScenePhrases, setMultiScenePhrases] = useState([]) // 多場景合併重點句
   const [dailyPage, setDailyPage] = useState(0) // 重點句子練習：當前頁碼（每頁固定句數）
   const [reviewPickMode, setReviewPickMode] = useState(false) // 完成一組後：挑選「今日用句」
@@ -13612,6 +13615,53 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const [batchImportResult, setBatchImportResult] = useState(null)
   const [speakCopied, setSpeakCopied] = useState(null)  // 'easy'|'advanced'|null
 
+  // ── 跨裝置合併：逐場景比較 updatedAt，不整包覆蓋（避免A裝置的收藏/校正被B裝置蓋掉）──
+  function mergeMovieDB(localDb, cloudDb) {
+    const localMovies = localDb.movies ?? []
+    const cloudMovies = cloudDb.movies ?? []
+    const movieIds = [...new Set([...localMovies.map(m => m.id), ...cloudMovies.map(m => m.id)])]
+    const mergedMovies = movieIds.map(mid => {
+      const lm = localMovies.find(m => m.id === mid)
+      const cm = cloudMovies.find(m => m.id === mid)
+      if (!lm) return cm
+      if (!cm) return lm
+      const sceneIds = [...new Set([...(lm.scenes ?? []).map(s => s.id), ...(cm.scenes ?? []).map(s => s.id)])]
+      const mergedScenes = sceneIds.map(sid => {
+        const ls = (lm.scenes ?? []).find(s => s.id === sid)
+        const cs = (cm.scenes ?? []).find(s => s.id === sid)
+        if (!ls) return cs
+        if (!cs) return ls
+        return (ls.updatedAt ?? 0) >= (cs.updatedAt ?? 0) ? ls : cs
+      }).filter(Boolean)
+      const base = (lm.updatedAt ?? 0) >= (cm.updatedAt ?? 0) ? lm : cm
+      return { ...base, scenes: mergedScenes }
+    }).filter(Boolean)
+
+    // 知識庫：以id聯集，同一筆取 updatedAt/createdAt 較新者
+    const localKb = localDb.knowledgeBase ?? []
+    const cloudKb = cloudDb.knowledgeBase ?? []
+    const kbIds = [...new Set([...localKb.map(k => k.id), ...cloudKb.map(k => k.id)])]
+    const mergedKb = kbIds.map(kid => {
+      const lk = localKb.find(k => k.id === kid)
+      const ck = cloudKb.find(k => k.id === kid)
+      if (!lk) return ck
+      if (!ck) return lk
+      const lt = lk.updatedAt ?? lk.createdAt ?? 0
+      const ct = ck.updatedAt ?? ck.createdAt ?? 0
+      return lt >= ct ? lk : ck
+    }).filter(Boolean)
+
+    // 單字庫：沒有逐筆時間戳記，保留整包較新的（用db層級updatedAt判斷）
+    const mergedVocab = (localDb.updatedAt ?? 0) >= (cloudDb.updatedAt ?? 0) ? (localDb.vocab ?? []) : (cloudDb.vocab ?? [])
+
+    return {
+      ...((localDb.updatedAt ?? 0) >= (cloudDb.updatedAt ?? 0) ? localDb : cloudDb),
+      movies: mergedMovies,
+      knowledgeBase: mergedKb,
+      vocab: mergedVocab,
+    }
+  }
+
   // ── 開 App 自動從 Sheets 讀入（背景靜默執行）──────────────
   useEffect(() => {
     async function autoInit() {
@@ -13631,37 +13681,44 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
         const transcriptDB   = json.transcriptDB ?? []
         const sheetsAt       = sheetsDb.updatedAt ?? 0
         const localAt        = db.updatedAt ?? 0
-        if (sheetsAt > localAt) {
-          // Sheets 較新 → 合併，但必須保護本機逐字稿不被覆蓋
-          const merged = {
-            ...sheetsDb,
-            movies: sheetsDb.movies?.map(m => {
-              const localMovie  = db.movies?.find(lm => lm.id === m.id)
-              const sheetsEntry = transcriptDB.find(tr => tr.movieId === m.id)
-              const localTs     = localMovie?.transcriptUpdatedAt ?? 0
-              const sheetsTs    = sheetsEntry?.updatedAt ?? 0
 
-              if (sheetsEntry?.transcript?.trim()) {
-                // Sheets 有逐字稿：用較新的
-                if (sheetsTs >= localTs || !localMovie?.transcript?.trim()) {
-                  return { ...m, transcript: sheetsEntry.transcript, transcriptUpdatedAt: sheetsTs }
-                }
-                return { ...m, transcript: localMovie.transcript, transcriptUpdatedAt: localTs }
+        if (sheetsAt === localAt) { setAutoSyncStatus('ok'); return } // 完全一樣，不用合併
+
+        // 逐場景合併（不再整包二選一覆蓋），避免任一裝置的收藏/校正/已熟悉被另一裝置蓋掉
+        let merged = mergeMovieDB(db, sheetsDb)
+        // 逐字稿保護：沿用既有邏輯，兩邊都不遺失
+        merged = {
+          ...merged,
+          movies: merged.movies?.map(m => {
+            const localMovie  = db.movies?.find(lm => lm.id === m.id)
+            const sheetsEntry = transcriptDB.find(tr => tr.movieId === m.id)
+            const localTs     = localMovie?.transcriptUpdatedAt ?? 0
+            const sheetsTs    = sheetsEntry?.updatedAt ?? 0
+            if (sheetsEntry?.transcript?.trim()) {
+              if (sheetsTs >= localTs || !localMovie?.transcript?.trim()) {
+                return { ...m, transcript: sheetsEntry.transcript, transcriptUpdatedAt: sheetsTs }
               }
-              // Sheets 沒有逐字稿：一定保留本機的（防止逐字稿消失）
-              if (localMovie?.transcript?.trim()) {
-                return { ...m, transcript: localMovie.transcript, transcriptUpdatedAt: localTs }
-              }
-              return m
-            }) ?? []
-          }
-          setDb(merged)
-          localStorage.setItem('fsi:movie:db', JSON.stringify(merged))
-          setAutoSyncStatus('ok')
-          setMovieSyncMsg('✓ 已自動同步最新資料')
-        } else {
-          setAutoSyncStatus('ok')
+              return { ...m, transcript: localMovie.transcript, transcriptUpdatedAt: localTs }
+            }
+            if (localMovie?.transcript?.trim()) {
+              return { ...m, transcript: localMovie.transcript, transcriptUpdatedAt: localTs }
+            }
+            return m
+          }) ?? []
         }
+        merged.updatedAt = Date.now()
+        setDb(merged)
+        const mergedLight = {
+          ...merged,
+          movies: (merged.movies ?? []).map(m =>
+            m.transcript && m.transcript !== '__REF__' ? { ...m, transcript: '__REF__' } : m
+          )
+        }
+        try { localStorage.setItem('fsi:movie:db', JSON.stringify(mergedLight)) } catch(e) {}
+        setAutoSyncStatus('ok')
+        setMovieSyncMsg('✓ 已自動合併最新資料')
+        // 合併結果可能跟雲端原本的不完全一樣（例如本機這邊比較新的部分），補推一次讓雲端也拿到合併後的版本
+        autoPush(merged)
       } catch { setAutoSyncStatus('idle') }
     }
     autoInit()
@@ -14012,7 +14069,23 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   useEffect(() => { dbRef.current = db }, [db])
 
   function saveDb(nd) {
-    const ndWithTs = { ...nd, updatedAt: Date.now() }
+    const now = Date.now()
+    // 幫「內容真的有變動」的場景蓋上場景層級時間戳記，供跨裝置合併時逐場景比較新舊用
+    // （比對時忽略 updatedAt 本身，只看場景真正的內容有沒有變）
+    const stampedMovies = (nd.movies ?? []).map(m => {
+      const oldMovie = db.movies?.find(om => om.id === m.id)
+      return {
+        ...m,
+        scenes: (m.scenes ?? []).map(sc => {
+          const oldScene = oldMovie?.scenes?.find(os => os.id === sc.id)
+          const { updatedAt: _a, ...scRest } = sc
+          const { updatedAt: _b, ...oldRest } = oldScene ?? {}
+          const changed = !oldScene || JSON.stringify(scRest) !== JSON.stringify(oldRest)
+          return changed ? { ...sc, updatedAt: now } : sc
+        })
+      }
+    })
+    const ndWithTs = { ...nd, movies: stampedMovies, updatedAt: now }
     setDb(ndWithTs)
     // 逐字稿獨立存：每部電影用各自的 key（fsi:movie:transcript:<movieId>）
     ;(ndWithTs.movies ?? []).forEach(m => {
@@ -14171,13 +14244,16 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     return changedCount
   }
 
-  function markScenePracticed() {
+  // targetSceneId 可選：批次練習（多場景）時，應該傳入該句子實際所屬的場景id，
+  // 而不是用目前畫面上選定的單一 sceneId（否則會誤蓋成無關場景的練習日期）
+  function markScenePracticed(targetSceneId) {
+    const sid = targetSceneId ?? sceneId
     // 只在沒有日期時才記錄（保留第一次練習日期，不覆蓋）
-    const currentScene = movie?.scenes?.find(sc => sc.id === sceneId)
-    if (currentScene?.lastVisited) return // 已有日期，不更新
+    const currentScene = db.movies.flatMap(m => m.scenes ?? []).find(sc => sc.id === sid)
+    if (!currentScene || currentScene.lastVisited) return // 找不到場景 或 已有日期，不更新
     const today = new Date().toISOString().slice(0,10)
-    saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : ({
-      ...m, scenes: m.scenes.map(sc => sc.id !== sceneId ? sc : { ...sc, lastVisited: today })
+    saveDb({ ...db, movies: db.movies.map(m => ({
+      ...m, scenes: m.scenes.map(sc => sc.id !== sid ? sc : { ...sc, lastVisited: today })
     }))})
   }
 
@@ -14363,6 +14439,62 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
       }
     }
   }
+
+  // ── 🩺 新片健檢：比對逐字稿最後時間碼 vs 實際MP3總長度，抓出版本不一致 ──
+  async function runMovieHealthCheck() {
+    if (!movie) return
+    const transcript = movie.transcript ?? ''
+    if (!transcript.trim()) { showMovieToast('⚠ 請先儲存逐字稿才能健檢'); return }
+    showMovieToast('🩺 健檢中…')
+    try {
+      const normalized = normalizeSRT(transcript)
+      let maxEndSecs = 0
+      for (const block of normalized.split(/\n{2,}/)) {
+        const tsLine = block.split('\n').find(l => /-->/.test(l))
+        if (!tsLine) continue
+        const endStr = tsLine.split('-->')[1]?.trim()
+        if (!endStr) continue
+        const endSecs = timeToSecs(endStr)
+        if (endSecs > maxEndSecs) maxEndSecs = endSecs
+      }
+      if (maxEndSecs === 0) { showMovieToast('⚠ 逐字稿裡找不到有效時間碼'); return }
+
+      const parts = getMovieMp3Parts(movie)
+      if (!parts.length) { showMovieToast('⚠ 請先設定並載入MP3分段'); return }
+      let totalDuration = 0
+      for (const p of parts) {
+        const blob = await getMp3FromIDB(p.idbKey)
+        if (!blob) { showMovieToast(`⚠ ${p.label ?? 'MP3'} 尚未載入，無法健檢`); return }
+        const dur = await new Promise((resolve, reject) => {
+          const tempEl = new Audio()
+          const url = URL.createObjectURL(blob)
+          tempEl.onloadedmetadata = () => { resolve(tempEl.duration); URL.revokeObjectURL(url) }
+          tempEl.onerror = () => { URL.revokeObjectURL(url); reject(new Error('MP3讀取失敗')) }
+          tempEl.src = url
+        })
+        totalDuration += dur
+      }
+
+      const diff = maxEndSecs - totalDuration
+      const absDiff = Math.abs(diff)
+      if (absDiff > 8) {
+        alert(
+          `⚠ 健檢發現落差\n\n` +
+          `逐字稿最後時間碼：${secsToTimeStr(maxEndSecs)}\n` +
+          `MP3實際總長度：${secsToTimeStr(totalDuration)}\n` +
+          `落差：${diff > 0 ? '+' : ''}${diff.toFixed(1)} 秒\n\n` +
+          `落差超過8秒，逐字稿跟這份MP3很可能不是同一個版本對出來的` +
+          `（不同剪輯版、不同片頭長度、或抽音軌起點沒對齊）。\n` +
+          `建議先確認字幕來源版本，再開始切場景，避免之後每個場景都要個別校正。`
+        )
+      } else {
+        showMovieToast(`✅ 健檢通過，落差僅 ${diff.toFixed(1)} 秒，可以放心切場景`)
+      }
+    } catch (e) {
+      showMovieToast('健檢失敗：' + (e?.message ?? '未知錯誤'))
+    }
+  }
+
 
   function loadAudioFile(file, idbKey) {
     if (!file) return
@@ -15512,10 +15644,11 @@ ${numbered}`
       console.log('[pullMovieDB] transcriptDB from Sheets:', transcriptDB.length, '筆')
       transcriptDB.forEach(tr => console.log(`  movieId=${tr.movieId} len=${tr.transcript?.length ?? 0}`))
 
-      // 合併逐字稿：Sheets 有就用 Sheets（同時間戳也用 Sheets），本機有但 Sheets 沒有才保留本機
-      const merged = {
-        ...nd,
-        movies: nd.movies?.map(m => {
+      // 逐場景合併（不再整包覆蓋），避免本機獨有的收藏/校正/已熟悉被雲端舊資料蓋掉
+      let merged = mergeMovieDB(db, nd)
+      merged = {
+        ...merged,
+        movies: merged.movies?.map(m => {
           const localMovie  = db.movies?.find(lm => lm.id === m.id)
           const sheetsEntry = transcriptDB.find(tr => tr.movieId === m.id)
           const localTs     = localMovie?.transcriptUpdatedAt ?? 0
@@ -15536,6 +15669,7 @@ ${numbered}`
           return m
         }) ?? []
       }
+      merged.updatedAt = Date.now()
 
       setDb(merged)
       localStorage.setItem('fsi:movie:db', JSON.stringify(merged))
@@ -18427,7 +18561,9 @@ Steven 不是在收藏電影台詞。
     const _pageSize = Number(localStorage.getItem('fsi:daily:count')) || 30
     const _totalNeedPractice = (currentMovie?.scenes ?? []).flatMap(s => (s.phrases ?? []).filter(p => p.starred && p.familiar !== true)).length
     const totalPages = Math.max(1, Math.ceil(_totalNeedPractice / _pageSize))
-    const allScenes  = db.movies.flatMap(m => m.scenes ?? [])
+    // 修正：沒有 multiScenePhrases 時的預設清單，只抓「目前選定這部電影」的場景，
+    // 不能用 db.movies（全部電影）——否則不同電影的重點句會混在一起
+    const allScenes  = currentMovie?.scenes ?? []
     // 先按場景開始時間排，場景內按句子索引順序排
     const sortedScenes = [...allScenes].sort((a, b) => {
       const getStart = s => { try { return parseSceneTimeRange(s.timeRange).start ?? 0 } catch { return 0 } }
@@ -18438,7 +18574,7 @@ Steven 不是在收藏電影台詞。
       ? [...multiScenePhrases].sort((a, b) => (a._sortKey ?? a.startSecs ?? 0) - (b._sortKey ?? b.startSecs ?? 0)) // 時間正序
       : sortedScenes
           .flatMap(s => (s.phrases ?? []).map((p, idx) => ({
-            ...p, sceneName: s.name ?? s.title ?? '', sceneTimeRange: s.timeRange ?? '', _sceneIdx: idx
+            ...p, sceneName: s.name ?? s.title ?? '', sceneTimeRange: s.timeRange ?? '', _sceneIdx: idx, _sceneId: s.id
           })).filter(p => p.starred))
 
     // multiScenePhrases 模式：familiar 判斷用 p.familiar 欄位（已存 movieDB）
@@ -19657,7 +19793,7 @@ Steven 不是在收藏電影台詞。
                     const allPhrasesForDaily = (m.scenes ?? []).flatMap(s => {
                       const sceneStart = (() => { try { return parseSceneTimeRange(s.timeRange).start ?? 0 } catch { return 0 } })()
                       return (s.phrases ?? []).filter(p => p.starred && p.familiar !== true)
-                        .map(p => ({ ...p, _sortKey: (p.startSecs && p.startSecs > 0) ? p.startSecs : sceneStart }))
+                        .map(p => ({ ...p, _sceneId: s.id, _sortKey: (p.startSecs && p.startSecs > 0) ? p.startSecs : sceneStart }))
                     })
                     // 排序：永遠固定依電影時間順序由小到大（startSecs 為電影絕對秒數）
                     const sorted = [...allPhrasesForDaily].sort((a, b) => a._sortKey - b._sortKey)
@@ -20334,6 +20470,36 @@ Steven 不是在收藏電影台詞。
           )}
         </div>
         {/* ── 多場景批次播放列（選了場景才顯示）── */}
+        {/* 場景範圍快速選取：輸入起訖場景號，不用一個個勾選 */}
+        <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:4 }}>
+          <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3, flexShrink:0 }}>範圍選取</span>
+          <input type="number" inputMode="numeric" placeholder="起" value={sceneRangeFrom}
+            onChange={e => setSceneRangeFrom(e.target.value)}
+            style={{ width:44, fontFamily:MONO, fontSize:11, textAlign:'center',
+              background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:7,
+              color:T.txt, padding:'5px 2px' }} />
+          <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>～</span>
+          <input type="number" inputMode="numeric" placeholder="迄" value={sceneRangeTo}
+            onChange={e => setSceneRangeTo(e.target.value)}
+            style={{ width:44, fontFamily:MONO, fontSize:11, textAlign:'center',
+              background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:7,
+              color:T.txt, padding:'5px 2px' }} />
+          <div onClick={() => {
+              const from = Number(sceneRangeFrom), to = Number(sceneRangeTo)
+              if (!from || !to || from > to) { showMovieToast('請輸入正確的起訖場景號'); return }
+              const total = movie?.scenes?.length ?? 0
+              const ids = (movie?.scenes ?? [])
+                .map((s, i) => ({ id: s.id, no: total - i })) // 跟畫面上的場景號算法一致（倒序編號）
+                .filter(x => x.no >= from && x.no <= to)
+                .map(x => x.id)
+              if (ids.length === 0) { showMovieToast('這個範圍沒有場景'); return }
+              setSelectedSceneIds(new Set(ids))
+            }}
+            style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700, color:T.bg,
+              background:T.amber, borderRadius:7, padding:'6px 10px', flexShrink:0 }}>
+            選取
+          </div>
+        </div>
         {selectedSceneIds.size > 0 && (
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
             gap:8, background:'#1a1500', border:`2px solid ${T.amber}`,
@@ -20357,7 +20523,7 @@ Steven 不是在收藏電影台詞。
                   const selectedPhrases = [...selectedSceneIds].flatMap(sid => {
                     const sc = movie?.scenes?.find(s => s.id === sid)
                     return (sc?.phrases ?? []).filter(p => p.starred).map(p => ({
-                      ...p, sceneName: sc.name ?? sc.title ?? ''
+                      ...p, sceneName: sc.name ?? sc.title ?? '', _sceneId: sc.id
                     }))
                   })
                   if (selectedPhrases.length === 0) { showMovieToast('選中場景沒有重點句'); return }
@@ -20416,15 +20582,62 @@ Steven 不是在收藏電影台詞。
           <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
             總進度 {totalPlayed}/{totalPhrases} 句 · {totalPct}% · {movie?.scenes.length ?? 0} 個場景
           </span>
-          <span onClick={() => { setTranscriptDraft(''); setTranscriptEditMode(false); setView('manageTranscript') }}
-            style={{ cursor:'pointer', fontFamily:MONO, fontSize:9,
-              color: movie?.transcript ? T.grn : T.txt3,
-              background: movie?.transcript ? T.grnD : T.surf2,
-              border:`1px solid ${movie?.transcript ? T.grn+'40' : T.bdr}`,
-              padding:'2px 9px', borderRadius:8 }}>
-            {movie?.transcript ? `📄 逐字稿已存` : '📄 存逐字稿'}
-          </span>
+          <div style={{ display:'flex', gap:6 }}>
+            <span onClick={runMovieHealthCheck}
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9,
+                color: '#38bdf8', background:'#0d2a3a',
+                border:'1px solid #38bdf850',
+                padding:'2px 9px', borderRadius:8 }}>
+              🩺 新片健檢
+            </span>
+            <span onClick={() => setCorrectionPanelOpen(v => !v)}
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9,
+                color: T.amber, background:T.amberD,
+                border:`1px solid ${T.amber}40`,
+                padding:'2px 9px', borderRadius:8 }}>
+              📊 校正紀錄
+            </span>
+            <span onClick={() => { setTranscriptDraft(''); setTranscriptEditMode(false); setView('manageTranscript') }}
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9,
+                color: movie?.transcript ? T.grn : T.txt3,
+                background: movie?.transcript ? T.grnD : T.surf2,
+                border:`1px solid ${movie?.transcript ? T.grn+'40' : T.bdr}`,
+                padding:'2px 9px', borderRadius:8 }}>
+              {movie?.transcript ? `📄 逐字稿已存` : '📄 存逐字稿'}
+            </span>
+          </div>
         </div>
+        {correctionPanelOpen && (() => {
+          const withCorrection = (movie?.scenes ?? [])
+            .filter(s => s.lastCorrection)
+            .map(s => {
+              let startSecs = 0
+              try { startSecs = parseSceneTimeRange(s.timeRange).start ?? 0 } catch {}
+              return { id: s.id, name: s.name ?? s.title ?? '', startSecs, offset: s.lastCorrection.offset, appliedAt: s.lastCorrection.appliedAt }
+            })
+            .sort((a, b) => a.startSecs - b.startSecs) // 依場景在電影裡的時間順序，方便看有沒有隨時間變化的規律
+          return (
+            <div style={{ marginTop:8, background:'#0d0d0d', border:`1px solid ${T.amber}30`,
+              borderRadius:10, padding:'10px 12px', display:'flex', flexDirection:'column', gap:6 }}>
+              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                依場景開始時間排序（共 {withCorrection.length} 個場景有校正紀錄）
+              </div>
+              {withCorrection.length === 0 ? (
+                <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>目前沒有任何場景做過時間碼校正</div>
+              ) : withCorrection.map(sc => (
+                <div key={sc.id} style={{ display:'flex', alignItems:'center', gap:8,
+                  fontFamily:MONO, fontSize:10, color:T.txt2, borderBottom:`1px solid ${T.bdr}`, paddingBottom:4 }}>
+                  <span style={{ color:T.txt3, flexShrink:0, width:56 }}>{secsToTimeStr(sc.startSecs)}</span>
+                  <span style={{ flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{sc.name}</span>
+                  <span style={{ color: sc.offset > 0 ? T.grn : '#f87171', flexShrink:0 }}>
+                    {sc.offset > 0 ? '+' : ''}{sc.offset.toFixed(3)}s
+                  </span>
+                  <span style={{ color:T.txt3, flexShrink:0, width:76 }}>{sc.appliedAt}</span>
+                </div>
+              ))}
+            </div>
+          )
+        })()}
       </div>
       {/* Scene cards（時間倒序：最晚場景在最上面，序號最大）*/}
       {[...(movie?.scenes ?? [])].sort((a, b) => {
