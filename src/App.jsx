@@ -7332,7 +7332,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.59
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.61
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -18211,77 +18211,77 @@ Steven 不是在收藏電影台詞。
               )}
             </div>
 
-            {/* 底部按鈕列：分兩行，方框加大、文字不換行 */}
+            {/* 底部按鈕列：一行五顆，純icon不帶文字，減少畫面雜亂 */}
             {deletingPhraseId !== p.id && (
-              <div style={{ display:'flex', flexDirection:'column', gap:6, marginTop:10, paddingRight:38 }}>
-                <div style={{ display:'flex', gap:6 }}>
-                  <div onClick={() => { setEditingNoteId(p.id); setEditingNoteText(p.note ?? '') }}
-                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
-                      padding:'9px 6px', borderRadius:8, flex:1, textAlign:'center', whiteSpace:'nowrap',
-                      background: p.note ? T.blueD : T.surf2,
-                      border:`1px solid ${p.note ? T.blue+'60' : T.bdr}`,
-                      color: p.note ? T.blue : T.txt3 }}>
-                    📝 備註
-                  </div>
-                  <div onClick={() => { setEditingEnId(p.id); setEditingEnText(p.en) }}
-                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
-                      padding:'9px 6px', borderRadius:8, flex:1, textAlign:'center', whiteSpace:'nowrap',
-                      background: editingEnId===p.id ? T.amberD : T.surf2,
-                      border:`1px solid ${editingEnId===p.id ? T.amber+'60' : T.bdr}`,
-                      color: editingEnId===p.id ? T.amber : T.txt3 }}>
-                    ✎ 英文
-                  </div>
-                  <div onClick={() => { setEditingSceneDescId(p.id); setEditingSceneDescText(p.sceneDesc ?? '') }}
-                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
-                      padding:'9px 6px', borderRadius:8, flex:1, textAlign:'center', whiteSpace:'nowrap',
-                      background: p.sceneDesc ? T.amberD : T.surf2,
-                      border:`1px solid ${p.sceneDesc ? T.amber+'60' : T.bdr}`,
-                      color: p.sceneDesc ? T.amber : T.txt3 }}>
-                    🎬 畫面
-                  </div>
+              <div style={{ display:'flex', gap:6, marginTop:10, paddingRight:38 }}>
+                <div onClick={() => { setEditingNoteId(p.id); setEditingNoteText(p.note ?? '') }}
+                  title="備註"
+                  style={{ cursor:'pointer', fontSize:15,
+                    padding:'9px 0', borderRadius:8, flex:1, textAlign:'center',
+                    background: p.note ? T.blueD : T.surf2,
+                    border:`1px solid ${p.note ? T.blue+'60' : T.bdr}`,
+                    color: p.note ? T.blue : T.txt3 }}>
+                  📝
                 </div>
-                <div style={{ display:'flex', gap:6 }}>
-                  <div onClick={() => retranslatingId !== p.id && retranslatePhrase(p.id, p.en)}
-                    style={{ cursor: retranslatingId === p.id ? 'default' : 'pointer',
-                      fontFamily:MONO, fontSize:10, fontWeight:700,
-                      padding:'9px 6px', borderRadius:8, flex:1, textAlign:'center', whiteSpace:'nowrap',
-                      background: T.surf2,
-                      border:`1px solid ${T.bdr}`,
-                      color: retranslatingId === p.id ? T.txt3 : T.grn,
-                      transition:'all 0.15s',
-                      display:'flex', alignItems:'center', justifyContent:'center', gap:4 }}>
-                    {retranslatingId === p.id
-                      ? <span style={{ display:'inline-block', width:8, height:8,
-                          border:'1.5px solid transparent', borderTopColor:T.txt3,
-                          borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>
-                      : '🔄'} 重譯
-                  </div>
-                  <div onClick={() => {
-                      if (playingPhraseId === p.id) {
-                        if (view === 'starred') { stopStarLoop?.(); }
-                        else { clearTimeout(audioStopRef.current); audioElRef.current?.pause() }
-                        setPlayingPhraseId(null); return
-                      }
-                      if (view === 'starred') {
-                        stopStarLoop?.()
-                        window.speechSynthesis?.cancel()
-                        setPlayingPhraseId(p.id)
-                        starLoopActiveRef.current = true
-                        const singleList = [p]
-                        starLoopListRef.current = singleList
-                        playStarPhrase(singleList, 0)
-                      } else {
-                        speakPhrase(p.id, p.en, undefined, p)
-                      }
-                    }}
-                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
-                      padding:'9px 6px', borderRadius:8, flex:1, textAlign:'center', whiteSpace:'nowrap',
-                      background: playingPhraseId===p.id ? T.amber+'22' : T.surf2,
-                      border:`1px solid ${playingPhraseId===p.id ? T.amber : T.bdr}`,
-                    color: playingPhraseId===p.id ? T.amber : T.txt3,
-                    transition:'all 0.15s' }}>
-                    {playingPhraseId===p.id ? '⏹' : '🔊'} 播放
-                  </div>
+                <div onClick={() => { setEditingEnId(p.id); setEditingEnText(p.en) }}
+                  title="英文"
+                  style={{ cursor:'pointer', fontSize:15,
+                    padding:'9px 0', borderRadius:8, flex:1, textAlign:'center',
+                    background: editingEnId===p.id ? T.amberD : T.surf2,
+                    border:`1px solid ${editingEnId===p.id ? T.amber+'60' : T.bdr}`,
+                    color: editingEnId===p.id ? T.amber : T.txt3 }}>
+                  ✎
+                </div>
+                <div onClick={() => { setEditingSceneDescId(p.id); setEditingSceneDescText(p.sceneDesc ?? '') }}
+                  title="畫面"
+                  style={{ cursor:'pointer', fontSize:15,
+                    padding:'9px 0', borderRadius:8, flex:1, textAlign:'center',
+                    background: p.sceneDesc ? T.amberD : T.surf2,
+                    border:`1px solid ${p.sceneDesc ? T.amber+'60' : T.bdr}`,
+                    color: p.sceneDesc ? T.amber : T.txt3 }}>
+                  🎬
+                </div>
+                <div onClick={() => retranslatingId !== p.id && retranslatePhrase(p.id, p.en)}
+                  title="重譯"
+                  style={{ cursor: retranslatingId === p.id ? 'default' : 'pointer', fontSize:15,
+                    padding:'9px 0', borderRadius:8, flex:1, textAlign:'center',
+                    background: T.surf2,
+                    border:`1px solid ${T.bdr}`,
+                    color: retranslatingId === p.id ? T.txt3 : T.grn,
+                    transition:'all 0.15s',
+                    display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  {retranslatingId === p.id
+                    ? <span style={{ display:'inline-block', width:8, height:8,
+                        border:'1.5px solid transparent', borderTopColor:T.txt3,
+                        borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>
+                    : '🔄'}
+                </div>
+                <div onClick={() => {
+                    if (playingPhraseId === p.id) {
+                      if (view === 'starred') { stopStarLoop?.(); }
+                      else { clearTimeout(audioStopRef.current); audioElRef.current?.pause() }
+                      setPlayingPhraseId(null); return
+                    }
+                    if (view === 'starred') {
+                      stopStarLoop?.()
+                      window.speechSynthesis?.cancel()
+                      setPlayingPhraseId(p.id)
+                      starLoopActiveRef.current = true
+                      const singleList = [p]
+                      starLoopListRef.current = singleList
+                      playStarPhrase(singleList, 0)
+                    } else {
+                      speakPhrase(p.id, p.en, undefined, p)
+                    }
+                  }}
+                  title="播放"
+                  style={{ cursor:'pointer', fontSize:15,
+                    padding:'9px 0', borderRadius:8, flex:1, textAlign:'center',
+                    background: playingPhraseId===p.id ? T.amber+'22' : T.surf2,
+                    border:`1px solid ${playingPhraseId===p.id ? T.amber : T.bdr}`,
+                  color: playingPhraseId===p.id ? T.amber : T.txt3,
+                  transition:'all 0.15s' }}>
+                  {playingPhraseId===p.id ? '⏹' : '🔊'}
                 </div>
               </div>
             )}
@@ -20655,36 +20655,6 @@ Steven 不是在收藏電影台詞。
             總進度 {totalPlayed}/{totalPhrases} 句 · {totalPct}% · {movie?.scenes.length ?? 0} 個場景
           </span>
           <div style={{ display:'flex', gap:6 }}>
-            <span onClick={runMovieHealthCheck}
-              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9,
-                color: '#38bdf8', background:'#0d2a3a',
-                border:'1px solid #38bdf850',
-                padding:'2px 9px', borderRadius:8 }}>
-              🩺 新片健檢
-            </span>
-            <span onClick={() => {
-                if (!movie?.transcript) { showMovieToast('⚠ 請先儲存逐字稿'); return }
-                if (!window.confirm('這會對「這部電影所有場景」逐句重新比對逐字稿，覆蓋現有時間碼（包含之前手動校正過的），並清除舊的校正紀錄。確定要繼續嗎？')) return
-                const result = forcePatchAllScenes()
-                if (!result) { showMovieToast('⚠ 請先儲存逐字稿'); return }
-                showMovieToast(
-                  `✅ 已重新比對 ${result.scenesTouched} 個場景、共 ${result.patched} 句` +
-                  (result.notFound > 0 ? `（${result.notFound}句找不到對應，維持原時間碼）` : '')
-                )
-              }}
-              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9,
-                color: '#a78bfa', background:'#1a0f2e',
-                border:'1px solid #a78bfa40',
-                padding:'2px 9px', borderRadius:8 }}>
-              🔁 全片重新比對
-            </span>
-            <span onClick={() => setCorrectionPanelOpen(v => !v)}
-              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9,
-                color: T.amber, background:T.amberD,
-                border:`1px solid ${T.amber}40`,
-                padding:'2px 9px', borderRadius:8 }}>
-              📊 校正紀錄
-            </span>
             <span onClick={() => { setTranscriptDraft(''); setTranscriptEditMode(false); setView('manageTranscript') }}
               style={{ cursor:'pointer', fontFamily:MONO, fontSize:9,
                 color: movie?.transcript ? T.grn : T.txt3,
@@ -20695,37 +20665,6 @@ Steven 不是在收藏電影台詞。
             </span>
           </div>
         </div>
-        {correctionPanelOpen && (() => {
-          const withCorrection = (movie?.scenes ?? [])
-            .filter(s => s.lastCorrection)
-            .map(s => {
-              let startSecs = 0
-              try { startSecs = parseSceneTimeRange(s.timeRange).start ?? 0 } catch {}
-              return { id: s.id, name: s.name ?? s.title ?? '', startSecs, offset: s.lastCorrection.offset, appliedAt: s.lastCorrection.appliedAt }
-            })
-            .sort((a, b) => a.startSecs - b.startSecs) // 依場景在電影裡的時間順序，方便看有沒有隨時間變化的規律
-          return (
-            <div style={{ marginTop:8, background:'#0d0d0d', border:`1px solid ${T.amber}30`,
-              borderRadius:10, padding:'10px 12px', display:'flex', flexDirection:'column', gap:6 }}>
-              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
-                依場景開始時間排序（共 {withCorrection.length} 個場景有校正紀錄）
-              </div>
-              {withCorrection.length === 0 ? (
-                <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>目前沒有任何場景做過時間碼校正</div>
-              ) : withCorrection.map(sc => (
-                <div key={sc.id} style={{ display:'flex', alignItems:'center', gap:8,
-                  fontFamily:MONO, fontSize:10, color:T.txt2, borderBottom:`1px solid ${T.bdr}`, paddingBottom:4 }}>
-                  <span style={{ color:T.txt3, flexShrink:0, width:56 }}>{secsToTimeStr(sc.startSecs)}</span>
-                  <span style={{ flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{sc.name}</span>
-                  <span style={{ color: sc.offset > 0 ? T.grn : '#f87171', flexShrink:0 }}>
-                    {sc.offset > 0 ? '+' : ''}{sc.offset.toFixed(3)}s
-                  </span>
-                  <span style={{ color:T.txt3, flexShrink:0, width:76 }}>{sc.appliedAt}</span>
-                </div>
-              ))}
-            </div>
-          )
-        })()}
       </div>
       {/* Scene cards（時間倒序：最晚場景在最上面，序號最大）*/}
       {[...(movie?.scenes ?? [])].sort((a, b) => {
@@ -20981,6 +20920,70 @@ Steven 不是在收藏電影台詞。
           ))}
         </div>
       </div>
+
+      <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+            <span onClick={runMovieHealthCheck}
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9,
+                color: '#38bdf8', background:'#0d2a3a',
+                border:'1px solid #38bdf850',
+                padding:'2px 9px', borderRadius:8 }}>
+              🩺 新片健檢
+            </span>
+            <span onClick={() => {
+                if (!movie?.transcript) { showMovieToast('⚠ 請先儲存逐字稿'); return }
+                if (!window.confirm('這會對「這部電影所有場景」逐句重新比對逐字稿，覆蓋現有時間碼（包含之前手動校正過的），並清除舊的校正紀錄。確定要繼續嗎？')) return
+                const result = forcePatchAllScenes()
+                if (!result) { showMovieToast('⚠ 請先儲存逐字稿'); return }
+                showMovieToast(
+                  `✅ 已重新比對 ${result.scenesTouched} 個場景、共 ${result.patched} 句` +
+                  (result.notFound > 0 ? `（${result.notFound}句找不到對應，維持原時間碼）` : '')
+                )
+              }}
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9,
+                color: '#a78bfa', background:'#1a0f2e',
+                border:'1px solid #a78bfa40',
+                padding:'2px 9px', borderRadius:8 }}>
+              🔁 全片重新比對
+            </span>
+            <span onClick={() => setCorrectionPanelOpen(v => !v)}
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9,
+                color: T.amber, background:T.amberD,
+                border:`1px solid ${T.amber}40`,
+                padding:'2px 9px', borderRadius:8 }}>
+              📊 校正紀錄
+            </span>
+      </div>
+        {correctionPanelOpen && (() => {
+          const withCorrection = (movie?.scenes ?? [])
+            .filter(s => s.lastCorrection)
+            .map(s => {
+              let startSecs = 0
+              try { startSecs = parseSceneTimeRange(s.timeRange).start ?? 0 } catch {}
+              return { id: s.id, name: s.name ?? s.title ?? '', startSecs, offset: s.lastCorrection.offset, appliedAt: s.lastCorrection.appliedAt }
+            })
+            .sort((a, b) => a.startSecs - b.startSecs) // 依場景在電影裡的時間順序，方便看有沒有隨時間變化的規律
+          return (
+            <div style={{ marginTop:8, background:'#0d0d0d', border:`1px solid ${T.amber}30`,
+              borderRadius:10, padding:'10px 12px', display:'flex', flexDirection:'column', gap:6 }}>
+              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                依場景開始時間排序（共 {withCorrection.length} 個場景有校正紀錄）
+              </div>
+              {withCorrection.length === 0 ? (
+                <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>目前沒有任何場景做過時間碼校正</div>
+              ) : withCorrection.map(sc => (
+                <div key={sc.id} style={{ display:'flex', alignItems:'center', gap:8,
+                  fontFamily:MONO, fontSize:10, color:T.txt2, borderBottom:`1px solid ${T.bdr}`, paddingBottom:4 }}>
+                  <span style={{ color:T.txt3, flexShrink:0, width:56 }}>{secsToTimeStr(sc.startSecs)}</span>
+                  <span style={{ flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{sc.name}</span>
+                  <span style={{ color: sc.offset > 0 ? T.grn : '#f87171', flexShrink:0 }}>
+                    {sc.offset > 0 ? '+' : ''}{sc.offset.toFixed(3)}s
+                  </span>
+                  <span style={{ color:T.txt3, flexShrink:0, width:76 }}>{sc.appliedAt}</span>
+                </div>
+              ))}
+            </div>
+          )
+        })()}
 
             {/* ── 刪除時間段（較少用，放最下方）── */}
             {!!(movie?.transcript?.trim()) && (
