@@ -7327,12 +7327,12 @@ function AppIcon({ size = 36 }) {
 // ═══════════════════════════════════════════════════════════════
 // HEADER
 // ═══════════════════════════════════════════════════════════════
-function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase }) {
+function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProduce }) {
   return (
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.65
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.66
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -7351,6 +7351,15 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase }) {
               background:T.amberD, border:`1px solid ${T.amber}40`,
               borderRadius:7, padding:'3px 9px' }}>
             📚 知識庫
+          </div>
+        )}
+        {onOpenMyProduce && (
+          <div onClick={onOpenMyProduce}
+            style={{ display:'inline-flex', alignItems:'center', gap:5, marginTop:5, marginLeft:6,
+              cursor:'pointer', fontFamily:MONO, fontSize:10, color:'#a78bfa',
+              background:'#1a0f2e', border:'1px solid #a78bfa40',
+              borderRadius:7, padding:'3px 9px' }}>
+            🖊️ 造句庫
           </div>
         )}
       </div>
@@ -13389,7 +13398,7 @@ function getDueReviews(movieId) {
   } catch { return [] }
 }
 
-function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpSignal, onReturnFromKb }) {
+function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpSignal, myProduceJumpSignal, onReturnFromKb }) {
   const [db, setDb] = useState(() => {
     try {
       const s = localStorage.getItem('fsi:movie:db')
@@ -13495,6 +13504,10 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const [editingNoteId,   setEditingNoteId]   = useState(null)
   const [editingNoteText, setEditingNoteText] = useState('')
   const [editingEnId,     setEditingEnId]     = useState(null)  // 編輯英文句子
+  const [mySentenceEditId, setMySentenceEditId] = useState(null) // 目前展開「造句」編輯區的句子id
+  const [mySentenceDraft,  setMySentenceDraft]  = useState('')   // 造句草稿輸入
+  const [mySentenceBusy,   setMySentenceBusy]   = useState(false)
+  const [mySentenceResult, setMySentenceResult] = useState(null) // { corrected, tip }
   const [editingEnText,   setEditingEnText]   = useState('')
   const [retranslatingId, setRetranslatingId] = useState(null)
   const [wordModal,       setWordModal]       = useState(null)
@@ -13525,6 +13538,12 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
       document.getElementById('kb-section')?.scrollIntoView({ behavior:'smooth', block:'start' })
     }, 100)
   }, [kbJumpSignal]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── 我的造句庫快速切換：收到訊號時直接切到造句庫頁面 ──
+  useEffect(() => {
+    if (!myProduceJumpSignal) return
+    setView('myProduce')
+  }, [myProduceJumpSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 請求瀏覽器「持久化儲存」：一般網頁的 IndexedDB 快取是「盡力而為」，
   // 系統可能在儲存壓力大或判定為不常用時自動清掉，即使手機還有很多空間。
@@ -14233,6 +14252,59 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     saveKb([...latestKb, item])
     return item.id
   }
+
+  // ── 我的造句庫：把電影句子改編成自己工作/生活用的句子，AI協助修改，累積收藏 ──
+  const myProduceList = db.myProduceSentences ?? []
+  function saveMyProduce(items) {
+    saveDb({ ...db, myProduceSentences: items })
+  }
+  function addMyProduceSentence(entry) {
+    const item = { id: 'mp_' + Date.now() + '_' + Math.random().toString(36).slice(2,7), createdAt: Date.now(), ...entry }
+    const latest = db.myProduceSentences ?? []
+    saveMyProduce([item, ...latest])
+    return item.id
+  }
+  function deleteMyProduceSentence(id) {
+    const latest = db.myProduceSentences ?? []
+    saveMyProduce(latest.filter(i => i.id !== id))
+  }
+
+  // 用AI把「電影原句 + 我改編的草稿」修成自然、文法正確的英文，並給一句簡短建議
+  async function aiReviseMySentence(sourceEn, sourceZh, draft) {
+    const prompt = `這是一句電影台詞：\n"${sourceEn}"${sourceZh ? `（中文：${sourceZh}）` : ''}\n\n我想把這句話的句型改編成我自己工作/生活會用到的句子，我寫的草稿是：\n"${draft}"\n\n請幫我：\n1. 修正文法、用字錯誤，讓它更自然、更符合母語者的說法（如果我寫的已經很好，就保留原意小幅潤飾即可，不用大改）\n2. 給一句簡短、白話的中文說明，解釋為什麼這樣改比較好\n\n只回傳JSON，不要有其他文字：\n{"corrected": "<修改後的英文句子>", "tip": "<一句簡短中文說明>"}`
+    const sysPrompt = 'You are a helpful, encouraging English teacher for a Taiwanese adult professional. Return only valid JSON, no markdown formatting.'
+    try {
+      const se = getAISettings()
+      let rawText = ''
+      if ((se.aiProvider ?? 'anthropic') === 'anthropic' && se.anthropicKey) {
+        const r = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': se.anthropicKey,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true',
+          },
+          body: JSON.stringify({
+            model: 'claude-haiku-4-5-20251001',
+            max_tokens: 500,
+            system: sysPrompt,
+            messages: [{ role: 'user', content: prompt }]
+          })
+        })
+        const d = await r.json()
+        if (!r.ok) throw new Error(d.error?.message ?? 'API error ' + r.status)
+        rawText = d.content?.[0]?.text ?? ''
+      } else {
+        rawText = await callAI([{ role:'user', content: prompt }], sysPrompt)
+      }
+      const clean = rawText.replace(/```json|```/g, '').trim()
+      return JSON.parse(clean)
+    } catch (e) {
+      return { corrected: draft, tip: '⚠ AI修改失敗：' + (e?.message ?? '請重試，或先直接收藏原始草稿') }
+    }
+  }
+
   function updateKbItem(id, title, content, cat) {
     const latestKb = db.knowledgeBase ?? []
     saveKb(latestKb.map(k => k.id === id ? { ...k, title, content, cat: cat ?? k.cat } : k))
@@ -18365,6 +18437,75 @@ Steven 不是在收藏電影台詞。
                   transition:'all 0.15s' }}>
                   {playingPhraseId===p.id ? '⏹' : '🔊'}
                 </div>
+                <div onClick={() => {
+                    if (mySentenceEditId === p.id) { setMySentenceEditId(null); return }
+                    setMySentenceEditId(p.id); setMySentenceDraft(''); setMySentenceResult(null)
+                  }}
+                  title="造句：把這句改編成我自己的句子"
+                  style={{ cursor:'pointer', fontSize:15,
+                    padding:'9px 0', borderRadius:8, flex:1, textAlign:'center',
+                    background: mySentenceEditId===p.id ? '#1a0f2e' : T.surf2,
+                    border:`1px solid ${mySentenceEditId===p.id ? '#a78bfa60' : T.bdr}`,
+                    color: mySentenceEditId===p.id ? '#a78bfa' : T.txt3 }}>
+                  🖊️
+                </div>
+              </div>
+            )}
+
+            {/* 造句編輯區：把電影句子改編成自己的句子，AI協助修改 */}
+            {mySentenceEditId === p.id && (
+              <div style={{ marginTop:10, background:'#0d0820', border:'1px solid #a78bfa40',
+                borderRadius:10, padding:12, display:'flex', flexDirection:'column', gap:8 }}>
+                <div style={{ fontFamily:MONO, fontSize:9, color:'#a78bfa' }}>
+                  🖊️ 把這句改編成你自己工作/生活會用的句子：
+                </div>
+                <textarea value={mySentenceDraft} onChange={e => setMySentenceDraft(e.target.value)}
+                  placeholder="例如把電影台詞的句型套用到你的工作情境…"
+                  style={{ width:'100%', minHeight:60, fontFamily:MONO, fontSize:12,
+                    background:'#060412', border:'1px solid #a78bfa30', borderRadius:8,
+                    padding:8, color:'#fff', outline:'none', resize:'vertical' }}/>
+                <div style={{ display:'flex', gap:6 }}>
+                  <div onClick={async () => {
+                      if (!mySentenceDraft.trim() || mySentenceBusy) return
+                      setMySentenceBusy(true)
+                      const result = await aiReviseMySentence(p.en, p.zh, mySentenceDraft.trim())
+                      setMySentenceResult(result)
+                      setMySentenceBusy(false)
+                    }}
+                    style={{ cursor: mySentenceBusy ? 'default' : 'pointer', flex:1, textAlign:'center',
+                      fontFamily:MONO, fontSize:10, fontWeight:700, padding:'9px 0', borderRadius:8,
+                      background: mySentenceBusy ? T.surf2 : '#a78bfa', color: mySentenceBusy ? T.txt3 : '#0d0820' }}>
+                    {mySentenceBusy ? '⏳ AI修改中…' : '🤖 AI修改'}
+                  </div>
+                  {mySentenceResult && (
+                    <div onClick={() => {
+                        addMyProduceSentence({
+                          sourceEn: p.en, sourceZh: p.zh ?? '',
+                          movieTitle: movie?.title ?? '', sceneName: scene?.name ?? scene?.title ?? '',
+                          myDraft: mySentenceDraft.trim(),
+                          corrected: mySentenceResult.corrected, tip: mySentenceResult.tip,
+                        })
+                        showMovieToast('✅ 已加入我的造句庫')
+                        setMySentenceEditId(null); setMySentenceDraft(''); setMySentenceResult(null)
+                      }}
+                      style={{ cursor:'pointer', flex:1, textAlign:'center',
+                        fontFamily:MONO, fontSize:10, fontWeight:700, padding:'9px 0', borderRadius:8,
+                        background:T.grn, color:'#06210f' }}>
+                      💾 加入造句庫
+                    </div>
+                  )}
+                </div>
+                {mySentenceResult && (
+                  <div style={{ background:'#060412', border:'1px solid #a78bfa30', borderRadius:8, padding:10,
+                    display:'flex', flexDirection:'column', gap:6 }}>
+                    <div style={{ fontFamily:MONO, fontSize:12, color:'#a78bfa', lineHeight:1.6 }}>
+                      {mySentenceResult.corrected}
+                    </div>
+                    <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.5 }}>
+                      💡 {mySentenceResult.tip}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
             {p.played && <span style={{ position:'absolute', bottom:8, right:10, fontSize:9, color:T.txt3 }}>✅</span>}
@@ -19616,6 +19757,50 @@ Steven 不是在收藏電影台詞。
         </div>
       </div>
     </div>
+    )
+  }
+
+  if (view === 'myProduce') {
+    return (
+      <div style={{ padding:'16px 16px 80px', display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <BackBtn label="← 返回" to="list"/>
+          <span style={{ fontFamily:MONO, fontSize:11, color:'#a78bfa' }}>🖊️ 我的造句庫</span>
+        </div>
+        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+          把電影句子改編成自己工作/生活用的句子，AI協助修改，累積收藏 · 共 {myProduceList.length} 句
+        </div>
+        {myProduceList.length === 0 ? (
+          <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, textAlign:'center',
+            padding:'40px 20px', background:T.surf, borderRadius:13 }}>
+            尚無造句紀錄<br/>
+            <span style={{ fontSize:9 }}>在句子卡片點 🖊️ 開始造句</span>
+          </div>
+        ) : myProduceList.map(item => (
+          <div key={item.id} style={{ background:T.surf, border:'1px solid #a78bfa30', borderRadius:12, padding:14,
+            display:'flex', flexDirection:'column', gap:8 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+              <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
+                {item.movieTitle} · {item.sceneName}
+              </div>
+              <div onClick={() => { if (window.confirm('刪除這句造句？')) deleteMyProduceSentence(item.id) }}
+                style={{ cursor:'pointer', color:T.red, fontFamily:MONO, fontSize:10 }}>✕</div>
+            </div>
+            <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, opacity:0.7, lineHeight:1.5 }}>
+              電影原句：{item.sourceEn}
+            </div>
+            <div style={{ height:1, background:T.bdr }}/>
+            <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>我的草稿：</div>
+            <div style={{ fontFamily:MONO, fontSize:11, color:T.txt2, lineHeight:1.6 }}>{item.myDraft}</div>
+            <div style={{ fontFamily:MONO, fontSize:9, color:'#a78bfa' }}>AI修改後：</div>
+            <div style={{ fontFamily:MONO, fontSize:13, color:'#a78bfa', lineHeight:1.6, fontWeight:700 }}>{item.corrected}</div>
+            {item.tip && (
+              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.5 }}>💡 {item.tip}</div>
+            )}
+            <SpeakRow text={item.corrected} color={'#a78bfa'}/>
+          </div>
+        ))}
+      </div>
     )
   }
 
@@ -22397,11 +22582,17 @@ export default function App() {
   }
   // 知識庫快速切換：記住原本在哪個分頁，存完知識庫可以馬上切回去
   const [kbJumpSignal, setKbJumpSignal] = useState(0)
+  const [myProduceJumpSignal, setMyProduceJumpSignal] = useState(0)
   const [returnTab, setReturnTab] = useState(null)
   function openKnowledgeBase() {
     setReturnTab(tab)
     setTab('movie')
     setKbJumpSignal(s => s + 1)
+  }
+  function openMyProduce() {
+    setReturnTab(tab)
+    setTab('movie')
+    setMyProduceJumpSignal(s => s + 1)
   }
   function returnFromKnowledgeBase() {
     if (returnTab && returnTab !== 'movie') setTab(returnTab)
@@ -22550,7 +22741,7 @@ export default function App() {
   return (
     <div style={{ background:T.bg, minHeight:'100vh', maxWidth:480, margin:'0 auto', display:'flex', flexDirection:'column', position:'relative' }}>
       <style>{G}</style>
-      <Header audioMode={audioMode} toggleAudioMode={toggleAudioMode} onOpenKnowledgeBase={openKnowledgeBase}/>
+      <Header audioMode={audioMode} toggleAudioMode={toggleAudioMode} onOpenKnowledgeBase={openKnowledgeBase} onOpenMyProduce={openMyProduce}/>
       <div style={{ flex:1, overflowY:'auto', paddingBottom:'calc(110px + env(safe-area-inset-bottom, 20px))' }}>
         {tab==='phrase'   && <PhraseTab   settings={settings}/>}
         {tab==='practice' && <PracticeTab {...P}/>}
@@ -22559,7 +22750,7 @@ export default function App() {
         {tab==='email'    && <EmailTab    {...P}/>}
         <div style={{display: tab==='movie' ? 'flex' : 'none', flexDirection:'column', flex:1, minHeight:0}}>
           <MovieTab audioMode={audioMode} setAudioMode={setAudioMode} movieToast={movieToast} showMovieToast={showMovieToast}
-            kbJumpSignal={kbJumpSignal} onReturnFromKb={returnFromKnowledgeBase}/>
+            kbJumpSignal={kbJumpSignal} myProduceJumpSignal={myProduceJumpSignal} onReturnFromKb={returnFromKnowledgeBase}/>
         </div>
         {tab==='settings' && <SettingsTab {...P} movieToast={movieToast} showMovieToast={showMovieToast}/>}
       </div>
