@@ -7332,7 +7332,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase }) {
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.64
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.65
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -10543,6 +10543,39 @@ function ReverseCardManager({ pool, cat, rsrsMap, onRate }) {
   )
 }
 
+// 造句練習：只從「已熟悉（已畢業）」的句子出題，訓練主動生成，而不是認讀。
+// 重用 ReverseCard 的 UI（只顯示中文→自己講→顯示英文對照→自評），
+// 但資料來源不經過 phraseBuildQueue（那個函式會刻意跳過已畢業的句子），
+// 而是直接取「已畢業」的句子池，讓已經認得的句子有機會被拿出來練「講」。
+function ProduceCardManager({ pool, rsrsMap, onRate }) {
+  const donePool = useMemo(
+    () => pool.filter(p => p.zh?.trim() && rsrsMap[p.id]?.state === 'done'),
+    [pool.map(p=>p.id).join(','), rsrsMap]
+  )
+  const [idx, setIdx] = useState(0)
+  useEffect(() => { setIdx(0) }, [donePool.length])
+
+  if (donePool.length === 0) return (
+    <div style={{ textAlign:'center', color:T.txt3, fontFamily:SERIF, fontSize:13, padding:'40px 20px', lineHeight:1.8 }}>
+      這個分類目前還沒有「已熟悉」的句子。<br/>
+      先在「🔄 反向」模式練到畢業（✨已畢業），<br/>畢業後這裡就會出現造句練習題目。
+    </div>
+  )
+
+  const card = donePool[idx]
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+      <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+        🗣 造句練習（只從已熟悉的句子出題）· 共 {donePool.length} 句
+      </div>
+      <ReverseCard card={card} cardNum={idx+1} total={donePool.length}
+        srsMap={rsrsMap} onRate={onRate}
+        onNext={() => setIdx(i => (i+1) % Math.max(1, donePool.length))}/>
+    </div>
+  )
+}
+
+
 const SCENARIOS = [
   { id:'mystyle', label:'我的風格', en:'Free conversation from my collection', icon:'⭐', cat:'my' },
   { id:'greet',   label:'打招呼',   en:'Greeting friends',      icon:'👋', cat:'life'  },
@@ -11225,7 +11258,7 @@ function PhraseTab({ settings }) {
 
       {/* 主模式切換 */}
       <div style={{ display:'flex', background:'#161b22', borderRadius:10, padding:2, gap:2, flexShrink:0 }}>
-        {[{id:'sentence',label:'📋 句型'},{id:'reverse',label:'🔄 反向'},{id:'qa',label:'💬 問答'},{id:'dictation',label:'🎧 聽寫'},{id:'speech',label:'🎙 口說'},{id:'scenario',label:'🎭 情境'}].map(m => (
+        {[{id:'sentence',label:'📋 句型'},{id:'reverse',label:'🔄 反向'},{id:'produce',label:'🗣 造句'},{id:'qa',label:'💬 問答'},{id:'dictation',label:'🎧 聽寫'},{id:'speech',label:'🎙 口說'},{id:'scenario',label:'🎭 情境'}].map(m => (
           <div key={m.id} onClick={() => { setPMode(m.id); if (m.id !== 'reverse') setReverseFilter('all') }}
             style={{ flex:1, textAlign:'center', padding:'6px 0', borderRadius:8, cursor:'pointer',
               fontFamily:MONO, fontSize:10, letterSpacing:'0.05em', fontWeight: pMode===m.id ? 700 : 400,
@@ -11975,6 +12008,14 @@ function PhraseTab({ settings }) {
             <ReverseCardManager pool={reversePool} cat={cat} rsrsMap={rsrsMap} onRate={reverseRatePhrase}/>
           </div>
         )
+      })()}
+
+      {/* ══════════════════ 🗣 造句練習（只從已熟悉的句子出題）══════════════════ */}
+      {pMode === 'produce' && (() => {
+        const producePool = cat === 'all' ? allPhrases
+          : cat === 'my' ? (mySubcat === 'all' ? allPhrases.filter(p=>p.cat==='my') : allPhrases.filter(p=>p.cat==='my'&&(p.subcat??'')===mySubcat))
+          : allPhrases.filter(p=>p.cat===cat)
+        return <ProduceCardManager pool={producePool} rsrsMap={rsrsMap} onRate={reverseRatePhrase}/>
       })()}
 
       {/* ══════════════════ 🎧 聽寫 ══════════════════ */}
