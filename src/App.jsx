@@ -7332,7 +7332,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.77
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.78
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13854,6 +13854,12 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const starPlayGenRef    = useRef(0)           // 播放代次，避免過期的非同步 callback 干擾新播放
   const [starLoopMode,    setStarLoopMode]    = useState(null)      // null | 'familiar' | 'unfamiliar'
   const [starBikeMode,    setStarBikeMode]    = useState(false)     // 🚴 騎車模式：每句強制播3次，不自動標記熟悉
+  // 🎧 盲聽模式：先聽後看，訓練即時解碼而非靠文字理解
+  const [blindMode,       setBlindMode]       = useState(false)     // 盲聽模式開關
+  const [blindRevealed,   setBlindRevealed]   = useState({})        // { phraseId: true } 已顯示文字的句子
+  const [blindPlayCount,  setBlindPlayCount]  = useState(3)         // 自動播放次數（2或3）
+  const [blindPlayingId,  setBlindPlayingId]  = useState(null)      // 目前盲聽播放中的句子
+  const blindPlayRoundRef = useRef(0)                                // 目前播到第幾次
   const [starLoopIdx,     setStarLoopIdx]     = useState(0)
   const [starLoopPaused,  setStarLoopPaused]  = useState(false)     // 暫停狀態
   const starLoopRef      = useRef(null)   // setTimeout handle
@@ -14537,6 +14543,47 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : {
       ...m, scenes: m.scenes.map(s => s.id !== sceneId ? s : { ...s, phrases: fn(s.phrases) })
     })})
+  }
+
+  // 🎧 盲聽結果標記：存進句子資料本身（good=聽懂/partial=聽到部分/bad=沒聽懂），
+  // 附上日期，供未來聽力複習依據（例如優先複習「沒聽懂」的句子）
+  function markBlindResult(phraseId, result) {
+    updateScenePhrases(ps => ps.map(p => p.id !== phraseId ? p : {
+      ...p, blindResult: result, blindDate: new Date().toISOString().slice(0,10)
+    }))
+  }
+
+  // 🎧 盲聽播放：同一句自動播放 N 次（每次間隔1秒），全部播完才停
+  function playBlindPhrase(p) {
+    if (blindPlayingId === p.id) {
+      // 播放中再點一次 = 停止
+      clearTimeout(audioStopRef.current)
+      audioElRef.current?.pause()
+      window.speechSynthesis?.cancel()
+      setBlindPlayingId(null)
+      blindPlayRoundRef.current = 0
+      return
+    }
+    setBlindPlayingId(p.id)
+    blindPlayRoundRef.current = 0
+    const playOnce = () => {
+      blindPlayRoundRef.current += 1
+      const isLast = blindPlayRoundRef.current >= blindPlayCount
+      speakPhrase(p.id, p.en, undefined, p)
+      // 估算句子播放時間：有時間碼用實際長度，否則依字數估算，再加1秒間隔
+      const durMs = (p.startSecs > 0 && p.endSecs > p.startSecs)
+        ? (p.endSecs - p.startSecs) * 1000 + 1000
+        : Math.max(2000, p.en.split(' ').length * 450) + 1000
+      if (!isLast) {
+        setTimeout(() => {
+          // 若使用者中途按停止，blindPlayingId會被清空，不再繼續
+          if (blindPlayRoundRef.current > 0) playOnce()
+        }, durMs)
+      } else {
+        setTimeout(() => { setBlindPlayingId(null); blindPlayRoundRef.current = 0 }, durMs)
+      }
+    }
+    playOnce()
   }
 
   // ── 補充時間碼（不重新解析，保留所有備註和收藏）──────────────
@@ -18158,14 +18205,99 @@ Steven 不是在收藏電影台詞。
           </div>
         )}
 
+        {/* 🎧 盲聽模式切換：先聽後看訓練 */}
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <div onClick={() => { setBlindMode(v => !v); setBlindRevealed({}) }}
+            style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+              padding:'7px 14px', borderRadius:8,
+              color: blindMode ? '#0d2a3a' : '#38bdf8',
+              background: blindMode ? '#38bdf8' : '#0d2a3a',
+              border:'1px solid #38bdf850' }}>
+            🎧 盲聽模式{blindMode ? ' ON' : ''}
+          </div>
+          {blindMode && (
+            <>
+              <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>每句自動播</span>
+              {[2, 3].map(n => (
+                <div key={n} onClick={() => setBlindPlayCount(n)}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                    padding:'5px 10px', borderRadius:7,
+                    color: blindPlayCount===n ? '#0d2a3a' : T.txt3,
+                    background: blindPlayCount===n ? '#38bdf8' : T.surf2,
+                    border:`1px solid ${blindPlayCount===n ? '#38bdf8' : T.bdr}` }}>
+                  {n}次
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+        {blindMode && (
+          <div style={{ fontFamily:MONO, fontSize:9, color:'#38bdf8', lineHeight:1.6 }}>
+            先聽、後看：點 ▶ 純聽{blindPlayCount}次，努力抓聽出了哪幾個字，再點「顯示文字」對照，最後標記聽力結果。
+          </div>
+        )}
         <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>⭐ 收藏重點句 · 👆 點單字加入單字庫 · ✎ 長按英文編輯 · ✕ 刪除句子</div>
         {/* Sentence list */}
         {(starFilter ? phrases.filter(p=>p.starred) : phrases).map(p => (
+          blindMode && !blindRevealed[p.id] ? (
+            /* 🎧 盲聽模式（未顯示文字）：隱藏英文與中文，只留播放與顯示文字按鈕 */
+            <div key={p.id}
+              ref={el => { if (el) scenePhraseCardRefs.current[p.id] = el }}
+              style={{ background: blindPlayingId === p.id ? '#0d2a3a' : T.surf,
+                border:`1px solid ${blindPlayingId === p.id ? '#38bdf8' : '#38bdf830'}`,
+                borderRadius:12, padding:'14px 16px', position:'relative',
+                display:'flex', alignItems:'center', gap:10, transition:'background 0.2s, border-color 0.2s' }}>
+              <div onClick={() => playBlindPhrase(p)}
+                style={{ cursor:'pointer', fontSize:18, width:48, height:48, borderRadius:'50%',
+                  display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
+                  background: blindPlayingId === p.id ? '#38bdf8' : '#0d2a3a',
+                  color: blindPlayingId === p.id ? '#0d2a3a' : '#38bdf8',
+                  border:'1px solid #38bdf850' }}>
+                {blindPlayingId === p.id ? '⏹' : '▶'}
+              </div>
+              <div style={{ flex:1, fontFamily:MONO, fontSize:10, color:T.txt3, letterSpacing:'0.1em' }}>
+                {blindPlayingId === p.id
+                  ? `🎧 播放中（自動${blindPlayCount}次）…專心聽`
+                  : '🎧 ●●●●●●●●●●'}
+                {p.blindResult && (
+                  <span style={{ marginLeft:8, color: p.blindResult==='good' ? T.grn : p.blindResult==='partial' ? T.amber : T.red }}>
+                    {p.blindResult==='good' ? '✓上次聽懂' : p.blindResult==='partial' ? '◎上次聽到部分' : '✗上次沒聽懂'}
+                  </span>
+                )}
+              </div>
+              <div onClick={() => setBlindRevealed(r => ({ ...r, [p.id]: true }))}
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700, flexShrink:0,
+                  padding:'9px 14px', borderRadius:8,
+                  background:T.surf2, border:'1px solid #38bdf850', color:'#38bdf8' }}>
+                顯示文字
+              </div>
+            </div>
+          ) : (
           <div key={p.id}
             ref={el => { if (el) scenePhraseCardRefs.current[p.id] = el }}
             style={{ background: scenePlayingPhraseId === p.id ? T.amberD : T.surf,
             border:`1px solid ${scenePlayingPhraseId === p.id ? T.amber : p.starred ? T.amber+'60' : p.played ? T.amber+'25' : T.bdr}`,
             borderRadius:12, padding:'14px 16px', position:'relative', transition:'background 0.2s, border-color 0.2s' }}>
+            {/* 🎧 盲聽模式（已顯示文字）：標記聽力結果 */}
+            {blindMode && blindRevealed[p.id] && (
+              <div style={{ display:'flex', gap:6, marginBottom:10, alignItems:'center' }}>
+                <span style={{ fontFamily:MONO, fontSize:9, color:'#38bdf8', flexShrink:0 }}>🎧 聽力結果：</span>
+                {[
+                  { key:'good',    label:'✓ 聽懂',     c:T.grn,   bg:'#0a3a1a' },
+                  { key:'partial', label:'◎ 聽到部分', c:T.amber, bg:'#3a2a0a' },
+                  { key:'bad',     label:'✗ 沒聽懂',   c:T.red,   bg:'#3a1a1a' },
+                ].map(o => (
+                  <div key={o.key} onClick={() => markBlindResult(p.id, o.key)}
+                    style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:9, fontWeight:700,
+                      padding:'7px 0', borderRadius:7,
+                      background: p.blindResult===o.key ? o.bg : T.surf2,
+                      color: p.blindResult===o.key ? o.c : T.txt3,
+                      border:`1px solid ${p.blindResult===o.key ? o.c+'60' : T.bdr}` }}>
+                    {o.label}
+                  </div>
+                ))}
+              </div>
+            )}
             {/* EN tokens — 長按 1 秒觸發查詢，滑動自動取消 */}
             <div
               onPointerMove={e => {
@@ -18681,6 +18813,7 @@ Steven 不是在收藏電影台詞。
             )}
             {p.played && <span style={{ position:'absolute', bottom:8, right:10, fontSize:9, color:T.txt3 }}>✅</span>}
           </div>
+          )
         ))}
 
         {/* ── 以下移到最下面：進階時間碼工具與課程產生（減少場景頁上方雜亂） ── */}
