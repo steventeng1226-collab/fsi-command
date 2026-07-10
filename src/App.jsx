@@ -7332,7 +7332,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.66
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.69
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -10734,6 +10734,12 @@ function SpeakRow({ text, color }) {
         <span style={{ fontSize:16 }}>🐢</span>
         <span style={{ fontFamily:MONO, fontSize:11, color, fontWeight:600 }}>0.6x</span>
       </div>
+      <div onClick={() => speakEn(text, 0.8)}
+        style={{ padding:'6px 16px', borderRadius:8, background:color+'16', border:`1px solid ${color}55`,
+          display:'flex', alignItems:'center', gap:5, cursor:'pointer' }}>
+        <span style={{ fontSize:16 }}>🚶</span>
+        <span style={{ fontFamily:MONO, fontSize:11, color }}>0.8x</span>
+      </div>
       <div onClick={() => speakEn(text, 1)}
         style={{ padding:'6px 16px', borderRadius:8, background:color+'15', border:`1px solid ${color}50`,
           display:'flex', alignItems:'center', gap:5, cursor:'pointer' }}>
@@ -13508,6 +13514,12 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const [mySentenceDraft,  setMySentenceDraft]  = useState('')   // 造句草稿輸入
   const [mySentenceBusy,   setMySentenceBusy]   = useState(false)
   const [mySentenceResult, setMySentenceResult] = useState(null) // { corrected, tip }
+  const [mySentenceTag,    setMySentenceTag]    = useState('other') // 造句時選擇的情境標籤
+  const [myProduceSearch,  setMyProduceSearch]  = useState('')     // 造句庫搜尋關鍵字
+  const [myProduceTagFilter, setMyProduceTagFilter] = useState('all') // 造句庫標籤篩選
+  const [myProducePracticeOn,   setMyProducePracticeOn]   = useState(false) // 是否在練習模式
+  const [myProducePracticeIdx,  setMyProducePracticeIdx]  = useState(0)
+  const [myProducePracticeFlip, setMyProducePracticeFlip] = useState(false)
   const [editingEnText,   setEditingEnText]   = useState('')
   const [retranslatingId, setRetranslatingId] = useState(null)
   const [wordModal,       setWordModal]       = useState(null)
@@ -14254,6 +14266,14 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   }
 
   // ── 我的造句庫：把電影句子改編成自己工作/生活用的句子，AI協助修改，累積收藏 ──
+  const MY_PRODUCE_TAGS = [
+    { id:'meeting',  label:'📊 開會討論' },
+    { id:'quality',  label:'🔧 客訴/品質' },
+    { id:'report',   label:'📈 管理報告' },
+    { id:'crossdept',label:'🤝 跨部門溝通' },
+    { id:'daily',    label:'🌅 日常生活' },
+    { id:'other',    label:'📝 其他' },
+  ]
   const myProduceList = db.myProduceSentences ?? []
   function saveMyProduce(items) {
     saveDb({ ...db, myProduceSentences: items })
@@ -14267,6 +14287,25 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   function deleteMyProduceSentence(id) {
     const latest = db.myProduceSentences ?? []
     saveMyProduce(latest.filter(i => i.id !== id))
+  }
+  // 造句庫自評：套用跟電影句子一樣的間隔複習排程（3/7/16/35天）。
+  // ✓完整說 → 進到下一階段間隔；✗說不出/◎說一半 → 退回最初階段，近期再複習。
+  function rateMyProduceSentence(id, rating) {
+    const latest = db.myProduceSentences ?? []
+    const today = new Date()
+    const updated = latest.map(item => {
+      if (item.id !== id) return item
+      if (rating === 'good') {
+        const stage = Math.min((item.reviewStage ?? 0) + 1, REVIEW_INTERVALS.length - 1)
+        const nextDate = new Date(today.getTime() + REVIEW_INTERVALS[stage] * 86400000)
+        return { ...item, reviewStage: stage, nextReviewDate: nextDate.toISOString().slice(0,10),
+          familiar: stage >= REVIEW_INTERVALS.length - 1 }
+      } else {
+        const nextDate = new Date(today.getTime() + REVIEW_INTERVALS[0] * 86400000)
+        return { ...item, reviewStage: 0, nextReviewDate: nextDate.toISOString().slice(0,10), familiar: false }
+      }
+    })
+    saveMyProduce(updated)
   }
 
   // 用AI把「電影原句 + 我改編的草稿」修成自然、文法正確的英文，並給一句簡短建議
@@ -18464,6 +18503,18 @@ Steven 不是在收藏電影台詞。
                   style={{ width:'100%', minHeight:60, fontFamily:MONO, fontSize:12,
                     background:'#060412', border:'1px solid #a78bfa30', borderRadius:8,
                     padding:8, color:'#fff', outline:'none', resize:'vertical' }}/>
+                <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
+                  {MY_PRODUCE_TAGS.map(t => (
+                    <div key={t.id} onClick={() => setMySentenceTag(t.id)}
+                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:8,
+                        padding:'4px 8px', borderRadius:6,
+                        background: mySentenceTag===t.id ? '#a78bfa' : '#060412',
+                        color: mySentenceTag===t.id ? '#0d0820' : T.txt3,
+                        border:`1px solid ${mySentenceTag===t.id ? '#a78bfa' : '#a78bfa30'}` }}>
+                      {t.label}
+                    </div>
+                  ))}
+                </div>
                 <div style={{ display:'flex', gap:6 }}>
                   <div onClick={async () => {
                       if (!mySentenceDraft.trim() || mySentenceBusy) return
@@ -18484,9 +18535,10 @@ Steven 不是在收藏電影台詞。
                           movieTitle: movie?.title ?? '', sceneName: scene?.name ?? scene?.title ?? '',
                           myDraft: mySentenceDraft.trim(),
                           corrected: mySentenceResult.corrected, tip: mySentenceResult.tip,
+                          tag: mySentenceTag,
                         })
                         showMovieToast('✅ 已加入我的造句庫')
-                        setMySentenceEditId(null); setMySentenceDraft(''); setMySentenceResult(null)
+                        setMySentenceEditId(null); setMySentenceDraft(''); setMySentenceResult(null); setMySentenceTag('other')
                       }}
                       style={{ cursor:'pointer', flex:1, textAlign:'center',
                         fontFamily:MONO, fontSize:10, fontWeight:700, padding:'9px 0', borderRadius:8,
@@ -19770,36 +19822,177 @@ Steven 不是在收藏電影台詞。
         <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
           把電影句子改編成自己工作/生活用的句子，AI協助修改，累積收藏 · 共 {myProduceList.length} 句
         </div>
+        {(() => {
+          const todayStr = new Date().toISOString().slice(0,10)
+          const dueList = myProduceList.filter(i => !i.nextReviewDate || i.nextReviewDate <= todayStr)
+          if (myProduceList.length === 0) return null
+          return (
+            <div onClick={() => { setMyProducePracticeOn(true); setMyProducePracticeIdx(0); setMyProducePracticeFlip(false) }}
+              style={{ cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between',
+                background:'linear-gradient(135deg, #2a1a3a, #1a0f2e)', border:'1px solid #a78bfa60',
+                borderRadius:10, padding:'10px 14px' }}>
+              <span style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:'#a78bfa' }}>
+                🗣 {dueList.length > 0 ? `該複習了 · ${dueList.length}句` : '開始造句練習'}
+              </span>
+              <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>→</span>
+            </div>
+          )
+        })()}
+
+        {/* 練習模式：一題一題出，自己講完再翻牌對照，自評套用間隔複習排程 */}
+        {myProducePracticeOn && (() => {
+          const todayStr = new Date().toISOString().slice(0,10)
+          const dueList = myProduceList.filter(i => !i.nextReviewDate || i.nextReviewDate <= todayStr)
+          const queue = dueList.length > 0 ? dueList : myProduceList
+          if (queue.length === 0) return null
+          const item = queue[myProducePracticeIdx % queue.length]
+          const goNext = () => { setMyProducePracticeIdx(i => i + 1); setMyProducePracticeFlip(false) }
+          return (
+            <div style={{ background:'#0d0820', border:'1px solid #a78bfa50', borderRadius:13, padding:16,
+              display:'flex', flexDirection:'column', gap:10 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                <span>🗣 造句練習 · {(myProducePracticeIdx % queue.length) + 1}/{queue.length}</span>
+                <span onClick={() => setMyProducePracticeOn(false)} style={{ cursor:'pointer', color:T.txt3 }}>✕ 結束</span>
+              </div>
+              <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
+                {item.movieTitle} · {item.sceneName}
+              </div>
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.txt2, opacity:0.8, lineHeight:1.6 }}>
+                情境（電影原句）：{item.sourceEn}
+              </div>
+              {myProducePracticeFlip ? (
+                <>
+                  <div style={{ background:'#1a0f2e', border:'1px solid #a78bfa40', borderRadius:8, padding:10,
+                    fontFamily:MONO, fontSize:13, color:'#a78bfa', fontWeight:700, lineHeight:1.6 }}>
+                    {item.corrected}
+                  </div>
+                  <SpeakRow text={item.corrected} color={'#a78bfa'}/>
+                  <div style={{ display:'flex', gap:6 }}>
+                    <div onClick={() => { rateMyProduceSentence(item.id, 'bad'); goNext() }}
+                      style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
+                        padding:'9px 0', borderRadius:8, background:'#3a1a1a', color:'#f87171', border:'1px solid #f8717150' }}>
+                      ✗ 說不出
+                    </div>
+                    <div onClick={() => { rateMyProduceSentence(item.id, 'half'); goNext() }}
+                      style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
+                        padding:'9px 0', borderRadius:8, background:'#3a2a0a', color:T.amber, border:`1px solid ${T.amber}50` }}>
+                      ◎ 說一半
+                    </div>
+                    <div onClick={() => { rateMyProduceSentence(item.id, 'good'); goNext() }}
+                      style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
+                        padding:'9px 0', borderRadius:8, background:'#0a3a1a', color:T.grn, border:`1px solid ${T.grn}50` }}>
+                      ✓ 完整說
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div onClick={() => setMyProducePracticeFlip(true)}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt3, textAlign:'center',
+                    padding:'14px', background:T.surf2, borderRadius:8, border:`1px solid ${T.bdr}` }}>
+                  先自己講一次這句改編後的句子，再點這裡看答案 👆
+                </div>
+              )}
+            </div>
+          )
+        })()}
+
+        {myProduceList.length > 0 && (
+          <>
+            <input value={myProduceSearch} onChange={e => setMyProduceSearch(e.target.value)}
+              placeholder="🔍 搜尋草稿或修改後的句子…"
+              style={{ fontFamily:MONO, fontSize:11, background:'#0d0d1a',
+                border:'1px solid #a78bfa30', borderRadius:7, padding:'6px 10px',
+                color:'#fff', outline:'none' }}/>
+            <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
+              <div onClick={() => setMyProduceTagFilter('all')}
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:8, padding:'4px 8px', borderRadius:6,
+                  background: myProduceTagFilter==='all' ? '#a78bfa' : '#1a0f2e',
+                  color: myProduceTagFilter==='all' ? '#0d0820' : T.txt3,
+                  border:`1px solid ${myProduceTagFilter==='all' ? '#a78bfa' : '#a78bfa30'}` }}>
+                全部（{myProduceList.length}）
+              </div>
+              {MY_PRODUCE_TAGS.map(t => {
+                const c = myProduceList.filter(i => (i.tag ?? 'other') === t.id).length
+                if (c === 0) return null
+                return (
+                  <div key={t.id} onClick={() => setMyProduceTagFilter(t.id)}
+                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:8, padding:'4px 8px', borderRadius:6,
+                      background: myProduceTagFilter===t.id ? '#a78bfa' : '#1a0f2e',
+                      color: myProduceTagFilter===t.id ? '#0d0820' : T.txt3,
+                      border:`1px solid ${myProduceTagFilter===t.id ? '#a78bfa' : '#a78bfa30'}` }}>
+                    {t.label}（{c}）
+                  </div>
+                )
+              })}
+            </div>
+          </>
+        )}
         {myProduceList.length === 0 ? (
           <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, textAlign:'center',
             padding:'40px 20px', background:T.surf, borderRadius:13 }}>
             尚無造句紀錄<br/>
             <span style={{ fontSize:9 }}>在句子卡片點 🖊️ 開始造句</span>
           </div>
-        ) : myProduceList.map(item => (
-          <div key={item.id} style={{ background:T.surf, border:'1px solid #a78bfa30', borderRadius:12, padding:14,
-            display:'flex', flexDirection:'column', gap:8 }}>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
-              <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
-                {item.movieTitle} · {item.sceneName}
+        ) : (() => {
+          const q = myProduceSearch.trim().toLowerCase()
+          let filtered = myProduceList
+          if (myProduceTagFilter !== 'all') filtered = filtered.filter(i => (i.tag ?? 'other') === myProduceTagFilter)
+          if (q) filtered = filtered.filter(i =>
+            (i.myDraft ?? '').toLowerCase().includes(q) || (i.corrected ?? '').toLowerCase().includes(q)
+          )
+          if (filtered.length === 0) return (
+            <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, textAlign:'center', padding:'20px 0' }}>
+              🔍 找不到符合的造句
+            </div>
+          )
+          // 依電影分組（維持原本新到舊的順序）
+          const groups = []
+          filtered.forEach(item => {
+            const key = item.movieTitle || '未分類'
+            let g = groups.find(g => g.title === key)
+            if (!g) { g = { title: key, items: [] }; groups.push(g) }
+            g.items.push(item)
+          })
+          return groups.map(g => (
+            <div key={g.title} style={{ display:'flex', flexDirection:'column', gap:8 }}>
+              <div style={{ fontFamily:MONO, fontSize:10, color:'#a78bfa', fontWeight:700 }}>
+                🎬 {g.title}（{g.items.length}句）
               </div>
-              <div onClick={() => { if (window.confirm('刪除這句造句？')) deleteMyProduceSentence(item.id) }}
-                style={{ cursor:'pointer', color:T.red, fontFamily:MONO, fontSize:10 }}>✕</div>
+              {g.items.map(item => {
+                const tagInfo = MY_PRODUCE_TAGS.find(t => t.id === (item.tag ?? 'other'))
+                return (
+                  <div key={item.id} style={{ background:T.surf, border:'1px solid #a78bfa30', borderRadius:12, padding:14,
+                    display:'flex', flexDirection:'column', gap:8 }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+                      <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
+                        {item.sceneName}{tagInfo ? ` · ${tagInfo.label}` : ''}
+                      </div>
+                      <div onClick={() => { if (window.confirm('刪除這句造句？')) deleteMyProduceSentence(item.id) }}
+                        style={{ cursor:'pointer', color:T.red, fontFamily:MONO, fontSize:10 }}>✕</div>
+                    </div>
+                    {item.familiar ? (
+                      <div style={{ fontFamily:MONO, fontSize:8, color:T.grn }}>✨ 已熟悉</div>
+                    ) : item.nextReviewDate ? (
+                      <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>🔁 下次複習：{item.nextReviewDate}</div>
+                    ) : null}
+                    <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, opacity:0.7, lineHeight:1.5 }}>
+                      電影原句：{item.sourceEn}
+                    </div>
+                    <div style={{ height:1, background:T.bdr }}/>
+                    <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>我的草稿：</div>
+                    <div style={{ fontFamily:MONO, fontSize:11, color:T.txt2, lineHeight:1.6 }}>{item.myDraft}</div>
+                    <div style={{ fontFamily:MONO, fontSize:9, color:'#a78bfa' }}>AI修改後：</div>
+                    <div style={{ fontFamily:MONO, fontSize:13, color:'#a78bfa', lineHeight:1.6, fontWeight:700 }}>{item.corrected}</div>
+                    {item.tip && (
+                      <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.5 }}>💡 {item.tip}</div>
+                    )}
+                    <SpeakRow text={item.corrected} color={'#a78bfa'}/>
+                  </div>
+                )
+              })}
             </div>
-            <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, opacity:0.7, lineHeight:1.5 }}>
-              電影原句：{item.sourceEn}
-            </div>
-            <div style={{ height:1, background:T.bdr }}/>
-            <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>我的草稿：</div>
-            <div style={{ fontFamily:MONO, fontSize:11, color:T.txt2, lineHeight:1.6 }}>{item.myDraft}</div>
-            <div style={{ fontFamily:MONO, fontSize:9, color:'#a78bfa' }}>AI修改後：</div>
-            <div style={{ fontFamily:MONO, fontSize:13, color:'#a78bfa', lineHeight:1.6, fontWeight:700 }}>{item.corrected}</div>
-            {item.tip && (
-              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.5 }}>💡 {item.tip}</div>
-            )}
-            <SpeakRow text={item.corrected} color={'#a78bfa'}/>
-          </div>
-        ))}
+          ))
+        })()}
       </div>
     )
   }
