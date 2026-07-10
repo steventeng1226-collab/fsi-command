@@ -7332,7 +7332,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.69
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.70
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13844,7 +13844,9 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     } catch { return {} }
   })  // { [phraseId]: true/false } 熟悉
   const [starCurrentIdx,  setStarCurrentIdx]  = useState(0)        // 練習模式當前索引
-  const [starReverse,     setStarReverse]     = useState(false)     // 反向開關（獨立於模式）
+  const [starReverse,     setStarReverse]     = useState(() => {
+    try { return localStorage.getItem('fsi:star:reverse') === '1' } catch(e) { return false }
+  })     // 反向開關（獨立於模式）；記住上次偏好，且切到「熟悉/再加強」時會自動開啟（主動回想比被動看更有效）
   const starPlayCountRef  = useRef({})          // { [phraseId]: count } 循環播放計數（自動熟悉用）
   const starPlayGenRef    = useRef(0)           // 播放代次，避免過期的非同步 callback 干擾新播放
   const [starLoopMode,    setStarLoopMode]    = useState(null)      // null | 'familiar' | 'unfamiliar'
@@ -19453,7 +19455,15 @@ Steven 不是在收藏電影台詞。
             ['unfamiliar', `✗ 加強(${unfamiliarList.length})`],
             ['reinforce',  `🔥 再加強(${reinforceList.length})`],
           ].map(([mode, label]) => (
-            <div key={mode} onClick={() => { setStarMode(mode); setStarFlip({}) }}
+            <div key={mode} onClick={() => {
+                setStarMode(mode); setStarFlip({})
+                // 「✓熟悉」「🔥再加強」是已經學過的句子，適合主動回想（retrieval practice）
+                // 比被動看英文有效很多，切到這兩個分類時自動開反向模式
+                if (mode === 'familiar' || mode === 'reinforce') {
+                  setStarReverse(true)
+                  try { localStorage.setItem('fsi:star:reverse', '1') } catch(e) {}
+                }
+              }}
               style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
                 padding:'6px 10px', borderRadius:8,
                 color: starMode===mode ? T.amber : T.txt3,
@@ -19463,7 +19473,11 @@ Steven 不是在收藏電影台詞。
             </div>
           ))}
           {/* 反向開關 */}
-          <div onClick={() => { setStarReverse(r => !r); setStarFlip({}) }}
+          <div onClick={() => {
+              const next = !starReverse
+              setStarReverse(next); setStarFlip({})
+              try { localStorage.setItem('fsi:star:reverse', next ? '1' : '0') } catch(e) {}
+            }}
             style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
               padding:'6px 10px', borderRadius:8,
               color: starReverse ? T.blue : T.txt3,
