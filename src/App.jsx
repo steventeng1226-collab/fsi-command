@@ -7332,7 +7332,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.72
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.76
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13521,6 +13521,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const [myProducePracticeOn,   setMyProducePracticeOn]   = useState(false) // 是否在練習模式
   const [myProducePracticeIdx,  setMyProducePracticeIdx]  = useState(0)
   const [myProducePracticeFlip, setMyProducePracticeFlip] = useState(false)
+  const [myProduceClassifyBusy, setMyProduceClassifyBusy] = useState(false)
   const [editingEnText,   setEditingEnText]   = useState('')
   const [retranslatingId, setRetranslatingId] = useState(null)
   const [wordModal,       setWordModal]       = useState(null)
@@ -14270,12 +14271,12 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
 
   // ── 我的造句庫：把電影句子改編成自己工作/生活用的句子，AI協助修改，累積收藏 ──
   const MY_PRODUCE_TAGS = [
-    { id:'meeting',  label:'📊 開會討論' },
-    { id:'quality',  label:'🔧 客訴/品質' },
-    { id:'report',   label:'📈 管理報告' },
-    { id:'crossdept',label:'🤝 跨部門溝通' },
-    { id:'daily',    label:'🌅 日常生活' },
-    { id:'other',    label:'📝 其他' },
+    { id:'work',     label:'👜 工作' },
+    { id:'life',     label:'🏠 生活' },
+    { id:'family',   label:'👨‍👩‍👧 家庭' },
+    { id:'study',    label:'🎯 學習' },
+    { id:'feeling',  label:'❤️ 感受' },
+    { id:'other',    label:'📦 其他' },
   ]
   const myProduceList = db.myProduceSentences ?? []
   function saveMyProduce(items) {
@@ -14290,6 +14291,19 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   function deleteMyProduceSentence(id) {
     const latest = db.myProduceSentences ?? []
     saveMyProduce(latest.filter(i => i.id !== id))
+  }
+  // 切換「我真的說過嗎」的使用狀態勾選（可複選，例如同時勾練習過+工作說過）
+  function toggleMyProduceUsage(id, key) {
+    const latest = db.myProduceSentences ?? []
+    saveMyProduce(latest.map(item => {
+      if (item.id !== id) return item
+      const usage = { ...(item.usage ?? {}) }
+      usage[key] = !usage[key]
+      // 「沒用過」跟其他實際使用的勾選互斥：勾了「沒用過」就清掉工作說過/跟老師說過
+      if (key === 'notUsed' && usage.notUsed) { usage.work = false; usage.teacher = false }
+      if ((key === 'work' || key === 'teacher') && usage[key]) usage.notUsed = false
+      return { ...item, usage }
+    }))
   }
   // 造句庫自評：套用跟電影句子一樣的間隔複習排程（3/7/16/35天）。
   // ✓完整說 → 進到下一階段間隔；✗說不出/◎說一半 → 退回最初階段，近期再複習。
@@ -14311,10 +14325,66 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     saveMyProduce(updated)
   }
 
+  // AI批次分類：一次把目前分類為「其他」的造句都送給AI重新判斷分類，
+  // 用於「📋複製給ChatGPT」貼回來的句子（沒有經過內建AI，分類會停在「其他」）
+  async function aiClassifyMyProduceOther() {
+    const latest = db.myProduceSentences ?? []
+    const targets = latest.filter(i => (i.tag ?? 'other') === 'other')
+    if (targets.length === 0) return { classified: 0, total: 0 }
+    const listText = targets.map((t, i) => `${i+1}. ${t.corrected}`).join('\n')
+    const prompt = `以下是我造句庫裡的句子，請幫每一句判斷最適合的情境分類，只能選一個：\nwork（工作場合，例如開會、報告、客訴、跨部門溝通）\nlife（日常生活瑣事，例如購物、交通、餐廳）\nfamily（跟家人互動相關）\nstudy（學習、進修相關）\nfeeling（表達情緒、感受、心情）\nother（以上都不確定）\n\n句子清單：\n${listText}\n\n只回傳JSON陣列，順序要跟句子清單一致，不要有其他文字：\n[{"tag": "<分類>"}, {"tag": "<分類>"}, ...]`
+    const sysPrompt = 'You are a helpful classifier. Return only a valid JSON array, no markdown formatting, same order and length as the input list.'
+    const validTags = ['work','life','family','study','feeling','other']
+    try {
+      const se = getAISettings()
+      let rawText = ''
+      if ((se.aiProvider ?? 'anthropic') === 'anthropic' && se.anthropicKey) {
+        const r = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': se.anthropicKey,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true',
+          },
+          body: JSON.stringify({
+            model: 'claude-haiku-4-5-20251001',
+            max_tokens: 1000,
+            system: sysPrompt,
+            messages: [{ role: 'user', content: prompt }]
+          })
+        })
+        const d = await r.json()
+        if (!r.ok) throw new Error(d.error?.message ?? 'API error ' + r.status)
+        rawText = d.content?.[0]?.text ?? ''
+      } else {
+        rawText = await callAI([{ role:'user', content: prompt }], sysPrompt)
+      }
+      const clean = rawText.replace(/```json|```/g, '').trim()
+      const tags = JSON.parse(clean)
+      let classified = 0
+      const targetIds = targets.map(t => t.id)
+      const updated = latest.map(item => {
+        const idx = targetIds.indexOf(item.id)
+        if (idx < 0 || !tags[idx]) return item
+        const tag = validTags.includes(tags[idx].tag) ? tags[idx].tag : 'other'
+        if (tag !== 'other') classified++
+        return { ...item, tag }
+      })
+      saveMyProduce(updated)
+      return { classified, total: targets.length }
+    } catch (e) {
+      showMovieToast('AI批次分類失敗：' + (e?.message ?? '請重試'))
+      return { classified: 0, total: targets.length }
+    }
+  }
+
+
   // 用AI把「電影原句 + 我改編的草稿」修成自然、文法正確的英文，並給一句簡短建議
   async function aiReviseMySentence(sourceEn, sourceZh, draft) {
-    const prompt = `這是一句電影台詞：\n"${sourceEn}"${sourceZh ? `（中文：${sourceZh}）` : ''}\n\n我想把這句話的句型改編成我自己工作/生活會用到的句子，我寫的草稿是：\n"${draft}"\n\n請幫我：\n1. 修正文法、用字錯誤，讓它更自然、更符合母語者的說法（如果我寫的已經很好，就保留原意小幅潤飾即可，不用大改）\n2. 給一句簡短、白話的中文說明，解釋為什麼這樣改比較好\n\n只回傳JSON，不要有其他文字：\n{"corrected": "<修改後的英文句子>", "tip": "<一句簡短中文說明>"}`
+    const prompt = `這是一句電影台詞：\n"${sourceEn}"${sourceZh ? `（中文：${sourceZh}）` : ''}\n\n我想把這句話的句型改編成我自己工作/生活會用到的句子，我寫的草稿是：\n"${draft}"\n\n請幫我：\n1. 修正文法、用字錯誤，讓它更自然、更符合母語者的說法（如果我寫的已經很好，就保留原意小幅潤飾即可，不用大改）\n2. 給一句簡短、白話的中文說明，解釋為什麼這樣改比較好\n3. 判斷這句話最適合歸類到哪個情境分類，只能選一個：\n   - work（工作場合，例如開會、報告、客訴、跨部門溝通）\n   - life（日常生活瑣事，例如購物、交通、餐廳）\n   - family（跟家人互動相關）\n   - study（學習、進修相關）\n   - feeling（表達情緒、感受、心情）\n   - other（以上都不確定，或無法判斷）\n\n只回傳JSON，不要有其他文字：\n{"corrected": "<修改後的英文句子>", "tip": "<一句簡短中文說明>", "tag": "<work|life|family|study|feeling|other>"}`
     const sysPrompt = 'You are a helpful, encouraging English teacher for a Taiwanese adult professional. Return only valid JSON, no markdown formatting.'
+    const validTags = ['work','life','family','study','feeling','other']
     try {
       const se = getAISettings()
       let rawText = ''
@@ -14341,9 +14411,11 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
         rawText = await callAI([{ role:'user', content: prompt }], sysPrompt)
       }
       const clean = rawText.replace(/```json|```/g, '').trim()
-      return JSON.parse(clean)
+      const parsed = JSON.parse(clean)
+      if (!validTags.includes(parsed.tag)) parsed.tag = 'other'
+      return parsed
     } catch (e) {
-      return { corrected: draft, tip: '⚠ AI修改失敗：' + (e?.message ?? '請重試，或先直接收藏原始草稿') }
+      return { corrected: draft, tip: '⚠ AI修改失敗：' + (e?.message ?? '請重試，或先直接收藏原始草稿'), tag: 'other' }
     }
   }
 
@@ -18506,6 +18578,9 @@ Steven 不是在收藏電影台詞。
                   style={{ width:'100%', minHeight:60, fontFamily:MONO, fontSize:12,
                     background:'#060412', border:'1px solid #a78bfa30', borderRadius:8,
                     padding:8, color:'#fff', outline:'none', resize:'vertical' }}/>
+                <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
+                  分類（AI修改後會自動判斷，也可手動調整）：
+                </div>
                 <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
                   {MY_PRODUCE_TAGS.map(t => (
                     <div key={t.id} onClick={() => setMySentenceTag(t.id)}
@@ -18524,6 +18599,7 @@ Steven 不是在收藏電影台詞。
                       setMySentenceBusy(true)
                       const result = await aiReviseMySentence(p.en, p.zh, mySentenceDraft.trim())
                       setMySentenceResult(result)
+                      if (result.tag) setMySentenceTag(result.tag)
                       setMySentenceBusy(false)
                     }}
                     style={{ cursor: mySentenceBusy ? 'default' : 'pointer', flex:1, textAlign:'center',
@@ -19865,6 +19941,21 @@ Steven 不是在收藏電影台詞。
         <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
           把電影句子改編成自己工作/生活用的句子，AI協助修改，累積收藏 · 共 {myProduceList.length} 句
         </div>
+        {myProduceList.some(i => (i.tag ?? 'other') === 'other') && (
+          <div onClick={async () => {
+              if (myProduceClassifyBusy) return
+              setMyProduceClassifyBusy(true)
+              const result = await aiClassifyMyProduceOther()
+              setMyProduceClassifyBusy(false)
+              showMovieToast(`✅ 已分類 ${result.classified}/${result.total} 句`)
+            }}
+            style={{ cursor: myProduceClassifyBusy ? 'default' : 'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+              padding:'8px 0', borderRadius:8, textAlign:'center',
+              background: myProduceClassifyBusy ? T.surf2 : '#a78bfa',
+              color: myProduceClassifyBusy ? T.txt3 : '#0d0820' }}>
+            {myProduceClassifyBusy ? '⏳ AI分類中…' : '🤖 AI一次檢視「其他」分類'}
+          </div>
+        )}
         {(() => {
           const todayStr = new Date().toISOString().slice(0,10)
           const dueList = myProduceList.filter(i => !i.nextReviewDate || i.nextReviewDate <= todayStr)
@@ -20030,6 +20121,29 @@ Steven 不是在收藏電影台詞。
                       <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.5 }}>💡 {item.tip}</div>
                     )}
                     <SpeakRow text={item.corrected} color={'#a78bfa'}/>
+                    <div style={{ height:1, background:T.bdr }}/>
+                    <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>我真的說過嗎？</div>
+                    <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                      {[
+                        { key:'practiced', label:'練習過' },
+                        { key:'work',      label:'工作說過' },
+                        { key:'teacher',   label:'跟老師說過' },
+                        { key:'notUsed',   label:'沒用過' },
+                      ].map(o => {
+                        const checked = !!item.usage?.[o.key]
+                        return (
+                          <div key={o.key} onClick={() => toggleMyProduceUsage(item.id, o.key)}
+                            style={{ cursor:'pointer', display:'flex', alignItems:'center', gap:8 }}>
+                            <span style={{ fontSize:13, color: checked ? T.grn : T.txt3 }}>
+                              {checked ? '☑' : '□'}
+                            </span>
+                            <span style={{ fontFamily:MONO, fontSize:10, color: checked ? T.txt : T.txt3 }}>
+                              {o.label}
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
                   </div>
                 )
               })}
@@ -20165,7 +20279,40 @@ Steven 不是在收藏電影台詞。
           </span>
         </div>
 
-        {/* ── 💭 昨日回顧：提醒昨天挑的今日用句有沒有用出來 ── */}
+        {/* ── 🎲 今天練一句：從知識庫隨機挑一句，每天固定同一句，隔天自動換 ── */}
+        {(() => {
+          const kbListToday = db.knowledgeBase ?? []
+          if (kbListToday.length === 0) return null
+          // 用「今天是這一年第幾天」當種子，同一天固定挑同一筆，隔天自動換下一筆
+          const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(),0,0)) / 86400000)
+          const todayItem = kbListToday[dayOfYear % kbListToday.length]
+          // 從內容裡挑一句適合開口念的例句：優先工作例句 > 電影例句 > Chunk第一行 > 標題
+          function extractPracticeSentence(content) {
+            const lines = (content ?? '').split('\n').map(l => l.trim())
+            const findAfter = marker => {
+              const idx = lines.findIndex(l => l.includes(marker))
+              if (idx < 0) return null
+              return lines.slice(idx+1).find(l => l && !l.startsWith('【'))
+            }
+            return findAfter('工作例句') || findAfter('電影例句') || findAfter('Chunk') || todayItem.title
+          }
+          const sentence = extractPracticeSentence(todayItem.content)
+          return (
+            <div style={{ background:'linear-gradient(135deg, #1a1400, #0d0d00)', border:`1px solid ${T.amber}60`,
+              borderRadius:13, padding:'14px', display:'flex', flexDirection:'column', gap:8 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <span style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:T.amber }}>🎲 今天練一句</span>
+                <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>{todayItem.title}</span>
+              </div>
+              <div style={{ fontFamily:MONO, fontSize:13, color:T.txt, lineHeight:1.6, fontWeight:600 }}>
+                {sentence}
+              </div>
+              <SpeakRow text={sentence} color={T.amber}/>
+            </div>
+          )
+        })()}
+
+
         {(() => {
           const yData = getPicksForDate(getYesterdayStr())
           if (!yData || !(yData.phraseIds?.length)) return null
