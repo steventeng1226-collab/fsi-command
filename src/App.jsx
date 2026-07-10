@@ -7332,7 +7332,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.76
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.77
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13522,6 +13522,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const [myProducePracticeIdx,  setMyProducePracticeIdx]  = useState(0)
   const [myProducePracticeFlip, setMyProducePracticeFlip] = useState(false)
   const [myProduceClassifyBusy, setMyProduceClassifyBusy] = useState(false)
+  const [quickProduce, setQuickProduce] = useState(null) // 從「今天練一句」快速造句：{ sourceEn, kbTitle }
   const [editingEnText,   setEditingEnText]   = useState('')
   const [retranslatingId, setRetranslatingId] = useState(null)
   const [wordModal,       setWordModal]       = useState(null)
@@ -14457,6 +14458,17 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     return finalCat
   }
   // 批次重新分類：掃描目前分類為「其他」的知識庫項目，重新讀取內容裡的【分類】文字歸位
+  // 直接展開並捲動到指定知識庫筆記（用於「今天練一句」→「看完整筆記」）
+  function openKbItemDirect(itemId) {
+    setKbOpen(itemId)
+    setTimeout(() => {
+      document.getElementById('kb-section')?.scrollIntoView({ behavior:'smooth', block:'start' })
+      setTimeout(() => {
+        document.getElementById('kb-item-' + itemId)?.scrollIntoView({ behavior:'smooth', block:'center' })
+      }, 400)
+    }, 50)
+  }
+
   function reclassifyOtherKbItems() {
     const latestKb = db.knowledgeBase ?? []
     let changedCount = 0
@@ -19941,6 +19953,104 @@ Steven 不是在收藏電影台詞。
         <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
           把電影句子改編成自己工作/生活用的句子，AI協助修改，累積收藏 · 共 {myProduceList.length} 句
         </div>
+        {quickProduce && (
+          <div style={{ background:'#0d0820', border:'1px solid #a78bfa60', borderRadius:10, padding:12,
+            display:'flex', flexDirection:'column', gap:8 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <span style={{ fontFamily:MONO, fontSize:9, color:'#a78bfa' }}>🎲 來自今天練一句：{quickProduce.sourceEn}</span>
+              <span onClick={() => setQuickProduce(null)} style={{ cursor:'pointer', color:T.txt3, fontFamily:MONO, fontSize:10 }}>✕</span>
+            </div>
+            <textarea value={mySentenceDraft} onChange={e => setMySentenceDraft(e.target.value)}
+              placeholder="把這句改編成你自己工作/生活會用的句子…"
+              style={{ width:'100%', minHeight:60, fontFamily:MONO, fontSize:12,
+                background:'#060412', border:'1px solid #a78bfa30', borderRadius:8,
+                padding:8, color:'#fff', outline:'none', resize:'vertical' }}/>
+            <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
+              分類（AI修改後會自動判斷，也可手動調整）：
+            </div>
+            <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
+              {MY_PRODUCE_TAGS.map(t => (
+                <div key={t.id} onClick={() => setMySentenceTag(t.id)}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:8,
+                    padding:'4px 8px', borderRadius:6,
+                    background: mySentenceTag===t.id ? '#a78bfa' : '#060412',
+                    color: mySentenceTag===t.id ? '#0d0820' : T.txt3,
+                    border:`1px solid ${mySentenceTag===t.id ? '#a78bfa' : '#a78bfa30'}` }}>
+                  {t.label}
+                </div>
+              ))}
+            </div>
+            <div style={{ display:'flex', gap:6 }}>
+              <div onClick={async () => {
+                  if (!mySentenceDraft.trim() || mySentenceBusy) return
+                  setMySentenceBusy(true)
+                  const result = await aiReviseMySentence(quickProduce.sourceEn, '', mySentenceDraft.trim())
+                  setMySentenceResult(result)
+                  if (result.tag) setMySentenceTag(result.tag)
+                  setMySentenceBusy(false)
+                }}
+                style={{ cursor: mySentenceBusy ? 'default' : 'pointer', flex:1, textAlign:'center',
+                  fontFamily:MONO, fontSize:10, fontWeight:700, padding:'9px 0', borderRadius:8,
+                  background: mySentenceBusy ? T.surf2 : '#a78bfa', color: mySentenceBusy ? T.txt3 : '#0d0820' }}>
+                {mySentenceBusy ? '⏳ AI修改中…' : '🤖 AI修改'}
+              </div>
+              <div onClick={() => {
+                  const promptText = `請幫我修改這句英文，讓它更自然、更符合母語者的說法，並用一句簡短的中文說明為什麼這樣改比較好：\n\n原句：${quickProduce.sourceEn}\n我的草稿：${mySentenceDraft.trim()}`
+                  navigator.clipboard?.writeText(promptText).then(() => showMovieToast('✅ 已複製，可貼給ChatGPT'))
+                }}
+                style={{ cursor:'pointer', flex:1, textAlign:'center',
+                  fontFamily:MONO, fontSize:10, fontWeight:700, padding:'9px 0', borderRadius:8,
+                  background:T.surf2, border:'1px solid #a78bfa40', color:'#a78bfa' }}>
+                📋 複製給ChatGPT
+              </div>
+            </div>
+            <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+              <input value={mySentencePasted} onChange={e => setMySentencePasted(e.target.value)}
+                placeholder="或把ChatGPT修改後的句子貼在這裡…"
+                style={{ flex:1, fontFamily:MONO, fontSize:11, background:'#060412',
+                  border:'1px solid #a78bfa30', borderRadius:8, padding:'8px 10px',
+                  color:'#fff', outline:'none' }}/>
+              <div onClick={() => {
+                  if (!mySentencePasted.trim()) return
+                  setMySentenceResult({ corrected: mySentencePasted.trim(), tip: '（來自ChatGPT等外部AI）' })
+                  setMySentencePasted('')
+                }}
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                  padding:'8px 12px', borderRadius:8, background:'#a78bfa', color:'#0d0820', flexShrink:0 }}>
+                帶入
+              </div>
+            </div>
+            {mySentenceResult && (
+              <>
+                <div style={{ background:'#060412', border:'1px solid #a78bfa30', borderRadius:8, padding:10,
+                  display:'flex', flexDirection:'column', gap:6 }}>
+                  <div style={{ fontFamily:MONO, fontSize:12, color:'#a78bfa', lineHeight:1.6 }}>
+                    {mySentenceResult.corrected}
+                  </div>
+                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.5 }}>
+                    💡 {mySentenceResult.tip}
+                  </div>
+                </div>
+                <div onClick={() => {
+                    addMyProduceSentence({
+                      sourceEn: quickProduce.sourceEn, sourceZh: '',
+                      movieTitle: '📚 知識庫', sceneName: quickProduce.kbTitle,
+                      myDraft: mySentenceDraft.trim(),
+                      corrected: mySentenceResult.corrected, tip: mySentenceResult.tip,
+                      tag: mySentenceTag,
+                    })
+                    showMovieToast('✅ 已加入我的造句庫')
+                    setQuickProduce(null); setMySentenceDraft(''); setMySentenceResult(null); setMySentenceTag('other')
+                  }}
+                  style={{ cursor:'pointer', textAlign:'center',
+                    fontFamily:MONO, fontSize:10, fontWeight:700, padding:'9px 0', borderRadius:8,
+                    background:T.grn, color:'#06210f' }}>
+                  💾 加入造句庫
+                </div>
+              </>
+            )}
+          </div>
+        )}
         {myProduceList.some(i => (i.tag ?? 'other') === 'other') && (
           <div onClick={async () => {
               if (myProduceClassifyBusy) return
@@ -20308,6 +20418,22 @@ Steven 不是在收藏電影台詞。
                 {sentence}
               </div>
               <SpeakRow text={sentence} color={T.amber}/>
+              <div style={{ display:'flex', gap:6 }}>
+                <div onClick={() => openKbItemDirect(todayItem.id)}
+                  style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:9, fontWeight:700,
+                    padding:'8px 0', borderRadius:8, background:T.surf2, border:`1px solid ${T.amber}40`, color:T.amber }}>
+                  📖 看完整筆記
+                </div>
+                <div onClick={() => {
+                    setQuickProduce({ sourceEn: sentence, kbTitle: todayItem.title })
+                    setMySentenceDraft(''); setMySentenceResult(null); setMySentenceTag('other'); setMySentencePasted('')
+                    setView('myProduce')
+                  }}
+                  style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:9, fontWeight:700,
+                    padding:'8px 0', borderRadius:8, background:'#1a0f2e', border:'1px solid #a78bfa60', color:'#a78bfa' }}>
+                  🖊️ 造句
+                </div>
+              </div>
             </div>
           )
         })()}
@@ -21021,7 +21147,7 @@ Steven 不是在收藏電影台詞。
                 <div style={{ fontFamily:MONO, fontSize:9, color:cat.color,
                   fontWeight:700, marginBottom:4, paddingLeft:2 }}>{cat.label}</div>
                 {catItems.map((k) => { const globalIdx = kbList.indexOf(k); return (
-                  <div key={k.id} style={{ borderRadius:10, overflow:'hidden', marginBottom:6,
+                  <div key={k.id} id={'kb-item-' + k.id} style={{ borderRadius:10, overflow:'hidden', marginBottom:6,
                     border:`1px solid ${kbOpen===k.id ? cat.color+'80' : T.bdr}` }}>
                     <div style={{ display:'flex', alignItems:'center', gap:8,
                       padding:'10px 12px', background: kbOpen===k.id ? cat.color+'15' : T.surf2,
