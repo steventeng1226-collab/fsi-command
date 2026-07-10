@@ -7332,7 +7332,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.70
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.72
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13515,6 +13515,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const [mySentenceBusy,   setMySentenceBusy]   = useState(false)
   const [mySentenceResult, setMySentenceResult] = useState(null) // { corrected, tip }
   const [mySentenceTag,    setMySentenceTag]    = useState('other') // 造句時選擇的情境標籤
+  const [mySentencePasted, setMySentencePasted] = useState('')      // 貼上ChatGPT等外部AI回覆的修改結果
   const [myProduceSearch,  setMyProduceSearch]  = useState('')     // 造句庫搜尋關鍵字
   const [myProduceTagFilter, setMyProduceTagFilter] = useState('all') // 造句庫標籤篩選
   const [myProducePracticeOn,   setMyProducePracticeOn]   = useState(false) // 是否在練習模式
@@ -18406,9 +18407,36 @@ Steven 不是在收藏電影台詞。
               )}
             </div>
 
-            {/* 底部按鈕列：一行五顆，純icon不帶文字，減少畫面雜亂 */}
+            {/* 底部按鈕列：一行六顆，純icon不帶文字。播放最常按，放第一個位置；造句較少按，放最後 */}
             {deletingPhraseId !== p.id && (
               <div style={{ display:'flex', gap:6, marginTop:10, paddingRight:38 }}>
+                <div onClick={() => {
+                    if (playingPhraseId === p.id) {
+                      if (view === 'starred') { stopStarLoop?.(); }
+                      else { clearTimeout(audioStopRef.current); audioElRef.current?.pause() }
+                      setPlayingPhraseId(null); return
+                    }
+                    if (view === 'starred') {
+                      stopStarLoop?.()
+                      window.speechSynthesis?.cancel()
+                      setPlayingPhraseId(p.id)
+                      starLoopActiveRef.current = true
+                      const singleList = [p]
+                      starLoopListRef.current = singleList
+                      playStarPhrase(singleList, 0)
+                    } else {
+                      speakPhrase(p.id, p.en, undefined, p)
+                    }
+                  }}
+                  title="播放"
+                  style={{ cursor:'pointer', fontSize:15,
+                    padding:'9px 0', borderRadius:8, flex:1, textAlign:'center',
+                    background: playingPhraseId===p.id ? T.amber+'22' : T.surf2,
+                    border:`1px solid ${playingPhraseId===p.id ? T.amber : T.bdr}`,
+                  color: playingPhraseId===p.id ? T.amber : T.txt3,
+                  transition:'all 0.15s' }}>
+                  {playingPhraseId===p.id ? '⏹' : '🔊'}
+                </div>
                 <div onClick={() => { setEditingNoteId(p.id); setEditingNoteText(p.note ?? '') }}
                   title="備註"
                   style={{ cursor:'pointer', fontSize:15,
@@ -18450,33 +18478,6 @@ Steven 不是在收藏電影台詞。
                         border:'1.5px solid transparent', borderTopColor:T.txt3,
                         borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>
                     : '🔄'}
-                </div>
-                <div onClick={() => {
-                    if (playingPhraseId === p.id) {
-                      if (view === 'starred') { stopStarLoop?.(); }
-                      else { clearTimeout(audioStopRef.current); audioElRef.current?.pause() }
-                      setPlayingPhraseId(null); return
-                    }
-                    if (view === 'starred') {
-                      stopStarLoop?.()
-                      window.speechSynthesis?.cancel()
-                      setPlayingPhraseId(p.id)
-                      starLoopActiveRef.current = true
-                      const singleList = [p]
-                      starLoopListRef.current = singleList
-                      playStarPhrase(singleList, 0)
-                    } else {
-                      speakPhrase(p.id, p.en, undefined, p)
-                    }
-                  }}
-                  title="播放"
-                  style={{ cursor:'pointer', fontSize:15,
-                    padding:'9px 0', borderRadius:8, flex:1, textAlign:'center',
-                    background: playingPhraseId===p.id ? T.amber+'22' : T.surf2,
-                    border:`1px solid ${playingPhraseId===p.id ? T.amber : T.bdr}`,
-                  color: playingPhraseId===p.id ? T.amber : T.txt3,
-                  transition:'all 0.15s' }}>
-                  {playingPhraseId===p.id ? '⏹' : '🔊'}
                 </div>
                 <div onClick={() => {
                     if (mySentenceEditId === p.id) { setMySentenceEditId(null); return }
@@ -18530,7 +18531,35 @@ Steven 不是在收藏電影台詞。
                       background: mySentenceBusy ? T.surf2 : '#a78bfa', color: mySentenceBusy ? T.txt3 : '#0d0820' }}>
                     {mySentenceBusy ? '⏳ AI修改中…' : '🤖 AI修改'}
                   </div>
-                  {mySentenceResult && (
+                  <div onClick={() => {
+                      const promptText = `請幫我修改這句英文，讓它更自然、更符合母語者的說法，並用一句簡短的中文說明為什麼這樣改比較好：\n\n電影原句：${p.en}\n我的草稿：${mySentenceDraft.trim()}`
+                      navigator.clipboard?.writeText(promptText).then(() => showMovieToast('✅ 已複製，可貼給ChatGPT'))
+                    }}
+                    style={{ cursor:'pointer', flex:1, textAlign:'center',
+                      fontFamily:MONO, fontSize:10, fontWeight:700, padding:'9px 0', borderRadius:8,
+                      background:T.surf2, border:'1px solid #a78bfa40', color:'#a78bfa' }}>
+                    📋 複製給ChatGPT
+                  </div>
+                </div>
+                {/* 不一定要用內建AI：也可以把ChatGPT等外部AI的回覆貼回來直接收藏 */}
+                <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                  <input value={mySentencePasted} onChange={e => setMySentencePasted(e.target.value)}
+                    placeholder="或把ChatGPT修改後的句子貼在這裡…"
+                    style={{ flex:1, fontFamily:MONO, fontSize:11, background:'#060412',
+                      border:'1px solid #a78bfa30', borderRadius:8, padding:'8px 10px',
+                      color:'#fff', outline:'none' }}/>
+                  <div onClick={() => {
+                      if (!mySentencePasted.trim()) return
+                      setMySentenceResult({ corrected: mySentencePasted.trim(), tip: '（來自ChatGPT等外部AI）' })
+                      setMySentencePasted('')
+                    }}
+                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                      padding:'8px 12px', borderRadius:8, background:'#a78bfa', color:'#0d0820', flexShrink:0 }}>
+                    帶入
+                  </div>
+                </div>
+                {mySentenceResult && (
+                  <div style={{ display:'flex' }}>
                     <div onClick={() => {
                         addMyProduceSentence({
                           sourceEn: p.en, sourceZh: p.zh ?? '',
@@ -18547,8 +18576,8 @@ Steven 不是在收藏電影台詞。
                         background:T.grn, color:'#06210f' }}>
                       💾 加入造句庫
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
                 {mySentenceResult && (
                   <div style={{ background:'#060412', border:'1px solid #a78bfa30', borderRadius:8, padding:10,
                     display:'flex', flexDirection:'column', gap:6 }}>
