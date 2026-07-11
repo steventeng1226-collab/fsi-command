@@ -7327,12 +7327,12 @@ function AppIcon({ size = 36 }) {
 // ═══════════════════════════════════════════════════════════════
 // HEADER
 // ═══════════════════════════════════════════════════════════════
-function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProduce }) {
+function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProduce, onOpenBlindMode }) {
   return (
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.78
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.79
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -7360,6 +7360,15 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
               background:'#1a0f2e', border:'1px solid #a78bfa40',
               borderRadius:7, padding:'3px 9px' }}>
             🖊️ 造句庫
+          </div>
+        )}
+        {onOpenBlindMode && (
+          <div onClick={onOpenBlindMode}
+            style={{ display:'inline-flex', alignItems:'center', gap:5, marginTop:5, marginLeft:6,
+              cursor:'pointer', fontFamily:MONO, fontSize:10, color:'#38bdf8',
+              background:'#0d2a3a', border:'1px solid #38bdf840',
+              borderRadius:7, padding:'3px 9px' }}>
+            🎧 盲聽
           </div>
         )}
       </div>
@@ -13404,7 +13413,7 @@ function getDueReviews(movieId) {
   } catch { return [] }
 }
 
-function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpSignal, myProduceJumpSignal, onReturnFromKb }) {
+function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpSignal, myProduceJumpSignal, blindJumpSignal, onReturnFromKb }) {
   const [db, setDb] = useState(() => {
     try {
       const s = localStorage.getItem('fsi:movie:db')
@@ -13559,6 +13568,16 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     if (!myProduceJumpSignal) return
     setView('myProduce')
   }, [myProduceJumpSignal]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── 🎧 盲聽模式快速開啟：收到訊號時開啟盲聽開關；若目前不在場景頁，提示需先進入場景 ──
+  useEffect(() => {
+    if (!blindJumpSignal) return
+    setBlindMode(true)
+    setBlindRevealed({})
+    if (view !== 'scene') {
+      showMovieToast('🎧 盲聽模式已開啟，請進入任一場景開始練習')
+    }
+  }, [blindJumpSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 請求瀏覽器「持久化儲存」：一般網頁的 IndexedDB 快取是「盡力而為」，
   // 系統可能在儲存壓力大或判定為不常用時自動清掉，即使手機還有很多空間。
@@ -23225,6 +23244,7 @@ export default function App() {
   // 知識庫快速切換：記住原本在哪個分頁，存完知識庫可以馬上切回去
   const [kbJumpSignal, setKbJumpSignal] = useState(0)
   const [myProduceJumpSignal, setMyProduceJumpSignal] = useState(0)
+  const [blindJumpSignal, setBlindJumpSignal] = useState(0)
   const [returnTab, setReturnTab] = useState(null)
   function openKnowledgeBase() {
     setReturnTab(tab)
@@ -23235,6 +23255,11 @@ export default function App() {
     setReturnTab(tab)
     setTab('movie')
     setMyProduceJumpSignal(s => s + 1)
+  }
+  function openBlindMode() {
+    setReturnTab(tab)
+    setTab('movie')
+    setBlindJumpSignal(s => s + 1)
   }
   function returnFromKnowledgeBase() {
     if (returnTab && returnTab !== 'movie') setTab(returnTab)
@@ -23383,7 +23408,7 @@ export default function App() {
   return (
     <div style={{ background:T.bg, minHeight:'100vh', maxWidth:480, margin:'0 auto', display:'flex', flexDirection:'column', position:'relative' }}>
       <style>{G}</style>
-      <Header audioMode={audioMode} toggleAudioMode={toggleAudioMode} onOpenKnowledgeBase={openKnowledgeBase} onOpenMyProduce={openMyProduce}/>
+      <Header audioMode={audioMode} toggleAudioMode={toggleAudioMode} onOpenKnowledgeBase={openKnowledgeBase} onOpenMyProduce={openMyProduce} onOpenBlindMode={openBlindMode}/>
       <div style={{ flex:1, overflowY:'auto', paddingBottom:'calc(110px + env(safe-area-inset-bottom, 20px))' }}>
         {tab==='phrase'   && <PhraseTab   settings={settings}/>}
         {tab==='practice' && <PracticeTab {...P}/>}
@@ -23392,7 +23417,7 @@ export default function App() {
         {tab==='email'    && <EmailTab    {...P}/>}
         <div style={{display: tab==='movie' ? 'flex' : 'none', flexDirection:'column', flex:1, minHeight:0}}>
           <MovieTab audioMode={audioMode} setAudioMode={setAudioMode} movieToast={movieToast} showMovieToast={showMovieToast}
-            kbJumpSignal={kbJumpSignal} myProduceJumpSignal={myProduceJumpSignal} onReturnFromKb={returnFromKnowledgeBase}/>
+            kbJumpSignal={kbJumpSignal} myProduceJumpSignal={myProduceJumpSignal} blindJumpSignal={blindJumpSignal} onReturnFromKb={returnFromKnowledgeBase}/>
         </div>
         {tab==='settings' && <SettingsTab {...P} movieToast={movieToast} showMovieToast={showMovieToast}/>}
       </div>
