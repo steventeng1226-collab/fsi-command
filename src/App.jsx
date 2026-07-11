@@ -7332,7 +7332,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.79
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.80
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13480,6 +13480,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   }
   const [selectedSceneIds, setSelectedSceneIds] = useState(new Set()) // 多場景選擇播放
   const [correctionPanelOpen, setCorrectionPanelOpen] = useState(false) // 校正紀錄總覽面板開關
+  const [blindStatsOpen, setBlindStatsOpen] = useState(false) // 聽力統計面板開關
   const [sceneRangeFrom, setSceneRangeFrom] = useState('') // 場景範圍選取：起始場景號
   const [sceneRangeTo,   setSceneRangeTo]   = useState('') // 場景範圍選取：結束場景號
   const [multiScenePhrases, setMultiScenePhrases] = useState([]) // 多場景合併重點句
@@ -13531,6 +13532,9 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const [myProducePracticeIdx,  setMyProducePracticeIdx]  = useState(0)
   const [myProducePracticeFlip, setMyProducePracticeFlip] = useState(false)
   const [myProduceClassifyBusy, setMyProduceClassifyBusy] = useState(false)
+  const [myProduceErrorFilter, setMyProduceErrorFilter] = useState(null) // 點錯誤類型→篩選相關句子
+  const [errorStatsOpen, setErrorStatsOpen] = useState(false) // 錯誤統計面板開關
+  const [extraPracticeItems, setExtraPracticeItems] = useState([]) // 假日加練的額外句子（從知識庫額外抽）
   const [quickProduce, setQuickProduce] = useState(null) // 從「今天練一句」快速造句：{ sourceEn, kbTitle }
   const [editingEnText,   setEditingEnText]   = useState('')
   const [retranslatingId, setRetranslatingId] = useState(null)
@@ -13879,6 +13883,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const [blindPlayCount,  setBlindPlayCount]  = useState(3)         // 自動播放次數（2或3）
   const [blindPlayingId,  setBlindPlayingId]  = useState(null)      // 目前盲聽播放中的句子
   const blindPlayRoundRef = useRef(0)                                // 目前播到第幾次
+  const blindSessionPlaysRef = useRef({})                            // { phraseId: 本輪標記前累積的播放次數 }
   const [starLoopIdx,     setStarLoopIdx]     = useState(0)
   const [starLoopPaused,  setStarLoopPaused]  = useState(false)     // 暫停狀態
   const starLoopRef      = useRef(null)   // setTimeout handle
@@ -14304,6 +14309,19 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     { id:'feeling',  label:'❤️ 感受' },
     { id:'other',    label:'📦 其他' },
   ]
+  // 造句錯誤類型（供AI標記與統計）
+  const ERROR_TYPES = [
+    { id:'verb',    label:'動詞形式（be/do/does）' },
+    { id:'tense',   label:'時態' },
+    { id:'plural',  label:'單複數/第三人稱s' },
+    { id:'prep',    label:'介系詞' },
+    { id:'article', label:'冠詞 a/the' },
+    { id:'pronoun', label:'代名詞 this/that/it' },
+    { id:'order',   label:'語序' },
+    { id:'chunk',   label:'單字搭配 Chunk' },
+    { id:'natural', label:'自然度' },
+    { id:'misc',    label:'其他' },
+  ]
   const myProduceList = db.myProduceSentences ?? []
   function saveMyProduce(items) {
     saveDb({ ...db, myProduceSentences: items })
@@ -14408,7 +14426,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
 
   // 用AI把「電影原句 + 我改編的草稿」修成自然、文法正確的英文，並給一句簡短建議
   async function aiReviseMySentence(sourceEn, sourceZh, draft) {
-    const prompt = `這是一句電影台詞：\n"${sourceEn}"${sourceZh ? `（中文：${sourceZh}）` : ''}\n\n我想把這句話的句型改編成我自己工作/生活會用到的句子，我寫的草稿是：\n"${draft}"\n\n請幫我：\n1. 修正文法、用字錯誤，讓它更自然、更符合母語者的說法（如果我寫的已經很好，就保留原意小幅潤飾即可，不用大改）\n2. 給一句簡短、白話的中文說明，解釋為什麼這樣改比較好\n3. 判斷這句話最適合歸類到哪個情境分類，只能選一個：\n   - work（工作場合，例如開會、報告、客訴、跨部門溝通）\n   - life（日常生活瑣事，例如購物、交通、餐廳）\n   - family（跟家人互動相關）\n   - study（學習、進修相關）\n   - feeling（表達情緒、感受、心情）\n   - other（以上都不確定，或無法判斷）\n\n只回傳JSON，不要有其他文字：\n{"corrected": "<修改後的英文句子>", "tip": "<一句簡短中文說明>", "tag": "<work|life|family|study|feeling|other>"}`
+    const prompt = `這是一句電影台詞：\n"${sourceEn}"${sourceZh ? `（中文：${sourceZh}）` : ''}\n\n我想把這句話的句型改編成我自己工作/生活會用到的句子，我寫的草稿是：\n"${draft}"\n\n請幫我：\n1. 修正文法、用字錯誤，讓它更自然、更符合母語者的說法（如果我寫的已經很好，就保留原意小幅潤飾即可，不用大改）\n2. 給一句簡短、白話的中文說明，解釋為什麼這樣改比較好\n3. 判斷這句話最適合歸類到哪個情境分類，只能選一個：\n   - work（工作場合，例如開會、報告、客訴、跨部門溝通）\n   - life（日常生活瑣事，例如購物、交通、餐廳）\n   - family（跟家人互動相關）\n   - study（學習、進修相關）\n   - feeling（表達情緒、感受、心情）\n   - other（以上都不確定，或無法判斷）\n4. 標記我的草稿犯了哪些錯誤類型（1~3個，依重要程度排序；如果草稿完全沒有錯誤，回傳空陣列 []）：\n   - verb（動詞形式：be動詞、do/does用錯或漏掉）\n   - tense（時態錯誤）\n   - plural（單複數、第三人稱s漏掉）\n   - prep（介系詞用錯）\n   - article（冠詞a/the用錯或漏掉）\n   - pronoun（代名詞this/that/it用錯）\n   - order（語序不對）\n   - chunk（單字搭配不對，母語者不會這樣搭）\n   - natural（文法沒錯但不自然、太生硬）\n   - misc（其他）\n\n只回傳JSON，不要有其他文字：\n{"corrected": "<修改後的英文句子>", "tip": "<一句簡短中文說明>", "tag": "<work|life|family|study|feeling|other>", "errorTypes": ["<類型id>", ...]}`
     const sysPrompt = 'You are a helpful, encouraging English teacher for a Taiwanese adult professional. Return only valid JSON, no markdown formatting.'
     const validTags = ['work','life','family','study','feeling','other']
     try {
@@ -14439,6 +14457,10 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
       const clean = rawText.replace(/```json|```/g, '').trim()
       const parsed = JSON.parse(clean)
       if (!validTags.includes(parsed.tag)) parsed.tag = 'other'
+      const validErr = ['verb','tense','plural','prep','article','pronoun','order','chunk','natural','misc']
+      parsed.errorTypes = Array.isArray(parsed.errorTypes)
+        ? parsed.errorTypes.filter(t => validErr.includes(t)).slice(0, 3)
+        : []
       return parsed
     } catch (e) {
       return { corrected: draft, tip: '⚠ AI修改失敗：' + (e?.message ?? '請重試，或先直接收藏原始草稿'), tag: 'other' }
@@ -14564,11 +14586,47 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     })})
   }
 
-  // 🎧 盲聽結果標記：存進句子資料本身（good=聽懂/partial=聽到部分/bad=沒聽懂），
-  // 附上日期，供未來聽力複習依據（例如優先複習「沒聽懂」的句子）
+  // 🎧 盲聽日誌（存手機本機，保留365天，供聽力統計計算趨勢用）
+  function appendBlindLog(entry) {
+    try {
+      const log = JSON.parse(localStorage.getItem('fsi:blind:log') ?? '[]')
+      log.push(entry)
+      const cutoff = new Date(Date.now() - 365 * 86400000).toISOString().slice(0,10)
+      const trimmed = log.filter(e => e.d >= cutoff)
+      localStorage.setItem('fsi:blind:log', JSON.stringify(trimmed))
+    } catch(e) {}
+  }
+
+  // 🎧 盲聽結果標記（good=完全聽懂/partial=聽懂大意/bad=幾乎沒聽懂）：
+  // 存句子累積計數器 + 寫入日誌（含首聽flag、播放次數、音源），供聽力統計用
   function markBlindResult(phraseId, result) {
-    updateScenePhrases(ps => ps.map(p => p.id !== phraseId ? p : {
-      ...p, blindResult: result, blindDate: new Date().toISOString().slice(0,10)
+    const plays = blindSessionPlaysRef.current[phraseId] ?? 0
+    let isFirst = false
+    updateScenePhrases(ps => ps.map(p => {
+      if (p.id !== phraseId) return p
+      const stats = { plays:0, good:0, partial:0, bad:0, en:0, zh:0, ...(p.blindStats ?? {}) }
+      isFirst = !stats.first
+      stats.plays += plays
+      stats[result] = (stats[result] ?? 0) + 1
+      if (!stats.first) stats.first = result
+      return { ...p, blindResult: result, blindDate: new Date().toISOString().slice(0,10), blindStats: stats }
+    }))
+    appendBlindLog({
+      d: new Date().toISOString().slice(0,10),
+      pid: phraseId, mid: movieId,
+      r: result, first: isFirst, plays,
+      mode: audioMode, // 'original'=電影原音 | 'tts'=系統音（兩種難度不同，統計要分開看）
+    })
+    blindSessionPlaysRef.current[phraseId] = 0
+  }
+
+  // 🎧 記錄「顯示英文」「顯示中文」有沒有被按過（分兩步，檢驗卡在解碼還是理解）
+  function markBlindReveal(phraseId, which) { // which: 'en' | 'zh'
+    updateScenePhrases(ps => ps.map(p => {
+      if (p.id !== phraseId) return p
+      const stats = { plays:0, good:0, partial:0, bad:0, en:0, zh:0, ...(p.blindStats ?? {}) }
+      stats[which] = (stats[which] ?? 0) + 1
+      return { ...p, blindStats: stats }
     }))
   }
 
@@ -14587,6 +14645,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     blindPlayRoundRef.current = 0
     const playOnce = () => {
       blindPlayRoundRef.current += 1
+      blindSessionPlaysRef.current[p.id] = (blindSessionPlaysRef.current[p.id] ?? 0) + 1
       const isLast = blindPlayRoundRef.current >= blindPlayCount
       speakPhrase(p.id, p.en, undefined, p)
       // 估算句子播放時間：有時間碼用實際長度，否則依字數估算，再加1秒間隔
@@ -18258,38 +18317,74 @@ Steven 不是在收藏電影台詞。
         <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>⭐ 收藏重點句 · 👆 點單字加入單字庫 · ✎ 長按英文編輯 · ✕ 刪除句子</div>
         {/* Sentence list */}
         {(starFilter ? phrases.filter(p=>p.starred) : phrases).map(p => (
-          blindMode && !blindRevealed[p.id] ? (
-            /* 🎧 盲聽模式（未顯示文字）：隱藏英文與中文，只留播放與顯示文字按鈕 */
+          blindMode && blindRevealed[p.id] !== 'full' ? (
+            /* 🎧 盲聽模式：兩段式顯示。hidden=全遮蔽 → 'en'=只顯示英文（檢驗聲音→文字解碼）→ 'full'=完整卡片（含中文） */
             <div key={p.id}
               ref={el => { if (el) scenePhraseCardRefs.current[p.id] = el }}
               style={{ background: blindPlayingId === p.id ? '#0d2a3a' : T.surf,
                 border:`1px solid ${blindPlayingId === p.id ? '#38bdf8' : '#38bdf830'}`,
                 borderRadius:12, padding:'14px 16px', position:'relative',
-                display:'flex', alignItems:'center', gap:10, transition:'background 0.2s, border-color 0.2s' }}>
-              <div onClick={() => playBlindPhrase(p)}
-                style={{ cursor:'pointer', fontSize:18, width:48, height:48, borderRadius:'50%',
-                  display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
-                  background: blindPlayingId === p.id ? '#38bdf8' : '#0d2a3a',
-                  color: blindPlayingId === p.id ? '#0d2a3a' : '#38bdf8',
-                  border:'1px solid #38bdf850' }}>
-                {blindPlayingId === p.id ? '⏹' : '▶'}
-              </div>
-              <div style={{ flex:1, fontFamily:MONO, fontSize:10, color:T.txt3, letterSpacing:'0.1em' }}>
-                {blindPlayingId === p.id
-                  ? `🎧 播放中（自動${blindPlayCount}次）…專心聽`
-                  : '🎧 ●●●●●●●●●●'}
-                {p.blindResult && (
-                  <span style={{ marginLeft:8, color: p.blindResult==='good' ? T.grn : p.blindResult==='partial' ? T.amber : T.red }}>
-                    {p.blindResult==='good' ? '✓上次聽懂' : p.blindResult==='partial' ? '◎上次聽到部分' : '✗上次沒聽懂'}
-                  </span>
+                display:'flex', flexDirection:'column', gap:10, transition:'background 0.2s, border-color 0.2s' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                <div onClick={() => playBlindPhrase(p)}
+                  style={{ cursor:'pointer', fontSize:18, width:48, height:48, borderRadius:'50%',
+                    display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
+                    background: blindPlayingId === p.id ? '#38bdf8' : '#0d2a3a',
+                    color: blindPlayingId === p.id ? '#0d2a3a' : '#38bdf8',
+                    border:'1px solid #38bdf850' }}>
+                  {blindPlayingId === p.id ? '⏹' : '▶'}
+                </div>
+                <div style={{ flex:1, fontFamily:MONO, fontSize:10, color:T.txt3, letterSpacing:'0.05em', lineHeight:1.6 }}>
+                  {blindRevealed[p.id] === 'en' ? (
+                    <span style={{ fontSize:13, color:T.txt, letterSpacing:0 }}>{p.en}</span>
+                  ) : blindPlayingId === p.id
+                    ? `🎧 播放中（自動${blindPlayCount}次）…專心聽`
+                    : '🎧 ●●●●●●●●●●'}
+                </div>
+                {!blindRevealed[p.id] ? (
+                  <div onClick={() => { setBlindRevealed(r => ({ ...r, [p.id]: 'en' })); markBlindReveal(p.id, 'en') }}
+                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700, flexShrink:0,
+                      padding:'9px 14px', borderRadius:8,
+                      background:T.surf2, border:'1px solid #38bdf850', color:'#38bdf8' }}>
+                    顯示英文
+                  </div>
+                ) : (
+                  <div onClick={() => { setBlindRevealed(r => ({ ...r, [p.id]: 'full' })); markBlindReveal(p.id, 'zh') }}
+                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700, flexShrink:0,
+                      padding:'9px 14px', borderRadius:8,
+                      background:T.surf2, border:'1px solid #38bdf850', color:'#38bdf8' }}>
+                    顯示中文
+                  </div>
                 )}
               </div>
-              <div onClick={() => setBlindRevealed(r => ({ ...r, [p.id]: true }))}
-                style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700, flexShrink:0,
-                  padding:'9px 14px', borderRadius:8,
-                  background:T.surf2, border:'1px solid #38bdf850', color:'#38bdf8' }}>
-                顯示文字
-              </div>
+              {/* 累積結果：盲聽過幾次、各級各幾次 */}
+              {(p.blindStats?.plays > 0 || p.blindResult) && (
+                <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
+                  累積：聽{p.blindStats?.plays ?? 0}次
+                  {p.blindStats?.good > 0 && <span style={{ color:T.grn, marginLeft:6 }}>✓完全聽懂×{p.blindStats.good}</span>}
+                  {p.blindStats?.partial > 0 && <span style={{ color:T.amber, marginLeft:6 }}>◎大意×{p.blindStats.partial}</span>}
+                  {p.blindStats?.bad > 0 && <span style={{ color:T.red, marginLeft:6 }}>✗沒懂×{p.blindStats.bad}</span>}
+                </div>
+              )}
+              {/* 顯示英文後即可標記聽力結果（不用等顯示中文） */}
+              {blindRevealed[p.id] === 'en' && (
+                <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                  {[
+                    { key:'good',    label:'✓ 完全聽懂', c:T.grn,   bg:'#0a3a1a' },
+                    { key:'partial', label:'◎ 聽懂大意', c:T.amber, bg:'#3a2a0a' },
+                    { key:'bad',     label:'✗ 幾乎沒聽懂', c:T.red, bg:'#3a1a1a' },
+                  ].map(o => (
+                    <div key={o.key} onClick={() => markBlindResult(p.id, o.key)}
+                      style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:9, fontWeight:700,
+                        padding:'7px 0', borderRadius:7,
+                        background: p.blindResult===o.key ? o.bg : T.surf2,
+                        color: p.blindResult===o.key ? o.c : T.txt3,
+                        border:`1px solid ${p.blindResult===o.key ? o.c+'60' : T.bdr}` }}>
+                      {o.label}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ) : (
           <div key={p.id}
@@ -18297,14 +18392,14 @@ Steven 不是在收藏電影台詞。
             style={{ background: scenePlayingPhraseId === p.id ? T.amberD : T.surf,
             border:`1px solid ${scenePlayingPhraseId === p.id ? T.amber : p.starred ? T.amber+'60' : p.played ? T.amber+'25' : T.bdr}`,
             borderRadius:12, padding:'14px 16px', position:'relative', transition:'background 0.2s, border-color 0.2s' }}>
-            {/* 🎧 盲聽模式（已顯示文字）：標記聽力結果 */}
-            {blindMode && blindRevealed[p.id] && (
+            {/* 🎧 盲聽模式（已完整顯示）：仍可標記聽力結果 */}
+            {blindMode && blindRevealed[p.id] === 'full' && (
               <div style={{ display:'flex', gap:6, marginBottom:10, alignItems:'center' }}>
-                <span style={{ fontFamily:MONO, fontSize:9, color:'#38bdf8', flexShrink:0 }}>🎧 聽力結果：</span>
+                <span style={{ fontFamily:MONO, fontSize:9, color:'#38bdf8', flexShrink:0 }}>🎧</span>
                 {[
-                  { key:'good',    label:'✓ 聽懂',     c:T.grn,   bg:'#0a3a1a' },
-                  { key:'partial', label:'◎ 聽到部分', c:T.amber, bg:'#3a2a0a' },
-                  { key:'bad',     label:'✗ 沒聽懂',   c:T.red,   bg:'#3a1a1a' },
+                  { key:'good',    label:'✓ 完全聽懂', c:T.grn,   bg:'#0a3a1a' },
+                  { key:'partial', label:'◎ 聽懂大意', c:T.amber, bg:'#3a2a0a' },
+                  { key:'bad',     label:'✗ 幾乎沒聽懂', c:T.red, bg:'#3a1a1a' },
                 ].map(o => (
                   <div key={o.key} onClick={() => markBlindResult(p.id, o.key)}
                     style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:9, fontWeight:700,
@@ -18805,6 +18900,7 @@ Steven 不是在收藏電影台詞。
                           movieTitle: movie?.title ?? '', sceneName: scene?.name ?? scene?.title ?? '',
                           myDraft: mySentenceDraft.trim(),
                           corrected: mySentenceResult.corrected, tip: mySentenceResult.tip,
+                          errorTypes: mySentenceResult.errorTypes ?? [],
                           tag: mySentenceTag,
                         })
                         showMovieToast('✅ 已加入我的造句庫')
@@ -20189,6 +20285,7 @@ Steven 不是在收藏電影台詞。
                       movieTitle: '📚 知識庫', sceneName: quickProduce.kbTitle,
                       myDraft: mySentenceDraft.trim(),
                       corrected: mySentenceResult.corrected, tip: mySentenceResult.tip,
+                      errorTypes: mySentenceResult.errorTypes ?? [],
                       tag: mySentenceTag,
                     })
                     showMovieToast('✅ 已加入我的造句庫')
@@ -20218,6 +20315,81 @@ Steven 不是在收藏電影台詞。
             {myProduceClassifyBusy ? '⏳ AI分類中…' : '🤖 AI一次檢視「其他」分類'}
           </div>
         )}
+        {/* ── 📉 錯誤統計：找出最常犯的英文錯誤，優先修正 ── */}
+        {myProduceList.some(i => (i.errorTypes ?? []).length > 0 || i.createdAt) && (
+          <div onClick={() => setErrorStatsOpen(v => !v)}
+            style={{ cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between',
+              background:T.surf, border:`1px solid ${T.red}40`, borderRadius:10, padding:'10px 14px' }}>
+            <span style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:'#f87171' }}>📉 錯誤統計</span>
+            <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>{errorStatsOpen ? '▲' : '▼'}</span>
+          </div>
+        )}
+        {errorStatsOpen && (() => {
+          const now = Date.now()
+          const weekAgo = now - 7*86400000
+          const monthAgo = now - 30*86400000
+          const prevMonthAgo = now - 60*86400000
+          // 只統計有errorTypes欄位的句子（舊資料沒有此欄位，自動略過）
+          const withErr = myProduceList.filter(i => Array.isArray(i.errorTypes))
+          const inRange = (i, from, to) => (i.createdAt ?? 0) >= from && (i.createdAt ?? 0) < (to ?? Infinity)
+          const countErrors = list => {
+            const m = {}
+            list.forEach(i => (i.errorTypes ?? []).forEach(t => { m[t] = (m[t] ?? 0) + 1 }))
+            return m
+          }
+          const topN = (m, n=5) => Object.entries(m).sort((a,b) => b[1]-a[1]).slice(0,n)
+          const weekList  = withErr.filter(i => inRange(i, weekAgo))
+          const monthList = withErr.filter(i => inRange(i, monthAgo))
+          const prevMonthList = withErr.filter(i => inRange(i, prevMonthAgo, monthAgo))
+          const weekTop  = topN(countErrors(weekList))
+          const monthTop = topN(countErrors(monthList))
+          // 錯誤率趨勢：本月 vs 上月（該類型錯誤句數 ÷ 造句總數）
+          const rate = (list, t) => list.length === 0 ? null : Math.round(100 * list.filter(i => (i.errorTypes??[]).includes(t)).length / list.length)
+          const labelOf = t => ERROR_TYPES.find(e => e.id === t)?.label ?? t
+          const renderRow = ([t, c]) => {
+            const rNow = rate(monthList, t), rPrev = rate(prevMonthList, t)
+            const trend = (rNow != null && rPrev != null)
+              ? (rNow < rPrev ? ` ↓${rPrev}%→${rNow}%` : rNow > rPrev ? ` ↑${rPrev}%→${rNow}%` : ' →持平')
+              : ''
+            return (
+              <div key={t} onClick={() => { setMyProduceErrorFilter(myProduceErrorFilter === t ? null : t) }}
+                style={{ cursor:'pointer', display:'flex', justifyContent:'space-between', alignItems:'center',
+                  padding:'7px 10px', borderRadius:7, marginBottom:4,
+                  background: myProduceErrorFilter === t ? '#3a1a1a' : T.surf2,
+                  border:`1px solid ${myProduceErrorFilter === t ? '#f8717160' : T.bdr}` }}>
+                <span style={{ fontFamily:MONO, fontSize:10, color: myProduceErrorFilter === t ? '#f87171' : T.txt2 }}>
+                  {labelOf(t)} × {c}
+                </span>
+                <span style={{ fontFamily:MONO, fontSize:8, color: trend.includes('↓') ? T.grn : trend.includes('↑') ? '#f87171' : T.txt3 }}>
+                  {trend}
+                </span>
+              </div>
+            )
+          }
+          return (
+            <div style={{ background:'#150a0a', border:'1px solid #f8717130', borderRadius:10, padding:12,
+              display:'flex', flexDirection:'column', gap:8 }}>
+              {withErr.length < 15 && (
+                <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, lineHeight:1.5 }}>
+                  ⚠ 目前僅 {withErr.length} 句有錯誤紀錄，累積中，滿15句後統計較可靠
+                </div>
+              )}
+              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>本週最常犯錯 Top 5（本週共造 {weekList.length} 句）</div>
+              {weekTop.length === 0
+                ? <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, opacity:0.6 }}>本週尚無錯誤紀錄</div>
+                : weekTop.map(renderRow)}
+              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginTop:4 }}>本月最常犯錯 Top 5（本月共造 {monthList.length} 句 · 括號為錯誤率趨勢：本月vs上月）</div>
+              {monthTop.length === 0
+                ? <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, opacity:0.6 }}>本月尚無錯誤紀錄</div>
+                : monthTop.map(renderRow)}
+              {myProduceErrorFilter && (
+                <div style={{ fontFamily:MONO, fontSize:9, color:'#f87171' }}>
+                  🔍 已篩選「{labelOf(myProduceErrorFilter)}」的相關句子（下方清單）· 再點一次取消篩選
+                </div>
+              )}
+            </div>
+          )
+        })()}
         {(() => {
           const todayStr = new Date().toISOString().slice(0,10)
           const dueList = myProduceList.filter(i => !i.nextReviewDate || i.nextReviewDate <= todayStr)
@@ -20333,6 +20505,7 @@ Steven 不是在收藏電影台詞。
           const q = myProduceSearch.trim().toLowerCase()
           let filtered = myProduceList
           if (myProduceTagFilter !== 'all') filtered = filtered.filter(i => (i.tag ?? 'other') === myProduceTagFilter)
+          if (myProduceErrorFilter) filtered = filtered.filter(i => (i.errorTypes ?? []).includes(myProduceErrorFilter))
           if (q) filtered = filtered.filter(i =>
             (i.myDraft ?? '').toLowerCase().includes(q) || (i.corrected ?? '').toLowerCase().includes(q)
           )
@@ -20382,7 +20555,27 @@ Steven 不是在收藏電影台詞。
                     {item.tip && (
                       <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.5 }}>💡 {item.tip}</div>
                     )}
+                    {(item.errorTypes ?? []).length > 0 && (
+                      <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
+                        {item.errorTypes.map(t => (
+                          <span key={t} style={{ fontFamily:MONO, fontSize:8, color:'#f87171',
+                            background:'#3a1a1a', border:'1px solid #f8717140', borderRadius:5, padding:'2px 6px' }}>
+                            {ERROR_TYPES.find(e => e.id === t)?.label ?? t}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     <SpeakRow text={item.corrected} color={'#a78bfa'}/>
+                    <div onClick={() => {
+                        setQuickProduce({ sourceEn: item.sourceEn, kbTitle: item.sceneName || item.movieTitle })
+                        setMySentenceDraft(''); setMySentenceResult(null); setMySentenceTag(item.tag ?? 'other'); setMySentencePasted('')
+                        window.scrollTo({ top: 0, behavior: 'smooth' })
+                      }}
+                      style={{ cursor:'pointer', textAlign:'center', fontFamily:MONO, fontSize:9, fontWeight:700,
+                        padding:'8px 0', borderRadius:8, background:T.surf2,
+                        border:'1px solid #a78bfa40', color:'#a78bfa' }}>
+                      🔁 重新造句（看這次還會不會犯同樣的錯）
+                    </div>
                     <div style={{ height:1, background:T.bdr }}/>
                     <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>我真的說過嗎？</div>
                     <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
@@ -20585,10 +20778,53 @@ Steven 不是在收藏電影台詞。
                     padding:'8px 0', borderRadius:8, background:'#1a0f2e', border:'1px solid #a78bfa60', color:'#a78bfa' }}>
                   🖊️ 造句
                 </div>
+                <div onClick={() => {
+                    // 從知識庫隨機再抽一句（跳過今天已練過的）
+                    const usedIds = new Set([todayItem.id, ...extraPracticeItems.map(x => x.id)])
+                    const pool = kbListToday.filter(k => !usedIds.has(k.id))
+                    if (pool.length === 0) { showMovieToast('知識庫所有句子都已經加練過了'); return }
+                    const pick = pool[Math.floor(Math.random() * pool.length)]
+                    const s = extractPracticeSentence(pick.content)
+                    setExtraPracticeItems(prev => [...prev, { ...pick, sentence: s }])
+                  }}
+                  style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:9, fontWeight:700,
+                    padding:'8px 0', borderRadius:8, background:'#0a3a1a', border:`1px solid ${T.grn}60`, color:T.grn }}>
+                  ➕ 加練
+                </div>
               </div>
             </div>
           )
         })()}
+        {/* 額外加練的句子卡片 */}
+        {extraPracticeItems.map((item, idx) => (
+          <div key={item.id} style={{ background:'linear-gradient(135deg, #1a1400, #0d0d00)', border:`1px solid ${T.amber}40`,
+            borderRadius:13, padding:'14px', display:'flex', flexDirection:'column', gap:8 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <span style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:T.amber }}>➕ 加練第{idx+1}句</span>
+              <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>{item.title}</span>
+            </div>
+            <div style={{ fontFamily:MONO, fontSize:13, color:T.txt, lineHeight:1.6, fontWeight:600 }}>
+              {item.sentence}
+            </div>
+            <SpeakRow text={item.sentence} color={T.amber}/>
+            <div style={{ display:'flex', gap:6 }}>
+              <div onClick={() => openKbItemDirect(item.id)}
+                style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:9, fontWeight:700,
+                  padding:'8px 0', borderRadius:8, background:T.surf2, border:`1px solid ${T.amber}40`, color:T.amber }}>
+                📖 看完整筆記
+              </div>
+              <div onClick={() => {
+                  setQuickProduce({ sourceEn: item.sentence, kbTitle: item.title })
+                  setMySentenceDraft(''); setMySentenceResult(null); setMySentenceTag('other'); setMySentencePasted('')
+                  setView('myProduce')
+                }}
+                style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:9, fontWeight:700,
+                  padding:'8px 0', borderRadius:8, background:'#1a0f2e', border:'1px solid #a78bfa60', color:'#a78bfa' }}>
+                🖊️ 造句
+              </div>
+            </div>
+          </div>
+        ))}
 
 
         {(() => {
@@ -21930,7 +22166,80 @@ Steven 不是在收藏電影台詞。
                 padding:'2px 9px', borderRadius:8 }}>
               📊 校正紀錄
             </span>
+            <span onClick={() => setBlindStatsOpen(v => !v)}
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9,
+                color: '#38bdf8', background:'#0d2a3a',
+                border:'1px solid #38bdf840',
+                padding:'2px 9px', borderRadius:8 }}>
+              🎧 聽力統計
+            </span>
       </div>
+        {/* ── 🎧 聽力統計面板：觀察聽力是否改善（不是考試）── */}
+        {blindStatsOpen && (() => {
+          let log = []
+          try { log = JSON.parse(localStorage.getItem('fsi:blind:log') ?? '[]') } catch(e) {}
+          if (log.length === 0) return (
+            <div style={{ background:'#0a1520', border:'1px solid #38bdf830', borderRadius:10, padding:12,
+              fontFamily:MONO, fontSize:10, color:T.txt3 }}>
+              尚無盲聽紀錄。進入場景開啟「🎧盲聽模式」練習，標記結果後這裡就會有統計。
+            </div>
+          )
+          const todayD = new Date()
+          const weekAgoStr = new Date(todayD.getTime() - 7*86400000).toISOString().slice(0,10)
+          const prevWeekAgoStr = new Date(todayD.getTime() - 14*86400000).toISOString().slice(0,10)
+          const thisWeek = log.filter(e => e.d >= weekAgoStr)
+          const prevWeek = log.filter(e => e.d >= prevWeekAgoStr && e.d < weekAgoStr)
+          const pct = (list, r) => list.length === 0 ? null : Math.round(100 * list.filter(e => e.r === r).length / list.length)
+          const avgPlays = list => list.length === 0 ? '—' : (list.reduce((a,e) => a + (e.plays ?? 0), 0) / list.length).toFixed(1)
+          // 首聽成績：只算first=true的紀錄，這才是聽力真實進步的指標（重聽好只是背起來了）
+          const firstThis = thisWeek.filter(e => e.first)
+          const firstPrev = prevWeek.filter(e => e.first)
+          // 依音源分開：電影原音 vs 系統音（難度不同，混在一起會失真）
+          const origThis = thisWeek.filter(e => e.mode === 'original')
+          const ttsThis  = thisWeek.filter(e => e.mode !== 'original')
+          const line = (label, val, prevVal) => (
+            <div key={label} style={{ display:'flex', justifyContent:'space-between', fontFamily:MONO, fontSize:10, padding:'4px 0' }}>
+              <span style={{ color:T.txt3 }}>{label}</span>
+              <span style={{ color:T.txt }}>
+                {val ?? '—'}{typeof val === 'number' ? '%' : ''}
+                {(typeof val === 'number' && typeof prevVal === 'number') && (
+                  <span style={{ marginLeft:6, fontSize:8,
+                    color: val > prevVal ? T.grn : val < prevVal ? '#f87171' : T.txt3 }}>
+                    {val > prevVal ? `↑上週${prevVal}%` : val < prevVal ? `↓上週${prevVal}%` : '→持平'}
+                  </span>
+                )}
+              </span>
+            </div>
+          )
+          return (
+            <div style={{ background:'#0a1520', border:'1px solid #38bdf830', borderRadius:10, padding:12,
+              display:'flex', flexDirection:'column', gap:2 }}>
+              <div style={{ fontFamily:MONO, fontSize:9, color:'#38bdf8', fontWeight:700, marginBottom:4 }}>
+                🎧 本週盲聽 {thisWeek.length} 句次（觀察改善用，不是考試）
+              </div>
+              {line('✓ 完全聽懂率', pct(thisWeek,'good'), pct(prevWeek,'good'))}
+              {line('◎ 聽懂大意率', pct(thisWeek,'partial'), pct(prevWeek,'partial'))}
+              {line('✗ 幾乎沒聽懂率', pct(thisWeek,'bad'), pct(prevWeek,'bad'))}
+              {line('平均播放次數', avgPlays(thisWeek) === '—' ? null : Number(avgPlays(thisWeek)), avgPlays(prevWeek) === '—' ? null : Number(avgPlays(prevWeek)))}
+              <div style={{ height:1, background:T.bdr, margin:'6px 0' }}/>
+              <div style={{ fontFamily:MONO, fontSize:9, color:T.amber }}>
+                ⭐ 首聽成績（第一次盲聽新句子的表現，聽力真實進步指標）
+              </div>
+              {line('首聽完全聽懂率', pct(firstThis,'good'), pct(firstPrev,'good'))}
+              <div style={{ height:1, background:T.bdr, margin:'6px 0' }}/>
+              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                依音源（🎬電影原音才是真實世界難度）
+              </div>
+              {line('🎬 電影原音聽懂率', pct(origThis,'good'), null)}
+              {line('🔊 系統音聽懂率', pct(ttsThis,'good'), null)}
+              {(pct(origThis,'good') != null && pct(ttsThis,'good') != null) && (
+                <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, marginTop:4, lineHeight:1.5 }}>
+                  兩者的差距 = 連音解碼缺口，差距逐漸縮小才代表往「聽得懂真人」邁進
+                </div>
+              )}
+            </div>
+          )
+        })()}
         {correctionPanelOpen && (() => {
           const withCorrection = (movie?.scenes ?? [])
             .filter(s => s.lastCorrection)
