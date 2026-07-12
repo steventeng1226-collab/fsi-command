@@ -7332,7 +7332,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10, maxWidth:'100%', boxSizing:'border-box', overflowX:'hidden' }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0, maxWidth:'100%' }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.89
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.91
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13335,11 +13335,16 @@ const DEFAULT_MOVIE_DB = {
 // ═══════════════════════════════════════════════════════════════
 const REVIEW_INTERVALS = [3, 7, 16, 35] // 天
 
-function getTodayStr() { return new Date().toISOString().slice(0,10) }
+// 本地日期（不是 UTC！）。使用者在越南 UTC+7：早上06:00 的 toISOString() 會回傳「前一天」，
+// 導致早上練的紀錄全被記成昨天 → streak 不累加、「昨天的句子」永遠0、複習排程差一天。
+function toLocalDateStr(d) {
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0,10)
+}
+function getTodayStr() { return toLocalDateStr(new Date()) }
 function addDaysStr(dateStr, days) {
   const d = new Date(`${dateStr}T00:00:00`)
   d.setDate(d.getDate() + days)
-  return d.toISOString().slice(0,10)
+  return toLocalDateStr(d)
 }
 function getYesterdayStr() {
   const d = new Date(); d.setDate(d.getDate() - 1)
@@ -13591,6 +13596,35 @@ function dictLevel(rate) {
 
 // 盲聽出題池：非重點句（未收藏）+ AI評分 ≥3 星 + 至少4個字
 // rating 沒跑過 AI 評分的句子一律排除（?? 0），強制先評分才能盲聽
+// 場景時間範圍可能重疊 → 同一句會被收進兩個場景，聽力庫/訓練佇列要去重（依 id）
+function uniqById(arr) {
+  const seen = new Set()
+  return arr.filter(p => {
+    if (!p || seen.has(p.id)) return false
+    seen.add(p.id)
+    return true
+  })
+}
+
+// 弱點排行：用「漏掉率」，不是「漏掉次數」。
+// 為什麼？出現越頻繁的字一定漏越多次 —— the/i/and 永遠霸榜，但那是基數大，不是真的難。
+// the 漏 5/50 = 10%（其實你聽得到）；as 漏 6/6 = 100%（這才是關卡）。
+// 用次數排會把 as 藏在後面，讓你花時間練你已經會的東西。
+function computeWeakWords(dictatedPhrases, minEnc = 3) {
+  const enc = {}, miss = {}
+  dictatedPhrases.forEach(p => {
+    tokenize(p.en).forEach(t => { enc[t.w] = (enc[t.w] ?? 0) + 1 })      // 遇到幾次
+    ;(p.dict?.first?.miss ?? []).forEach(w => { miss[w] = (miss[w] ?? 0) + 1 })  // 漏掉幾次
+  })
+  return Object.keys(miss)
+    .filter(w => (enc[w] ?? 0) >= minEnc)          // 遇到 <3 次的不算，樣本太少
+    .map(w => {
+      const e = enc[w], m = Math.min(miss[w], e)
+      return { w, miss:m, enc:e, rate: Math.round(100 * m / e) }
+    })
+    .sort((a, b) => b.rate - a.rate || b.miss - a.miss)
+}
+
 const BLIND_MIN_WORDS = 4
 function inBlindPool(p) {
   if (p.starred) return false
@@ -14873,7 +14907,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     try {
       const log = JSON.parse(localStorage.getItem('fsi:blind:log') ?? '[]')
       log.push(entry)
-      const cutoff = new Date(Date.now() - 365 * 86400000).toISOString().slice(0,10)
+      const cutoff = toLocalDateStr(new Date(Date.now() - 365 * 86400000))
       const trimmed = log.filter(e => e.d >= cutoff)
       localStorage.setItem('fsi:blind:log', JSON.stringify(trimmed))
     } catch(e) {}
@@ -14891,10 +14925,10 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
       stats.plays += plays
       stats[result] = (stats[result] ?? 0) + 1
       if (!stats.first) stats.first = result
-      return { ...p, blindResult: result, blindDate: new Date().toISOString().slice(0,10), blindStats: stats }
+      return { ...p, blindResult: result, blindDate: getTodayStr(), blindStats: stats }
     }))
     appendBlindLog({
-      d: new Date().toISOString().slice(0,10), k:'lvl',
+      d: getTodayStr(), k:'lvl',
       pid: phraseId, mid: movieId,
       r: result, first: isFirst, plays,
       mode: audioMode, // 'original'=電影原音 | 'tts'=系統音（兩種難度不同，統計要分開看）
@@ -14973,7 +15007,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
       isFirst = !prev?.first
       const rec = { rate:cmp.rate, cRate:cmp.cRate, h:cmp.hit, n:cmp.total,
                     ch:cmp.cHit, cn:cmp.cTotal, d:today, plays,
-                    miss:cmp.missed.slice(0,12), pair:cmp.pairs.slice(0,6) }
+                    miss:cmp.missed.slice(0,24), pair:cmp.pairs.slice(0,6) }
       const first = prev?.first ?? rec        // 首次成績永久保留，不被覆蓋
       // 🎧 聽力庫收錄：首次全詞率 <60% = 沒過關 → 自動進庫
       const inLib = first.rate < 60
@@ -15010,7 +15044,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
       dx: isFirst && plays > 0 && plays <= 3,
       cold: !p.starred,                       // 非重點句 = 冷聽（診斷用）
       h: cmp.hit, n: cmp.total, ch: cmp.cHit, cn: cmp.cTotal,
-      miss: cmp.missed.slice(0, 12),          // 漏字（統計 Top10 漏字用）
+      miss: cmp.missed.slice(0, 24),          // 漏字（長句漏字可能超過12個，上限拉高避免被截斷）
       pair: cmp.pairs.slice(0, 6),            // 誤聽配對 [你打的, 原文的]
     })
     blindSessionPlaysRef.current[p.id] = 0
@@ -15029,12 +15063,14 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
       const sb = (() => { try { return parseSceneTimeRange(b.timeRange).start } catch { return 0 } })()
       return sa - sb
     })
-    const out = []
+    const out = [], seen = new Set()
     for (const s of scenes) {
       for (const p of (s.phrases ?? [])) {
         if (out.length >= n) break
         if (!inBlindPool(p)) continue
         if (p.dict?.first) continue          // 已經聽寫過 → 不是新句
+        if (seen.has(p.id)) continue         // 場景重疊造成的重複句
+        seen.add(p.id)
         out.push(p.id)
       }
       if (out.length >= n) break
@@ -22823,8 +22859,8 @@ Steven 不是在收藏電影台詞。
             </div>
           )
           const todayD = new Date()
-          const weekAgoStr = new Date(todayD.getTime() - 7*86400000).toISOString().slice(0,10)
-          const prevWeekAgoStr = new Date(todayD.getTime() - 14*86400000).toISOString().slice(0,10)
+          const weekAgoStr = toLocalDateStr(new Date(todayD.getTime() - 7*86400000))
+          const prevWeekAgoStr = toLocalDateStr(new Date(todayD.getTime() - 14*86400000))
           // 三級聽懂度只算 lvl 類紀錄（舊紀錄沒有 k 欄位，用 e.r 存在判斷），不然聽寫紀錄會灌水分母
           const lvlLog = log.filter(e => e.r)
           const thisWeek = lvlLog.filter(e => e.d >= weekAgoStr)
@@ -23020,15 +23056,16 @@ Steven 不是在收藏電影台詞。
         {trainOpen && (() => {
           const today = getTodayStr()
           const yest  = addDaysStr(today, -1)
-          const all   = (movie?.scenes ?? []).flatMap(s => s.phrases ?? [])
+          const all   = uniqById((movie?.scenes ?? []).flatMap(s => s.phrases ?? []))
           const lib   = all.filter(p => p.dict?.lib && !p.dict.grad)
           const due   = lib.filter(p => !p.dict.next || p.dict.next <= today)
           // ② 昨天練過的句子（首次或最近一次在昨天）
           const yPhrases = all.filter(p => p.dict && (p.dict.first?.d === yest || p.dict.last?.d === yest)).slice(0, 5)
-          // ③ 今日 Top1 弱點字
-          const wordMap = {}
-          lib.forEach(p => (p.dict.first.miss ?? []).forEach(w => { wordMap[w] = (wordMap[w] ?? 0) + 1 }))
-          const topWord = Object.entries(wordMap).sort((a,b) => b[1]-a[1])[0] ?? null
+          // ③ 今日 Top1 弱點字（依漏掉率，不是次數 —— 否則永遠是 the/i/and）
+          const dictatedT = all.filter(p => p.dict?.first)
+          const topWord = computeWeakWords(dictatedT)[0] ?? null
+          const topWordSents = topWord
+            ? dictatedT.filter(p => (p.dict.first.miss ?? []).includes(topWord.w)).length : 0
           // 今日摘要（讀日誌）
           let tLog = []
           try { tLog = JSON.parse(localStorage.getItem('fsi:blind:log') ?? '[]').filter(e => e.k === 'dict' && e.d === today) } catch(e) {}
@@ -23225,14 +23262,17 @@ Steven 不是在收藏電影台詞。
                 minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
                 <div style={{ fontFamily:MONO, fontSize:10, color:T.txt2, fontWeight:700 }}>③ 轟炸 · 今日弱點字</div>
                 {!topWord ? (
-                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>聽力庫還沒資料，先做完 ①。</div>
+                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>還沒有夠格的弱點字（要遇到 ≥3 次），先多做幾句 ①。</div>
                 ) : (
-                  <div onClick={() => { setListenLibOpen(true); setLibView('weak'); setLibWord(topWord[0])
+                  <div onClick={() => { setListenLibOpen(true); setLibView('weak'); setLibWord(topWord.w)
                                         setTimeout(() => listenLibRef.current?.scrollIntoView({ behavior:'smooth', block:'start' }), 120) }}
                     style={{ cursor:'pointer', textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
                       padding:'10px 0', borderRadius:8,
                       background:T.amberD, color:T.amber, border:`1px solid ${T.amber}60` }}>
-                    🎯 進入「{topWord[0]}」關卡（{topWord[1]} 句連著聽）
+                    🎯 進入「{topWord.w}」關卡 · 漏掉率 {topWord.rate}%（{topWord.miss}/{topWord.enc}）
+                    <div style={{ fontSize:8, color:T.txt3, fontWeight:400, marginTop:2 }}>
+                      {topWordSents} 句連著聽
+                    </div>
                   </div>
                 )}
               </div>
@@ -23282,7 +23322,7 @@ Steven 不是在收藏電影台詞。
         <div ref={listenLibRef}/>
         {/* ── 🎯 聽力庫（v5.83）：首次全詞率 <60% 自動收錄，依「漏字」分群轟炸 ── */}
         {listenLibOpen && (() => {
-          const all = (movie?.scenes ?? []).flatMap(s => s.phrases ?? [])
+          const all = uniqById((movie?.scenes ?? []).flatMap(s => s.phrases ?? []))
           const lib  = all.filter(p => p.dict?.lib && !p.dict.grad)
           const grad = all.filter(p => p.dict?.grad)
           const today = getTodayStr()
@@ -23293,14 +23333,10 @@ Steven 不是在收藏電影台詞。
               聽力庫還是空的。開盲聽模式做聽寫，<b style={{ color:'#38bdf8' }}>首次全詞率 &lt;60%</b> 的句子會自動收錄進來。
             </div>
           )
-          // 依「漏字」分群：同一個字漏越多次，越是你的關卡
-          const wordMap = {}
-          lib.forEach(p => (p.dict.first.miss ?? []).forEach(w => {
-            if (!wordMap[w]) wordMap[w] = []
-            wordMap[w].push(p)
-          }))
-          const weakWords = Object.entries(wordMap).sort((a,b) => b[1].length - a[1].length)
-          const shown = libWord ? (wordMap[libWord] ?? [])
+          // 依「漏掉率」分群：出現越頻繁的字一定漏越多次，用次數排會被 the/i/and 洗版
+          const dictated = all.filter(p => p.dict?.first)
+          const weakWords = computeWeakWords(dictated)
+          const shown = libWord ? dictated.filter(p => (p.dict.first.miss ?? []).includes(libWord))
                       : libDueOnly ? due : lib
           return (
             <div style={{ background:'#0a1520', border:'1px solid #38bdf830', borderRadius:10, padding:12,
@@ -23354,28 +23390,51 @@ Steven 不是在收藏電影台詞。
               {libView === 'weak' && (
                 <>
                   <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
-                    連續轟炸同一個音塊，大腦才會建立「那團模糊的 əz = as」的映射。
-                    散在 200 個句子裡各遇一次，是學不會的。
+                    依「<b style={{ color:T.amber }}>漏掉率</b>」排，不是漏掉次數。
+                    the 漏 5/50=10%（你其實聽得到）；as 漏 6/6=100%（這才是關卡）。
+                    用次數排會被 the/i/and 洗版，害你練已經會的東西。
                   </div>
-                  <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
-                    {weakWords.slice(0, 20).map(([w, ps]) => {
-                      const isFunc = FUNC_WORDS.has(w)
-                      const on = libWord === w
-                      return (
-                        <span key={w} onClick={() => setLibWord(on ? null : w)}
-                          style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
-                            color: on ? '#0d2a3a' : (isFunc ? T.amber : '#f87171'),
-                            background: on ? '#38bdf8' : (isFunc ? T.amberD : '#3a1a1a'),
-                            border:`1px solid ${on ? '#38bdf8' : (isFunc ? T.amber : '#f87171')}40`,
-                            padding:'4px 9px', borderRadius:7 }}>
-                          {isFunc ? '⚠' : '🔴'} {w} ×{ps.length}
-                        </span>
-                      )
-                    })}
-                  </div>
+                  {weakWords.length === 0 ? (
+                    <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
+                      還沒有夠格的弱點字（要「遇到 ≥3 次」才列入，避免樣本太少誤判）。多做幾句聽寫。
+                    </div>
+                  ) : (
+                    <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+                      {weakWords.slice(0, 15).map(({ w, miss, enc, rate }) => {
+                        const isFunc = FUNC_WORDS.has(w)
+                        const on = libWord === w
+                        const col = isFunc ? T.amber : '#f87171'
+                        return (
+                          <div key={w} onClick={() => setLibWord(on ? null : w)}
+                            style={{ cursor:'pointer', display:'flex', alignItems:'center', gap:8,
+                              background: on ? '#0d2a3a' : T.surf,
+                              border:`1px solid ${on ? '#38bdf8' : T.bdr}`,
+                              borderRadius:8, padding:'6px 9px' }}>
+                            <span style={{ fontFamily:MONO, fontSize:11, fontWeight:700, color:col,
+                              minWidth:74, flexShrink:0 }}>
+                              {isFunc ? '⚠' : '🔴'} {w}
+                            </span>
+                            <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3, minWidth:42, flexShrink:0 }}>
+                              {miss}/{enc}
+                            </span>
+                            <span style={{ fontFamily:MONO, fontSize:11, fontWeight:700, color:col,
+                              minWidth:38, flexShrink:0, textAlign:'right' }}>
+                              {rate}%
+                            </span>
+                            <span style={{ flex:1, height:7, background:T.surf2, borderRadius:4,
+                              overflow:'hidden', minWidth:0 }}>
+                              <span style={{ display:'block', width:`${rate}%`, height:'100%',
+                                background:col, borderRadius:4 }}/>
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                   <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
                     <span style={{ color:T.amber }}>⚠橘</span>=功能詞（認識但聽不出 → 連音弱讀，練耳朵）·
-                    <span style={{ color:'#f87171' }}> 🔴紅</span>=實詞（可能真的不認識 → 查字典）
+                    <span style={{ color:'#f87171' }}> 🔴紅</span>=實詞（可能真的不認識 → 查字典）<br/>
+                    這個 % 就是進步指標：as 從 100% 掉到 40%，是實打實的進步。
                   </div>
                   {libWord && (
                     <div style={{ fontFamily:MONO, fontSize:10, color:'#38bdf8', fontWeight:700, marginTop:2 }}>
