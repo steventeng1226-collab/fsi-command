@@ -7332,7 +7332,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10, maxWidth:'100%', boxSizing:'border-box', overflowX:'hidden' }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0, maxWidth:'100%' }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.88
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.89
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13512,37 +13512,63 @@ function tokenize(text) {
   return out
 }
 
-// 比對：集合式（不管順序、不管標點、不分大小寫）
-// 回傳 tokens（逐字標記抓到/漏掉）、misheard（你打了但原文沒有 = 誤聽）、雙軌抓字率
+// 比對：序列對齊（順序敏感），不是集合比對。
+// 為什麼？句子 "At first, I admit I enjoyed the novelty of it."，你打 "the first"，
+// 集合比對會把你的 the 配給後面那個 the → 算你抓到。但你其實是把 At 聽成 the，
+// 那是一次「誤聽」，卻被記成命中，分數虛高，還吞掉了 At→the 這個關鍵資訊。
+// 用 DP 對齊（跟語音辨識算 WER 同一套）：命中/漏掉/誤聽 各歸各位，替換配對還能直接抓出混淆對。
 function compareDictation(heardRaw, enRaw) {
   const tgt   = tokenize(enRaw)
   const heard = tokenize(heardRaw).map(t => t.w)
-  const used = new Array(heard.length).fill(false)
   const tokens = tgt.map(t => ({ w:t.w, raw:t.raw, hit:false, fuzzy:false, content: !FUNC_WORDS.has(t.w) }))
-  // 第一輪：精準比對
-  tokens.forEach(t => {
-    const idx = heard.findIndex((h, i) => !used[i] && h === t.w)
-    if (idx >= 0) { used[idx] = true; t.hit = true }
-  })
-  // 第二輪：模糊比對（僅長字）
-  tokens.forEach(t => {
-    if (t.hit) return
-    const idx = heard.findIndex((h, i) => !used[i] && lev1(h, t.w))
-    if (idx >= 0) { used[idx] = true; t.hit = true; t.fuzzy = true }
-  })
-  const misheard = heard.filter((h, i) => !used[i])
-  const missed   = tokens.filter(t => !t.hit).map(t => t.w)
-  // 誤聽配對：每個誤聽字配到最接近的漏字（距離≤3才算配對成功）
-  const pairs = []
-  const missPool = [...missed]
-  misheard.forEach(h => {
-    let best = null, bestD = 99
-    missPool.forEach((m, i) => {
-      const d = levDist(h, m)
-      if (d < bestD) { bestD = d; best = i }
-    })
-    if (best != null && bestD <= 3) { pairs.push([h, missPool[best]]); missPool.splice(best, 1) }
-  })
+  const n = tokens.length, m = heard.length
+
+  // 成本：完全相同=0、模糊相同(打錯字)=1、替換(誤聽)=3、漏掉=1、多打=2
+  // 漏掉要便宜：聽寫本來就只打得出幾個字，大部分字沒打是正常的，不該被當成錯。
+  // 另加「位置懲罰」：同樣配得上時，優先配位置相近的。
+  // 沒有這一項，"the first" 對 "At first...the novelty..." 會出現成本打平的兩條路，
+  // DP 可能挑到「the配後面的the、first配it」這種荒謬解。
+  const C_SUB = 3, C_DEL = 1, C_INS = 2, C_POS = 1.0, C_CONTENT = 1.0
+  const EPS = 1e-9
+  const posPen = (i, j) => C_POS * Math.abs((n > 1 ? i/(n-1) : 0) - (m > 1 ? j/(m-1) : 0))
+  const cost = (i, j) => {
+    const a = tokens[i].w, b = heard[j]
+    const pos = posPen(i, j)
+    // 實詞匹配獎勵：the/is/a 到處都有，配到哪個都不奇怪；first/novelty 只有一個，
+    // 配上了才是真的聽到。沒有這一項，"the first" 會出現「the配後面的the、first配it」
+    // 跟「the誤聽成At、first配first」成本完全打平的荒謬狀況。
+    if (a === b) return (tokens[i].content ? -C_CONTENT : 0) + pos
+    if (lev1(a, b)) return 1 + pos
+    return C_SUB + pos
+  }
+  const dp = Array.from({ length:n+1 }, () => new Array(m+1).fill(0))
+  for (let i = 1; i <= n; i++) dp[i][0] = i * C_DEL
+  for (let j = 1; j <= m; j++) dp[0][j] = j * C_INS
+  for (let i = 1; i <= n; i++) {
+    for (let j = 1; j <= m; j++) {
+      dp[i][j] = Math.min(
+        dp[i-1][j-1] + cost(i-1, j-1),   // 對上（或替換）
+        dp[i-1][j]   + C_DEL,            // 漏掉這個字
+        dp[i][j-1]   + C_INS,            // 多打了一個字
+      )
+    }
+  }
+  // 回溯（浮點數要用容差比較）
+  const misheard = [], pairs = []
+  let i = n, j = m
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && Math.abs(dp[i][j] - (dp[i-1][j-1] + cost(i-1, j-1))) < EPS) {
+      const c = cost(i-1, j-1) - posPen(i-1, j-1)   // 扣掉位置懲罰，還原成「配對品質」
+      if (c <= 1 + EPS) { tokens[i-1].hit = true; if (c > EPS) tokens[i-1].fuzzy = true }
+      else { misheard.unshift(heard[j-1]); pairs.unshift([heard[j-1], tokens[i-1].w]) } // 誤聽：你打X，原文是Y
+      i--; j--
+    } else if (i > 0 && Math.abs(dp[i][j] - (dp[i-1][j] + C_DEL)) < EPS) {
+      i--                                   // 漏掉，不動
+    } else if (j > 0) {
+      misheard.unshift(heard[j-1]); j--     // 多打的字（原文沒有）
+    } else { i-- }
+  }
+  const missed = tokens.filter(t => !t.hit).map(t => t.w)
   const total  = tokens.length
   const hit    = tokens.filter(t => t.hit).length
   const cTotal = tokens.filter(t => t.content).length
@@ -18808,7 +18834,7 @@ Steven 不是在收藏電影台詞。
                     /* 已送出聽寫 → 逐字三色標示；🟢抓到 ⚪漏掉 */
                     dictResult[p.id] ? (
                       <span style={{ fontSize:13, letterSpacing:0, lineHeight:1.9,
-                        display:'inline-block', maxWidth:'100%', overflowWrap:'anywhere', wordBreak:'break-word' }}>
+                        display:'inline-block', maxWidth:'100%', overflowWrap:'break-word' }}>
                         {dictResult[p.id].tokens.map((t, i) => {
                           const orig = t.raw ?? t.w
                           return (
@@ -18819,6 +18845,7 @@ Steven 不是在收藏電影台詞。
                               textDecorationStyle:'dotted',
                               fontWeight: t.content ? 700 : 400,
                               padding:'1px 3px', borderRadius:4, marginRight:3,
+                              display:'inline-block', whiteSpace:'nowrap',
                               opacity: t.hit ? 1 : 0.55 }}>
                               {orig}
                             </span>
@@ -23114,7 +23141,7 @@ Steven 不是在收藏電影台詞。
                       return (
                         <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
                           <div style={{ fontFamily:MONO, fontSize:13, lineHeight:1.9,
-                            minWidth:0, maxWidth:'100%', overflowWrap:'anywhere', wordBreak:'break-word' }}>
+                            minWidth:0, maxWidth:'100%', overflowWrap:'break-word' }}>
                             {c.tokens.map((t, i) => {
                               const orig = t.raw ?? t.w
                               return (
@@ -23124,6 +23151,7 @@ Steven 不是在收藏電影台詞。
                                   textDecoration: t.hit ? 'none' : 'underline', textDecorationStyle:'dotted',
                                   fontWeight: t.content ? 700 : 400,
                                   padding:'1px 3px', borderRadius:4, marginRight:3,
+                                  display:'inline-block', whiteSpace:'nowrap',
                                   opacity: t.hit ? 1 : 0.55 }}>{orig}</span>
                               )
                             })}
@@ -23385,7 +23413,7 @@ Steven 不是在收藏電影台詞。
                       <div style={{ fontFamily:MONO, fontSize:12, color:T.txt3 }}>🎧 ●●●●●●●●●●</div>
                     ) : (
                       <div style={{ fontFamily:MONO, fontSize:13, lineHeight:1.9,
-                        minWidth:0, maxWidth:'100%', overflowWrap:'anywhere', wordBreak:'break-word' }}>
+                        minWidth:0, maxWidth:'100%', overflowWrap:'break-word' }}>
                         {tokenize(p.en).map((t, i) => {
                           const wasMissed = missSet.has(t.w)
                           return (
@@ -23393,6 +23421,7 @@ Steven 不是在收藏電影台詞。
                               color: wasMissed ? T.amber : T.txt,
                               background: wasMissed ? T.amberD : 'transparent',
                               fontWeight: wasMissed ? 700 : 400,
+                              display:'inline-block', whiteSpace:'nowrap',
                               padding: wasMissed ? '1px 3px' : 0, borderRadius:4, marginRight:3 }}>
                               {t.raw}
                             </span>
