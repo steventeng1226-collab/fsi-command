@@ -7327,12 +7327,12 @@ function AppIcon({ size = 36 }) {
 // ═══════════════════════════════════════════════════════════════
 // HEADER
 // ═══════════════════════════════════════════════════════════════
-function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProduce, onOpenBlindMode, onOpenListenLib, onOpenTraining }) {
+function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProduce, onOpenListenLib, onOpenTraining }) {
   return (
-    <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10 }}>
+    <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10, maxWidth:'100%', boxSizing:'border-box', overflowX:'hidden' }}>
       <AppIcon size={30} />
-      <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.86
+      <div style={{ flex:1, minWidth:0, maxWidth:'100%' }}>
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.88
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -7362,22 +7362,13 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
             🖊️ 造句庫
           </div>
         )}
-        {onOpenBlindMode && (
-          <div onClick={onOpenBlindMode}
-            style={{ display:'inline-flex', alignItems:'center', gap:5, marginTop:5, marginLeft:6,
-              cursor:'pointer', fontFamily:MONO, fontSize:10, color:'#38bdf8',
-              background:'#0d2a3a', border:'1px solid #38bdf840',
-              borderRadius:7, padding:'3px 9px' }}>
-            🎧 盲聽
-          </div>
-        )}
         {onOpenTraining && (
           <div onClick={onOpenTraining}
             style={{ display:'inline-flex', alignItems:'center', gap:5, marginTop:5, marginLeft:6,
               cursor:'pointer', fontFamily:MONO, fontSize:10, color:'#0d2a3a', fontWeight:700,
               background:'#38bdf8', border:'1px solid #38bdf8',
               borderRadius:7, padding:'3px 9px' }}>
-            🌅 今日訓練
+            🌅 今日盲聽
           </div>
         )}
         {onOpenListenLib && (
@@ -13507,13 +13498,27 @@ function levDist(a, b) {
   return prev[lb]
 }
 
+// 斷詞：用「字元」切，不是用空白切。
+// 逐字稿常出現 "retired,and"（逗號後沒空格），用空白切會黏成 retiredand 這種不存在的字。
+// raw = 顯示用（保留標點），w = 比對用（正規化）
+function tokenize(text) {
+  const out = []
+  const re = /[A-Za-z0-9']+[^A-Za-z0-9'\s]*/g
+  let m
+  while ((m = re.exec(String(text ?? ''))) !== null) {
+    const w = normWord(m[0])
+    if (w) out.push({ raw: m[0], w })
+  }
+  return out
+}
+
 // 比對：集合式（不管順序、不管標點、不分大小寫）
 // 回傳 tokens（逐字標記抓到/漏掉）、misheard（你打了但原文沒有 = 誤聽）、雙軌抓字率
 function compareDictation(heardRaw, enRaw) {
-  const target = String(enRaw ?? '').split(/\s+/).map(normWord).filter(Boolean)
-  const heard  = String(heardRaw ?? '').split(/\s+/).map(normWord).filter(Boolean)
+  const tgt   = tokenize(enRaw)
+  const heard = tokenize(heardRaw).map(t => t.w)
   const used = new Array(heard.length).fill(false)
-  const tokens = target.map(w => ({ w, hit:false, fuzzy:false, content: !FUNC_WORDS.has(w) }))
+  const tokens = tgt.map(t => ({ w:t.w, raw:t.raw, hit:false, fuzzy:false, content: !FUNC_WORDS.has(t.w) }))
   // 第一輪：精準比對
   tokens.forEach(t => {
     const idx = heard.findIndex((h, i) => !used[i] && h === t.w)
@@ -13564,7 +13569,7 @@ const BLIND_MIN_WORDS = 4
 function inBlindPool(p) {
   if (p.starred) return false
   if ((p.rating ?? 0) < 3) return false
-  return String(p.en ?? '').trim().split(/\s+/).filter(Boolean).length >= BLIND_MIN_WORDS
+  return tokenize(p.en).length >= BLIND_MIN_WORDS
 }
 
 // ── 📋 聽力訓練守則（v5.85）────────────────────────────────
@@ -13596,7 +13601,7 @@ const LISTEN_RULES = [
     why:'先過「聲音→文字」這關。意思常常就藏在你聽不到的虛詞裡（no matter where、as soon as 全是虛詞）。' },
 ]
 
-// ── 🌅 今日訓練 · 連續天數（v5.86）────────────────────────
+// ── 🌅 今日盲聽 · 連續天數（v5.86）────────────────────────
 // 規則：當日只要送出 ≥1 句聽寫，streak 就續。這是刻意寬鬆的——
 // 「連續30天做1句」勝過「完美執行3天然後放棄」。
 const STREAK_KEY = 'fsi:train:streak'
@@ -13691,7 +13696,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const [libTestId,     setLibTestId]     = useState(null)    // 正在重測的句子（遮住英文）
   const listenLibRef = useRef(null)                            // Header 跳轉時捲到聽力庫
   const [rulesOpen, setRulesOpen] = useState(false)            // 📋 聽力訓練守則面板
-  // 🌅 今日訓練（v5.86）：一鍵跑完，零決策
+  // 🌅 今日盲聽（v5.86）：一鍵跑完，零決策
   const [trainOpen,  setTrainOpen]  = useState(false)
   const [trainN,     setTrainN]     = useState(null)   // 本次要練幾句（每次自己選）
   const [trainIdx,   setTrainIdx]   = useState(0)      // 目前練到第幾句
@@ -13800,7 +13805,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     }
   }, [blindJumpSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── 🌅 今日訓練快速開啟 ──
+  // ── 🌅 今日盲聽快速開啟 ──
   useEffect(() => {
     if (!trainingJumpSignal) return
     setView('movie')
@@ -14991,7 +14996,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     else if (passed) showMovieToast('✅ 過關，排入下次複習')
   }
 
-  // ── 🌅 今日訓練：依場景順序抽「從未聽寫過」的句子（一個場景做完再換下一個）──
+  // ── 🌅 今日盲聽：依場景順序抽「從未聽寫過」的句子（一個場景做完再換下一個）──
   function buildTrainQueue(n) {
     const scenes = [...(movie?.scenes ?? [])].sort((a, b) => {
       const sa = (() => { try { return parseSceneTimeRange(a.timeRange).start } catch { return 0 } })()
@@ -18802,9 +18807,10 @@ Steven 不是在收藏電影台詞。
                   {blindRevealed[p.id] === 'en' ? (
                     /* 已送出聽寫 → 逐字三色標示；🟢抓到 ⚪漏掉 */
                     dictResult[p.id] ? (
-                      <span style={{ fontSize:13, letterSpacing:0, lineHeight:1.9 }}>
+                      <span style={{ fontSize:13, letterSpacing:0, lineHeight:1.9,
+                        display:'inline-block', maxWidth:'100%', overflowWrap:'anywhere', wordBreak:'break-word' }}>
                         {dictResult[p.id].tokens.map((t, i) => {
-                          const orig = p.en.split(/\s+/)[i] ?? t.w
+                          const orig = t.raw ?? t.w
                           return (
                             <span key={i} style={{
                               color: t.hit ? T.grn : T.txt3,
@@ -22983,7 +22989,7 @@ Steven 不是在收藏電影台詞。
           )
         })()}
         <div ref={trainRef}/>
-        {/* ── 🌅 今日訓練（v5.86）：一鍵跑完，零決策 ── */}
+        {/* ── 🌅 今日盲聽（v5.86）：一鍵跑完，零決策 ── */}
         {trainOpen && (() => {
           const today = getTodayStr()
           const yest  = addDaysStr(today, -1)
@@ -23015,10 +23021,11 @@ Steven 不是在收藏電影台詞。
 
           return (
             <div style={{ background:'#0a1520', border:'1px solid #38bdf850', borderRadius:12, padding:13,
-              display:'flex', flexDirection:'column', gap:10 }}>
+              display:'flex', flexDirection:'column', gap:10,
+              minWidth:0, maxWidth:'100%', boxSizing:'border-box', overflowX:'hidden' }}>
               {/* 標題 + streak */}
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, flexWrap:'wrap' }}>
-                <span style={{ fontFamily:MONO, fontSize:12, color:'#38bdf8', fontWeight:700 }}>🌅 今日訓練</span>
+                <span style={{ fontFamily:MONO, fontSize:12, color:'#38bdf8', fontWeight:700 }}>🌅 今日盲聽</span>
                 <span style={{ fontFamily:MONO, fontSize:10, color:T.amber, fontWeight:700 }}>
                   🔥 連續 {streak.days ?? 0} 天
                   {streak.best > (streak.days ?? 0) && <span style={{ color:T.txt3, fontSize:8 }}> · 最佳 {streak.best}</span>}
@@ -23026,7 +23033,8 @@ Steven 不是在收藏電影台詞。
               </div>
 
               {/* ① 診斷：新句聽寫 */}
-              <div style={{ borderLeft:'2px solid #38bdf8', paddingLeft:10, display:'flex', flexDirection:'column', gap:7 }}>
+              <div style={{ borderLeft:'2px solid #38bdf8', paddingLeft:10, display:'flex', flexDirection:'column', gap:7,
+                minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
                 <div style={{ fontFamily:MONO, fontSize:10, color:'#38bdf8', fontWeight:700 }}>
                   ① 診斷 · 新句聽寫
                   {trainN != null && <span style={{ color:T.txt3, marginLeft:6 }}>{Math.min(trainIdx, trainQueue.length)}/{trainQueue.length}</span>}
@@ -23055,7 +23063,8 @@ Steven 不是在收藏電影台詞。
                   </div>
                 ) : cur ? (
                   <div style={{ background:T.surf, border:'1px solid #38bdf830', borderRadius:10,
-                    padding:'11px 12px', display:'flex', flexDirection:'column', gap:8 }}>
+                    padding:'11px 12px', display:'flex', flexDirection:'column', gap:8,
+                    minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
                     {!dictResult[cur.id] ? (
                       <>
                         <div style={{ display:'flex', alignItems:'center', gap:9 }}>
@@ -23104,9 +23113,10 @@ Steven 不是在收藏電影台詞。
                       const lv = dictLevel(c.rate)
                       return (
                         <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
-                          <div style={{ fontFamily:MONO, fontSize:13, lineHeight:1.9 }}>
+                          <div style={{ fontFamily:MONO, fontSize:13, lineHeight:1.9,
+                            minWidth:0, maxWidth:'100%', overflowWrap:'anywhere', wordBreak:'break-word' }}>
                             {c.tokens.map((t, i) => {
-                              const orig = String(cur.en ?? '').split(/\s+/)[i] ?? t.w
+                              const orig = t.raw ?? t.w
                               return (
                                 <span key={i} style={{
                                   color: t.hit ? T.grn : T.txt3,
@@ -23155,7 +23165,8 @@ Steven 不是在收藏電影台詞。
               </div>
 
               {/* ② 鞏固：昨天的句子 */}
-              <div style={{ borderLeft:`2px solid ${T.bdr}`, paddingLeft:10, display:'flex', flexDirection:'column', gap:6 }}>
+              <div style={{ borderLeft:`2px solid ${T.bdr}`, paddingLeft:10, display:'flex', flexDirection:'column', gap:6,
+                minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
                 <div style={{ fontFamily:MONO, fontSize:10, color:T.txt2, fontWeight:700 }}>
                   ② 鞏固 · 昨天的句子 <span style={{ color:T.txt3 }}>{yPhrases.length} 句</span>
                 </div>
@@ -23182,7 +23193,8 @@ Steven 不是在收藏電影台詞。
               </div>
 
               {/* ③ 轟炸：今日弱點字 */}
-              <div style={{ borderLeft:`2px solid ${T.bdr}`, paddingLeft:10, display:'flex', flexDirection:'column', gap:6 }}>
+              <div style={{ borderLeft:`2px solid ${T.bdr}`, paddingLeft:10, display:'flex', flexDirection:'column', gap:6,
+                minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
                 <div style={{ fontFamily:MONO, fontSize:10, color:T.txt2, fontWeight:700 }}>③ 轟炸 · 今日弱點字</div>
                 {!topWord ? (
                   <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>聽力庫還沒資料，先做完 ①。</div>
@@ -23198,7 +23210,8 @@ Steven 不是在收藏電影台詞。
               </div>
 
               {/* ④ 重測：到期的聽力庫句子 */}
-              <div style={{ borderLeft:`2px solid ${T.bdr}`, paddingLeft:10, display:'flex', flexDirection:'column', gap:6 }}>
+              <div style={{ borderLeft:`2px solid ${T.bdr}`, paddingLeft:10, display:'flex', flexDirection:'column', gap:6,
+                minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
                 <div style={{ fontFamily:MONO, fontSize:10, color:T.txt2, fontWeight:700 }}>④ 重測 · 到期句子</div>
                 {due.length === 0 ? (
                   <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>今天沒有到期的，跳過。</div>
@@ -23263,7 +23276,8 @@ Steven 不是在收藏電影台詞。
                       : libDueOnly ? due : lib
           return (
             <div style={{ background:'#0a1520', border:'1px solid #38bdf830', borderRadius:10, padding:12,
-              display:'flex', flexDirection:'column', gap:9 }}>
+              display:'flex', flexDirection:'column', gap:9,
+              minWidth:0, maxWidth:'100%', boxSizing:'border-box', overflowX:'hidden' }}>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:6 }}>
                 <span style={{ fontFamily:MONO, fontSize:10, color:'#38bdf8', fontWeight:700 }}>
                   🎯 聽力庫 {lib.length} 句待練
@@ -23364,22 +23378,23 @@ Steven 不是在收藏電影台詞。
                 const isDue = !p.dict.next || p.dict.next <= today
                 return (
                   <div key={p.id} style={{ background:T.surf, border:`1px solid ${isDue ? T.amber+'50' : T.bdr}`,
-                    borderRadius:10, padding:'11px 12px', display:'flex', flexDirection:'column', gap:7 }}>
+                    borderRadius:10, padding:'11px 12px', display:'flex', flexDirection:'column', gap:7,
+                    minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
                     {/* 重測中 → 遮住英文 */}
                     {testing && !res ? (
                       <div style={{ fontFamily:MONO, fontSize:12, color:T.txt3 }}>🎧 ●●●●●●●●●●</div>
                     ) : (
-                      <div style={{ fontFamily:MONO, fontSize:13, lineHeight:1.9 }}>
-                        {String(p.en ?? '').split(/\s+/).map((w, i) => {
-                          const nw = normWord(w)
-                          const wasMissed = missSet.has(nw)
+                      <div style={{ fontFamily:MONO, fontSize:13, lineHeight:1.9,
+                        minWidth:0, maxWidth:'100%', overflowWrap:'anywhere', wordBreak:'break-word' }}>
+                        {tokenize(p.en).map((t, i) => {
+                          const wasMissed = missSet.has(t.w)
                           return (
                             <span key={i} style={{
                               color: wasMissed ? T.amber : T.txt,
                               background: wasMissed ? T.amberD : 'transparent',
                               fontWeight: wasMissed ? 700 : 400,
                               padding: wasMissed ? '1px 3px' : 0, borderRadius:4, marginRight:3 }}>
-                              {w}
+                              {t.raw}
                             </span>
                           )
                         })}
@@ -23473,12 +23488,19 @@ Steven 不是在收藏電影台詞。
                             ? (threeStep.step === 1 ? '① 🎬…' : threeStep.step === 2 ? '② 🔊…' : '③ 🎬…')
                             : '🔁 三步驟'}
                         </div>
-                        <div onClick={() => { setLibTestId(p.id); setDictInput(v => ({ ...v, [p.id]: '' })); setDictResult(r => { const n={...r}; delete n[p.id]; return n }) }}
+                        <div onClick={() => {
+                            if (!isDue) {
+                              showMovieToast(`⏰ ${p.dict.next} 才開放重測 — 太早測會測到記憶，不是聽力`)
+                              return
+                            }
+                            setLibTestId(p.id); setDictInput(v => ({ ...v, [p.id]: '' })); setDictResult(r => { const n={...r}; delete n[p.id]; return n })
+                          }}
                           style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
                             padding:'7px 12px', borderRadius:7,
                             background: isDue ? T.amberD : T.surf2, color: isDue ? T.amber : T.txt3,
-                            border:`1px solid ${isDue ? T.amber+'60' : T.bdr}` }}>
-                          🖊 重測
+                            border:`1px solid ${isDue ? T.amber+'60' : T.bdr}`,
+                            opacity: isDue ? 1 : 0.5 }}>
+                          {isDue ? '🖊 重測' : `🔒 ${p.dict.next} 開放`}
                         </div>
                       </div>
                     )}
@@ -24983,7 +25005,7 @@ export default function App() {
   return (
     <div style={{ background:T.bg, minHeight:'100vh', maxWidth:480, margin:'0 auto', display:'flex', flexDirection:'column', position:'relative' }}>
       <style>{G}</style>
-      <Header audioMode={audioMode} toggleAudioMode={toggleAudioMode} onOpenKnowledgeBase={openKnowledgeBase} onOpenMyProduce={openMyProduce} onOpenBlindMode={openBlindMode} onOpenListenLib={openListenLib} onOpenTraining={openTraining}/>
+      <Header audioMode={audioMode} toggleAudioMode={toggleAudioMode} onOpenKnowledgeBase={openKnowledgeBase} onOpenMyProduce={openMyProduce} onOpenListenLib={openListenLib} onOpenTraining={openTraining}/>
       <div style={{ flex:1, overflowY:'auto', paddingBottom:'calc(110px + env(safe-area-inset-bottom, 20px))' }}>
         {tab==='phrase'   && <PhraseTab   settings={settings}/>}
         {tab==='practice' && <PracticeTab {...P}/>}
