@@ -7328,11 +7328,29 @@ function AppIcon({ size = 36 }) {
 // HEADER
 // ═══════════════════════════════════════════════════════════════
 function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProduce, onOpenListenLib, onOpenTraining, listenDue = 0 }) {
+  const btn = (bg, bd, fg, bold = false) => ({
+    display:'inline-flex', alignItems:'center', justifyContent:'center', gap:5,
+    cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight: bold ? 700 : 400,
+    color:fg, background:bg, border:`1px solid ${bd}`,
+    borderRadius:7, padding:'4px 9px', flex:1, minWidth:0, whiteSpace:'nowrap',
+  })
+  const badge = listenDue > 0 && (
+    <span style={{ background:'#f87171', color:'#2a0d0d', fontFamily:MONO, fontSize:9, fontWeight:700,
+      borderRadius:9, padding:'0 5px', minWidth:14, textAlign:'center', lineHeight:'14px', flexShrink:0 }}>
+      {listenDue}
+    </span>
+  )
   return (
-    <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10, maxWidth:'100%', boxSizing:'border-box', overflowX:'hidden' }}>
+    <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 14px',
+      display:'flex', alignItems:'flex-start', gap:9, position:'sticky', top:0, zIndex:10,
+      maxWidth:'100%', boxSizing:'border-box', overflowX:'hidden' }}>
       <AppIcon size={30} />
-      <div style={{ flex:1, minWidth:0, maxWidth:'100%' }}>
-        <div style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber, letterSpacing:'0.02em', lineHeight:1.15, display:'flex', alignItems:'baseline', gap:6 }}>Keep Moving<span style={{ fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em' }}>v6.04</span>
+      <div style={{ flex:1, minWidth:0, display:'flex', flexDirection:'column', gap:6 }}>
+        {/* 標題列：名稱 + 版本 + AI 標籤 + 🎬電影音（同一行）*/}
+        <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
+          <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
+            letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.05</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -7340,70 +7358,48 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
             const color = p === 'openai' ? '#10a37f' : p === 'gemini' ? '#4285f4' : T.amber
             return <span style={{ fontFamily:MONO, fontSize:8, color, background:color+'18',
               border:`1px solid ${color}50`, borderRadius:5, padding:'1px 6px',
-              letterSpacing:'0.06em', fontWeight:700 }}>{label}</span>
+              letterSpacing:'0.06em', fontWeight:700, flexShrink:0 }}>{label}</span>
           })()}
+          {toggleAudioMode && (
+            <div onClick={toggleAudioMode}
+              title={audioMode === 'original' ? '🎬 電影原音（點擊切換為系統音）' : '🔊 系統音（點擊切換為電影原音）'}
+              style={{ cursor:'pointer', marginLeft:'auto', flexShrink:0, userSelect:'none',
+                display:'inline-flex', alignItems:'center', gap:4,
+                fontFamily:MONO, fontSize:9, fontWeight:700,
+                padding:'4px 8px', borderRadius:7,
+                color: audioMode === 'original' ? T.amber : T.txt3,
+                background: audioMode === 'original' ? T.amberD : T.surf2,
+                border:`1px solid ${audioMode === 'original' ? T.amber+'60' : T.bdr}` }}>
+              <span style={{ fontSize:13 }}>{audioMode === 'original' ? '🎬' : '🔊'}</span>
+              {audioMode === 'original' ? '電影音' : '系統音'}
+            </div>
+          )}
         </div>
-        {/* 知識庫快速切換：隨時可以跳過去存東西，存完馬上切回原本畫面 */}
-        {onOpenKnowledgeBase && (
-          <div onClick={onOpenKnowledgeBase}
-            style={{ display:'inline-flex', alignItems:'center', gap:5, marginTop:5,
-              cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.amber,
-              background:T.amberD, border:`1px solid ${T.amber}40`,
-              borderRadius:7, padding:'3px 9px' }}>
-            📚 知識庫
-          </div>
-        )}
-        {onOpenMyProduce && (
-          <div onClick={onOpenMyProduce}
-            style={{ display:'inline-flex', alignItems:'center', gap:5, marginTop:5, marginLeft:6,
-              cursor:'pointer', fontFamily:MONO, fontSize:10, color:'#a78bfa',
-              background:'#1a0f2e', border:'1px solid #a78bfa40',
-              borderRadius:7, padding:'3px 9px' }}>
-            🖊️ 造句庫
-          </div>
-        )}
-        {onOpenTraining && (
-          <div onClick={onOpenTraining}
-            style={{ display:'inline-flex', alignItems:'center', gap:5, marginTop:5, marginLeft:6,
-              cursor:'pointer', fontFamily:MONO, fontSize:10, color:'#0d2a3a', fontWeight:700,
-              background:'#38bdf8', border:'1px solid #38bdf8',
-              borderRadius:7, padding:'3px 9px' }}>
-            🌅 今日盲聽
-            {listenDue > 0 && (
-              <span style={{ background:'#f87171', color:'#2a0d0d', fontFamily:MONO, fontSize:9, fontWeight:700,
-                borderRadius:9, padding:'0 5px', minWidth:14, textAlign:'center', lineHeight:'14px' }}>
-                {listenDue}
-              </span>
-            )}
-          </div>
-        )}
-        {onOpenListenLib && (
-          <div onClick={onOpenListenLib}
-            style={{ display:'inline-flex', alignItems:'center', gap:5, marginTop:5, marginLeft:6,
-              cursor:'pointer', fontFamily:MONO, fontSize:10, color:'#38bdf8',
-              background:'#0d2a3a', border:'1px solid #38bdf840',
-              borderRadius:7, padding:'3px 9px' }}>
-            🎯 聽力庫
-            {listenDue > 0 && (
-              <span style={{ background:'#f87171', color:'#2a0d0d', fontFamily:MONO, fontSize:9, fontWeight:700,
-                borderRadius:9, padding:'0 5px', minWidth:14, textAlign:'center', lineHeight:'14px' }}>
-                {listenDue}
-              </span>
-            )}
-          </div>
-        )}
+
+        {/* 第一列：📚 知識庫 · 🖊️ 造句庫 */}
+        <div style={{ display:'flex', gap:6 }}>
+          {onOpenKnowledgeBase && (
+            <div onClick={onOpenKnowledgeBase} style={btn(T.amberD, T.amber+'40', T.amber)}>📚 知識庫</div>
+          )}
+          {onOpenMyProduce && (
+            <div onClick={onOpenMyProduce} style={btn('#1a0f2e', '#a78bfa40', '#a78bfa')}>🖊️ 造句庫</div>
+          )}
+        </div>
+
+        {/* 第二列：🌅 今日盲聽 · 🎯 聽力庫（同一行）*/}
+        <div style={{ display:'flex', gap:6 }}>
+          {onOpenTraining && (
+            <div onClick={onOpenTraining} style={btn('#38bdf8', '#38bdf8', '#0d2a3a', true)}>
+              🌅 今日盲聽{badge}
+            </div>
+          )}
+          {onOpenListenLib && (
+            <div onClick={onOpenListenLib} style={btn('#0d2a3a', '#38bdf840', '#38bdf8')}>
+              🎯 聽力庫{badge}
+            </div>
+          )}
+        </div>
       </div>
-      {/* 全域音軌切換 🎬 / 🔊 */}
-      {toggleAudioMode && (
-        <div onClick={toggleAudioMode}
-          title={audioMode === 'original' ? '🎬 電影原音（點擊切換為系統音）' : '🔊 系統音（點擊切換為電影原音）'}
-          style={{ cursor:'pointer', fontSize:16, padding:'5px 8px', borderRadius:8,
-            background: audioMode === 'original' ? T.amberD : T.surf2,
-            border:`1px solid ${audioMode === 'original' ? T.amber+'60' : T.bdr}`,
-            transition:'all 0.15s', flexShrink:0, userSelect:'none' }}>
-          {audioMode === 'original' ? '🎬' : '🔊'}
-        </div>
-      )}
     </header>
   )
 }
@@ -10749,33 +10745,39 @@ function MySubcatPanel({ counts, selected, onSelect, onReclassify, reclassifyLoa
 }
 
 // ── SpeakRow：通用大喇叭按鈕組（PhraseTab 外部定義）──────────────
-function SpeakRow({ text, color }) {
+function SpeakRow({ text, color, compact = false }) {
   function speakEn(t, rate) {
     const u = new SpeechSynthesisUtterance(t)
     u.lang = 'en-US'; u.rate = rate
     window.speechSynthesis.cancel()
     window.speechSynthesis.speak(u)
   }
+  const rates = [[0.6,'🐢','60'], [0.8,'🚶','55'], [1,'🔊','50']]
+  if (compact) {
+    // 緊湊模式：塞得進標題列，不再獨佔一整行
+    return (
+      <div style={{ display:'flex', alignItems:'center', gap:4, flexShrink:0 }}>
+        {rates.map(([r, ic, a]) => (
+          <div key={r} onClick={() => speakEn(text, r)}
+            style={{ padding:'3px 7px', borderRadius:6, background:color+'15', border:`1px solid ${color}${a}`,
+              display:'flex', alignItems:'center', gap:3, cursor:'pointer' }}>
+            <span style={{ fontSize:11 }}>{ic}</span>
+            <span style={{ fontFamily:MONO, fontSize:9, color, fontWeight:600 }}>{r === 1 ? '1.0x' : `${r}x`}</span>
+          </div>
+        ))}
+      </div>
+    )
+  }
   return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
-      <div onClick={() => speakEn(text, 0.6)}
-        style={{ padding:'6px 16px', borderRadius:8, background:color+'18', border:`1px solid ${color}60`,
-          display:'flex', alignItems:'center', gap:5, cursor:'pointer' }}>
-        <span style={{ fontSize:16 }}>🐢</span>
-        <span style={{ fontFamily:MONO, fontSize:11, color, fontWeight:600 }}>0.6x</span>
-      </div>
-      <div onClick={() => speakEn(text, 0.8)}
-        style={{ padding:'6px 16px', borderRadius:8, background:color+'16', border:`1px solid ${color}55`,
-          display:'flex', alignItems:'center', gap:5, cursor:'pointer' }}>
-        <span style={{ fontSize:16 }}>🚶</span>
-        <span style={{ fontFamily:MONO, fontSize:11, color }}>0.8x</span>
-      </div>
-      <div onClick={() => speakEn(text, 1)}
-        style={{ padding:'6px 16px', borderRadius:8, background:color+'15', border:`1px solid ${color}50`,
-          display:'flex', alignItems:'center', gap:5, cursor:'pointer' }}>
-        <span style={{ fontSize:16 }}>🔊</span>
-        <span style={{ fontFamily:MONO, fontSize:11, color }}>1.0x</span>
-      </div>
+      {rates.map(([r, ic, a]) => (
+        <div key={r} onClick={() => speakEn(text, r)}
+          style={{ padding:'6px 16px', borderRadius:8, background:color+'18', border:`1px solid ${color}${a}`,
+            display:'flex', alignItems:'center', gap:5, cursor:'pointer' }}>
+          <span style={{ fontSize:16 }}>{ic}</span>
+          <span style={{ fontFamily:MONO, fontSize:11, color, fontWeight:600 }}>{r === 1 ? '1.0x' : `${r}x`}</span>
+        </div>
+      ))}
     </div>
   )
 }
@@ -21970,14 +21972,14 @@ Steven 不是在收藏電影台詞。
           return (
             <div style={{ background:'linear-gradient(135deg, #1a1400, #0d0d00)', border:`1px solid ${T.amber}60`,
               borderRadius:13, padding:'14px', display:'flex', flexDirection:'column', gap:8 }}>
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                <span style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:T.amber }}>🎲 今天練一句</span>
-                <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>{todayItem.title}</span>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+                <span style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:T.amber, flexShrink:0 }}>🎲 今天練一句</span>
+                <SpeakRow text={sentence} color={T.amber} compact/>
               </div>
+              <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>{todayItem.title}</div>
               <div style={{ fontFamily:MONO, fontSize:13, color:T.txt, lineHeight:1.6, fontWeight:600 }}>
                 {sentence}
               </div>
-              <SpeakRow text={sentence} color={T.amber}/>
               <div style={{ display:'flex', gap:6 }}>
                 <div onClick={() => openKbItemDirect(todayItem.id)}
                   style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:9, fontWeight:700,
