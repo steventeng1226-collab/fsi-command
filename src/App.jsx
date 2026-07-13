@@ -7350,7 +7350,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.05</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.06</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -7386,16 +7386,16 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
           )}
         </div>
 
-        {/* 第二列：🌅 今日盲聽 · 🎯 聽力庫（同一行）*/}
+        {/* 第二列：🎯 聽力庫 · 🌅 今日盲聽（最常按的放右邊，右手拇指好按）*/}
         <div style={{ display:'flex', gap:6 }}>
-          {onOpenTraining && (
-            <div onClick={onOpenTraining} style={btn('#38bdf8', '#38bdf8', '#0d2a3a', true)}>
-              🌅 今日盲聽{badge}
-            </div>
-          )}
           {onOpenListenLib && (
             <div onClick={onOpenListenLib} style={btn('#0d2a3a', '#38bdf840', '#38bdf8')}>
               🎯 聽力庫{badge}
+            </div>
+          )}
+          {onOpenTraining && (
+            <div onClick={onOpenTraining} style={btn('#38bdf8', '#38bdf8', '#0d2a3a', true)}>
+              🌅 今日盲聽{badge}
             </div>
           )}
         </div>
