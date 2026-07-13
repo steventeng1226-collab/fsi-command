@@ -7327,12 +7327,12 @@ function AppIcon({ size = 36 }) {
 // ═══════════════════════════════════════════════════════════════
 // HEADER
 // ═══════════════════════════════════════════════════════════════
-function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProduce, onOpenListenLib, onOpenTraining }) {
+function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProduce, onOpenListenLib, onOpenTraining, listenDue = 0 }) {
   return (
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10, maxWidth:'100%', boxSizing:'border-box', overflowX:'hidden' }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0, maxWidth:'100%' }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.99
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v6.00
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -7369,6 +7369,12 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
               background:'#38bdf8', border:'1px solid #38bdf8',
               borderRadius:7, padding:'3px 9px' }}>
             🌅 今日盲聽
+            {listenDue > 0 && (
+              <span style={{ background:'#f87171', color:'#2a0d0d', fontFamily:MONO, fontSize:9, fontWeight:700,
+                borderRadius:9, padding:'0 5px', minWidth:14, textAlign:'center', lineHeight:'14px' }}>
+                {listenDue}
+              </span>
+            )}
           </div>
         )}
         {onOpenListenLib && (
@@ -7378,6 +7384,12 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
               background:'#0d2a3a', border:'1px solid #38bdf840',
               borderRadius:7, padding:'3px 9px' }}>
             🎯 聽力庫
+            {listenDue > 0 && (
+              <span style={{ background:'#f87171', color:'#2a0d0d', fontFamily:MONO, fontSize:9, fontWeight:700,
+                borderRadius:9, padding:'0 5px', minWidth:14, textAlign:'center', lineHeight:'14px' }}>
+                {listenDue}
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -13833,7 +13845,7 @@ function bumpStreak() {
   return next
 }
 
-function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpSignal, myProduceJumpSignal, blindJumpSignal, listenLibJumpSignal, trainingJumpSignal, onReturnFromKb }) {
+function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpSignal, myProduceJumpSignal, blindJumpSignal, listenLibJumpSignal, trainingJumpSignal, onListenDue, onReturnFromKb }) {
   const [db, setDb] = useState(() => {
     try {
       const s = localStorage.getItem('fsi:movie:db')
@@ -14031,6 +14043,15 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
       showMovieToast('🎧 盲聽模式已開啟，請進入任一場景開始練習')
     }
   }, [blindJumpSignal]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── ⏰ 回報「今天該複習幾句」給 Header 顯示紅點（到期了不會主動提醒 = 斷點）──
+  useEffect(() => {
+    if (!onListenDue) return
+    const today = getTodayStr()
+    const all = uniqById((db.movies ?? []).flatMap(m => (m.scenes ?? []).flatMap(s => s.phrases ?? [])))
+    const due = all.filter(p => p.dict?.lib && !p.dict.grad && (!p.dict.next || p.dict.next <= today))
+    onListenDue(due.length)
+  }, [db, onListenDue])
 
   // ── 🌅 今日盲聽快速開啟 ──
   useEffect(() => {
@@ -15118,11 +15139,11 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     audioElRef.current?.pause()
     window.speechSynthesis?.cancel()
   }
-  function playThreeStep(p) {
-    if (threeStep?.pid === p.id) { stopThreeStep(); return }   // 進行中再點 = 停止
+  function playThreeStep(p, onDone) {
+    if (!onDone && threeStep?.pid === p.id) { stopThreeStep(); return }   // 進行中再點 = 停止（連播模式不切換）
     if (audioMode !== 'original') { showMovieToast('⚠ 請先切到 🎬 電影原音'); return }
     if (!(p.startSecs > 0 || p.endSecs > 0)) { showMovieToast('⚠ 這句沒有時間碼，無法播電影原音'); return }
-    stopThreeStep()
+    if (!onDone) stopThreeStep()
     const token = {}
     threeStepRef.current = token
     const alive = () => threeStepRef.current === token
@@ -15134,11 +15155,16 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
       blindSessionPlaysRef.current[p.id] = (blindSessionPlaysRef.current[p.id] ?? 0) + 1
       setBlindPlays(v => ({ ...v, [p.id]: blindSessionPlaysRef.current[p.id] }))
     }
+    const finish = () => {
+      setThreeStep(null)
+      threeStepRef.current = null
+      if (onDone) onDone()
+    }
     const step3 = () => {
       setThreeStep({ pid: p.id, step: 3 })
       bump()
       speakPhrase(p.id, p.en, playRate, p)
-      setTimeout(() => { if (alive()) stopThreeStep() }, durMs + 500)
+      setTimeout(() => { if (alive()) finish() }, durMs + 600)
     }
     const step2 = () => {
       setThreeStep({ pid: p.id, step: 2 })
@@ -15155,6 +15181,49 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
       setTimeout(() => { if (alive()) step2() }, durMs + 900)
     }
     step1()
+  }
+
+  // ── ▶ 連播佇列（v6.00）：把「6句連著聽」真的做出來 ──
+  // 之前這只是說法，程式沒有連播 —— 你得一句一句手動點。現在是真的了。
+  const [queuePlay, setQueuePlay] = useState(null)   // { ids, idx, mode:'plain'|'three' }
+  const queueRef = useRef(null)
+  function stopQueue() {
+    queueRef.current = null
+    setQueuePlay(null)
+    stopThreeStep()
+    clearTimeout(audioStopRef.current)
+    audioElRef.current?.pause()
+    window.speechSynthesis?.cancel()
+  }
+  function startQueue(list, mode) {
+    if (queuePlay) { stopQueue(); return }
+    const items = (list ?? []).filter(p => p && (p.startSecs > 0 || p.endSecs > 0))
+    if (items.length === 0) { showMovieToast('⚠ 這些句子沒有時間碼，無法連播'); return }
+    if (mode === 'three' && audioMode !== 'original') { showMovieToast('⚠ 三步驟需要 🎬 電影原音'); return }
+    const token = {}
+    queueRef.current = token
+    setQueuePlay({ ids: items.map(p => p.id), idx: 0, mode })
+    step(0)
+    function step(i) {
+      if (queueRef.current !== token) return
+      if (i >= items.length) {
+        queueRef.current = null
+        setQueuePlay(null)
+        showMovieToast(`✓ 連播完成（${items.length} 句）`)
+        return
+      }
+      const p = items[i]
+      setQueuePlay(q => q ? { ...q, idx: i } : q)
+      if (mode === 'three') {
+        playThreeStep(p, () => { if (queueRef.current === token) setTimeout(() => step(i + 1), 600) })
+      } else {
+        const durMs = (p.startSecs > 0 && p.endSecs > p.startSecs)
+          ? (p.endSecs - p.startSecs) * 1000
+          : Math.max(2000, String(p.en ?? '').split(' ').length * 450)
+        speakPhrase(p.id, p.en, playRate, p)
+        setTimeout(() => { if (queueRef.current === token) step(i + 1) }, durMs + 1200)
+      }
+    }
   }
 
   // 跨場景更新單句（聽力庫在場景外練習時也要能寫回；限當前電影，音檔才對得上）
@@ -23747,6 +23816,16 @@ Steven 不是在收藏電影台詞。
                     <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
                       🔁 三步驟跑一遍，<b>不計分</b>。耳朵訓練靠重複曝露，不是靠考試。
                     </div>
+                    <div onClick={() => startQueue(yPhrases, 'three')}
+                      style={{ cursor:'pointer', textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
+                        padding:'9px 0', borderRadius:8,
+                        background: queuePlay?.mode === 'three' ? T.amber : T.amberD,
+                        color: queuePlay?.mode === 'three' ? '#1a1207' : T.amber,
+                        border:`1px solid ${T.amber}60` }}>
+                      {queuePlay?.mode === 'three'
+                        ? `⏹ 停止（${queuePlay.idx + 1}/${queuePlay.ids.length}）`
+                        : `▶ 全部跑一遍（${yPhrases.length} 句，放著聽）`}
+                    </div>
                     {yPhrases.map(p => (
                       <div key={p.id} onClick={() => playThreeStep(p)}
                         style={{ cursor:'pointer', display:'flex', alignItems:'center', gap:8,
@@ -24018,8 +24097,32 @@ Steven 不是在收藏電影台詞。
                     這個 % 就是進步指標：as 從 100% 掉到 40%，是實打實的進步。
                   </div>
                   {libWord && (
-                    <div style={{ fontFamily:MONO, fontSize:10, color:'#38bdf8', fontWeight:700, marginTop:2 }}>
-                      「{libWord}」關卡 · {shown.length} 句連著聽
+                    <div style={{ display:'flex', flexDirection:'column', gap:6, marginTop:2 }}>
+                      <div style={{ fontFamily:MONO, fontSize:10, color:'#38bdf8', fontWeight:700 }}>
+                        「{libWord}」關卡 · {shown.length} 句
+                        {queuePlay && <span style={{ color:T.amber }}>　▶ 連播中 {queuePlay.idx + 1}/{queuePlay.ids.length}</span>}
+                      </div>
+                      <div style={{ display:'flex', gap:6 }}>
+                        <div onClick={() => startQueue(shown, 'plain')}
+                          style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
+                            padding:'9px 0', borderRadius:8,
+                            background: queuePlay?.mode === 'plain' ? '#38bdf8' : T.surf2,
+                            color: queuePlay?.mode === 'plain' ? '#0d2a3a' : '#38bdf8',
+                            border:'1px solid #38bdf850' }}>
+                          {queuePlay?.mode === 'plain' ? '⏹ 停止' : `▶ 連著聽 ${shown.length} 句`}
+                        </div>
+                        <div onClick={() => startQueue(shown, 'three')}
+                          style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
+                            padding:'9px 0', borderRadius:8,
+                            background: queuePlay?.mode === 'three' ? T.amber : T.amberD,
+                            color: queuePlay?.mode === 'three' ? '#1a1207' : T.amber,
+                            border:`1px solid ${T.amber}60` }}>
+                          {queuePlay?.mode === 'three' ? '⏹ 停止' : '🔁 三步驟連播'}
+                        </div>
+                      </div>
+                      <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
+                        連續轟炸同一個音塊，大腦才會建立「那團模糊的 əz = as」的映射。放著聽，不用一句一句點。
+                      </div>
                     </div>
                   )}
                 </>
@@ -24076,6 +24179,25 @@ Steven 不是在收藏電影台詞。
                       {p.dict.next && ` · 下次 ${p.dict.next}`}
                       {isDue && <span style={{ color:T.amber, fontWeight:700 }}> · ⏰今天</span>}
                     </div>
+
+                    {/* 弱點關卡模式：連音塊直接展開，不用再點一次 🗣 */}
+                    {libWord && !testing && (() => {
+                      const chunks = buildChunks(p.en, libWord)
+                      if (chunks.length === 0) return null
+                      return (
+                        <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                          {chunks.map((c, i) => (
+                            <span key={i} style={{ display:'inline-flex', alignItems:'center', gap:5,
+                              background:'#1a1030', border:'1px solid #a78bfa40', borderRadius:7,
+                              padding:'4px 9px' }}>
+                              <span style={{ fontFamily:MONO, fontSize:11, color:T.txt2 }}>{c.text}</span>
+                              <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>→</span>
+                              <span style={{ fontFamily:MONO, fontSize:13, color:'#a78bfa', fontWeight:700 }}>{c.ipa}</span>
+                            </span>
+                          ))}
+                        </div>
+                      )
+                    })()}
 
                     {/* 重測輸入 */}
                     {testing ? (
@@ -25733,6 +25855,7 @@ export default function App() {
   const [blindJumpSignal, setBlindJumpSignal] = useState(0)
   const [listenLibJumpSignal, setListenLibJumpSignal] = useState(0)
   const [trainingJumpSignal, setTrainingJumpSignal] = useState(0)
+  const [listenDue, setListenDue] = useState(0)   // 今天該複習幾句（Header 紅點）
   const [returnTab, setReturnTab] = useState(null)
   function openKnowledgeBase() {
     setReturnTab(tab)
@@ -25906,7 +26029,7 @@ export default function App() {
   return (
     <div style={{ background:T.bg, minHeight:'100vh', maxWidth:480, margin:'0 auto', display:'flex', flexDirection:'column', position:'relative' }}>
       <style>{G}</style>
-      <Header audioMode={audioMode} toggleAudioMode={toggleAudioMode} onOpenKnowledgeBase={openKnowledgeBase} onOpenMyProduce={openMyProduce} onOpenListenLib={openListenLib} onOpenTraining={openTraining}/>
+      <Header audioMode={audioMode} toggleAudioMode={toggleAudioMode} onOpenKnowledgeBase={openKnowledgeBase} onOpenMyProduce={openMyProduce} onOpenListenLib={openListenLib} onOpenTraining={openTraining} listenDue={listenDue}/>
       <div style={{ flex:1, overflowY:'auto', paddingBottom:'calc(110px + env(safe-area-inset-bottom, 20px))' }}>
         {tab==='phrase'   && <PhraseTab   settings={settings}/>}
         {tab==='practice' && <PracticeTab {...P}/>}
@@ -25915,7 +26038,7 @@ export default function App() {
         {tab==='email'    && <EmailTab    {...P}/>}
         <div style={{display: tab==='movie' ? 'flex' : 'none', flexDirection:'column', flex:1, minHeight:0}}>
           <MovieTab audioMode={audioMode} setAudioMode={setAudioMode} movieToast={movieToast} showMovieToast={showMovieToast}
-            kbJumpSignal={kbJumpSignal} myProduceJumpSignal={myProduceJumpSignal} blindJumpSignal={blindJumpSignal} listenLibJumpSignal={listenLibJumpSignal} trainingJumpSignal={trainingJumpSignal} onReturnFromKb={returnFromKnowledgeBase}/>
+            kbJumpSignal={kbJumpSignal} myProduceJumpSignal={myProduceJumpSignal} blindJumpSignal={blindJumpSignal} listenLibJumpSignal={listenLibJumpSignal} trainingJumpSignal={trainingJumpSignal} onListenDue={setListenDue} onReturnFromKb={returnFromKnowledgeBase}/>
         </div>
         {tab==='settings' && <SettingsTab {...P} movieToast={movieToast} showMovieToast={showMovieToast}/>}
       </div>
