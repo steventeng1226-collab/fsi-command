@@ -7332,7 +7332,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10, maxWidth:'100%', boxSizing:'border-box', overflowX:'hidden' }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0, maxWidth:'100%' }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.91
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.92
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13656,6 +13656,12 @@ const LISTEN_RULES = [
   { icon:'🌅', t:'聽寫要在早上做',
     d:'起床後最清醒的時候。先被動放3分鐘暖機，再開始聽寫。',
     why:'聽寫在腦子鈍的時候直接失效——晚上做，你量到的是疲勞，不是聽力。而且它最累最挫折，放到晚上=永遠做不到。' },
+  { icon:'⌨️', t:'字馬上打進去，旋律留在腦子裡',
+    d:'聽完一次，立刻把抓到的1-2個字打進輸入框。想再聽就再按 ▶，沒人催你。',
+    why:'語音迴路只能撐約2秒。你同時要「保存剛抓到的字」和「解碼新湧進來的聲音」——這兩件事搶同一塊記憶體，你一定會掉東西。輸入框就是外接記憶體：字倒出去，腦子留著解碼。但節奏、重音輪廓（旋律）是另一套記憶系統，那個要留著，先抓節奏再填字。' },
+  { icon:'🏃', t:'語速要慢慢往 1.0x 移',
+    d:'0.8x 的成績是「樂觀版」。真實語速下抓字率會更低。',
+    why:'慢速會把連音拉開、把弱讀還原成清楚的音——那正是你要練的東西，卻被速度幫你解決掉了。診斷數字要標明語速，0.8x 和 1.0x 的成績不能混在一起算趨勢。' },
   { icon:'🚫', t:'抓字率 <60% 不問意思',
     d:'字都抓不到，問「懂不懂意思」每次都只會得到「不懂」，這種資料沒有訊息量。',
     why:'先過「聲音→文字」這關。意思常常就藏在你聽不到的虛詞裡（no matter where、as soon as 全是虛詞）。' },
@@ -14188,7 +14194,12 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   // 🎧 盲聽模式：先聽後看，訓練即時解碼而非靠文字理解
   const [blindMode,       setBlindMode]       = useState(false)     // 盲聽模式開關
   const [blindRevealed,   setBlindRevealed]   = useState({})        // { phraseId: true } 已顯示文字的句子
-  const [blindPlayCount,  setBlindPlayCount]  = useState(3)         // 自動播放次數（2或3）
+  // 播放次數：預設 1 次（手動重播）。
+  // 連播是錯的設計 —— 它假設你只要「聽」，但你其實要「聽 + 打字」。
+  // 打字速度不該由播放器決定。改成播一次就停，讓使用者自己控制節奏。
+  const [blindPlayCount,  setBlindPlayCount]  = useState(
+    () => parseInt(localStorage.getItem('fsi:blind:playCount') ?? '1', 10) || 1
+  )
   const [blindPlayingId,  setBlindPlayingId]  = useState(null)      // 目前盲聽播放中的句子
   const blindPlayRoundRef = useRef(0)                                // 目前播到第幾次
   const blindSessionPlaysRef = useRef({})                            // { phraseId: 本輪標記前累積的播放次數 }
@@ -15006,7 +15017,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
       const prev = x.dict ?? null
       isFirst = !prev?.first
       const rec = { rate:cmp.rate, cRate:cmp.cRate, h:cmp.hit, n:cmp.total,
-                    ch:cmp.cHit, cn:cmp.cTotal, d:today, plays,
+                    ch:cmp.cHit, cn:cmp.cTotal, d:today, plays, spd:playRate,
                     miss:cmp.missed.slice(0,24), pair:cmp.pairs.slice(0,6) }
       const first = prev?.first ?? rec        // 首次成績永久保留，不被覆蓋
       // 🎧 聽力庫收錄：首次全詞率 <60% = 沒過關 → 自動進庫
@@ -15038,7 +15049,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     appendBlindLog({
       d: today, k:'dict',
       pid: p.id, mid: movieId,
-      first: isFirst, plays, mode: audioMode,
+      first: isFirst, plays, mode: audioMode, spd: playRate,
       // 🩺 診斷樣本：只有「首次聽寫」且「聽 ≤3 次」才算數。
       // 聽10次抓到60%，跟聽3次抓到60%，是完全不同的兩件事，混在一起統計就沒意義了。
       dx: isFirst && plays > 0 && plays <= 3,
@@ -15125,9 +15136,11 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
       const isLast = blindPlayRoundRef.current >= blindPlayCount
       speakPhrase(p.id, p.en, undefined, p)
       // 估算句子播放時間：有時間碼用實際長度，否則依字數估算，再加1秒間隔
+      // 連播間隔拉到 4 秒（原本1秒，打字根本追不上）
+      const gapMs = isLast ? 500 : 4000
       const durMs = (p.startSecs > 0 && p.endSecs > p.startSecs)
-        ? (p.endSecs - p.startSecs) * 1000 + 1000
-        : Math.max(2000, p.en.split(' ').length * 450) + 1000
+        ? (p.endSecs - p.startSecs) * 1000 + gapMs
+        : Math.max(2000, p.en.split(' ').length * 450) + gapMs
       if (!isLast) {
         setTimeout(() => {
           // 若使用者中途按停止，blindPlayingId會被清空，不再繼續
@@ -18771,9 +18784,9 @@ Steven 不是在收藏電影台詞。
           </div>
           {blindMode && (
             <>
-              <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>每句自動播</span>
-              {[2, 3].map(n => (
-                <div key={n} onClick={() => setBlindPlayCount(n)}
+              <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>每按一次播</span>
+              {[1, 2, 3].map(n => (
+                <div key={n} onClick={() => { setBlindPlayCount(n); try { localStorage.setItem('fsi:blind:playCount', String(n)) } catch(e) {} }}
                   style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
                     padding:'5px 10px', borderRadius:7,
                     color: blindPlayCount===n ? '#0d2a3a' : T.txt3,
@@ -18793,6 +18806,27 @@ Steven 不是在收藏電影台詞。
             📋 訓練守則
           </div>
         </div>
+        {/* 語速：診斷數字要標明是在哪個速度拿到的，0.8x 和 1.0x 的成績不能混算 */}
+        {blindMode && (
+          <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+            <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>語速</span>
+            {[[0.6,'🐢'], [0.8,'🚶'], [1.0,'🏃']].map(([r, ic]) => (
+              <div key={r} onClick={() => { setPlayRate(r); try { localStorage.setItem('fsi:movie:playRate', String(r)) } catch(e) {} }}
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                  padding:'5px 10px', borderRadius:7,
+                  color: playRate===r ? '#0d2a3a' : T.txt3,
+                  background: playRate===r ? '#38bdf8' : T.surf2,
+                  border:`1px solid ${playRate===r ? '#38bdf8' : T.bdr}` }}>
+                {ic} {r === 1.0 ? '1.0x 原速' : `${r}x`}
+              </div>
+            ))}
+            {playRate < 1.0 && (
+              <span style={{ fontFamily:MONO, fontSize:8, color:T.amber, lineHeight:1.5 }}>
+                慢速的成績是「樂觀版」，真實語速會更低。目標是慢慢往 1.0x 移。
+              </span>
+            )}
+          </div>
+        )}
         {/* 📋 聽力訓練守則：這些規則都違反直覺，每一條後面都有代價 */}
         {rulesOpen && (
           <div style={{ background:'#0a1520', border:'1px solid #38bdf830', borderRadius:10,
@@ -18827,7 +18861,8 @@ Steven 不是在收藏電影台詞。
           return (
             <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
               <div style={{ fontFamily:MONO, fontSize:9, color:'#38bdf8', lineHeight:1.6 }}>
-                純聽{blindPlayCount}次 → 打你聽到的字（空格分開）→ 送出比對 → 看抓字率。
+                按 ▶ 播{blindPlayCount}次 → 慢慢打你聽到的字 → 想再聽就再按 ▶ → 送出比對。
+                <b style={{ color:T.amber }}>不用把字扛在腦子裡</b>，抓到就馬上打進去，腦子留著解碼。
               </div>
               {!anyRated ? (
                 <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, background:T.amberD,
@@ -18892,7 +18927,7 @@ Steven 不是在收藏電影台詞。
                       <span style={{ fontSize:13, color:T.txt, letterSpacing:0 }}>{p.en}</span>
                     )
                   ) : blindPlayingId === p.id
-                    ? `🎧 播放中（自動${blindPlayCount}次）…專心聽`
+                    ? `🎧 播放中…專心聽`
                     : '🎧 ●●●●●●●●●●'}
                 </div>
                 {blindRevealed[p.id] === 'en' && (
@@ -22965,6 +23000,18 @@ Steven 不是在收藏電影台詞。
                   <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
                     缺口大 = 實詞聽得到、虛詞聽不到。這個數字縮小，才是連音解碼真的在進步。
                   </div>
+                  {(() => {
+                    const spdMap = {}
+                    dThis.forEach(e => { const k = e.spd ?? '?'; spdMap[k] = (spdMap[k] ?? 0) + 1 })
+                    const ks = Object.keys(spdMap)
+                    if (ks.length === 0) return null
+                    return (
+                      <div style={{ fontFamily:MONO, fontSize:8, color: ks.length > 1 ? T.amber : T.txt3, lineHeight:1.5 }}>
+                        本週語速組成：{ks.map(k => `${k}x×${spdMap[k]}`).join(' · ')}
+                        {ks.length > 1 && '　⚠ 混了不同語速，趨勢比較會失真'}
+                      </div>
+                    )
+                  })()}
 
                   {(dCold.length > 0 || dHot.length > 0) && (
                     <>
@@ -23141,7 +23188,7 @@ Steven 不是在收藏電影台詞。
                             {blindPlayingId === cur.id ? '⏹' : '▶'}
                           </div>
                           <div style={{ flex:1, fontFamily:MONO, fontSize:10, color:T.txt3 }}>
-                            {blindPlayingId === cur.id ? `🎧 播放中（${blindPlayCount}次）…專心聽` : '🎧 ●●●●●●●●●●'}
+                            {blindPlayingId === cur.id ? '🎧 播放中…專心聽' : '🎧 ●●●●●●●●●●'}
                           </div>
                         </div>
                         {(() => {
@@ -23150,12 +23197,26 @@ Steven 不是在收藏電影台詞。
                           return (
                             <div style={{ fontFamily:MONO, fontSize:8, lineHeight:1.5,
                               color: nP === 0 ? T.txt3 : isDiag ? T.grn : T.amber }}>
-                              {nP === 0 ? '先按 ▶ 聽，愛聽幾次都行（但先送出一次，再繼續聽）'
+                              {nP === 0 ? '按 ▶ 聽一次 → 慢慢打字 → 想再聽就再按 ▶（不用趕）'
                                 : isDiag ? `已聽 ${nP} 次 · 🩺 診斷樣本`
                                          : `已聽 ${nP} 次 · 💪 超過3次，此筆只算練習`}
                             </div>
                           )
                         })()}
+                        {/* 語速：診斷數字要標明在哪個速度拿到的 */}
+                        <div style={{ display:'flex', alignItems:'center', gap:5, flexWrap:'wrap' }}>
+                          <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>語速</span>
+                          {[[0.6,'🐢'], [0.8,'🚶'], [1.0,'🏃']].map(([r, ic]) => (
+                            <div key={r} onClick={() => { setPlayRate(r); try { localStorage.setItem('fsi:movie:playRate', String(r)) } catch(e) {} }}
+                              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                                padding:'4px 8px', borderRadius:6,
+                                color: playRate===r ? '#0d2a3a' : T.txt3,
+                                background: playRate===r ? '#38bdf8' : T.surf2,
+                                border:`1px solid ${playRate===r ? '#38bdf8' : T.bdr}` }}>
+                              {ic} {r === 1.0 ? '1.0x' : `${r}x`}
+                            </div>
+                          ))}
+                        </div>
                         <input
                           value={dictInput[cur.id] ?? ''}
                           onChange={e => setDictInput(v => ({ ...v, [cur.id]: e.target.value }))}
