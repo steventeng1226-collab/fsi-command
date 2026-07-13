@@ -7350,7 +7350,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.11</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.12</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -23735,8 +23735,11 @@ Steven 不是在收藏電影台詞。
           const all   = uniqById((movie?.scenes ?? []).flatMap(s => s.phrases ?? []))
           const lib   = all.filter(p => p.dict?.lib && !p.dict.grad)
           const due   = lib.filter(p => !p.dict.next || p.dict.next <= today)
-          // ② 昨天練過的句子（首次或最近一次在昨天）
-          const yPhrases = all.filter(p => p.dict && (p.dict.first?.d === yest || p.dict.last?.d === yest)).slice(0, 5)
+          // ② 昨天練過的句子 → 依「抓字率最低」排序，最該回聽的優先（不是場景順序）
+          const yPhrases = all
+            .filter(p => p.dict && (p.dict.first?.d === yest || p.dict.last?.d === yest))
+            .sort((a, b) => (a.dict.first?.rate ?? 100) - (b.dict.first?.rate ?? 100))
+            .slice(0, 5)
           // ③ 今日 Top1 弱點字（依漏掉率，不是次數 —— 否則永遠是 the/i/and）
           const dictatedT = all.filter(p => p.dict?.first)
           const topWord = computeWeakWords(dictatedT)[0] ?? null
@@ -23944,13 +23947,14 @@ Steven 不是在收藏電影台詞。
               <div style={{ borderLeft:`2px solid ${T.bdr}`, paddingLeft:10, display:'flex', flexDirection:'column', gap:6,
                 minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
                 <div style={{ fontFamily:MONO, fontSize:10, color:T.txt2, fontWeight:700 }}>
-                  ② 鞏固 · 昨天的句子 <span style={{ color:T.txt3 }}>{yPhrases.length} 句</span>
+                  ② 鞏固 · 昨天聽寫過的句子 <span style={{ color:T.txt3 }}>{yPhrases.length} 句</span>
                 </div>
                 {yPhrases.length === 0 ? (
                   <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>昨天沒有紀錄，跳過。</div>
                 ) : (
                   <>
                     <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
+                      <b>不是新句</b> —— 是你昨天（{yest}）聽寫過的句子，取<b>抓字率最低的 5 句</b>。
                       🔁 三步驟跑一遍，<b>不計分</b>。耳朵訓練靠重複曝露，不是靠考試。
                     </div>
                     <div onClick={() => startQueue(yPhrases, 'three')}
@@ -23963,17 +23967,30 @@ Steven 不是在收藏電影台詞。
                         ? `⏹ 停止（${queuePlay.idx + 1}/${queuePlay.ids.length}）`
                         : `▶ 全部跑一遍（${yPhrases.length} 句，放著聽）`}
                     </div>
-                    {yPhrases.map(p => (
-                      <div key={p.id} onClick={() => playThreeStep(p)}
-                        style={{ cursor:'pointer', display:'flex', alignItems:'center', gap:8,
-                          background:T.surf, border:`1px solid ${threeStep?.pid === p.id ? '#38bdf8' : T.bdr}`,
-                          borderRadius:8, padding:'8px 10px' }}>
-                        <span style={{ fontSize:13, flexShrink:0, color:'#38bdf8' }}>
-                          {threeStep?.pid === p.id ? `${threeStep.step}` : '🔁'}
-                        </span>
-                        <span style={{ fontFamily:MONO, fontSize:10, color:T.txt2, lineHeight:1.5 }}>{p.en}</span>
-                      </div>
-                    ))}
+                    {yPhrases.map(p => {
+                      const r = p.dict.first?.rate ?? 0
+                      const lv = dictLevel(r)
+                      return (
+                        <div key={p.id} onClick={() => playThreeStep(p)}
+                          style={{ cursor:'pointer', display:'flex', alignItems:'flex-start', gap:8,
+                            background:T.surf, border:`1px solid ${threeStep?.pid === p.id ? '#38bdf8' : T.bdr}`,
+                            borderRadius:8, padding:'8px 10px' }}>
+                          <span style={{ fontSize:13, flexShrink:0, color:'#38bdf8', paddingTop:1 }}>
+                            {threeStep?.pid === p.id ? `${threeStep.step}` : '🔁'}
+                          </span>
+                          <span style={{ flex:1, minWidth:0, display:'flex', flexDirection:'column', gap:2 }}>
+                            <span style={{ fontFamily:MONO, fontSize:10, color:T.txt2, lineHeight:1.5 }}>{p.en}</span>
+                            {p.zh?.trim() && (
+                              <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.5 }}>{p.zh}</span>
+                            )}
+                          </span>
+                          <span style={{ fontFamily:MONO, fontSize:9, fontWeight:700, color:lv.c, flexShrink:0,
+                            background:lv.c+'20', border:`1px solid ${lv.c}50`, padding:'1px 6px', borderRadius:6 }}>
+                            {r}%
+                          </span>
+                        </div>
+                      )
+                    })}
                   </>
                 )}
               </div>
