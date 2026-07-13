@@ -7332,7 +7332,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10, maxWidth:'100%', boxSizing:'border-box', overflowX:'hidden' }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0, maxWidth:'100%' }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.92
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.94
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13625,6 +13625,72 @@ function computeWeakWords(dictatedPhrases, minEnc = 3) {
     .sort((a, b) => b.rate - a.rate || b.miss - a.miss)
 }
 
+// ════════ 🔬 診斷結論（v5.94）════════
+// 資料會講話，但要有人把它翻譯成「下一步怎麼聽」。
+// 光看「of 漏 100%」沒有用；要知道「介系詞根本不會單獨出現，它黏在前一個字的尾巴上」。
+const WORD_CLASS = {
+  prep: ['of','to','in','on','at','for','with','from','as','by','into','about','over','under','through','after','before'],
+  aux:  ['is','am','are','was','were','be','been','being','do','does','did','have','has','had','can','could','will','would','should','must','might','may'],
+  pron: ['i','you','he','she','it','we','they','me','him','her','us','them','my','your','his','its','our','their'],
+  art:  ['a','an','the','some','this','that','these','those'],
+  conj: ['and','or','but','so','if','because','while','than','then','when','where'],
+}
+function classOf(w) {
+  for (const k of Object.keys(WORD_CLASS)) if (WORD_CLASS[k].includes(w)) return k
+  return FUNC_WORDS.has(w) ? 'func' : 'content'
+}
+const CLASS_INFO = {
+  prep: { name:'介系詞', c:'#f59e0b',
+    tip:'介系詞不是獨立的音，它是黏在「前一個字尾巴」上的一個弱音節。你在等一個叫 of 的聲音出現，但它根本不會出現——出現的是 sorəv 這一整團。',
+    how:'聽的時候不要去找 of / to / in，要去聽「前一個字的尾巴有沒有多一個弱音節」。' },
+  aux:  { name:'be動詞 / 助動詞', c:'#38bdf8',
+    tip:'is/was/are/been 在語流裡常被壓縮成一個子音或一個 schwa，幾乎不佔時間，聽感上像是前一個字的尾音。',
+    how:'不要等一個獨立的 is，要聽「前一個字後面有沒有多一個 z / s / ə 的尾巴」。' },
+  pron: { name:'代名詞', c:'#a78bfa',
+    tip:'I/you/it/me 在非重音位置會塌陷。主詞 I 常常只剩一個極短的 ə，甚至完全消失。',
+    how:'不要用「有沒有聽到 I」來判斷，要用「動詞前面有沒有一個短促的凸起」。' },
+  art:  { name:'冠詞', c:'#34d399',
+    tip:'a / the 幾乎不發音，只是一個 ə / ðə 的滑音，通常跟前後字黏死。',
+    how:'冠詞是最不需要「聽到」的字——用文法補回來就好，不要花力氣抓。' },
+  conj: { name:'連接詞', c:'#fb7185',
+    tip:'and 在語流裡幾乎都變成 ən，甚至只剩一個 n。',
+    how:'聽到兩個名詞之間有個含糊的鼻音，那就是 and。' },
+  func: { name:'其他功能詞', c:'#94a3b8',
+    tip:'功能詞在自然語速下一律弱讀，這是英語節奏的必然結果，不是你聽力差。',
+    how:'先抓重音（實詞），再用文法把虛詞補回去。' },
+  content: { name:'實詞', c:'#f87171',
+    tip:'實詞有重音、發音清楚——如果連實詞都漏，代表可能是「真的不認識這個字」，而不是解碼問題。',
+    how:'把這些字丟進單字庫查一次。這是字彙問題，不是耳朵問題。' },
+}
+// 具體連音示範（讓抽象的規則變成可以直接套用的聽法）
+const LINK_HINT = {
+  of:'sort of → sorəv ｜ ton of → tonəv ｜ kind of → kinəv',
+  to:'want to → wanna ｜ going to → gonna ｜ to → tə',
+  in:'in every → inevry ｜ in a → inə',
+  on:'on my → onmə ｜ on it → onit',
+  at:'at first → ətfirst ｜ look at it → lookədit',
+  for:'for three → fərthree ｜ for a → fərə',
+  as:'as soon as → əsuːnəz ｜ as you → əzyə',
+  with:'with it → wɪthit ｜ with a → wɪthə',
+  from:'from the → frəmðə',
+  and:'love and work → luvənwork ｜ and → ən / n',
+  the:'the → ðə（幾乎只剩一個滑音）',
+  a:'a ton of → ətonəv',
+  is:"that's → ðæts ｜ it is → ɪts",
+  was:'was → wəz（極短）',
+  been:'been → bɪn（不是 been，是 bin）',
+  are:'are → ər ｜ we are → wər',
+  i:"I admit → ah'dmit ｜ like I was → likaiwəz",
+  it:'get it → geddit ｜ it → ɪ（尾音常被吞）',
+  you:'you → yə ｜ can you → kənyə',
+  me:'me → mi（弱化，很短）',
+  my:'my → mə',
+  can:'can → kən（不是 can，是 kən）',
+  that:'that → ðət',
+  have:'have → əv ｜ could have → couldəv',
+  been_:'',
+}
+
 const BLIND_MIN_WORDS = 4
 function inBlindPool(p) {
   if (p.starred) return false
@@ -13768,6 +13834,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const [trainIdx,   setTrainIdx]   = useState(0)      // 目前練到第幾句
   const [trainQueue, setTrainQueue] = useState([])     // 本次抽出的句子 id
   const [streak,     setStreak]     = useState(() => getStreak())
+  const [todayListOpen, setTodayListOpen] = useState(false)   // 📋 今日一覽展開
   const trainRef = useRef(null)
   const [sceneRangeFrom, setSceneRangeFrom] = useState('') // 場景範圍選取：起始場景號
   const [sceneRangeTo,   setSceneRangeTo]   = useState('') // 場景範圍選取：結束場景號
@@ -15065,6 +15132,106 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     setStreak(bumpStreak())                 // 送出 ≥1 句 = 今天有練，streak 續
     if (graduated) showMovieToast('🎓 這句畢業了！原本漏的字都抓到了')
     else if (passed) showMovieToast('✅ 過關，排入下次複習')
+  }
+
+  // 🔬 診斷結論：把漏字資料翻譯成「下一步怎麼聽」
+  function renderDiagnosis(dictated, compact = false) {
+    const weak = computeWeakWords(dictated, 2)     // 門檻放寬到遇到≥2次，才有東西可講
+    if (weak.length === 0) return null
+    // 依詞類聚合（加權：總漏掉數 / 總遇到數）
+    const byClass = {}
+    weak.forEach(({ w, miss, enc }) => {
+      const k = classOf(w)
+      if (!byClass[k]) byClass[k] = { miss:0, enc:0, words:[] }
+      byClass[k].miss += miss; byClass[k].enc += enc; byClass[k].words.push({ w, miss, enc, rate: Math.round(100*miss/enc) })
+    })
+    const ranked = Object.entries(byClass)
+      .filter(([, v]) => v.enc >= 4)               // 樣本太少不下結論
+      .map(([k, v]) => ({ k, ...v, rate: Math.round(100 * v.miss / v.enc) }))
+      .sort((a, b) => b.rate - a.rate || b.enc - a.enc)
+    if (ranked.length === 0) return null
+    const top = ranked[0]
+    const info = CLASS_INFO[top.k] ?? CLASS_INFO.func
+    const topWords = top.words.sort((a,b) => b.rate - a.rate || b.enc - a.enc).slice(0, 3)
+    const hero = topWords[0]
+
+    return (
+      <div style={{ background:T.surf, border:`1px solid ${info.c}50`, borderRadius:10, padding:'11px 12px',
+        display:'flex', flexDirection:'column', gap:7, minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
+        <div style={{ fontFamily:MONO, fontSize:10, color:info.c, fontWeight:700 }}>
+          🔬 診斷結論 · 你目前的最大關卡
+        </div>
+
+        {/* 詞類排行 */}
+        <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
+          {ranked.slice(0, compact ? 3 : 5).map(r => {
+            const ci = CLASS_INFO[r.k] ?? CLASS_INFO.func
+            const isTop = r.k === top.k
+            return (
+              <div key={r.k} style={{ display:'flex', alignItems:'center', gap:8 }}>
+                <span style={{ fontFamily:MONO, fontSize:10, fontWeight: isTop ? 700 : 400,
+                  color: isTop ? ci.c : T.txt3, minWidth:96, flexShrink:0 }}>
+                  {isTop ? '▶ ' : '　'}{ci.name}
+                </span>
+                <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3, minWidth:40, flexShrink:0 }}>
+                  {r.miss}/{r.enc}
+                </span>
+                <span style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color: isTop ? ci.c : T.txt3,
+                  minWidth:36, flexShrink:0, textAlign:'right' }}>{r.rate}%</span>
+                <span style={{ flex:1, height:6, background:T.surf2, borderRadius:3, overflow:'hidden', minWidth:0 }}>
+                  <span style={{ display:'block', width:`${r.rate}%`, height:'100%',
+                    background: isTop ? ci.c : T.bdr, borderRadius:3 }}/>
+                </span>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* 核心轉念 */}
+        <div style={{ background:info.c+'12', border:`1px solid ${info.c}30`, borderRadius:8,
+          padding:'9px 10px', display:'flex', flexDirection:'column', gap:5 }}>
+          <div style={{ fontFamily:MONO, fontSize:10, color:info.c, fontWeight:700 }}>
+            💡 {info.name} · 漏掉率 {top.rate}%
+          </div>
+          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, lineHeight:1.7 }}>{info.tip}</div>
+          <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, lineHeight:1.7, fontWeight:700 }}>
+            👉 {info.how}
+          </div>
+        </div>
+
+        {/* 具體連音示範 */}
+        <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+          {topWords.map(({ w, miss, enc, rate }) => (
+            <div key={w} style={{ display:'flex', flexDirection:'column', gap:2 }}>
+              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2 }}>
+                <b style={{ color:info.c }}>{w}</b>
+                <span style={{ color:T.txt3 }}> {miss}/{enc} · {rate}%</span>
+              </div>
+              {LINK_HINT[w] && (
+                <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6, paddingLeft:8,
+                  borderLeft:`2px solid ${info.c}40` }}>
+                  {LINK_HINT[w]}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* 行動 */}
+        {hero && (
+          <div onClick={() => { setListenLibOpen(true); setLibView('weak'); setLibWord(hero.w)
+                                setTimeout(() => listenLibRef.current?.scrollIntoView({ behavior:'smooth', block:'start' }), 120) }}
+            style={{ cursor:'pointer', textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
+              padding:'9px 0', borderRadius:8,
+              background:info.c+'20', color:info.c, border:`1px solid ${info.c}60` }}>
+            🎯 今天就打「{hero.w}」關卡（漏掉率 {hero.rate}%）
+          </div>
+        )}
+        <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
+          這個轉念比再多練 100 句都有用——你不是聽不到，是<b>在等一個根本不會出現的聲音</b>。
+        </div>
+      </div>
+    )
   }
 
   // ── 🌅 今日盲聽：依場景順序抽「從未聽寫過」的句子（一個場景做完再換下一個）──
@@ -23358,7 +23525,7 @@ Steven 不是在收藏電影台詞。
               {/* 今日摘要 */}
               {tDiag.length > 0 && (
                 <div style={{ background:'#0d2a3a', border:'1px solid #38bdf840', borderRadius:9, padding:'10px 11px',
-                  display:'flex', flexDirection:'column', gap:4 }}>
+                  display:'flex', flexDirection:'column', gap:6, minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
                   <div style={{ fontFamily:MONO, fontSize:10, color:'#38bdf8', fontWeight:700 }}>📊 今日摘要</div>
                   <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, lineHeight:1.7 }}>
                     診斷 {tDiag.length} 句 · 全詞率 <b style={{ color:T.txt }}>{rateT ?? '—'}%</b> · 實詞率 <b style={{ color:T.grn }}>{cRateT ?? '—'}%</b>
@@ -23371,8 +23538,83 @@ Steven 不是在收藏電影台詞。
                       ))}
                     </div>
                   )}
+
+                  {/* 📋 今日一覽：今天練過的句子逐句攤開 */}
+                  {(() => {
+                    const todaySents = all.filter(p => p.dict?.first?.d === today || p.dict?.last?.d === today)
+                    if (todaySents.length === 0) return null
+                    return (
+                      <>
+                        <div onClick={() => setTodayListOpen(v => !v)}
+                          style={{ cursor:'pointer', alignSelf:'flex-start', fontFamily:MONO, fontSize:9, fontWeight:700,
+                            padding:'5px 10px', borderRadius:7, marginTop:2,
+                            color: todayListOpen ? '#0d2a3a' : '#38bdf8',
+                            background: todayListOpen ? '#38bdf8' : T.surf,
+                            border:'1px solid #38bdf850' }}>
+                          📋 今日一覽（{todaySents.length} 句）{todayListOpen ? ' ▲' : ' ▼'}
+                        </div>
+                        {todayListOpen && (
+                          <div style={{ display:'flex', flexDirection:'column', gap:7, marginTop:2 }}>
+                            {todaySents.map(p => {
+                              const rec = p.dict.last?.d === today ? p.dict.last : p.dict.first
+                              const missSet = new Set(rec.miss ?? [])
+                              const lv = dictLevel(rec.rate)
+                              return (
+                                <div key={p.id} style={{ background:T.surf, border:`1px solid ${T.bdr}`,
+                                  borderRadius:9, padding:'9px 10px', display:'flex', flexDirection:'column', gap:5,
+                                  minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
+                                  <div style={{ fontFamily:MONO, fontSize:12, lineHeight:1.85,
+                                    minWidth:0, maxWidth:'100%', overflowWrap:'break-word' }}>
+                                    {tokenize(p.en).map((t, i) => {
+                                      const miss = missSet.has(t.w)
+                                      return (
+                                        <span key={i} style={{
+                                          color: miss ? T.amber : T.grn,
+                                          background: miss ? T.amberD : 'transparent',
+                                          fontWeight: miss ? 700 : 400,
+                                          display:'inline-block', whiteSpace:'nowrap',
+                                          padding: miss ? '1px 3px' : 0, borderRadius:4, marginRight:3 }}>
+                                          {t.raw}
+                                        </span>
+                                      )
+                                    })}
+                                  </div>
+                                  <div style={{ display:'flex', alignItems:'center', gap:7, flexWrap:'wrap' }}>
+                                    <span style={{ fontFamily:MONO, fontSize:9, fontWeight:700, color:lv.c,
+                                      background:lv.c+'20', border:`1px solid ${lv.c}50`, padding:'1px 7px', borderRadius:6 }}>
+                                      {rec.rate}%
+                                    </span>
+                                    <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
+                                      實詞 {rec.cRate}% · 聽 {rec.plays ?? '—'} 次
+                                      {rec.spd ? ` · ${rec.spd}x` : ''}
+                                    </span>
+                                    <div onClick={() => playThreeStep(p)}
+                                      style={{ cursor:'pointer', marginLeft:'auto', fontFamily:MONO, fontSize:9, fontWeight:700,
+                                        padding:'5px 10px', borderRadius:7,
+                                        background: threeStep?.pid === p.id ? '#38bdf8' : T.surf2,
+                                        color: threeStep?.pid === p.id ? '#0d2a3a' : '#38bdf8',
+                                        border:'1px solid #38bdf850' }}>
+                                      {threeStep?.pid === p.id
+                                        ? (threeStep.step === 1 ? '① 🎬' : threeStep.step === 2 ? '② 🔊' : '③ 🎬')
+                                        : '🔁 三步驟'}
+                                    </div>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                            <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
+                              橘底 = 你漏掉的字。綠色 = 抓到的。趁記憶還熱，用 🔁 三步驟把橘色的字聽回來。
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )
+                  })()}
                 </div>
               )}
+
+              {/* 🔬 診斷結論：每次練完都給一個「下一步怎麼聽」的結論 */}
+              {renderDiagnosis(dictatedT)}
 
               <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.6 }}>
                 💡 只做完 ① 就算今天有練。②③④ 是加分題。做到一半離開也沒關係，紀錄都存好了。
@@ -23448,6 +23690,7 @@ Steven 不是在收藏電影台詞。
               </div>
 
               {/* 依弱點：漏字排行 → 點進去連聽含該字的所有句子 */}
+              {libView === 'weak' && renderDiagnosis(dictated, true)}
               {libView === 'weak' && (
                 <>
                   <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
