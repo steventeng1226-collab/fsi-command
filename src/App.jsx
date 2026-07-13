@@ -7350,7 +7350,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.06</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.07</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14387,6 +14387,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const [blindPlayingId,  setBlindPlayingId]  = useState(null)      // 目前盲聽播放中的句子
   const blindPlayRoundRef = useRef(0)                                // 目前播到第幾次
   const blindSessionPlaysRef = useRef({})                            // { phraseId: 本輪標記前累積的播放次數 }
+  const blindPlaySpdRef      = useRef({})                            // { phraseId: 實際播放時的語速 }（送出前切速度不會污染紀錄）
   // 🖊 聽寫模式（v5.81）：每句都打你聽到的字 → 自動比對逐字稿 → 客觀抓字率
   const [dictInput,  setDictInput]  = useState({})   // { phraseId: '打的字' }
   const [dictResult, setDictResult] = useState({})   // { phraseId: compareDictation回傳值 }
@@ -15155,6 +15156,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     // 注意：rateOverride 一定要傳數字，否則 speakPhrase 會把「同一句再點一次」判成停止
     const bump = () => {
       blindSessionPlaysRef.current[p.id] = (blindSessionPlaysRef.current[p.id] ?? 0) + 1
+      blindPlaySpdRef.current[p.id] = playRate
       setBlindPlays(v => ({ ...v, [p.id]: blindSessionPlaysRef.current[p.id] }))
     }
     const finish = () => {
@@ -15241,15 +15243,19 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   // 只有「首次聽寫」才是乾淨的診斷樣本，重聽都算練習不算診斷。
   function submitDictation(p) {
     const heard = dictInput[p.id] ?? ''
-    const cmp = compareDictation(heard, p.en)
     const plays = blindSessionPlaysRef.current[p.id] ?? 0
+    // 🛡 防呆：一次都沒聽就送出 = 誤觸（不小心按到 Enter），不是「聽了但沒聽到」。
+    // 沒有這個檢查，誤觸會把 first 成績永久記成 0%、進聽力庫，再也洗不掉。
+    if (plays === 0) { showMovieToast('⚠ 還沒播放過，先按 ▶ 聽一次再送出'); return }
+    const cmp = compareDictation(heard, p.en)
+    const spd = blindPlaySpdRef.current[p.id] ?? playRate   // 用「實際播放時」的語速
     const today = getTodayStr()
     let isFirst = false, graduated = false, passed = false
     updatePhraseAnyScene(p.id, x => {
       const prev = x.dict ?? null
       isFirst = !prev?.first
       const rec = { rate:cmp.rate, cRate:cmp.cRate, h:cmp.hit, n:cmp.total,
-                    ch:cmp.cHit, cn:cmp.cTotal, d:today, plays, spd:playRate,
+                    ch:cmp.cHit, cn:cmp.cTotal, d:today, plays, spd,
                     miss:cmp.missed.slice(0,24), pair:cmp.pairs.slice(0,6) }
       const first = prev?.first ?? rec        // 首次成績永久保留，不被覆蓋
       // 🎧 聽力庫收錄：首次全詞率 <60% = 沒過關 → 自動進庫
@@ -15281,7 +15287,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     appendBlindLog({
       d: today, k:'dict',
       pid: p.id, mid: movieId,
-      first: isFirst, plays, mode: audioMode, spd: playRate,
+      first: isFirst, plays, mode: audioMode, spd,
       // 🩺 診斷樣本：只有「首次聽寫」且「聽 ≤3 次」才算數。
       // 聽10次抓到60%，跟聽3次抓到60%，是完全不同的兩件事，混在一起統計就沒意義了。
       dx: isFirst && plays > 0 && plays <= 3,
@@ -15647,6 +15653,7 @@ Return ONLY a JSON object, no markdown:
     const playOnce = () => {
       blindPlayRoundRef.current += 1
       blindSessionPlaysRef.current[p.id] = (blindSessionPlaysRef.current[p.id] ?? 0) + 1
+      blindPlaySpdRef.current[p.id] = playRate     // 語速在「播放」時鎖定，不是送出時（送出前切速度會污染紀錄）
       setBlindPlays(v => ({ ...v, [p.id]: blindSessionPlaysRef.current[p.id] }))
       const isLast = blindPlayRoundRef.current >= blindPlayCount
       speakPhrase(p.id, p.en, undefined, p)
@@ -23718,9 +23725,20 @@ Steven 不是在收藏電影台詞。
                             </div>
                           )
                         })()}
-                        {/* 語速：診斷數字要標明在哪個速度拿到的 */}
+                        {/* 語速 + 每按一次播幾次（跟場景頁共用同一設定）*/}
                         <div style={{ display:'flex', alignItems:'center', gap:5, flexWrap:'wrap' }}>
-                          <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>語速</span>
+                          <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>每按播</span>
+                          {[1, 2, 3].map(nn => (
+                            <div key={nn} onClick={() => { setBlindPlayCount(nn); try { localStorage.setItem('fsi:blind:playCount', String(nn)) } catch(e) {} }}
+                              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                                padding:'4px 8px', borderRadius:6,
+                                color: blindPlayCount===nn ? '#0d2a3a' : T.txt3,
+                                background: blindPlayCount===nn ? '#38bdf8' : T.surf2,
+                                border:`1px solid ${blindPlayCount===nn ? '#38bdf8' : T.bdr}` }}>
+                              {nn}次
+                            </div>
+                          ))}
+                          <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3, marginLeft:6 }}>語速</span>
                           {[[0.6,'🐢'], [0.8,'🚶'], [1.0,'🏃']].map(([r, ic]) => (
                             <div key={r} onClick={() => { setPlayRate(r); try { localStorage.setItem('fsi:movie:playRate', String(r)) } catch(e) {} }}
                               style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
