@@ -7332,7 +7332,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10, maxWidth:'100%', boxSizing:'border-box', overflowX:'hidden' }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0, maxWidth:'100%' }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.94
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.95
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13691,6 +13691,44 @@ const LINK_HINT = {
   been_:'',
 }
 
+// ════════ 🗣 跟讀：連音塊產生器（v5.95）════════
+// 聽，本質上是預測。大腦解碼語音時，是拿「自己會怎麼發這個音」去比對。
+// 你的嘴巴沒把 sort of 當成「一個字」sorəv 唸過 → 腦子裡沒有模板 → 聲音進來對不上。
+// 只要唸得出 sorəv，就開始聽得到 sorəv。
+const REDUCE = {
+  of:'əv', to:'tə', and:'ən', in:'ɪn', a:'ə', an:'ən', the:'ðə',
+  is:'z', are:'ər', was:'wəz', were:'wər', been:'bɪn', am:'əm',
+  at:'ət', as:'əz', for:'fər', from:'frəm', with:'wɪð', on:'ən', by:'baɪ',
+  can:'kən', have:'əv', has:'əz', had:'əd', do:'də', does:'dəz',
+  will:'l', would:'wəd', could:'kəd', should:'ʃəd', must:'məst',
+  you:'yə', your:'yər', it:'ɪt', its:'ɪts', i:'ə', me:'mi', my:'mə',
+  he:'i', him:'ɪm', her:'ər', she:'ʃi', we:'wi', they:'ðeɪ', them:'əm',
+  that:'ðət', but:'bət', or:'ər', so:'sə', not:'nt', there:'ðər',
+  some:'səm', what:'wət', just:'jəs', about:'əbaʊt', out:'aʊt', up:'əp',
+}
+// 從「使用者自己的句子」抓出含目標字的連音塊，套上弱化規則。
+// 不是給通用例句 —— 是他那一句的實際連音形式。
+function buildChunks(en, target) {
+  const toks = tokenize(en)
+  const out = []
+  toks.forEach((t, i) => {
+    if (t.w !== target) return
+    const red = REDUCE[t.w] ?? t.w
+    if (i > 0) {
+      const prev = toks[i-1]
+      // 前一個字 + 弱化的目標字，黏成一團
+      const glued = prev.w + red
+      out.push({ text: `${prev.raw.replace(/[^A-Za-z0-9']/g,'')} ${t.raw.replace(/[^A-Za-z0-9']/g,'')}`, ipa: glued })
+    } else if (i + 1 < toks.length) {
+      const next = toks[i+1]
+      out.push({ text: `${t.raw.replace(/[^A-Za-z0-9']/g,'')} ${next.raw.replace(/[^A-Za-z0-9']/g,'')}`, ipa: red + next.w })
+    } else {
+      out.push({ text: t.raw, ipa: red })
+    }
+  })
+  return out
+}
+
 const BLIND_MIN_WORDS = 4
 function inBlindPool(p) {
   if (p.starred) return false
@@ -13835,6 +13873,15 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const [trainQueue, setTrainQueue] = useState([])     // 本次抽出的句子 id
   const [streak,     setStreak]     = useState(() => getStreak())
   const [todayListOpen, setTodayListOpen] = useState(false)   // 📋 今日一覽展開
+  // 🗣 跟讀（v5.95）：三速階梯 + 錄音回放 + AI 精解
+  const [shadowId,   setShadowId]   = useState(null)   // 展開跟讀的句子 id
+  const [shadowStep, setShadowStep] = useState({})     // { pid: 已完成幾階 0-3 }
+  const [recUrl,     setRecUrl]     = useState({})     // { pid: 錄音 blob url }
+  const [recording,  setRecording]  = useState(false)
+  const [aiTip,      setAiTip]      = useState({})     // { pid: AI 精解文字 }
+  const [aiTipBusy,  setAiTipBusy]  = useState(null)
+  const shadowRecRef    = useRef(null)
+  const shadowChunksRef = useRef([])
   const trainRef = useRef(null)
   const [sceneRangeFrom, setSceneRangeFrom] = useState('') // 場景範圍選取：起始場景號
   const [sceneRangeTo,   setSceneRangeTo]   = useState('') // 場景範圍選取：結束場景號
@@ -15132,6 +15179,67 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     setStreak(bumpStreak())                 // 送出 ≥1 句 = 今天有練，streak 續
     if (graduated) showMovieToast('🎓 這句畢業了！原本漏的字都抓到了')
     else if (passed) showMovieToast('✅ 過關，排入下次複習')
+  }
+
+  // ── 🗣 跟讀：三速階梯（0.6 → 0.8 → 1.0），每一速播一次、你跟唸一次 ──
+  const SHADOW_SPEEDS = [0.6, 0.8, 1.0]
+  function playShadowStep(p, idx) {
+    const r = SHADOW_SPEEDS[idx]
+    stopThreeStep()
+    speakPhrase(p.id, p.en, r, p)          // 傳明確 rate，避免被判成「再點一次=停止」
+    setShadowStep(s => ({ ...s, [p.id]: Math.max(s[p.id] ?? 0, idx + 1) }))
+  }
+
+  // ── 🎤 錄音回放：只錄下來自己聽，不做自動評分（評分需要對齊模型，不準反而誤導）──
+  async function startShadowRec(pid) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const mr = new MediaRecorder(stream)
+      shadowChunksRef.current = []
+      mr.ondataavailable = e => { if (e.data && e.data.size > 0) shadowChunksRef.current.push(e.data) }
+      mr.onstop = () => {
+        const blob = new Blob(shadowChunksRef.current, { type: mr.mimeType || 'audio/webm' })
+        const url = URL.createObjectURL(blob)
+        setRecUrl(u => {
+          if (u[pid]) { try { URL.revokeObjectURL(u[pid]) } catch(e) {} }
+          return { ...u, [pid]: url }
+        })
+        stream.getTracks().forEach(t => t.stop())
+      }
+      shadowRecRef.current = mr
+      mr.start()
+      setRecording(pid)
+    } catch (e) {
+      showMovieToast('⚠ 無法錄音：請允許麥克風權限')
+    }
+  }
+  function stopShadowRec() {
+    try { shadowRecRef.current?.stop() } catch(e) {}
+    shadowRecRef.current = null
+    setRecording(false)
+  }
+
+  // ── 🤖 AI 精解：規則版是即時的近似值，AI 版給精確的連音/弱讀解析 ──
+  async function aiExplainLink(p, target) {
+    if (aiTipBusy) return
+    setAiTipBusy(p.id)
+    try {
+      const sys = '你是英語連音（connected speech）教練，專門教台灣學習者聽懂真實語流。回答一律用繁體中文，簡潔，不要客套。'
+      const usr = `句子："${p.en}"
+學習者聽不出這句裡的「${target}」（他把功能詞聽漏了）。
+
+請用以下格式回答，不要有其他文字：
+【連音塊】把含 ${target} 的那一小段寫出來，並標出它在自然語速下實際聽起來的樣子（用簡易音標或羅馬拼音，例如 sort of → sorəv）
+【為什麼聽不到】一句話說明這裡發生了什麼語音現象（弱化/連讀/吞音/彈舌）
+【怎麼唸】一句話告訴他嘴巴要怎麼動才能唸成一團
+【聽的時候找什麼】一句話告訴他該去聽哪個線索，而不是去找 ${target} 這個字的聲音`
+      const res = await callAI([{ role:'user', content: usr }], sys)
+      setAiTip(t => ({ ...t, [p.id]: String(res ?? '').trim() }))
+    } catch (e) {
+      showMovieToast('⚠ AI 精解失敗：' + (e?.message ?? ''))
+    } finally {
+      setAiTipBusy(null)
+    }
   }
 
   // 🔬 診斷結論：把漏字資料翻譯成「下一步怎麼聽」
@@ -23894,8 +24002,113 @@ Steven 不是在收藏電影台詞。
                             opacity: isDue ? 1 : 0.5 }}>
                           {isDue ? '🖊 重測' : `🔒 ${p.dict.next} 開放`}
                         </div>
+                        {/* 🗣 跟讀：唸得出來，才聽得出來 */}
+                        <div onClick={() => setShadowId(shadowId === p.id ? null : p.id)}
+                          style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                            padding:'7px 12px', borderRadius:7,
+                            background: shadowId === p.id ? '#a78bfa' : T.surf2,
+                            color: shadowId === p.id ? '#1a1030' : '#a78bfa',
+                            border:'1px solid #a78bfa60' }}>
+                          🗣 跟讀
+                        </div>
                       </div>
                     )}
+
+                    {/* 🗣 跟讀面板 */}
+                    {shadowId === p.id && (() => {
+                      const target = libWord ?? (p.dict.first.miss ?? [])[0]
+                      const chunks = target ? buildChunks(p.en, target) : []
+                      const done = shadowStep[p.id] ?? 0
+                      return (
+                        <div style={{ background:'#1a1030', border:'1px solid #a78bfa40', borderRadius:9,
+                          padding:'10px 11px', display:'flex', flexDirection:'column', gap:8,
+                          minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
+                          <div style={{ fontFamily:MONO, fontSize:10, color:'#a78bfa', fontWeight:700 }}>
+                            🗣 跟讀 · 唸得出來，才聽得出來
+                          </div>
+
+                          {/* 連音塊（從你自己的句子產生） */}
+                          {chunks.length > 0 ? (
+                            <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+                              {chunks.map((c, i) => (
+                                <div key={i} style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap',
+                                  background:'#0f0a1f', border:'1px solid #a78bfa25', borderRadius:8, padding:'8px 10px' }}>
+                                  <span style={{ fontFamily:MONO, fontSize:13, color:T.txt, fontWeight:700 }}>{c.text}</span>
+                                  <span style={{ fontFamily:MONO, fontSize:12, color:T.txt3 }}>→</span>
+                                  <span style={{ fontFamily:MONO, fontSize:15, color:'#a78bfa', fontWeight:700 }}>「{c.ipa}」</span>
+                                </div>
+                              ))}
+                              <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, lineHeight:1.6, fontWeight:700 }}>
+                                👉 不要唸成兩個字，唸成<b>一個字</b>。
+                              </div>
+                            </div>
+                          ) : (
+                            <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                              這句沒有可標示的連音塊，直接整句跟讀。
+                            </div>
+                          )}
+
+                          {/* 三速階梯 */}
+                          <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+                            <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                              三速階梯 · 每一速播一次、你跟唸一次（{done}/3）
+                            </div>
+                            <div style={{ display:'flex', gap:6 }}>
+                              {SHADOW_SPEEDS.map((r, i) => {
+                                const ok = done > i
+                                const ic = ['🐢','🚶','🏃'][i]
+                                return (
+                                  <div key={r} onClick={() => playShadowStep(p, i)}
+                                    style={{ cursor:'pointer', flex:1, textAlign:'center',
+                                      fontFamily:MONO, fontSize:10, fontWeight:700, padding:'9px 0', borderRadius:8,
+                                      background: ok ? '#a78bfa' : T.surf2,
+                                      color: ok ? '#1a1030' : '#a78bfa',
+                                      border:'1px solid #a78bfa50' }}>
+                                    {ok ? '✓ ' : ''}{ic} {r}x
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </div>
+
+                          {/* 錄音回放 */}
+                          <div style={{ display:'flex', gap:6, alignItems:'center', flexWrap:'wrap' }}>
+                            <div onClick={() => recording === p.id ? stopShadowRec() : startShadowRec(p.id)}
+                              style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                                padding:'8px 13px', borderRadius:8,
+                                background: recording === p.id ? '#f87171' : T.surf2,
+                                color: recording === p.id ? '#2a0d0d' : '#f87171',
+                                border:'1px solid #f8717160' }}>
+                              {recording === p.id ? '⏹ 停止錄音' : '🎤 錄下我的跟讀'}
+                            </div>
+                            {recUrl[p.id] && (
+                              <audio controls src={recUrl[p.id]}
+                                style={{ height:34, flex:1, minWidth:150, maxWidth:'100%' }}/>
+                            )}
+                          </div>
+                          <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
+                            不評分——自己聽自己跟得像不像就好。重點不是唸得標準，是唸成「一團」。
+                          </div>
+
+                          {/* AI 精解 */}
+                          <div onClick={() => target && aiExplainLink(p, target)}
+                            style={{ cursor:'pointer', textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
+                              padding:'8px 0', borderRadius:8,
+                              background: aiTipBusy === p.id ? T.surf2 : '#0f0a1f',
+                              color:'#a78bfa', border:'1px solid #a78bfa50' }}>
+                            {aiTipBusy === p.id ? '🤖 分析中…' : `🤖 AI 精解「${target ?? ''}」的連音`}
+                          </div>
+                          {aiTip[p.id] && (
+                            <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, lineHeight:1.8,
+                              whiteSpace:'pre-wrap', background:'#0f0a1f', border:'1px solid #a78bfa25',
+                              borderRadius:8, padding:'9px 10px', minWidth:0, maxWidth:'100%',
+                              overflowWrap:'break-word' }}>
+                              {aiTip[p.id]}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })()}
                   </div>
                 )
               })}
