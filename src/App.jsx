@@ -7332,7 +7332,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10, maxWidth:'100%', boxSizing:'border-box', overflowX:'hidden' }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0, maxWidth:'100%' }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.95
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.98
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13729,6 +13729,40 @@ function buildChunks(en, target) {
   return out
 }
 
+// ── ⏱ 節奏比：量「你唸這句花多久」vs「原音多久」──────────────
+// 連音的本質是「時間被壓縮」。sort of 唸成兩個字，就是比 sorəv 長。
+// 這個指標騙不了人，而且完全不受音色/麥克風/背景音影響——它量的是時間，不是聲學。
+// 先切掉頭尾靜音，只算真正發聲的長度，否則「按下錄音後猶豫了2秒」會把數字弄髒。
+async function measureSpeechSecs(blob) {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext
+    if (!AC) return null
+    const ctx = new AC()
+    const buf = await ctx.decodeAudioData(await blob.arrayBuffer())
+    const data = buf.getChannelData(0)
+    const sr = buf.sampleRate
+    const win = Math.max(1, Math.floor(sr * 0.02))     // 20ms 一格
+    const rms = []
+    for (let i = 0; i + win <= data.length; i += win) {
+      let s = 0
+      for (let j = 0; j < win; j++) { const v = data[i+j]; s += v * v }
+      rms.push(Math.sqrt(s / win))
+    }
+    try { ctx.close() } catch(e) {}
+    if (rms.length === 0) return null
+    let max = 0
+    for (const v of rms) if (v > max) max = v
+    const thr = Math.max(max * 0.12, 0.008)            // 動態門檻，適應不同麥克風音量
+    let a = -1, b = -1
+    for (let i = 0; i < rms.length; i++) if (rms[i] > thr) { a = i; break }
+    for (let i = rms.length - 1; i >= 0; i--) if (rms[i] > thr) { b = i; break }
+    if (a < 0 || b < a) return null
+    return ((b - a + 1) * win) / sr
+  } catch (e) { return null }
+}
+
+const SHADOW_SPEEDS = [0.6, 0.8, 1.0]   // 跟讀 / 升速用的三速階梯
+
 const BLIND_MIN_WORDS = 4
 function inBlindPool(p) {
   if (p.starred) return false
@@ -13882,6 +13916,10 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const [aiTipBusy,  setAiTipBusy]  = useState(null)
   const shadowRecRef    = useRef(null)
   const shadowChunksRef = useRef([])
+  const [recDur,    setRecDur]    = useState({})     // { pid: 你唸的秒數（切掉頭尾靜音）}
+  const [asrBusy,   setAsrBusy]   = useState(null)   // 正在辨識的句子 id
+  const [asrResult, setAsrResult] = useState({})     // { pid: { text, cmp } }
+  const asrRef = useRef(null)
   const trainRef = useRef(null)
   const [sceneRangeFrom, setSceneRangeFrom] = useState('') // 場景範圍選取：起始場景號
   const [sceneRangeTo,   setSceneRangeTo]   = useState('') // 場景範圍選取：結束場景號
@@ -15182,7 +15220,6 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   }
 
   // ── 🗣 跟讀：三速階梯（0.6 → 0.8 → 1.0），每一速播一次、你跟唸一次 ──
-  const SHADOW_SPEEDS = [0.6, 0.8, 1.0]
   function playShadowStep(p, idx) {
     const r = SHADOW_SPEEDS[idx]
     stopThreeStep()
@@ -15203,6 +15240,10 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
         setRecUrl(u => {
           if (u[pid]) { try { URL.revokeObjectURL(u[pid]) } catch(e) {} }
           return { ...u, [pid]: url }
+        })
+        // ⏱ 量出真正發聲的長度（切掉頭尾靜音），拿去跟原音時長比
+        measureSpeechSecs(blob).then(sec => {
+          if (sec) setRecDur(d => ({ ...d, [pid]: sec }))
         })
         stream.getTracks().forEach(t => t.stop())
       }
@@ -15240,6 +15281,73 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     } finally {
       setAiTipBusy(null)
     }
+  }
+
+  // ── 🗣 可懂度：用瀏覽器語音辨識聽你唸的，再用同一套對齊引擎比對 ──
+  // 測的是「你唸出來的東西，別人聽不聽得懂」——這才是工作場合真正需要的。
+  // 誠實提醒：辨識器有語言模型會自動糾錯（會「幫你補」），抓得到大錯，抓不到細微連音品質。
+  function startASR(p) {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SR) { showMovieToast('⚠ 這個瀏覽器不支援語音辨識（請用 Chrome）'); return }
+    if (asrBusy === p.id) { try { asrRef.current?.stop() } catch(e) {} ; setAsrBusy(null); return }
+    const r = new SR()
+    r.lang = 'en-US'
+    r.interimResults = false
+    r.maxAlternatives = 1
+    r.continuous = false
+    r.onresult = e => {
+      const text = e.results?.[0]?.[0]?.transcript ?? ''
+      const cmp = compareDictation(text, p.en)   // 同一套對齊：target=原句，heard=機器聽到的
+      setAsrResult(a => ({ ...a, [p.id]: { text, cmp } }))
+    }
+    r.onerror = ev => {
+      showMovieToast(ev.error === 'no-speech' ? '⚠ 沒聽到聲音，再試一次' : '⚠ 辨識失敗：' + (ev.error ?? ''))
+      setAsrBusy(null)
+    }
+    r.onend = () => setAsrBusy(null)
+    asrRef.current = r
+    try { r.start(); setAsrBusy(p.id) } catch(e) { showMovieToast('⚠ 無法啟動辨識') }
+  }
+
+  // ── ➕ 診斷卡裡的實詞一鍵加單字庫（場景頁本來就能點單字，但診斷卡點不到）──
+  async function quickAddVocab(word, sentence) {
+    if (db.vocab.find(v => v.word.toLowerCase() === word.toLowerCase())) {
+      showMovieToast(`「${word}」已在單字庫`); return
+    }
+    showMovieToast(`🔍 查詢「${word}」…`)
+    try {
+      const prompt = `For the English word/phrase "${word}" used in: "${sentence}"
+Return ONLY a JSON object, no markdown:
+{"phonetic":"/IPA/","pos":"詞性（例如：名詞/動詞/形容詞/副詞/介系詞/連接詞/片語，用繁體中文2-4字表示）","zh":"中文意思（3~5字）","example":"${sentence}"}`
+      const raw = await callAI([{ role:'user', content: prompt }])
+      const info = JSON.parse(String(raw).replace(/```json|```/g, '').trim())
+      const ok = addToVocab(word, info.phonetic, info.zh, info.example ?? sentence, info.pos)
+      showMovieToast(ok ? `✓ 「${word}」已加入單字庫` : `「${word}」已在單字庫`)
+    } catch (e) {
+      showMovieToast('⚠ 查詢失敗，稍後再試')
+    }
+  }
+
+  // ── 🏃 升速規則：什麼時候可以從 0.8x 上 1.0x？──
+  // 慢速的成績是「樂觀版」。要有夠多的同語速樣本，才能判斷你是不是真的站穩了。
+  function speedAdvice() {
+    let log = []
+    try { log = JSON.parse(localStorage.getItem('fsi:blind:log') ?? '[]') } catch(e) { return null }
+    const since = addDaysStr(getTodayStr(), -21)
+    const s = log.filter(e => e.k === 'dict' && (e.dx ?? e.first) && e.spd === playRate && e.d >= since)
+    const N = 10
+    if (s.length < N) return { need: N - s.length, have: s.length }
+    const n = s.reduce((a, e) => a + (e.n ?? 0), 0)
+    const h = s.reduce((a, e) => a + (e.h ?? 0), 0)
+    const rate = n ? Math.round(100 * h / n) : 0
+    const idx = SHADOW_SPEEDS.indexOf(playRate)
+    if (rate >= 50 && idx >= 0 && idx < SHADOW_SPEEDS.length - 1) {
+      return { up: SHADOW_SPEEDS[idx + 1], rate, samples: s.length }
+    }
+    if (rate < 25 && idx > 0) {
+      return { down: SHADOW_SPEEDS[idx - 1], rate, samples: s.length }
+    }
+    return { hold: true, rate, samples: s.length }
   }
 
   // 🔬 診斷結論：把漏字資料翻譯成「下一步怎麼聽」
@@ -15307,23 +15415,75 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
           </div>
         </div>
 
-        {/* 具體連音示範 */}
-        <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
-          {topWords.map(({ w, miss, enc, rate }) => (
-            <div key={w} style={{ display:'flex', flexDirection:'column', gap:2 }}>
-              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2 }}>
-                <b style={{ color:info.c }}>{w}</b>
-                <span style={{ color:T.txt3 }}> {miss}/{enc} · {rate}%</span>
-              </div>
-              {LINK_HINT[w] && (
-                <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6, paddingLeft:8,
-                  borderLeft:`2px solid ${info.c}40` }}>
-                  {LINK_HINT[w]}
+        {/* 具體連音示範（實詞則改成「加入單字庫」——那是字彙問題，不是耳朵問題）*/}
+        <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+          {topWords.map(({ w, miss, enc, rate }) => {
+            const isContent = classOf(w) === 'content'
+            const src = dictated.find(p => tokenize(p.en).some(t => t.w === w))
+            return (
+              <div key={w} style={{ display:'flex', flexDirection:'column', gap:2 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+                  <span style={{ fontFamily:MONO, fontSize:10, color:T.txt2 }}>
+                    <b style={{ color:info.c }}>{w}</b>
+                    <span style={{ color:T.txt3 }}> {miss}/{enc} · {rate}%</span>
+                  </span>
+                  {isContent && (
+                    <span onClick={() => quickAddVocab(w, src?.en ?? '')}
+                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                        color:T.amber, background:T.amberD, border:`1px solid ${T.amber}50`,
+                        padding:'2px 8px', borderRadius:6 }}>
+                      ＋ 單字庫
+                    </span>
+                  )}
                 </div>
-              )}
-            </div>
-          ))}
+                {LINK_HINT[w] && (
+                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6, paddingLeft:8,
+                    borderLeft:`2px solid ${info.c}40` }}>
+                    {LINK_HINT[w]}
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
+
+        {/* 🏃 升速建議 */}
+        {(() => {
+          const a = speedAdvice()
+          if (!a) return null
+          if (a.need) return (
+            <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
+              🏃 目前 {playRate}x。再做 <b style={{ color:T.txt2 }}>{a.need}</b> 句診斷（已有 {a.have}/10），
+              系統才有足夠樣本判斷你能不能升速。
+            </div>
+          )
+          if (a.up) return (
+            <div onClick={() => { setPlayRate(a.up); try { localStorage.setItem('fsi:movie:playRate', String(a.up)) } catch(e) {}
+                                  showMovieToast(`🏃 已切到 ${a.up}x`) }}
+              style={{ cursor:'pointer', background:T.grn+'15', border:`1px solid ${T.grn}50`, borderRadius:8,
+                padding:'9px 10px', fontFamily:MONO, fontSize:9, color:T.grn, lineHeight:1.7, fontWeight:700 }}>
+              🏃 你在 {playRate}x 的抓字率已達 {a.rate}%（{a.samples} 句樣本）——<b>可以上 {a.up}x 了</b>，點這裡切換。<br/>
+              <span style={{ color:T.txt3, fontWeight:400 }}>
+                慢速會把連音拉開、把弱讀還原成清楚的音，那正是你要練的東西，卻被速度幫你解決掉了。
+              </span>
+            </div>
+          )
+          if (a.down) return (
+            <div onClick={() => { setPlayRate(a.down); try { localStorage.setItem('fsi:movie:playRate', String(a.down)) } catch(e) {}
+                                  showMovieToast(`🐢 已切到 ${a.down}x`) }}
+              style={{ cursor:'pointer', background:T.amberD, border:`1px solid ${T.amber}50`, borderRadius:8,
+                padding:'9px 10px', fontFamily:MONO, fontSize:9, color:T.amber, lineHeight:1.7, fontWeight:700 }}>
+              🐢 你在 {playRate}x 的抓字率只有 {a.rate}%（{a.samples} 句）——建議先降到 {a.down}x，
+              把連音塊聽熟再上速度。點這裡切換。
+            </div>
+          )
+          return (
+            <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
+              🏃 目前 {playRate}x · 抓字率 {a.rate}%（{a.samples} 句）。
+              到 <b style={{ color:T.txt2 }}>50%</b> 就可以升速——現在還在建立基礎，不用急。
+            </div>
+          )
+        })()}
 
         {/* 行動 */}
         {hero && (
@@ -24089,6 +24249,133 @@ Steven 不是在收藏電影台詞。
                           <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
                             不評分——自己聽自己跟得像不像就好。重點不是唸得標準，是唸成「一團」。
                           </div>
+
+                          {/* ⏱ 節奏比：連音的本質是「時間被壓縮」 */}
+                          {(() => {
+                            const refDur = (p.startSecs > 0 && p.endSecs > p.startSecs)
+                              ? (p.endSecs - p.startSecs) : null
+                            const mine = recDur[p.id]
+                            if (!refDur) return (
+                              <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
+                                （這句沒有時間碼，算不出節奏比）
+                              </div>
+                            )
+                            if (!mine) return (
+                              <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
+                                ⏱ 錄一次跟讀，就會算出「節奏比」——原音 {refDur.toFixed(1)}s
+                              </div>
+                            )
+                            const ratio = mine / refDur
+                            const pct = Math.round((ratio - 1) * 100)
+                            const band = ratio <= 1.15 ? { c:T.grn,   t:'✅ 節奏接近原音 — 你有把它黏成一團' }
+                                       : ratio <= 1.40 ? { c:'#38bdf8', t:'◎ 接近了，但還偏慢 — 再壓縮一點' }
+                                       : ratio <= 2.00 ? { c:T.amber, t:'⚠ 還在逐字唸 — 沒有黏成一團' }
+                                       :                 { c:'#f87171', t:'⚠ 慢很多 — 你在一個字一個字發音' }
+                            const tooFast = ratio < 0.8
+                            return (
+                              <div style={{ display:'flex', flexDirection:'column', gap:4,
+                                background:'#0f0a1f', border:`1px solid ${band.c}40`, borderRadius:8,
+                                padding:'9px 10px', minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
+                                <div style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:band.c }}>
+                                  ⏱ 節奏比 {ratio.toFixed(2)}x
+                                  <span style={{ color:T.txt3, fontWeight:400, fontSize:9 }}>
+                                    　你 {mine.toFixed(1)}s / 原音 {refDur.toFixed(1)}s
+                                    {pct > 0 ? `　慢 ${pct}%` : pct < 0 ? `　快 ${-pct}%` : ''}
+                                  </span>
+                                </div>
+                                <span style={{ height:7, background:T.surf2, borderRadius:4, overflow:'hidden' }}>
+                                  <span style={{ display:'block', width:`${Math.min(100, ratio/2*100)}%`,
+                                    height:'100%', background:band.c, borderRadius:4 }}/>
+                                </span>
+                                <div style={{ fontFamily:MONO, fontSize:9, color:band.c, fontWeight:700 }}>
+                                  {tooFast ? '⚠ 比原音還快 — 可能沒唸完整句，或錄音被截掉' : band.t}
+                                </div>
+                                <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
+                                  目標是 <b style={{ color:T.grn }}>1.0x</b>。這個數字不受音色、麥克風、背景音影響——它量的是時間，不是聲學。
+                                </div>
+                              </div>
+                            )
+                          })()}
+
+                          {/* 🗣 可懂度：唸給機器聽 */}
+                          <div style={{ height:1, background:'#a78bfa25', margin:'1px 0' }}/>
+                          <div onClick={() => startASR(p)}
+                            style={{ cursor:'pointer', textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
+                              padding:'10px 0', borderRadius:8,
+                              background: asrBusy === p.id ? '#4ade80' : '#0f0a1f',
+                              color: asrBusy === p.id ? '#062b12' : '#4ade80',
+                              border:'1px solid #4ade8060' }}>
+                            {asrBusy === p.id ? '🎙 聽你唸…（唸完會自動停）' : '🗣 唸給機器聽 · 測可懂度'}
+                          </div>
+                          {asrResult[p.id] && (() => {
+                            const { text, cmp } = asrResult[p.id]
+                            const ok = cmp.rate >= 80
+                            return (
+                              <div style={{ display:'flex', flexDirection:'column', gap:5,
+                                background:'#0f0a1f', border:`1px solid ${ok ? '#4ade80' : T.amber}40`,
+                                borderRadius:8, padding:'9px 10px', minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
+                                <div style={{ fontFamily:MONO, fontSize:10, fontWeight:700,
+                                  color: ok ? T.grn : T.amber }}>
+                                  {ok ? '✅' : '⚠'} 機器聽懂 {cmp.hit}/{cmp.total} 字（{cmp.rate}%）
+                                </div>
+                                <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6,
+                                  overflowWrap:'break-word' }}>
+                                  機器聽成：<span style={{ color:T.txt2 }}>{text || '（沒聽到）'}</span>
+                                </div>
+                                {/* 逐字：機器有沒有聽到 */}
+                                <div style={{ fontFamily:MONO, fontSize:12, lineHeight:1.9,
+                                  minWidth:0, maxWidth:'100%', overflowWrap:'break-word' }}>
+                                  {cmp.tokens.map((t, i) => (
+                                    <span key={i} style={{
+                                      color: t.hit ? T.grn : T.amber,
+                                      background: t.hit ? '#0a3a1a' : T.amberD,
+                                      fontWeight: t.content ? 700 : 400,
+                                      display:'inline-block', whiteSpace:'nowrap',
+                                      padding:'1px 3px', borderRadius:4, marginRight:3 }}>
+                                      {t.raw ?? t.w}
+                                    </span>
+                                  ))}
+                                </div>
+                                {cmp.pairs.length > 0 && (
+                                  <div style={{ fontFamily:MONO, fontSize:9, color:'#f87171', lineHeight:1.6 }}>
+                                    機器誤聽：{cmp.pairs.map(([a,b]) => `${a}→${b}`).join('、')}
+                                  </div>
+                                )}
+                                <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
+                                  ⓘ 測的是「別人聽不聽得懂你」，不是發音標不標準。
+                                  辨識器有語言模型會自動糾錯（會幫你補），所以它抓得到大錯，抓不到細微的連音品質——
+                                  <b style={{ color:T.amber }}>橘色的字就是你沒唸清楚的地方</b>。
+                                </div>
+                              </div>
+                            )
+                          })()}
+
+                          {/* 🔬 兩訊號合看：可懂度100% + 節奏慢62% = 台灣腔的清楚，不是英語的節奏 */}
+                          {(() => {
+                            const refDur = (p.startSecs > 0 && p.endSecs > p.startSecs) ? (p.endSecs - p.startSecs) : null
+                            const mine = recDur[p.id]
+                            const asr  = asrResult[p.id]
+                            if (!refDur || !mine || !asr) return null
+                            const ratio = mine / refDur
+                            const clear = asr.cmp.rate >= 80
+                            const rhythmOK = ratio <= 1.25
+                            let verdict, c
+                            if (clear && rhythmOK)   { c = T.grn;   verdict = '✅ 講得清楚，節奏也對 — 這句你真的吃下去了。回去聽原音，你應該聽得到了。' }
+                            else if (clear && !rhythmOK) { c = T.amber; verdict = '⚠ 你講得很清楚，但那是「逐字的清楚」，不是英語的節奏。機器聽得懂你，因為它有語言模型幫你補——但真人語流不會等你。這正是你聽不到連音的原因：你的嘴巴沒建立過那個模板。' }
+                            else if (!clear && rhythmOK) { c = '#38bdf8'; verdict = '◎ 節奏對了，但字沒唸清楚 — 黏得太過頭，音素糊掉了。速度對，把子音再交代出來。' }
+                            else                      { c = '#f87171'; verdict = '⚠ 字沒清楚，節奏也慢 — 先用 0.6x 慢慢跟，把連音塊唸熟，再上速度。' }
+                            return (
+                              <div style={{ background:c+'12', border:`1px solid ${c}40`, borderRadius:8,
+                                padding:'9px 10px', minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
+                                <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:3 }}>
+                                  🔬 兩訊號合看：可懂度 {asr.cmp.rate}% · 節奏 {ratio.toFixed(2)}x
+                                </div>
+                                <div style={{ fontFamily:MONO, fontSize:9, color:c, lineHeight:1.75, fontWeight:700 }}>
+                                  {verdict}
+                                </div>
+                              </div>
+                            )
+                          })()}
 
                           {/* AI 精解 */}
                           <div onClick={() => target && aiExplainLink(p, target)}
