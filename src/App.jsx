@@ -7313,7 +7313,7 @@ function nextDiff(d) {
 // ═══════════════════════════════════════════════════════════════
 function AppIcon({ size = 36 }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 40 40" fill="none" aria-label="FSI Command">
+    <svg width={size} height={size} viewBox="0 0 40 40" fill="none" aria-label="Keep Moving">
       <polygon points="20,1.5 36.5,10.5 36.5,29.5 20,38.5 3.5,29.5 3.5,10.5"
         fill="#f5a62312" stroke="#f5a62360" strokeWidth="1.3"/>
       <polygon points="20,5.5 33,13 33,27 20,34.5 7,27 7,13"
@@ -7332,7 +7332,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10, maxWidth:'100%', boxSizing:'border-box', overflowX:'hidden' }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0, maxWidth:'100%' }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v6.00
+        <div style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber, letterSpacing:'0.02em', lineHeight:1.15, display:'flex', alignItems:'baseline', gap:6 }}>Keep Moving<span style={{ fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em' }}>v6.04</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13151,7 +13151,7 @@ STRICT RULES:
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 24px', borderBottom:'1px solid '+T.bdr, background:T.surf, flexShrink:0 }}>
           <div style={{ display:'flex', alignItems:'center', gap:12 }}>
             <AppIcon size={28}/>
-            <span style={{ fontFamily:DISP, fontSize:13, color:T.amber, letterSpacing:'0.12em' }}>FSI COMMAND — AI 三分類分析</span>
+            <span style={{ fontFamily:MONO, fontWeight:700, fontSize:12, color:T.amber, letterSpacing:'0.03em' }}>Keep Moving — AI 三分類分析</span>
             <ModeToggle/>
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:10 }}>
@@ -15051,7 +15051,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
       link:'🔗 關聯知識', other:'📝 其他',
     }
     const order = Object.keys(CAT_LABELS)
-    let out = `FSI Command 知識庫匯出\n匯出時間：${new Date().toLocaleString('zh-TW')}\n共 ${latestKb.length} 筆\n\n`
+    let out = `Keep Moving 知識庫匯出\n匯出時間：${new Date().toLocaleString('zh-TW')}\n共 ${latestKb.length} 筆\n\n`
     order.forEach(catId => {
       const items = latestKb.filter(k => (k.cat ?? 'other') === catId)
       if (items.length === 0) return
@@ -26019,7 +26019,7 @@ export default function App() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'#050810', gap:18 }}>
       <style>{G}</style>
       <AppIcon size={56}/>
-      <div style={{ fontFamily:DISP, fontSize:15, color:'#f5a623', letterSpacing:'0.14em' }}>FSI COMMAND v3.46</div>
+      <div style={{ fontFamily:MONO, fontWeight:700, fontSize:24, color:'#f5a623', letterSpacing:'0.02em' }}>Keep Moving</div>
       <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
