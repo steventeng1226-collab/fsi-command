@@ -7332,7 +7332,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
     <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 16px', display:'flex', alignItems:'center', gap:10, position:'sticky', top:0, zIndex:10, maxWidth:'100%', boxSizing:'border-box', overflowX:'hidden' }}>
       <AppIcon size={30} />
       <div style={{ flex:1, minWidth:0, maxWidth:'100%' }}>
-        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.98
+        <div style={{ fontFamily:DISP, fontSize:12, color:T.amber, letterSpacing:'0.14em', lineHeight:1, display:'flex', alignItems:'center', gap:6 }}>FSI COMMAND v5.99
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13803,6 +13803,15 @@ const LISTEN_RULES = [
   { icon:'🚫', t:'抓字率 <60% 不問意思',
     d:'字都抓不到，問「懂不懂意思」每次都只會得到「不懂」，這種資料沒有訊息量。',
     why:'先過「聲音→文字」這關。意思常常就藏在你聽不到的虛詞裡（no matter where、as soon as 全是虛詞）。' },
+  { icon:'🗣', t:'唸得出來，才聽得出來',
+    d:'弱點關卡裡按 🗣 跟讀：把連音塊唸成「一團」（sort of → sorəv），不是唸成兩個字。',
+    why:'聽，本質上是預測。大腦解碼語音時是拿「自己會怎麼發這個音」去比對。你的嘴巴從來沒把 sort of 當成一個字唸過，腦子裡就沒有這個模板，聲音進來自然對不上。只要唸得出 sorəv，你就開始聽得到 sorəv。' },
+  { icon:'⏱', t:'節奏比才是連音的真指標',
+    d:'錄一次跟讀 → 系統算「你 3.4s / 原音 2.1s = 1.62x」。目標是 1.0x。',
+    why:'可懂度會騙你：你把 sort of 唸成清清楚楚的兩個字，語音辨識照樣給你 100%（它有語言模型會幫你補）。但真人語流不會等你。可懂度100% + 節奏1.6x = 「你講得很清楚，但那是逐字的清楚，不是英語的節奏」——這正是你聽不到連音的原因。' },
+  { icon:'🏃', t:'升速要有證據，不是感覺',
+    d:'同一個語速累積 10 句診斷、抓字率 ≥50%，系統才會建議你升速。',
+    why:'0.8x 和 1.0x 的成績混在一起算趨勢是假的。而且慢速會把連音拉開、把弱讀還原成清楚的音——那正是你要練的東西，卻被速度幫你解決掉了。' },
 ]
 
 // ── 🌅 今日盲聽 · 連續天數（v5.86）────────────────────────
