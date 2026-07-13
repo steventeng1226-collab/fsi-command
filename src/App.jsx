@@ -7350,7 +7350,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.07</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.11</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14331,6 +14331,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const [manualExample, setManualExample] = useState('')
   const [srtText,       setSrtText]       = useState('')
   const [transcriptDraft, setTranscriptDraft] = useState('')
+  const [advTools, setAdvTools] = useState(false)   // 進階工具（刪除時間段等，預設隱藏）
   const [deleteRangeStart, setDeleteRangeStart] = useState('') // 刪除時間段：開始
   const [deleteRangeEnd,   setDeleteRangeEnd]   = useState('') // 刪除時間段：結束
   const [deleteRangeMsg,   setDeleteRangeMsg]   = useState('')
@@ -15150,9 +15151,12 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     const token = {}
     threeStepRef.current = token
     const alive = () => threeStepRef.current === token
-    const durMs = (p.startSecs > 0 && p.endSecs > p.startSecs)
+    // ⚠ 一定要除以語速：0.8x 播放時音檔實際花 1.25 倍時間、0.6x 花 1.67 倍。
+    // 不除的話，系統音會在電影音還沒講完就插進來（語速越慢切得越早）。
+    const rawMs = (p.startSecs > 0 && p.endSecs > p.startSecs)
       ? (p.endSecs - p.startSecs) * 1000
       : Math.max(2000, String(p.en ?? '').split(' ').length * 450)
+    const durMs = rawMs / (playRate || 1)
     // 注意：rateOverride 一定要傳數字，否則 speakPhrase 會把「同一句再點一次」判成停止
     const bump = () => {
       blindSessionPlaysRef.current[p.id] = (blindSessionPlaysRef.current[p.id] ?? 0) + 1
@@ -15221,9 +15225,10 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
       if (mode === 'three') {
         playThreeStep(p, () => { if (queueRef.current === token) setTimeout(() => step(i + 1), 600) })
       } else {
-        const durMs = (p.startSecs > 0 && p.endSecs > p.startSecs)
+        const rawMs = (p.startSecs > 0 && p.endSecs > p.startSecs)
           ? (p.endSecs - p.startSecs) * 1000
           : Math.max(2000, String(p.en ?? '').split(' ').length * 450)
+        const durMs = rawMs / (playRate || 1)          // ⚠ 除以語速
         speakPhrase(p.id, p.en, playRate, p)
         setTimeout(() => { if (queueRef.current === token) step(i + 1) }, durMs + 1200)
       }
@@ -15395,20 +15400,28 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     try { r.start(); setAsrBusy(p.id) } catch(e) { showMovieToast('⚠ 無法啟動辨識') }
   }
 
-  // ── ➕ 診斷卡裡的實詞一鍵加單字庫（場景頁本來就能點單字，但診斷卡點不到）──
-  async function quickAddVocab(word, sentence) {
-    if (db.vocab.find(v => v.word.toLowerCase() === word.toLowerCase())) {
-      showMovieToast(`「${word}」已在單字庫`); return
+  // ── ➕ 任何英文句子的任一個字，點一下就能加進單字庫 ──
+  const [vocabConfirm, setVocabConfirm] = useState(null)   // { word, sentence } 功能詞需二次確認
+  async function quickAddVocab(word, sentence, force = false) {
+    const w = String(word ?? '').trim()
+    if (!w) return
+    if (db.vocab.find(v => v.word.toLowerCase() === w.toLowerCase())) {
+      showMovieToast(`「${w}」已在單字庫`); return
     }
-    showMovieToast(`🔍 查詢「${word}」…`)
+    // 功能詞（of/the/is…）加進單字庫沒有價值，而且最容易被誤點 → 先確認
+    if (!force && FUNC_WORDS.has(normWord(w))) {
+      setVocabConfirm({ word: w, sentence })
+      return
+    }
+    showMovieToast(`🔍 查詢「${w}」…`)
     try {
-      const prompt = `For the English word/phrase "${word}" used in: "${sentence}"
+      const prompt = `For the English word/phrase "${w}" used in: "${sentence}"
 Return ONLY a JSON object, no markdown:
 {"phonetic":"/IPA/","pos":"詞性（例如：名詞/動詞/形容詞/副詞/介系詞/連接詞/片語，用繁體中文2-4字表示）","zh":"中文意思（3~5字）","example":"${sentence}"}`
       const raw = await callAI([{ role:'user', content: prompt }])
       const info = JSON.parse(String(raw).replace(/```json|```/g, '').trim())
-      const ok = addToVocab(word, info.phonetic, info.zh, info.example ?? sentence, info.pos)
-      showMovieToast(ok ? `✓ 「${word}」已加入單字庫` : `「${word}」已在單字庫`)
+      const ok = addToVocab(w, info.phonetic, info.zh, info.example ?? sentence, info.pos)
+      showMovieToast(ok ? `✓ 「${w}」已加入單字庫` : `「${w}」已在單字庫`)
     } catch (e) {
       showMovieToast('⚠ 查詢失敗，稍後再試')
     }
@@ -15434,6 +15447,63 @@ Return ONLY a JSON object, no markdown:
       return { down: SHADOW_SPEEDS[idx - 1], rate, samples: s.length }
     }
     return { hold: true, rate, samples: s.length }
+  }
+
+  // ── 🔊 播「連音塊」：從電影原音切出那一小段（依字在句中的位置比例估算）──
+  // 沒有逐字時間碼，只能用比例定位 → 前後各留 0.35 秒緩衝，寧可多聽一點也不要切掉。
+  // 系統音沒有用：TTS 會把 "novelty of" 唸成兩個清楚的字，那正是你要擺脫的東西。
+  function playChunk(p, targetWord) {
+    if (audioMode !== 'original') { showMovieToast('⚠ 連音塊要聽電影原音，請先切到 🎬'); return }
+    if (!(p.startSecs > 0 && p.endSecs > p.startSecs)) { showMovieToast('⚠ 這句沒有時間碼'); return }
+    const toks = tokenize(p.en)
+    const idx = toks.findIndex(t => t.w === targetWord)
+    if (idx < 0) return
+    const from = Math.max(0, idx - 1)           // 連音塊 = 前一個字 + 目標字
+    const total = toks.length
+    const sentDur = p.endSecs - p.startSecs
+    const PAD = 0.35
+    const startS = p.startSecs + (from / total) * sentDur - PAD
+    const endS   = p.startSecs + ((idx + 1) / total) * sentDur + PAD
+    const el = audioElRef.current
+    const currentMovie = db.movies.find(m => m.id === movieId)
+    const targetFile = getMovieMp3At(currentMovie, startS)
+    if (!el || !targetFile) { showMovieToast('⚠ 音檔還沒載入'); return }
+    clearTimeout(audioStopRef.current)
+    window.speechSynthesis?.cancel()
+    const rate = playRate || 1
+    const play = () => {
+      el.playbackRate = rate
+      el.currentTime = Math.max(0, startS - targetFile.start)
+      el.play().catch(() => {})
+      const durMs = Math.max(300, (endS - startS) * 1000) / rate
+      audioStopRef.current = setTimeout(() => el.pause(), durMs + 150)
+    }
+    const key = targetFile?.idbKey ?? targetFile?.url
+    if (audioSrcKeyRef.current !== key) {
+      const onReady = () => { if (audioSrcKeyRef.current === key) play(); el.removeEventListener('canplay', onReady) }
+      el.addEventListener('canplay', onReady)
+      loadAudioFile(targetFile)
+    } else play()
+  }
+
+  // 🐢🚶🏃 共用語速控制列（之前只藏在「未送出的聽寫卡」裡，送出後就消失，找不到）
+  function SpeedBar({ label = '語速' }) {
+    return (
+      <div style={{ display:'flex', alignItems:'center', gap:5, flexWrap:'wrap' }}>
+        <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3, flexShrink:0 }}>{label}</span>
+        {[[0.6,'🐢'], [0.8,'🚶'], [1.0,'🏃']].map(([r, ic]) => (
+          <div key={r} onClick={() => { setPlayRate(r); try { localStorage.setItem('fsi:movie:playRate', String(r)) } catch(e) {}
+                                        showMovieToast(`${ic} 語速 ${r}x`) }}
+            style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+              padding:'4px 10px', borderRadius:7,
+              color: playRate===r ? '#0d2a3a' : T.txt3,
+              background: playRate===r ? '#38bdf8' : T.surf2,
+              border:`1px solid ${playRate===r ? '#38bdf8' : T.bdr}` }}>
+            {ic} {r === 1.0 ? '1.0x' : `${r}x`}
+          </div>
+        ))}
+      </div>
+    )
   }
 
   // 🔬 診斷結論：把漏字資料翻譯成「下一步怎麼聽」
@@ -15538,9 +15608,12 @@ Return ONLY a JSON object, no markdown:
           const a = speedAdvice()
           if (!a) return null
           if (a.need) return (
-            <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
-              🏃 目前 {playRate}x。再做 <b style={{ color:T.txt2 }}>{a.need}</b> 句診斷（已有 {a.have}/10），
-              系統才有足夠樣本判斷你能不能升速。
+            <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+              <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
+                🏃 目前 {playRate}x。再做 <b style={{ color:T.txt2 }}>{a.need}</b> 句診斷（已有 {a.have}/10），
+                系統才有足夠樣本判斷你能不能升速。
+              </div>
+              <SpeedBar label="現在就改："/>
             </div>
           )
           if (a.up) return (
@@ -15660,9 +15733,10 @@ Return ONLY a JSON object, no markdown:
       // 估算句子播放時間：有時間碼用實際長度，否則依字數估算，再加1秒間隔
       // 連播間隔拉到 4 秒（原本1秒，打字根本追不上）
       const gapMs = isLast ? 500 : 4000
-      const durMs = (p.startSecs > 0 && p.endSecs > p.startSecs)
-        ? (p.endSecs - p.startSecs) * 1000 + gapMs
-        : Math.max(2000, p.en.split(' ').length * 450) + gapMs
+      const rawMs = (p.startSecs > 0 && p.endSecs > p.startSecs)
+        ? (p.endSecs - p.startSecs) * 1000
+        : Math.max(2000, p.en.split(' ').length * 450)
+      const durMs = rawMs / (playRate || 1) + gapMs   // ⚠ 除以語速（慢速播放時間會變長）
       if (!isLast) {
         setTimeout(() => {
           // 若使用者中途按停止，blindPlayingId會被清空，不再繼續
@@ -19431,7 +19505,10 @@ Steven 不是在收藏電影台詞。
                         {dictResult[p.id].tokens.map((t, i) => {
                           const orig = t.raw ?? t.w
                           return (
-                            <span key={i} style={{
+                            <span key={i} onClick={() => quickAddVocab(t.w, p.en)}
+                              title="點一下加入單字庫"
+                              style={{
+                              cursor:'pointer',
                               color: t.hit ? T.grn : T.txt3,
                               background: t.hit ? '#0a3a1a' : 'transparent',
                               textDecoration: t.hit ? 'none' : 'underline',
@@ -23620,6 +23697,36 @@ Steven 不是在收藏電影台詞。
             </div>
           )
         })()}
+        {/* 功能詞加入單字庫的二次確認（防誤觸）*/}
+        {vocabConfirm && (
+          <div style={{ position:'fixed', inset:0, background:'#000a', zIndex:100,
+            display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}
+            onClick={() => setVocabConfirm(null)}>
+            <div onClick={e => e.stopPropagation()}
+              style={{ background:T.surf, border:`1px solid ${T.amber}50`, borderRadius:12,
+                padding:16, maxWidth:320, display:'flex', flexDirection:'column', gap:10 }}>
+              <div style={{ fontFamily:MONO, fontSize:12, color:T.amber, fontWeight:700 }}>
+                「{vocabConfirm.word}」是功能詞
+              </div>
+              <div style={{ fontFamily:MONO, fontSize:10, color:T.txt2, lineHeight:1.7 }}>
+                功能詞（of / the / is…）你其實都認識，問題是<b>聽不出來</b>，不是不懂意思。
+                加進單字庫幫助不大 —— 該練的是連音，去 🎯 聽力庫打它的關卡。
+              </div>
+              <div style={{ display:'flex', gap:8 }}>
+                <div onClick={() => setVocabConfirm(null)}
+                  style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
+                    padding:'10px 0', borderRadius:8, background:'#38bdf8', color:'#0d2a3a' }}>
+                  取消
+                </div>
+                <div onClick={() => { const v = vocabConfirm; setVocabConfirm(null); quickAddVocab(v.word, v.sentence, true) }}
+                  style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:11,
+                    padding:'10px 0', borderRadius:8, background:T.surf2, color:T.txt3, border:`1px solid ${T.bdr}` }}>
+                  還是要加
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         <div ref={trainRef}/>
         {/* ── 🌅 今日盲聽（v5.86）：一鍵跑完，零決策 ── */}
         {trainOpen && (() => {
@@ -23664,6 +23771,8 @@ Steven 不是在收藏電影台詞。
                   {streak.best > (streak.days ?? 0) && <span style={{ color:T.txt3, fontSize:8 }}> · 最佳 {streak.best}</span>}
                 </span>
               </div>
+
+              <SpeedBar/>
 
               {/* ① 診斷：新句聽寫 */}
               <div style={{ borderLeft:'2px solid #38bdf8', paddingLeft:10, display:'flex', flexDirection:'column', gap:7,
@@ -23776,7 +23885,10 @@ Steven 不是在收藏電影台詞。
                             {c.tokens.map((t, i) => {
                               const orig = t.raw ?? t.w
                               return (
-                                <span key={i} style={{
+                                <span key={i} onClick={() => quickAddVocab(t.w, cur.en)}
+                                  title="點一下加入單字庫"
+                                  style={{
+                                  cursor:'pointer',
                                   color: t.hit ? T.grn : T.txt3,
                                   background: t.hit ? '#0a3a1a' : 'transparent',
                                   textDecoration: t.hit ? 'none' : 'underline', textDecorationStyle:'dotted',
@@ -23787,6 +23899,11 @@ Steven 不是在收藏電影台詞。
                               )
                             })}
                           </div>
+                          {cur.zh?.trim() && (
+                            <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.6 }}>
+                              {cur.zh}
+                            </div>
+                          )}
                           <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
                             <span style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:lv.c,
                               background:lv.c+'20', border:`1px solid ${lv.c}50`, padding:'2px 8px', borderRadius:6 }}>{lv.label}</span>
@@ -23944,17 +24061,25 @@ Steven 不是在收藏電影台詞。
                                     {tokenize(p.en).map((t, i) => {
                                       const miss = missSet.has(t.w)
                                       return (
-                                        <span key={i} style={{
+                                        <span key={i} onClick={() => quickAddVocab(t.w, p.en)}
+                                          title="點一下加入單字庫"
+                                          style={{
+                                          cursor:'pointer',
                                           color: miss ? T.amber : T.grn,
                                           background: miss ? T.amberD : 'transparent',
                                           fontWeight: miss ? 700 : 400,
                                           display:'inline-block', whiteSpace:'nowrap',
-                                          padding: miss ? '1px 3px' : 0, borderRadius:4, marginRight:3 }}>
+                                          padding: miss ? '1px 3px' : '1px 2px', borderRadius:4, marginRight:3 }}>
                                           {t.raw}
                                         </span>
                                       )
                                     })}
                                   </div>
+                                  {p.zh?.trim() && (
+                                    <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, lineHeight:1.6 }}>
+                                      {p.zh}
+                                    </div>
+                                  )}
                                   <div style={{ display:'flex', alignItems:'center', gap:7, flexWrap:'wrap' }}>
                                     <span style={{ fontFamily:MONO, fontSize:9, fontWeight:700, color:lv.c,
                                       background:lv.c+'20', border:`1px solid ${lv.c}50`, padding:'1px 7px', borderRadius:6 }}>
@@ -24030,13 +24155,16 @@ Steven 不是在收藏電影台詞。
                 <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>本片</span>
               </div>
 
-              <div onClick={() => setRulesOpen(v => !v)}
-                style={{ cursor:'pointer', alignSelf:'flex-start', fontFamily:MONO, fontSize:9, fontWeight:700,
-                  padding:'5px 10px', borderRadius:7,
-                  color: rulesOpen ? '#1a1207' : T.amber,
-                  background: rulesOpen ? T.amber : T.amberD,
-                  border:`1px solid ${T.amber}50` }}>
-                📋 訓練守則
+              <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+                <div onClick={() => setRulesOpen(v => !v)}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700, flexShrink:0,
+                    padding:'5px 10px', borderRadius:7,
+                    color: rulesOpen ? '#1a1207' : T.amber,
+                    background: rulesOpen ? T.amber : T.amberD,
+                    border:`1px solid ${T.amber}50` }}>
+                  📋 訓練守則
+                </div>
+                <SpeedBar/>
               </div>
               {rulesOpen && (
                 <div style={{ display:'flex', flexDirection:'column', gap:9,
@@ -24167,10 +24295,22 @@ Steven 不是在收藏電影台詞。
                 const res = dictResult[p.id]
                 const missSet = new Set(f.miss ?? [])
                 const isDue = !p.dict.next || p.dict.next <= today
+                const isQueueCur = queuePlay && queuePlay.ids[queuePlay.idx] === p.id
                 return (
-                  <div key={p.id} style={{ background:T.surf, border:`1px solid ${isDue ? T.amber+'50' : T.bdr}`,
+                  <div key={p.id}
+                    ref={el => { if (isQueueCur && el) el.scrollIntoView({ behavior:'smooth', block:'center' }) }}
+                    style={{ background: isQueueCur ? '#0d2a3a' : T.surf,
+                    border:`1px solid ${isQueueCur ? '#38bdf8' : isDue ? T.amber+'50' : T.bdr}`,
+                    boxShadow: isQueueCur ? '0 0 0 1px #38bdf840' : 'none',
                     borderRadius:10, padding:'11px 12px', display:'flex', flexDirection:'column', gap:7,
                     minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
+                    {isQueueCur && (
+                      <div style={{ fontFamily:MONO, fontSize:9, color:'#38bdf8', fontWeight:700 }}>
+                        ▶ 播放中 {queuePlay.idx + 1}/{queuePlay.ids.length}
+                        {queuePlay.mode === 'three' && threeStep?.pid === p.id &&
+                          `　${threeStep.step === 1 ? '① 🎬 電影' : threeStep.step === 2 ? '② 🔊 系統' : '③ 🎬 回聽'}`}
+                      </div>
+                    )}
                     {/* 重測中 → 遮住英文 */}
                     {testing && !res ? (
                       <div style={{ fontFamily:MONO, fontSize:12, color:T.txt3 }}>🎧 ●●●●●●●●●●</div>
@@ -24180,24 +24320,31 @@ Steven 不是在收藏電影台詞。
                         {tokenize(p.en).map((t, i) => {
                           const wasMissed = missSet.has(t.w)
                           return (
-                            <span key={i} style={{
+                            <span key={i} onClick={() => quickAddVocab(t.w, p.en)}
+                              title="點一下加入單字庫"
+                              style={{
+                              cursor:'pointer',
                               color: wasMissed ? T.amber : T.txt,
                               background: wasMissed ? T.amberD : 'transparent',
                               fontWeight: wasMissed ? 700 : 400,
                               display:'inline-block', whiteSpace:'nowrap',
-                              padding: wasMissed ? '1px 3px' : 0, borderRadius:4, marginRight:3 }}>
+                              padding: wasMissed ? '1px 3px' : '1px 2px', borderRadius:4, marginRight:3 }}>
                               {t.raw}
                             </span>
                           )
                         })}
                       </div>
                     )}
+                    {p.zh?.trim() && !testing && (
+                      <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.6 }}>
+                        {p.zh}
+                      </div>
+                    )}
                     <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
                       首次 全詞 {f.rate}% · 實詞 {f.cRate}%
                       {p.dict.count > 1 && ` · 最近 全詞 ${p.dict.last.rate}%`}
                       {' · '}進度 {p.dict.stage ?? 0}/{REVIEW_INTERVALS.length}
-                      {p.dict.next && ` · 下次 ${p.dict.next}`}
-                      {isDue && <span style={{ color:T.amber, fontWeight:700 }}> · ⏰今天</span>}
+                      {isDue && <span style={{ color:T.amber, fontWeight:700 }}> · ⏰ 今天可重測</span>}
                     </div>
 
                     {/* 弱點關卡模式：連音塊直接展開，不用再點一次 🗣 */}
@@ -24207,9 +24354,11 @@ Steven 不是在收藏電影台詞。
                       return (
                         <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
                           {chunks.map((c, i) => (
-                            <span key={i} style={{ display:'inline-flex', alignItems:'center', gap:5,
+                            <span key={i} onClick={() => playChunk(p, libWord)}
+                              style={{ cursor:'pointer', display:'inline-flex', alignItems:'center', gap:5,
                               background:'#1a1030', border:'1px solid #a78bfa40', borderRadius:7,
                               padding:'4px 9px' }}>
+                              <span style={{ fontSize:12 }}>🔊</span>
                               <span style={{ fontFamily:MONO, fontSize:11, color:T.txt2 }}>{c.text}</span>
                               <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>→</span>
                               <span style={{ fontFamily:MONO, fontSize:13, color:'#a78bfa', fontWeight:700 }}>{c.ipa}</span>
@@ -24342,13 +24491,18 @@ Steven 不是在收藏電影台詞。
                           {chunks.length > 0 ? (
                             <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
                               {chunks.map((c, i) => (
-                                <div key={i} style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap',
+                                <div key={i} onClick={() => playChunk(p, target)}
+                                  style={{ cursor:'pointer', display:'flex', alignItems:'center', gap:8, flexWrap:'wrap',
                                   background:'#0f0a1f', border:'1px solid #a78bfa25', borderRadius:8, padding:'8px 10px' }}>
+                                  <span style={{ fontSize:15 }}>🔊</span>
                                   <span style={{ fontFamily:MONO, fontSize:13, color:T.txt, fontWeight:700 }}>{c.text}</span>
                                   <span style={{ fontFamily:MONO, fontSize:12, color:T.txt3 }}>→</span>
                                   <span style={{ fontFamily:MONO, fontSize:15, color:'#a78bfa', fontWeight:700 }}>「{c.ipa}」</span>
                                 </div>
                               ))}
+                              <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
+                                點 🔊 只播這一小段電影原音（位置是依比例估算的，前後各留 0.35 秒）。
+                              </div>
                               <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, lineHeight:1.6, fontWeight:700 }}>
                                 👉 不要唸成兩個字，唸成<b>一個字</b>。
                               </div>
@@ -24591,8 +24745,8 @@ Steven 不是在收藏電影台詞。
           )
         })()}
 
-            {/* ── 刪除時間段（較少用，放最下方）── */}
-            {!!(movie?.transcript?.trim()) && (
+            {/* ── 刪除時間段（用不到，預設隱藏；需要時開 advTools）── */}
+            {advTools && !!(movie?.transcript?.trim()) && (
               <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:13,
                 padding:'14px 16px', display:'flex', flexDirection:'column', gap:10 }}>
                 <span style={{ fontFamily:MONO, fontSize:10, color:'#f87171', fontWeight:700 }}>
