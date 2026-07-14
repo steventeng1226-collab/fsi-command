@@ -7358,7 +7358,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.22</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.25</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13855,6 +13855,23 @@ function bumpStreak() {
   return next
 }
 
+// ── 📖 連讀速查表（v6.25）：11 條通則，靜態、離線、隨時可查 ──
+// 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
+const LINK_RULES = [
+  { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
+  { cls:'ch', t:'t 夾在兩母音間 → 濁化成 d/彈舌', eg:'about it', ipa:'ə-baʊ-<ch>ɾ</ch>-ɪt', note:'flap T：water→wader、later→lader' },
+  { cls:'lk', t:'子音 + 子音 → 取其一',  eg:'is he',      ipa:'<lk>ɪ-zi</lk>',           note:'兩個子音只發後面那個' },
+  { cls:'lk', t:'相同子音 → 只讀一個',   eg:'Yes, sir',   ipa:'<lk>je-sɜːr</lk>',        note:'ss / tt / dd 相鄰只發一次' },
+  { cls:'si', t:'爆破音在字尾 → 停一拍不發', eg:"don't worry", ipa:'dəʊn<si>t</si> wʌri', note:'失去爆破：p/t/k/b/d/g 在字尾只做嘴型' },
+  { cls:'gl', t:'圓唇母音 + 母音 → 插 /w/', eg:'do it',   ipa:'<gl>duːʷ</gl>ɪt',         note:'嘴型變圓，中間擠出 w' },
+  { cls:'gl', t:'其他母音 + 母音 → 插 /j/', eg:'see it',  ipa:'<gl>siːʲ</gl>ɪt',         note:'口型不變圓，中間擠出 j（y音）' },
+  { cls:'si', t:'t 在字尾 → 常省略',     eg:'sit down',   ipa:'<si>sɪ</si> daʊn',        note:'口語裡字尾 t 幾乎消失' },
+  { cls:'ch', t:'t + you → /tʃ/',        eg:'want you',   ipa:'wɑːn<ch>tʃ</ch>uː',       note:'want you → wanchu' },
+  { cls:'ch', t:'d + you → /dʒ/',        eg:'need you',   ipa:'niː<ch>dʒ</ch>uː',        note:'need you → needju' },
+  { cls:'ch', t:'s + you → /ʃ/',         eg:'miss you',   ipa:'mɪ<ch>ʃ</ch>uː',          note:'miss you → mishu' },
+  { cls:'wk', t:'功能詞弱讀 → schwa',    eg:'what are you', ipa:'<wk>wɑːɾɚjə</wk>',      note:'of/to/and/your… 全塌成 ə，你的核心關卡' },
+]
+
 function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpSignal, myProduceJumpSignal, blindJumpSignal, listenLibJumpSignal, trainingJumpSignal, onListenDue, onReturnFromKb }) {
   const [db, setDb] = useState(() => {
     try {
@@ -15508,12 +15525,14 @@ Return ONLY a JSON object, no markdown:
 請分析這句在「自然語速的真實口語」中會發生哪些音變，並回傳 JSON（不要 markdown、不要多餘文字）：
 
 {
-  "ipa": "整句的實際發音音標（不是字典音標，是連讀後的實際樣子），用標記包住變化處：
-          <w>…</w> = 弱讀 / 縮讀（功能詞塌陷成 schwa，例如 does → dəz、what do you → wɑːdəjuː）
-          <l>…</l> = 連讀（兩個字黏成一團）
-          <d>…</d> = 失去爆破 / 吞音（該音只做嘴型、幾乎不發出來）
-          <f>…</f> = 音變（例如 /t/ 變成 /n/、彈舌 /ɾ/）
-          <i>…</i> = 插入音（元音接元音時插入的 /w/ /j/ /r/，例如 grow up → grəʊʷʌp）
+  "enMarked": "把「英文原文」本身標記起來（保留原本的拼字與標點，只加標籤）：
+          <d>…</d> = 這幾個字母不發音 / 失去爆破（例如 didn<d>'t</d>、wan<d>ted</d>）
+          <l>…</l> = 這幾個字要連讀黏在一起（例如 <l>want to</l>）
+          <w>…</w> = 這個字被弱讀（例如 <w>does</w>、<w>of</w>）
+          <f>…</f> = 音變 / 彈舌
+          範例：I di<d>d</d>n'<d>t</d> <l>want to</l> be ordinary.",
+  "ipa": "整句的實際發音音標（不是字典音標，是連讀後的實際樣子），同樣用上面五種標籤：
+          <w>弱讀</w> <l>連讀</l> <d>不發音</d> <f>音變</f> <i>插入音</i>
           範例：I don't want it. → aɪ dəʊn<d>t</d> wɑː<f>n</f><l>nɪt</l>
           範例：Where does it hurt? → wer <w>dəz</w><l>ɪt</l><d>t</d> hɜːrt",
   "rules": ["用繁體中文寫出音變規則，每條一句話，2~5 條"],
@@ -15534,9 +15553,9 @@ Return ONLY a JSON object, no markdown:
   }
 
   // 把帶標記的音標渲染成彩色（<d>綠+刪除線 <f>橘+底線 <l>藍）
-  function MarkedIPA({ text }) {
+  function MarkedIPA({ text, size = 14 }) {
     const parts = []
-    const re = /<([dfl])>(.*?)<\/\1>/g
+    const re = /<(wk|lk|si|ch|gl|nw)>(.*?)<\/\1>/g
     let last = 0, m
     const src = String(text ?? '')
     while ((m = re.exec(src)) !== null) {
@@ -15550,10 +15569,11 @@ Return ONLY a JSON object, no markdown:
       l: { color:'#38bdf8', borderBottom:'2px dotted #38bdf8' },                     // 連讀（藍）
       d: { color:'#4ade80', textDecoration:'line-through', textDecorationThickness:'2px' }, // 失去爆破/吞音（綠）
       f: { color:'#fb923c', borderBottom:'2px solid #fb923c' },                      // 音變（橘）
-      i: { color:'#f87171', fontWeight:700, fontSize:13, verticalAlign:'super' },    // 插入音（紅，上標）
+      i: { color:'#f87171', fontWeight:700, fontSize:'0.8em', verticalAlign:'super' },  // 插入音（紅，上標）
     }
     return (
-      <span style={{ fontFamily:MONO, fontSize:17, color:T.txt, letterSpacing:'0.02em', lineHeight:1.7 }}>
+      <span style={{ fontFamily:MONO, fontSize:size, color:T.txt, letterSpacing:'0.01em', lineHeight:1.8,
+        overflowWrap:'break-word' }}>
         {parts.map((x, i) => <span key={i} style={x.k ? STY[x.k] : undefined}>{x.t}</span>)}
       </span>
     )
@@ -15623,6 +15643,31 @@ Return ONLY a JSON object, no markdown:
   function tapWord(phraseId, word, sentence) {
     if (FUNC_WORDS.has(normWord(word))) { setVocabConfirm({ word, sentence, phraseId }); return }
     lookupWord(phraseId, word, sentence)
+  }
+
+  // ── 👆 長按才查單字（輕碰不觸發）──
+  // 之前 onClick 一碰就跳字卡，練習時手指掃過就誤觸。改成按住 ~350ms 才觸發。
+  const pressTimerRef = useRef(null)
+  const pressFiredRef = useRef(false)
+  function longPress(phraseId, word, sentence) {
+    const start = (e) => {
+      pressFiredRef.current = false
+      clearTimeout(pressTimerRef.current)
+      pressTimerRef.current = setTimeout(() => {
+        pressFiredRef.current = true
+        if (navigator.vibrate) { try { navigator.vibrate(15) } catch(e) {} }  // 觸發時震一下，給回饋
+        tapWord(phraseId, word, sentence)
+      }, 350)
+    }
+    const cancel = () => clearTimeout(pressTimerRef.current)
+    return {
+      onPointerDown: start,
+      onPointerUp: cancel,
+      onPointerLeave: cancel,
+      onPointerCancel: cancel,
+      // 點一下（沒按住）給個提示，讓人知道要長按
+      onClick: () => { if (!pressFiredRef.current) showMovieToast('👆 長按單字才會查詞（避免誤觸）') },
+    }
   }
 
   // 🐢🚶🏃 共用語速控制列（之前只藏在「未送出的聽寫卡」裡，送出後就消失，找不到）
@@ -19645,7 +19690,7 @@ Steven 不是在收藏電影台詞。
                         {dictResult[p.id].tokens.map((t, i) => {
                           const orig = t.raw ?? t.w
                           return (
-                            <span key={i} onClick={() => tapWord(p.id, t.raw.replace(/[^A-Za-z0-9']/g,''), p.en)}
+                            <span key={i} {...longPress(p.id, t.raw.replace(/[^A-Za-z0-9']/g,''), p.en)}
                               title="點一下加入單字庫"
                               style={{
                               cursor:'pointer', userSelect:'none', WebkitUserSelect:'none', WebkitTouchCallout:'none', touchAction:'manipulation',
@@ -24031,7 +24076,7 @@ Steven 不是在收藏電影台詞。
                             {c.tokens.map((t, i) => {
                               const orig = t.raw ?? t.w
                               return (
-                                <span key={i} onClick={() => tapWord(cur.id, (t.raw ?? t.w).replace(/[^A-Za-z0-9']/g,''), cur.en)}
+                                <span key={i} {...longPress(cur.id, (t.raw ?? t.w).replace(/[^A-Za-z0-9']/g,''), cur.en)}
                                   title="點一下加入單字庫"
                                   style={{
                                   cursor:'pointer', userSelect:'none', WebkitUserSelect:'none', WebkitTouchCallout:'none', touchAction:'manipulation',
@@ -24069,13 +24114,15 @@ Steven 不是在收藏電影台詞。
                             <div style={{ background:'#1a1030', border:'1px solid #a78bfa40', borderRadius:9,
                               padding:'10px 12px', display:'flex', flexDirection:'column', gap:7,
                               minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
-                              <MarkedIPA text={cur.link.ipa}/>
-                              <div style={{ display:'flex', gap:9, flexWrap:'wrap', fontFamily:MONO, fontSize:8 }}>
-                                <span style={{ color:'#facc15', fontWeight:700 }}>弱讀 ← 你的關卡</span>
-                                <span style={{ color:'#38bdf8', borderBottom:'2px dotted #38bdf8' }}>連讀</span>
-                                <span style={{ color:'#4ade80', textDecoration:'line-through' }}>失去爆破</span>
-                                <span style={{ color:'#fb923c', borderBottom:'2px solid #fb923c' }}>音變</span>
-                                <span style={{ color:'#f87171', fontWeight:700 }}>插入音</span>
+                              {cur.link.en && <MarkedIPA text={cur.link.en} size={15}/>}
+                              <MarkedIPA text={cur.link.ipa} size={13}/>
+                              <div style={{ display:'flex', gap:8, flexWrap:'wrap', fontFamily:MONO, fontSize:8 }}>
+                                <span style={{ color:'#facc15', fontWeight:700 }}>弱讀</span>
+                                <span style={{ color:'#38bdf8', borderBottom:'1.5px solid #38bdf8' }}>連讀</span>
+                                <span style={{ color:'#4ade80', textDecoration:'line-through' }}>不發音</span>
+                                <span style={{ color:'#fb923c', borderBottom:'1.5px dotted #fb923c' }}>音變/彈舌</span>
+                                <span style={{ color:'#f87171', fontWeight:700 }}>滑音</span>
+                                <span style={{ color:T.txt, fontWeight:700 }}>生單詞</span>
                               </div>
                               {(cur.link.rules ?? []).map((r, i) => (
                                 <div key={i} style={{ fontFamily:MONO, fontSize:9, color:T.txt2, lineHeight:1.6 }}>
@@ -24266,7 +24313,7 @@ Steven 不是在收藏電影台詞。
                                     {tokenize(p.en).map((t, i) => {
                                       const miss = missSet.has(t.w)
                                       return (
-                                        <span key={i} onClick={() => tapWord(p.id, t.raw.replace(/[^A-Za-z0-9']/g,''), p.en)}
+                                        <span key={i} {...longPress(p.id, t.raw.replace(/[^A-Za-z0-9']/g,''), p.en)}
                                           title="點一下加入單字庫"
                                           style={{
                                           cursor:'pointer', userSelect:'none', WebkitUserSelect:'none', WebkitTouchCallout:'none', touchAction:'manipulation',
@@ -24311,7 +24358,7 @@ Steven 不是在收藏電影台詞。
                             })}
                             <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
                               橘底 = 你漏掉的字。綠色 = 抓到的。趁記憶還熱，用 🔁 三步驟把橘色的字聽回來。<br/>
-                              👆 點任何一個單字 → 加入單字庫。
+                              👆 長按任何一個單字 → 加入單字庫。
                             </div>
                           </div>
                         )}
@@ -24372,10 +24419,66 @@ Steven 不是在收藏電影台詞。
                     border:`1px solid ${T.amber}50` }}>
                   📋 訓練守則
                 </div>
+                <div onClick={() => setLinkTableOpen(v => !v)}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700, flexShrink:0,
+                    padding:'5px 10px', borderRadius:7,
+                    color: linkTableOpen ? '#1a1030' : '#a78bfa',
+                    background: linkTableOpen ? '#a78bfa' : '#1a1030',
+                    border:'1px solid #a78bfa50' }}>
+                  📖 連讀速查
+                </div>
                 <SpeedBar/>
               </div>
+              {linkTableOpen && (() => {
+                const weak = computeWeakWords(dictated, 2)
+                const clsScore = {}
+                weak.forEach(({ w, miss }) => { const k = classOf(w)
+                  const c = k === 'content' ? 'nw' : 'wk'; clsScore[c] = (clsScore[c] ?? 0) + miss })
+                const sorted = [...LINK_RULES].sort((a, b) => (clsScore[b.cls] ?? 0) - (clsScore[a.cls] ?? 0))
+                return (
+                  <div style={{ background:'#1a1030', border:'1px solid #a78bfa40', borderRadius:10,
+                    padding:'12px', display:'flex', flexDirection:'column', gap:8,
+                    minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
+                    <div style={{ fontFamily:MONO, fontSize:11, color:'#a78bfa', fontWeight:700 }}>
+                      📖 連讀速查表 · 11 條通則
+                    </div>
+                    <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
+                      單句解析講「這一句」為什麼聽不到；這張表是「所有句子」的共同規律。
+                      依你的診斷，最該看的排最前面。
+                    </div>
+                    {sorted.map((r, i) => {
+                      const isTop = i === 0
+                      return (
+                        <div key={i} style={{ display:'flex', flexDirection:'column', gap:3,
+                          background: isTop ? '#0f0a1f' : 'transparent',
+                          border: isTop ? '1px solid #a78bfa40' : 'none',
+                          borderLeft:'2px solid #a78bfa60', borderRadius: isTop ? 8 : 0,
+                          padding: isTop ? '8px 10px' : '3px 0 3px 9px' }}>
+                          <div style={{ fontFamily:MONO, fontSize:10, color:T.txt, fontWeight:700 }}>
+                            {isTop && <span style={{ color:'#a78bfa' }}>▶ </span>}{r.t}
+                          </div>
+                          <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+                            <span style={{ fontFamily:MONO, fontSize:11, color:T.txt2 }}>{r.eg}</span>
+                            <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>→</span>
+                            <MarkedIPA text={r.ipa} size={13}/>
+                          </div>
+                          <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>{r.note}</div>
+                        </div>
+                      )
+                    })}
+                    <div style={{ display:'flex', gap:8, flexWrap:'wrap', fontFamily:MONO, fontSize:8, marginTop:2 }}>
+                      <span style={{ color:'#facc15', fontWeight:700 }}>弱讀</span>
+                      <span style={{ color:'#38bdf8', borderBottom:'1.5px solid #38bdf8' }}>連讀</span>
+                      <span style={{ color:'#4ade80', textDecoration:'line-through' }}>不發音</span>
+                      <span style={{ color:'#fb923c', borderBottom:'1.5px dotted #fb923c' }}>音變/彈舌</span>
+                      <span style={{ color:'#f87171', fontWeight:700 }}>滑音</span>
+                    </div>
+                    <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>📴 不需網路、不用 AI，隨時可查。</div>
+                  </div>
+                )
+              })()}
               <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
-                👆 <b style={{ color:T.txt2 }}>點句子裡任何一個單字</b> → 查音標/中文 → 加入單字庫　·
+                👆 <b style={{ color:T.txt2 }}>長按句子裡任何一個單字</b> → 查音標/中文 → 加入單字庫　·
                 🔊 點連音塊 → 只播那一小段電影原音
               </div>
               {(() => {
@@ -24553,7 +24656,7 @@ Steven 不是在收藏電影台詞。
                         {tokenize(p.en).map((t, i) => {
                           const wasMissed = missSet.has(t.w)
                           return (
-                            <span key={i} onClick={() => tapWord(p.id, t.raw.replace(/[^A-Za-z0-9']/g,''), p.en)}
+                            <span key={i} {...longPress(p.id, t.raw.replace(/[^A-Za-z0-9']/g,''), p.en)}
                               title="點一下加入單字庫"
                               style={{
                               cursor:'pointer', userSelect:'none', WebkitUserSelect:'none', WebkitTouchCallout:'none', touchAction:'manipulation',
@@ -24586,13 +24689,15 @@ Steven 不是在收藏電影台詞。
                       <div style={{ background:'#1a1030', border:'1px solid #a78bfa40', borderRadius:9,
                         padding:'10px 12px', display:'flex', flexDirection:'column', gap:7,
                         minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
-                        <MarkedIPA text={p.link.ipa}/>
-                        <div style={{ display:'flex', gap:9, flexWrap:'wrap', fontFamily:MONO, fontSize:8 }}>
-                          <span style={{ color:'#facc15', fontWeight:700 }}>弱讀 ← 你的關卡</span>
-                          <span style={{ color:'#38bdf8', borderBottom:'2px dotted #38bdf8' }}>連讀</span>
-                          <span style={{ color:'#4ade80', textDecoration:'line-through' }}>失去爆破</span>
-                          <span style={{ color:'#fb923c', borderBottom:'2px solid #fb923c' }}>音變</span>
-                          <span style={{ color:'#f87171', fontWeight:700 }}>插入音</span>
+                        {p.link.en && <MarkedIPA text={p.link.en} size={15}/>}
+                        <MarkedIPA text={p.link.ipa} size={13}/>
+                        <div style={{ display:'flex', gap:8, flexWrap:'wrap', fontFamily:MONO, fontSize:8 }}>
+                          <span style={{ color:'#facc15', fontWeight:700 }}>弱讀</span>
+                          <span style={{ color:'#38bdf8', borderBottom:'1.5px solid #38bdf8' }}>連讀</span>
+                          <span style={{ color:'#4ade80', textDecoration:'line-through' }}>不發音</span>
+                          <span style={{ color:'#fb923c', borderBottom:'1.5px dotted #fb923c' }}>音變/彈舌</span>
+                          <span style={{ color:'#f87171', fontWeight:700 }}>滑音</span>
+                          <span style={{ color:T.txt, fontWeight:700 }}>生單詞</span>
                         </div>
                         {(p.link.rules ?? []).length > 0 && (
                           <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
@@ -24615,7 +24720,7 @@ Steven 不是在收藏電影台詞。
                                 <span style={{ fontSize:12 }}>🔊</span>
                                 <span style={{ fontFamily:MONO, fontSize:11, color:T.txt2 }}>{c.en}</span>
                                 <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>→</span>
-                                <span style={{ fontFamily:MONO, fontSize:13, color:'#a78bfa', fontWeight:700 }}>{c.ipa}</span>
+                                <MarkedIPA text={c.ipa} size={13}/>
                               </span>
                             ))}
                           </div>
@@ -24703,7 +24808,7 @@ Steven 不是在收藏電影台詞。
                               <div style={{ fontFamily:MONO, fontSize:13, lineHeight:1.9,
                                 minWidth:0, maxWidth:'100%', overflowWrap:'break-word' }}>
                                 {res.tokens.map((t, i) => (
-                                  <span key={i} onClick={() => tapWord(p.id, (t.raw ?? t.w).replace(/[^A-Za-z0-9']/g,''), p.en)}
+                                  <span key={i} {...longPress(p.id, (t.raw ?? t.w).replace(/[^A-Za-z0-9']/g,''), p.en)}
                                     style={{
                                       cursor:'pointer', userSelect:'none', WebkitUserSelect:'none',
                                       WebkitTouchCallout:'none', touchAction:'manipulation',
