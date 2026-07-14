@@ -7350,7 +7350,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.12</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.13</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -15484,6 +15484,17 @@ Return ONLY a JSON object, no markdown:
       el.addEventListener('canplay', onReady)
       loadAudioFile(targetFile)
     } else play()
+  }
+
+  // ── 🚫 排除此句：AI 評分再準，還是會有漏網的垃圾句（產品名、檔案格式、專有名詞堆）──
+  // 排除 = 移出盲聽池 + 移出聽力庫。診斷紀錄保留（不騙自己），但不再出現在練習裡。
+  function excludeFromBlind(p) {
+    updatePhraseAnyScene(p.id, x => ({
+      ...x,
+      noBlind: true,
+      dict: x.dict ? { ...x.dict, lib: false } : x.dict,
+    }))
+    showMovieToast(`🚫 已排除，不再出現在盲聽`)
   }
 
   // 🐢🚶🏃 共用語速控制列（之前只藏在「未送出的聽寫卡」裡，送出後就消失，找不到）
@@ -23930,11 +23941,20 @@ Steven 不是在收藏電影台詞。
                               ? (threeStep.step === 1 ? '① 🎬 電影原音…' : threeStep.step === 2 ? '② 🔊 系統音…' : '③ 🎬 回聽 ← 關鍵')
                               : '🔁 三步驟對照（電影 → 系統 → 電影）'}
                           </div>
-                          <div onClick={() => { stopThreeStep(); setTrainIdx(i => i + 1) }}
-                            style={{ cursor:'pointer', textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
-                              padding:'10px 0', borderRadius:8,
-                              background:T.amberD, color:T.amber, border:`1px solid ${T.amber}60` }}>
-                            下一句 →
+                          <div style={{ display:'flex', gap:8 }}>
+                            <div onClick={() => { stopThreeStep(); setTrainIdx(i => i + 1) }}
+                              style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
+                                padding:'10px 0', borderRadius:8,
+                                background:T.amberD, color:T.amber, border:`1px solid ${T.amber}60` }}>
+                              下一句 →
+                            </div>
+                            <div onClick={() => { excludeFromBlind(cur); stopThreeStep(); setTrainIdx(i => i + 1) }}
+                              title="這句沒有學習價值，排除掉"
+                              style={{ cursor:'pointer', flexShrink:0, fontFamily:MONO, fontSize:10,
+                                padding:'10px 12px', borderRadius:8,
+                                background:T.surf2, color:T.txt3, border:`1px solid ${T.bdr}` }}>
+                              🚫 排除
+                            </div>
                           </div>
                         </div>
                       )
@@ -24487,6 +24507,13 @@ Steven 不是在收藏電影台詞。
                             color: shadowId === p.id ? '#1a1030' : '#a78bfa',
                             border:'1px solid #a78bfa60' }}>
                           🗣 跟讀
+                        </div>
+                        <div onClick={() => excludeFromBlind(p)}
+                          title="這句沒有學習價值，排除掉"
+                          style={{ cursor:'pointer', fontFamily:MONO, fontSize:10,
+                            padding:'7px 10px', borderRadius:7,
+                            background:T.surf2, color:T.txt3, border:`1px solid ${T.bdr}` }}>
+                          🚫 排除
                         </div>
                       </div>
                     )}
