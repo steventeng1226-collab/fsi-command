@@ -7,6 +7,14 @@ const G = `
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Cinzel:wght@500;700&family=Crimson+Pro:ital,wght@0,300;0,400;1,300;1,400&display=swap');
   *{box-sizing:border-box;margin:0;padding:0;}
   body{background:#050810;overscroll-behavior:none;}
+  /* Android Chrome 會把「按住一下」判成選取文字，跳出「複製/分享/翻譯」原生選單，
+     把我們的 onClick 吃掉。所有可點元素一律停用文字選取與長按選單。
+     輸入框與 textarea 例外（那裡本來就需要選字）。 */
+  [style*="cursor:pointer"],[style*="cursor: pointer"]{
+    -webkit-user-select:none;user-select:none;
+    -webkit-touch-callout:none;touch-action:manipulation;
+  }
+  input,textarea{-webkit-user-select:text;user-select:text;}
   @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
   @keyframes spin{to{transform:rotate(360deg)}}
@@ -7350,7 +7358,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.13</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.15</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -19519,7 +19527,7 @@ Steven 不是在收藏電影台詞。
                             <span key={i} onClick={() => quickAddVocab(t.w, p.en)}
                               title="點一下加入單字庫"
                               style={{
-                              cursor:'pointer',
+                              cursor:'pointer', userSelect:'none', WebkitUserSelect:'none', WebkitTouchCallout:'none', touchAction:'manipulation',
                               color: t.hit ? T.grn : T.txt3,
                               background: t.hit ? '#0a3a1a' : 'transparent',
                               textDecoration: t.hit ? 'none' : 'underline',
@@ -23902,7 +23910,7 @@ Steven 不是在收藏電影台詞。
                                 <span key={i} onClick={() => quickAddVocab(t.w, cur.en)}
                                   title="點一下加入單字庫"
                                   style={{
-                                  cursor:'pointer',
+                                  cursor:'pointer', userSelect:'none', WebkitUserSelect:'none', WebkitTouchCallout:'none', touchAction:'manipulation',
                                   color: t.hit ? T.grn : T.txt3,
                                   background: t.hit ? '#0a3a1a' : 'transparent',
                                   textDecoration: t.hit ? 'none' : 'underline', textDecorationStyle:'dotted',
@@ -24101,7 +24109,7 @@ Steven 不是在收藏電影台詞。
                                         <span key={i} onClick={() => quickAddVocab(t.w, p.en)}
                                           title="點一下加入單字庫"
                                           style={{
-                                          cursor:'pointer',
+                                          cursor:'pointer', userSelect:'none', WebkitUserSelect:'none', WebkitTouchCallout:'none', touchAction:'manipulation',
                                           color: miss ? T.amber : T.grn,
                                           background: miss ? T.amberD : 'transparent',
                                           fontWeight: miss ? 700 : 400,
@@ -24141,7 +24149,8 @@ Steven 不是在收藏電影台詞。
                               )
                             })}
                             <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
-                              橘底 = 你漏掉的字。綠色 = 抓到的。趁記憶還熱，用 🔁 三步驟把橘色的字聽回來。
+                              橘底 = 你漏掉的字。綠色 = 抓到的。趁記憶還熱，用 🔁 三步驟把橘色的字聽回來。<br/>
+                              👆 點任何一個單字 → 加入單字庫。
                             </div>
                           </div>
                         )}
@@ -24202,6 +24211,10 @@ Steven 不是在收藏電影台詞。
                   📋 訓練守則
                 </div>
                 <SpeedBar/>
+              </div>
+              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
+                👆 <b style={{ color:T.txt2 }}>點句子裡任何一個單字</b> → 查音標/中文 → 加入單字庫　·
+                🔊 點連音塊 → 只播那一小段電影原音
               </div>
               {rulesOpen && (
                 <div style={{ display:'flex', flexDirection:'column', gap:9,
@@ -24360,7 +24373,7 @@ Steven 不是在收藏電影台詞。
                             <span key={i} onClick={() => quickAddVocab(t.w, p.en)}
                               title="點一下加入單字庫"
                               style={{
-                              cursor:'pointer',
+                              cursor:'pointer', userSelect:'none', WebkitUserSelect:'none', WebkitTouchCallout:'none', touchAction:'manipulation',
                               color: wasMissed ? T.amber : T.txt,
                               background: wasMissed ? T.amberD : 'transparent',
                               fontWeight: wasMissed ? 700 : 400,
@@ -24392,7 +24405,8 @@ Steven 不是在收藏電影台詞。
                         <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
                           {chunks.map((c, i) => (
                             <span key={i} onClick={() => playChunk(p, libWord)}
-                              style={{ cursor:'pointer', display:'inline-flex', alignItems:'center', gap:5,
+                              style={{ cursor:'pointer', userSelect:'none', WebkitUserSelect:'none', WebkitTouchCallout:'none',
+                              touchAction:'manipulation', display:'inline-flex', alignItems:'center', gap:5,
                               background:'#1a1030', border:'1px solid #a78bfa40', borderRadius:7,
                               padding:'4px 9px' }}>
                               <span style={{ fontSize:12 }}>🔊</span>
@@ -24536,7 +24550,8 @@ Steven 不是在收藏電影台詞。
                             <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
                               {chunks.map((c, i) => (
                                 <div key={i} onClick={() => playChunk(p, target)}
-                                  style={{ cursor:'pointer', display:'flex', alignItems:'center', gap:8, flexWrap:'wrap',
+                                  style={{ cursor:'pointer', userSelect:'none', WebkitUserSelect:'none', WebkitTouchCallout:'none',
+                                  touchAction:'manipulation', display:'flex', alignItems:'center', gap:8, flexWrap:'wrap',
                                   background:'#0f0a1f', border:'1px solid #a78bfa25', borderRadius:8, padding:'8px 10px' }}>
                                   <span style={{ fontSize:15 }}>🔊</span>
                                   <span style={{ fontFamily:MONO, fontSize:13, color:T.txt, fontWeight:700 }}>{c.text}</span>
