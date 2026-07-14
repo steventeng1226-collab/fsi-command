@@ -7358,7 +7358,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.15</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.22</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13948,6 +13948,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const shadowRecRef    = useRef(null)
   const shadowChunksRef = useRef([])
   const [recDur,    setRecDur]    = useState({})     // { pid: 你唸的秒數（切掉頭尾靜音）}
+  const [linkBusy,  setLinkBusy]  = useState(null)   // 正在做連音解析的句子 id
   const [asrBusy,   setAsrBusy]   = useState(null)   // 正在辨識的句子 id
   const [asrResult, setAsrResult] = useState({})     // { pid: { text, cmp } }
   const asrRef = useRef(null)
@@ -15494,6 +15495,70 @@ Return ONLY a JSON object, no markdown:
     } else play()
   }
 
+  // ── 🎬 連音解析（v6.21）：AI 產出「帶標記的音標」，前端上色 ──
+  // 標記語法：<d>失去爆破</d> <f>音變</f> <l>連讀</l>
+  // 結果存進句子（p.link），只查一次，之後離線也看得到。
+  async function analyzeLinking(p) {
+    if (linkBusy) return
+    setLinkBusy(p.id)
+    try {
+      const sys = '你是英語連音（connected speech）教練，專門教台灣學習者聽懂真實語流。一律使用繁體中文。'
+      const usr = `句子："${p.en}"
+
+請分析這句在「自然語速的真實口語」中會發生哪些音變，並回傳 JSON（不要 markdown、不要多餘文字）：
+
+{
+  "ipa": "整句的實際發音音標（不是字典音標，是連讀後的實際樣子），用標記包住變化處：
+          <w>…</w> = 弱讀 / 縮讀（功能詞塌陷成 schwa，例如 does → dəz、what do you → wɑːdəjuː）
+          <l>…</l> = 連讀（兩個字黏成一團）
+          <d>…</d> = 失去爆破 / 吞音（該音只做嘴型、幾乎不發出來）
+          <f>…</f> = 音變（例如 /t/ 變成 /n/、彈舌 /ɾ/）
+          <i>…</i> = 插入音（元音接元音時插入的 /w/ /j/ /r/，例如 grow up → grəʊʷʌp）
+          範例：I don't want it. → aɪ dəʊn<d>t</d> wɑː<f>n</f><l>nɪt</l>
+          範例：Where does it hurt? → wer <w>dəz</w><l>ɪt</l><d>t</d> hɜːrt",
+  "rules": ["用繁體中文寫出音變規則，每條一句話，2~5 條"],
+  "chunks": [{"en":"does it","ipa":"dəzɪt"}],
+  "listen": "一句話：聽的時候該去聽什麼線索（而不是去找那個字的聲音）"
+}
+
+重點：這位學習者的診斷結果是「功能詞（介系詞/冠詞/be動詞）漏聽率 100%」，
+所以「弱讀」是他的核心問題 —— 只要句子裡有功能詞被弱讀，一定要標出來。`
+      const raw = await callAI([{ role:'user', content: usr }], sys)
+      const data = JSON.parse(String(raw).replace(/```json|```/g, '').trim())
+      updatePhraseAnyScene(p.id, x => ({ ...x, link: data }))
+    } catch (e) {
+      showMovieToast('⚠ 連音解析失敗：' + (e?.message ?? ''))
+    } finally {
+      setLinkBusy(null)
+    }
+  }
+
+  // 把帶標記的音標渲染成彩色（<d>綠+刪除線 <f>橘+底線 <l>藍）
+  function MarkedIPA({ text }) {
+    const parts = []
+    const re = /<([dfl])>(.*?)<\/\1>/g
+    let last = 0, m
+    const src = String(text ?? '')
+    while ((m = re.exec(src)) !== null) {
+      if (m.index > last) parts.push({ t: src.slice(last, m.index) })
+      parts.push({ t: m[2], k: m[1] })
+      last = re.lastIndex
+    }
+    if (last < src.length) parts.push({ t: src.slice(last) })
+    const STY = {
+      w: { color:'#facc15', fontWeight:700 },                                        // 弱讀/縮讀（黃）← 你的核心問題
+      l: { color:'#38bdf8', borderBottom:'2px dotted #38bdf8' },                     // 連讀（藍）
+      d: { color:'#4ade80', textDecoration:'line-through', textDecorationThickness:'2px' }, // 失去爆破/吞音（綠）
+      f: { color:'#fb923c', borderBottom:'2px solid #fb923c' },                      // 音變（橘）
+      i: { color:'#f87171', fontWeight:700, fontSize:13, verticalAlign:'super' },    // 插入音（紅，上標）
+    }
+    return (
+      <span style={{ fontFamily:MONO, fontSize:17, color:T.txt, letterSpacing:'0.02em', lineHeight:1.7 }}>
+        {parts.map((x, i) => <span key={i} style={x.k ? STY[x.k] : undefined}>{x.t}</span>)}
+      </span>
+    )
+  }
+
   // ── 🚫 排除此句：AI 評分再準，還是會有漏網的垃圾句（產品名、檔案格式、專有名詞堆）──
   // 排除 = 移出盲聽池 + 移出聽力庫。診斷紀錄保留（不騙自己），但不再出現在練習裡。
   function excludeFromBlind(p) {
@@ -15503,6 +15568,61 @@ Return ONLY a JSON object, no markdown:
       dict: x.dict ? { ...x.dict, lib: false } : x.dict,
     }))
     showMovieToast(`🚫 已排除，不再出現在盲聽`)
+  }
+
+  // ── 📖 單字卡（跟場景頁同一張）：先看音標/詞性/中文，再決定要不要加 ──
+  // 之前聽力庫是「點了直接塞進單字庫」，少了「先看再決定」這一步。
+  function WordCard({ phraseId }) {
+    if (inlineLookup?.phraseId !== phraseId) return null
+    return (
+      <div style={{ marginTop:4, background:T.surf2, border:`1px solid ${T.amber}50`, borderRadius:10,
+        padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }} className="fadeUp">
+        <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+          <span style={{ fontFamily:MONO, fontSize:15, color:T.amber, fontWeight:700 }}>{inlineLookup.word}</span>
+          {inlineLookup.info && (
+            <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>{inlineLookup.info.phonetic}</span>
+          )}
+          {inlineLookup.info?.pos && (
+            <span style={{ fontFamily:MONO, fontSize:9, color:T.blue, background:T.blueD,
+              border:`1px solid ${T.blue}40`, borderRadius:6, padding:'2px 7px' }}>{inlineLookup.info.pos}</span>
+          )}
+          <span onClick={() => speak(inlineLookup.word, 0.8)} title="播放發音"
+            style={{ cursor:'pointer', fontSize:14, padding:'2px 6px', background:T.surf,
+              borderRadius:6, border:`1px solid ${T.bdr}`, userSelect:'none' }}>🔊</span>
+          {inlineLookup.busy && (
+            <span style={{ display:'inline-block', width:8, height:8, border:'1.5px solid transparent',
+              borderTopColor:T.amber, borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>
+          )}
+          <span onClick={() => setInlineLookup(null)}
+            style={{ marginLeft:'auto', cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
+              padding:'1px 6px', background:T.surf, borderRadius:5, border:`1px solid ${T.bdr}` }}>✕</span>
+        </div>
+        {inlineLookup.info && (
+          <>
+            <div style={{ fontFamily:MONO, fontSize:12, color:T.txt2 }}>{inlineLookup.info.zh}</div>
+            <div onClick={() => {
+                addToVocab(inlineLookup.word, inlineLookup.info.phonetic,
+                  inlineLookup.info.zh, inlineLookup.info.example, inlineLookup.info.pos)
+                showMovieToast(`✓ 「${inlineLookup.word}」已加入單字庫`)
+                setInlineLookup(null)
+              }}
+              style={{ cursor:'pointer', background:T.blue, borderRadius:8, padding:'9px',
+                textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700, color:'#fff' }}>
+              ＋ 加入單字庫
+            </div>
+          </>
+        )}
+        {inlineLookup.busy && (
+          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, textAlign:'center' }}>AI 查詢中…</div>
+        )}
+      </div>
+    )
+  }
+
+  // 點單字：功能詞先攔一次，其餘直接查字卡
+  function tapWord(phraseId, word, sentence) {
+    if (FUNC_WORDS.has(normWord(word))) { setVocabConfirm({ word, sentence, phraseId }); return }
+    lookupWord(phraseId, word, sentence)
   }
 
   // 🐢🚶🏃 共用語速控制列（之前只藏在「未送出的聽寫卡」裡，送出後就消失，找不到）
@@ -16597,7 +16717,8 @@ ${numbered}`
     try {
       const prompt = `For the English word/phrase "${word}" used in: "${sentence}"
 Return ONLY a JSON object, no markdown:
-{"phonetic":"/IPA/","pos":"詞性（例如：名詞/動詞/形容詞/副詞/介系詞/連接詞/片語，用繁體中文2-4字表示）","zh":"中文意思（3~5字）","example":"${sentence}"}`
+{"phonetic":"/IPA/","pos":"詞性（例如：名詞/動詞/形容詞/副詞/介系詞/連接詞/片語，用繁體中文2-4字表示）","zh":"中文意思（3~5字，一定要用繁體中文，不可用簡體字）","example":"${sentence}"}
+IMPORTANT: zh must be Traditional Chinese (繁體中文), never Simplified. Give the meaning as used in THIS sentence.`
       const raw = await callAI([{ role:'user', content:prompt }])
       const info = JSON.parse(raw.replace(/```json|```/g,'').trim())
       setInlineLookup(prev => prev?.word === word ? { ...prev, busy: false, info } : prev)
@@ -19524,7 +19645,7 @@ Steven 不是在收藏電影台詞。
                         {dictResult[p.id].tokens.map((t, i) => {
                           const orig = t.raw ?? t.w
                           return (
-                            <span key={i} onClick={() => quickAddVocab(t.w, p.en)}
+                            <span key={i} onClick={() => tapWord(p.id, t.raw.replace(/[^A-Za-z0-9']/g,''), p.en)}
                               title="點一下加入單字庫"
                               style={{
                               cursor:'pointer', userSelect:'none', WebkitUserSelect:'none', WebkitTouchCallout:'none', touchAction:'manipulation',
@@ -23737,7 +23858,9 @@ Steven 不是在收藏電影台詞。
                     padding:'10px 0', borderRadius:8, background:'#38bdf8', color:'#0d2a3a' }}>
                   取消
                 </div>
-                <div onClick={() => { const v = vocabConfirm; setVocabConfirm(null); quickAddVocab(v.word, v.sentence, true) }}
+                <div onClick={() => { const v = vocabConfirm; setVocabConfirm(null)
+                                      if (v.phraseId) lookupWord(v.phraseId, v.word, v.sentence)
+                                      else quickAddVocab(v.word, v.sentence, true) }}
                   style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:11,
                     padding:'10px 0', borderRadius:8, background:T.surf2, color:T.txt3, border:`1px solid ${T.bdr}` }}>
                   還是要加
@@ -23760,7 +23883,8 @@ Steven 不是在收藏電影台詞。
             .sort((a, b) => (a.dict.first?.rate ?? 100) - (b.dict.first?.rate ?? 100))
             .slice(0, 5)
           // ③ 今日 Top1 弱點字（依漏掉率，不是次數 —— 否則永遠是 the/i/and）
-          const dictatedT = all.filter(p => p.dict?.first)
+          // ⚠ 一定要濾掉 noBlind：不然排除掉的垃圾句還是會污染弱點排行與診斷結論
+          const dictatedT = all.filter(p => p.dict?.first && !p.noBlind)
           const topWord = computeWeakWords(dictatedT)[0] ?? null
           const topWordSents = topWord
             ? dictatedT.filter(p => (p.dict.first.miss ?? []).includes(topWord.w)).length : 0
@@ -23907,7 +24031,7 @@ Steven 不是在收藏電影台詞。
                             {c.tokens.map((t, i) => {
                               const orig = t.raw ?? t.w
                               return (
-                                <span key={i} onClick={() => quickAddVocab(t.w, cur.en)}
+                                <span key={i} onClick={() => tapWord(cur.id, (t.raw ?? t.w).replace(/[^A-Za-z0-9']/g,''), cur.en)}
                                   title="點一下加入單字庫"
                                   style={{
                                   cursor:'pointer', userSelect:'none', WebkitUserSelect:'none', WebkitTouchCallout:'none', touchAction:'manipulation',
@@ -23926,6 +24050,7 @@ Steven 不是在收藏電影台詞。
                               {cur.zh}
                             </div>
                           )}
+                          <WordCard phraseId={cur.id}/>
                           <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
                             <span style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:lv.c,
                               background:lv.c+'20', border:`1px solid ${lv.c}50`, padding:'2px 8px', borderRadius:6 }}>{lv.label}</span>
@@ -23939,30 +24064,65 @@ Steven 不是在收藏電影台詞。
                               ))}
                             </div>
                           )}
-                          <div onClick={() => playThreeStep(cur)}
-                            style={{ cursor:'pointer', textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
-                              padding:'8px 0', borderRadius:8,
-                              background: threeStep?.pid === cur.id ? '#38bdf8' : T.surf2,
-                              color: threeStep?.pid === cur.id ? '#0d2a3a' : '#38bdf8',
-                              border:'1px solid #38bdf850' }}>
-                            {threeStep?.pid === cur.id
-                              ? (threeStep.step === 1 ? '① 🎬 電影原音…' : threeStep.step === 2 ? '② 🔊 系統音…' : '③ 🎬 回聽 ← 關鍵')
-                              : '🔁 三步驟對照（電影 → 系統 → 電影）'}
-                          </div>
+                          {/* 🎬 連音解析：剛聽寫完、記憶最熱的時候，才是看解析的最佳時機 */}
+                          {cur.link ? (
+                            <div style={{ background:'#1a1030', border:'1px solid #a78bfa40', borderRadius:9,
+                              padding:'10px 12px', display:'flex', flexDirection:'column', gap:7,
+                              minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
+                              <MarkedIPA text={cur.link.ipa}/>
+                              <div style={{ display:'flex', gap:9, flexWrap:'wrap', fontFamily:MONO, fontSize:8 }}>
+                                <span style={{ color:'#facc15', fontWeight:700 }}>弱讀 ← 你的關卡</span>
+                                <span style={{ color:'#38bdf8', borderBottom:'2px dotted #38bdf8' }}>連讀</span>
+                                <span style={{ color:'#4ade80', textDecoration:'line-through' }}>失去爆破</span>
+                                <span style={{ color:'#fb923c', borderBottom:'2px solid #fb923c' }}>音變</span>
+                                <span style={{ color:'#f87171', fontWeight:700 }}>插入音</span>
+                              </div>
+                              {(cur.link.rules ?? []).map((r, i) => (
+                                <div key={i} style={{ fontFamily:MONO, fontSize:9, color:T.txt2, lineHeight:1.6 }}>
+                                  {i + 1}. {r}
+                                </div>
+                              ))}
+                              {cur.link.listen && (
+                                <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, lineHeight:1.6, fontWeight:700 }}>
+                                  👉 {cur.link.listen}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div onClick={() => analyzeLinking(cur)}
+                              style={{ cursor:'pointer', textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
+                                padding:'8px 0', borderRadius:8,
+                                background: linkBusy === cur.id ? '#a78bfa' : '#1a1030',
+                                color: linkBusy === cur.id ? '#1a1030' : '#a78bfa',
+                                border:'1px solid #a78bfa50' }}>
+                              {linkBusy === cur.id ? '🎬 解析中…' : '🎬 連音解析（這句為什麼聽不到）'}
+                            </div>
+                          )}
+
+                          {/* 🔁 三步驟 與 下一句 分左右，避免誤按（之前上下堆疊，指頭常滑到） */}
                           <div style={{ display:'flex', gap:8 }}>
+                            <div onClick={() => playThreeStep(cur)}
+                              style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
+                                padding:'13px 0', borderRadius:8,
+                                background: threeStep?.pid === cur.id ? '#38bdf8' : T.surf2,
+                                color: threeStep?.pid === cur.id ? '#0d2a3a' : '#38bdf8',
+                                border:'1px solid #38bdf850' }}>
+                              {threeStep?.pid === cur.id
+                                ? (threeStep.step === 1 ? '① 🎬 電影原音…' : threeStep.step === 2 ? '② 🔊 系統音…' : '③ 🎬 回聽 ← 關鍵')
+                                : '🔁 三步驟對照'}
+                            </div>
                             <div onClick={() => { stopThreeStep(); setTrainIdx(i => i + 1) }}
                               style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
-                                padding:'10px 0', borderRadius:8,
+                                padding:'13px 0', borderRadius:8,
                                 background:T.amberD, color:T.amber, border:`1px solid ${T.amber}60` }}>
                               下一句 →
                             </div>
-                            <div onClick={() => { excludeFromBlind(cur); stopThreeStep(); setTrainIdx(i => i + 1) }}
-                              title="這句沒有學習價值，排除掉"
-                              style={{ cursor:'pointer', flexShrink:0, fontFamily:MONO, fontSize:10,
-                                padding:'10px 12px', borderRadius:8,
-                                background:T.surf2, color:T.txt3, border:`1px solid ${T.bdr}` }}>
-                              🚫 排除
-                            </div>
+                          </div>
+                          <div onClick={() => { excludeFromBlind(cur); stopThreeStep(); setTrainIdx(i => i + 1) }}
+                            title="這句沒有學習價值，排除掉"
+                            style={{ cursor:'pointer', alignSelf:'center', fontFamily:MONO, fontSize:9, color:T.txt3,
+                              padding:'5px 12px', borderRadius:6, opacity:0.7 }}>
+                            🚫 這句沒學習價值，排除
                           </div>
                         </div>
                       )
@@ -24106,7 +24266,7 @@ Steven 不是在收藏電影台詞。
                                     {tokenize(p.en).map((t, i) => {
                                       const miss = missSet.has(t.w)
                                       return (
-                                        <span key={i} onClick={() => quickAddVocab(t.w, p.en)}
+                                        <span key={i} onClick={() => tapWord(p.id, t.raw.replace(/[^A-Za-z0-9']/g,''), p.en)}
                                           title="點一下加入單字庫"
                                           style={{
                                           cursor:'pointer', userSelect:'none', WebkitUserSelect:'none', WebkitTouchCallout:'none', touchAction:'manipulation',
@@ -24125,6 +24285,7 @@ Steven 不是在收藏電影台詞。
                                       {p.zh}
                                     </div>
                                   )}
+                                  <WordCard phraseId={p.id}/>
                                   <div style={{ display:'flex', alignItems:'center', gap:7, flexWrap:'wrap' }}>
                                     <span style={{ fontFamily:MONO, fontSize:9, fontWeight:700, color:lv.c,
                                       background:lv.c+'20', border:`1px solid ${lv.c}50`, padding:'1px 7px', borderRadius:6 }}>
@@ -24184,7 +24345,8 @@ Steven 不是在收藏電影台詞。
             </div>
           )
           // 依「漏掉率」分群：出現越頻繁的字一定漏越多次，用次數排會被 the/i/and 洗版
-          const dictated = all.filter(p => p.dict?.first)
+          // ⚠ 一定要濾掉 noBlind：不然排除掉的句子還是會出現在弱點關卡
+          const dictated = all.filter(p => p.dict?.first && !p.noBlind)
           const weakWords = computeWeakWords(dictated)
           const shown = libWord ? dictated.filter(p => (p.dict.first.miss ?? []).includes(libWord))
                       : libDueOnly ? due : lib
@@ -24216,6 +24378,27 @@ Steven 不是在收藏電影台詞。
                 👆 <b style={{ color:T.txt2 }}>點句子裡任何一個單字</b> → 查音標/中文 → 加入單字庫　·
                 🔊 點連音塊 → 只播那一小段電影原音
               </div>
+              {(() => {
+                const excluded = all.filter(p => p.noBlind)
+                if (excluded.length === 0) return null
+                return (
+                  <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap',
+                    fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                    <span>🚫 已排除 <b style={{ color:T.txt2 }}>{excluded.length}</b> 句（不列入弱點排行與診斷）</span>
+                    <span onClick={() => {
+                        saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : {
+                          ...m, scenes: m.scenes.map(sc => ({ ...sc, phrases: sc.phrases.map(x =>
+                            x.noBlind ? { ...x, noBlind: false } : x) }))
+                        })})
+                        showMovieToast('↩ 已還原全部排除的句子')
+                      }}
+                      style={{ cursor:'pointer', color:'#38bdf8', border:'1px solid #38bdf840',
+                        borderRadius:6, padding:'2px 8px' }}>
+                      ↩ 全部還原
+                    </span>
+                  </div>
+                )
+              })()}
               {rulesOpen && (
                 <div style={{ display:'flex', flexDirection:'column', gap:9,
                   background:T.surf, border:`1px solid ${T.amber}30`, borderRadius:9, padding:'10px 11px' }}>
@@ -24370,7 +24553,7 @@ Steven 不是在收藏電影台詞。
                         {tokenize(p.en).map((t, i) => {
                           const wasMissed = missSet.has(t.w)
                           return (
-                            <span key={i} onClick={() => quickAddVocab(t.w, p.en)}
+                            <span key={i} onClick={() => tapWord(p.id, t.raw.replace(/[^A-Za-z0-9']/g,''), p.en)}
                               title="點一下加入單字庫"
                               style={{
                               cursor:'pointer', userSelect:'none', WebkitUserSelect:'none', WebkitTouchCallout:'none', touchAction:'manipulation',
@@ -24390,6 +24573,7 @@ Steven 不是在收藏電影台詞。
                         {p.zh}
                       </div>
                     )}
+                    <WordCard phraseId={p.id}/>
                     <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
                       首次 全詞 {f.rate}% · 實詞 {f.cRate}%
                       {p.dict.count > 1 && ` · 最近 全詞 ${p.dict.last.rate}%`}
@@ -24397,8 +24581,64 @@ Steven 不是在收藏電影台詞。
                       {isDue && <span style={{ color:T.amber, fontWeight:700 }}> · ⏰ 今天可重測</span>}
                     </div>
 
-                    {/* 弱點關卡模式：連音塊直接展開，不用再點一次 🗣 */}
-                    {libWord && !testing && (() => {
+                    {/* 🎬 連音解析：AI 產出帶標記的音標（失去爆破 / 音變 / 連讀）*/}
+                    {!testing && (p.link ? (
+                      <div style={{ background:'#1a1030', border:'1px solid #a78bfa40', borderRadius:9,
+                        padding:'10px 12px', display:'flex', flexDirection:'column', gap:7,
+                        minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
+                        <MarkedIPA text={p.link.ipa}/>
+                        <div style={{ display:'flex', gap:9, flexWrap:'wrap', fontFamily:MONO, fontSize:8 }}>
+                          <span style={{ color:'#facc15', fontWeight:700 }}>弱讀 ← 你的關卡</span>
+                          <span style={{ color:'#38bdf8', borderBottom:'2px dotted #38bdf8' }}>連讀</span>
+                          <span style={{ color:'#4ade80', textDecoration:'line-through' }}>失去爆破</span>
+                          <span style={{ color:'#fb923c', borderBottom:'2px solid #fb923c' }}>音變</span>
+                          <span style={{ color:'#f87171', fontWeight:700 }}>插入音</span>
+                        </div>
+                        {(p.link.rules ?? []).length > 0 && (
+                          <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
+                            {p.link.rules.map((r, i) => (
+                              <div key={i} style={{ fontFamily:MONO, fontSize:9, color:T.txt2, lineHeight:1.6 }}>
+                                {i + 1}. {r}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {(p.link.chunks ?? []).length > 0 && (
+                          <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                            {p.link.chunks.map((c, i) => (
+                              <span key={i} onClick={() => playChunk(p, normWord(String(c.en).split(/\s+/).pop()))}
+                                style={{ cursor:'pointer', userSelect:'none', WebkitUserSelect:'none',
+                                  WebkitTouchCallout:'none', touchAction:'manipulation',
+                                  display:'inline-flex', alignItems:'center', gap:5,
+                                  background:'#0f0a1f', border:'1px solid #a78bfa30', borderRadius:7,
+                                  padding:'5px 9px' }}>
+                                <span style={{ fontSize:12 }}>🔊</span>
+                                <span style={{ fontFamily:MONO, fontSize:11, color:T.txt2 }}>{c.en}</span>
+                                <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>→</span>
+                                <span style={{ fontFamily:MONO, fontSize:13, color:'#a78bfa', fontWeight:700 }}>{c.ipa}</span>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {p.link.listen && (
+                          <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, lineHeight:1.6, fontWeight:700 }}>
+                            👉 {p.link.listen}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div onClick={() => analyzeLinking(p)}
+                        style={{ cursor:'pointer', alignSelf:'flex-start', fontFamily:MONO, fontSize:10, fontWeight:700,
+                          padding:'6px 11px', borderRadius:7,
+                          background: linkBusy === p.id ? '#a78bfa' : '#1a1030',
+                          color: linkBusy === p.id ? '#1a1030' : '#a78bfa',
+                          border:'1px solid #a78bfa50' }}>
+                        {linkBusy === p.id ? '🎬 解析中…' : '🎬 連音解析'}
+                      </div>
+                    ))}
+
+                    {/* 弱點關卡模式：快速連音塊（規則版，免費即時）*/}
+                    {libWord && !testing && !p.link && (() => {
                       const chunks = buildChunks(p.en, libWord)
                       if (chunks.length === 0) return null
                       return (
@@ -24458,18 +24698,68 @@ Steven 不是在收藏電影台詞。
                           const stillMiss = (f.miss ?? []).filter(w => res.missed.includes(w))
                           const pass = res.rate >= 80 && stillMiss.length === 0
                           return (
-                            <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+                            <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                              {/* 三色逐字對比：🟢抓到 ⚪漏掉（這是聽寫最有價值的畫面，重測也要有）*/}
+                              <div style={{ fontFamily:MONO, fontSize:13, lineHeight:1.9,
+                                minWidth:0, maxWidth:'100%', overflowWrap:'break-word' }}>
+                                {res.tokens.map((t, i) => (
+                                  <span key={i} onClick={() => tapWord(p.id, (t.raw ?? t.w).replace(/[^A-Za-z0-9']/g,''), p.en)}
+                                    style={{
+                                      cursor:'pointer', userSelect:'none', WebkitUserSelect:'none',
+                                      WebkitTouchCallout:'none', touchAction:'manipulation',
+                                      color: t.hit ? T.grn : T.txt3,
+                                      background: t.hit ? '#0a3a1a' : 'transparent',
+                                      textDecoration: t.hit ? 'none' : 'underline', textDecorationStyle:'dotted',
+                                      fontWeight: t.content ? 700 : 400,
+                                      display:'inline-block', whiteSpace:'nowrap',
+                                      padding:'1px 3px', borderRadius:4, marginRight:3,
+                                      opacity: t.hit ? 1 : 0.55 }}>
+                                    {t.raw ?? t.w}
+                                  </span>
+                                ))}
+                              </div>
+                              <WordCard phraseId={p.id}/>
                               <div style={{ fontFamily:MONO, fontSize:10, color: pass ? T.grn : T.amber, fontWeight:700 }}>
                                 {pass ? '✅ 過關（≥80% 且原本漏的字都抓到）' : '✗ 還沒過關'}
                                 <span style={{ color:T.txt2, fontWeight:400, marginLeft:6 }}>
                                   全詞 {res.rate}% · 實詞 {res.cRate}%
                                 </span>
                               </div>
+                              {/* 首次 vs 這次：看得到進步 */}
+                              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                                首次 {f.rate}% → 這次 <b style={{ color: res.rate > f.rate ? T.grn : res.rate < f.rate ? '#f87171' : T.txt2 }}>
+                                  {res.rate}%</b>
+                                {res.rate !== f.rate && (
+                                  <span style={{ color: res.rate > f.rate ? T.grn : '#f87171' }}>
+                                    {' '}({res.rate > f.rate ? '+' : ''}{res.rate - f.rate}pt)
+                                  </span>
+                                )}
+                              </div>
                               {stillMiss.length > 0 && (
-                                <div style={{ fontFamily:MONO, fontSize:9, color:T.amber }}>
-                                  仍然漏掉：{stillMiss.join(' ')}
+                                <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, lineHeight:1.6 }}>
+                                  ⚠ 原本漏的字，這次<b>還是漏</b>：{stillMiss.join(' ')}
                                 </div>
                               )}
+                              {res.misheard.length > 0 && (
+                                <div style={{ fontFamily:MONO, fontSize:9, color:'#f87171', lineHeight:1.6 }}>
+                                  🔴 誤聽：{res.misheard.join(' ')}
+                                  {res.pairs.length > 0 && (
+                                    <span style={{ color:T.txt3, fontSize:8 }}>
+                                      （{res.pairs.map(([a,b]) => `${a}→${b}`).join('、')}）
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                              <div onClick={() => playThreeStep(p)}
+                                style={{ cursor:'pointer', textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
+                                  padding:'8px 0', borderRadius:8,
+                                  background: threeStep?.pid === p.id ? '#38bdf8' : T.surf2,
+                                  color: threeStep?.pid === p.id ? '#0d2a3a' : '#38bdf8',
+                                  border:'1px solid #38bdf850' }}>
+                                {threeStep?.pid === p.id
+                                  ? (threeStep.step === 1 ? '① 🎬 電影原音…' : threeStep.step === 2 ? '② 🔊 系統音…' : '③ 🎬 回聽 ← 關鍵')
+                                  : '🔁 三步驟對照（電影 → 系統 → 電影）'}
+                              </div>
                               <div onClick={() => { setLibTestId(null); setDictResult(r => { const n={...r}; delete n[p.id]; return n }); setDictInput(v => ({ ...v, [p.id]: '' })) }}
                                 style={{ cursor:'pointer', textAlign:'center', fontFamily:MONO, fontSize:10,
                                   padding:'7px 0', borderRadius:7, background:T.surf2, color:T.txt3, border:`1px solid ${T.bdr}` }}>
@@ -24480,23 +24770,23 @@ Steven 不是在收藏電影台詞。
                         })()}
                       </div>
                     ) : (
-                      <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+                      <div style={{ display:'flex', gap:5 }}>
                         <div onClick={() => playBlindPhrase(p)}
-                          style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
-                            padding:'7px 12px', borderRadius:7,
+                          style={{ cursor:'pointer', flex:1, minWidth:0, textAlign:'center', whiteSpace:'nowrap',
+                            fontFamily:MONO, fontSize:10, fontWeight:700, padding:'8px 4px', borderRadius:7,
                             background: blindPlayingId === p.id ? '#38bdf8' : T.surf2,
                             color: blindPlayingId === p.id ? '#0d2a3a' : '#38bdf8',
                             border:'1px solid #38bdf850' }}>
                           {blindPlayingId === p.id ? '⏹' : '▶ 播放'}
                         </div>
                         <div onClick={() => playThreeStep(p)}
-                          style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
-                            padding:'7px 12px', borderRadius:7,
+                          style={{ cursor:'pointer', flex:1, minWidth:0, textAlign:'center', whiteSpace:'nowrap',
+                            fontFamily:MONO, fontSize:10, fontWeight:700, padding:'8px 4px', borderRadius:7,
                             background: threeStep?.pid === p.id ? '#38bdf8' : T.surf2,
                             color: threeStep?.pid === p.id ? '#0d2a3a' : '#38bdf8',
                             border:'1px solid #38bdf850' }}>
                           {threeStep?.pid === p.id
-                            ? (threeStep.step === 1 ? '① 🎬…' : threeStep.step === 2 ? '② 🔊…' : '③ 🎬…')
+                            ? (threeStep.step === 1 ? '①🎬' : threeStep.step === 2 ? '②🔊' : '③🎬')
                             : '🔁 三步驟'}
                         </div>
                         <div onClick={() => {
@@ -24506,17 +24796,17 @@ Steven 不是在收藏電影台詞。
                             }
                             setLibTestId(p.id); setDictInput(v => ({ ...v, [p.id]: '' })); setDictResult(r => { const n={...r}; delete n[p.id]; return n })
                           }}
-                          style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
-                            padding:'7px 12px', borderRadius:7,
+                          title={isDue ? '重測' : `${p.dict.next} 才開放`}
+                          style={{ cursor:'pointer', flex:1, minWidth:0, textAlign:'center', whiteSpace:'nowrap',
+                            fontFamily:MONO, fontSize:10, fontWeight:700, padding:'8px 4px', borderRadius:7,
                             background: isDue ? T.amberD : T.surf2, color: isDue ? T.amber : T.txt3,
                             border:`1px solid ${isDue ? T.amber+'60' : T.bdr}`,
-                            opacity: isDue ? 1 : 0.5 }}>
-                          {isDue ? '🖊 重測' : `🔒 ${p.dict.next} 開放`}
+                            opacity: isDue ? 1 : 0.45 }}>
+                          {isDue ? '🖊 重測' : '🔒 重測'}
                         </div>
-                        {/* 🗣 跟讀：唸得出來，才聽得出來 */}
                         <div onClick={() => setShadowId(shadowId === p.id ? null : p.id)}
-                          style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
-                            padding:'7px 12px', borderRadius:7,
+                          style={{ cursor:'pointer', flex:1, minWidth:0, textAlign:'center', whiteSpace:'nowrap',
+                            fontFamily:MONO, fontSize:10, fontWeight:700, padding:'8px 4px', borderRadius:7,
                             background: shadowId === p.id ? '#a78bfa' : T.surf2,
                             color: shadowId === p.id ? '#1a1030' : '#a78bfa',
                             border:'1px solid #a78bfa60' }}>
@@ -24524,10 +24814,10 @@ Steven 不是在收藏電影台詞。
                         </div>
                         <div onClick={() => excludeFromBlind(p)}
                           title="這句沒有學習價值，排除掉"
-                          style={{ cursor:'pointer', fontFamily:MONO, fontSize:10,
-                            padding:'7px 10px', borderRadius:7,
-                            background:T.surf2, color:T.txt3, border:`1px solid ${T.bdr}` }}>
-                          🚫 排除
+                          style={{ cursor:'pointer', flexShrink:0, textAlign:'center',
+                            fontFamily:MONO, fontSize:12, padding:'8px 9px', borderRadius:7,
+                            background:T.surf2, color:T.txt3, border:`1px solid ${T.bdr}`, opacity:0.6 }}>
+                          🚫
                         </div>
                       </div>
                     )}
