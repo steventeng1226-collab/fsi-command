@@ -7358,7 +7358,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.29</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.30</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13696,8 +13696,8 @@ const CLASS_INFO = {
 const LINK_HINT = {
   of:'sort of → sorəv ｜ ton of → tonəv ｜ kind of → kinəv',
   to:'want to → wanna ｜ going to → gonna ｜ to → tə',
-  in:'in every → inevry ｜ in a → inə',
-  on:'on my → onmə ｜ on it → onit',
+  in:'in → ɪn（原音，不弱讀；連讀時 in a → ɪnə 是「n 滑到後字」不是弱讀）',
+  on:'on → ɑːn/ɒn（原音；連讀 on it → ɑːnɪt 是 n 滑過去）',
   at:'at first → ətfirst ｜ look at it → lookədit',
   for:'for three → fərthree ｜ for a → fərə',
   as:'as soon as → əsuːnəz ｜ as you → əzyə',
@@ -13708,13 +13708,13 @@ const LINK_HINT = {
   a:'a ton of → ətonəv',
   is:"that's → ðæts ｜ it is → ɪts",
   was:'was → wəz（極短）',
-  been:'been → bɪn（不是 been，是 bin）',
+  been:'been → bɪn（原音「賓」，不是弱讀，是拼字誤導）',
   are:'are → ər ｜ we are → wər',
-  i:"I admit → ah'dmit ｜ like I was → likaiwəz",
-  it:'get it → geddit ｜ it → ɪ（尾音常被吞）',
+  i:'I → aɪ（永遠唸「愛」，不弱讀！聽 than I 要聽 ðæn·aɪ，別找 ə）',
+  it:'get it → geddit（flap T）｜ it 的 t 常失爆，但母音 ɪ 還在',
   you:'you → yə ｜ can you → kənyə',
-  me:'me → mi（弱化，很短）',
-  my:'my → mə',
+  me:'me → miː（保持長音，不太弱讀）',
+  my:'my → maɪ（主要唸「買」；只有極快語流才偶爾 mə）',
   can:'can → kən（不是 can，是 kən）',
   that:'that → ðət',
   have:'have → əv ｜ could have → couldəv',
@@ -13725,17 +13725,28 @@ const LINK_HINT = {
 // 聽，本質上是預測。大腦解碼語音時，是拿「自己會怎麼發這個音」去比對。
 // 你的嘴巴沒把 sort of 當成「一個字」sorəv 唸過 → 腦子裡沒有模板 → 聲音進來對不上。
 // 只要唸得出 sorəv，就開始聽得到 sorəv。
+// ⚠ 只放「真正會弱讀成 schwa / 縮讀」的功能詞。
+// 不放：主格代名詞（I/he/she/we/they 保持主音，不弱讀）、
+//       原音類（in/it/by/been/about/out —— 映射=原音，等於沒弱化還誤導）、
+//       有條件才弱讀（on/not/up/so/just/there —— 無條件標會教錯）。
+// 這張表的 key 同時是「連音高頻」的聚合門檻（REDUCE_WORDS），錯一個就污染整個榜。
 const REDUCE = {
-  of:'əv', to:'tə', and:'ən', in:'ɪn', a:'ə', an:'ən', the:'ðə',
-  is:'z', are:'ər', was:'wəz', were:'wər', been:'bɪn', am:'əm',
-  at:'ət', as:'əz', for:'fər', from:'frəm', with:'wɪð', on:'ən', by:'baɪ',
-  can:'kən', have:'əv', has:'əz', had:'əd', do:'də', does:'dəz',
-  will:'l', would:'wəd', could:'kəd', should:'ʃəd', must:'məst',
-  you:'yə', your:'yər', it:'ɪt', its:'ɪts', i:'ə', me:'mi', my:'mə',
-  he:'i', him:'ɪm', her:'ər', she:'ʃi', we:'wi', they:'ðeɪ', them:'əm',
-  that:'ðət', but:'bət', or:'ər', so:'sə', not:'nt', there:'ðər',
-  some:'səm', what:'wət', just:'jəs', about:'əbaʊt', out:'aʊt', up:'əp',
+  // 介系詞（真弱讀）
+  of:'əv', to:'tə', at:'ət', as:'əz', for:'fər', from:'frəm', with:'wɪð', than:'ðən',
+  // 冠詞・限定詞
+  a:'ə', an:'ən', the:'ðə', some:'səm',
+  // be・助動詞・情態（真弱讀/縮讀）
+  is:'z', are:'ər', was:'wəz', were:'wər', am:'əm',
+  do:'də', does:'dəz', can:'kən', have:'əv', has:'əz', had:'əd',
+  will:'l', would:'wəd', could:'kəd', should:'ʃəd',
+  // 連接詞（真弱讀）
+  and:'ən', but:'bət', or:'ər', that:'ðət',
+  // 受詞/所有格代名詞（句中確實弱化 —— give it to them 的 them=əm）
+  you:'yə', your:'yər', them:'əm', us:'əs', her:'ər', him:'ɪm',
 }
+// 連音高頻聚合門檻：就是「真正會弱讀」的這批字（取代原本用寬鬆的 FUNC_WORDS，
+// 避免 I/he/she 這種不弱讀的代名詞洗版榜單）。
+const REDUCE_WORDS = new Set(Object.keys(REDUCE))
 // 從「使用者自己的句子」抓出含目標字的連音塊，套上弱化規則。
 // 不是給通用例句 —— 是他那一句的實際連音形式。
 function buildChunks(en, target) {
@@ -13769,9 +13780,10 @@ function computeFreqLinks(dictatedPhrases, minEnc = 2) {
     tokenize(p.en).forEach(t => { enc[t.w] = (enc[t.w] ?? 0) + 1 })
     ;(p.dict?.first?.miss ?? []).forEach(w => { miss[w] = (miss[w] ?? 0) + 1 })
   })
-  // 只聚合功能詞（連音弱讀的主戰場）；實詞漏聽是字彙問題，不在這裡練
+  // 只聚合「真正會弱讀」的功能詞（REDUCE_WORDS）；
+  // 主格代名詞（I/he/she/we/they）不弱讀，實詞是字彙問題，都不在這裡練。
   return Object.keys(enc)
-    .filter(w => FUNC_WORDS.has(w) && (enc[w] ?? 0) >= minEnc)
+    .filter(w => REDUCE_WORDS.has(w) && (enc[w] ?? 0) >= minEnc)
     .map(w => {
       const e = enc[w]
       const m = Math.min(miss[w] ?? 0, e)
@@ -13896,7 +13908,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.29）：11 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.30）：11 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
