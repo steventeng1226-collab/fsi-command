@@ -7358,7 +7358,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.32</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.33</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13932,7 +13932,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.32）：11 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.33）：11 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -24865,7 +24865,8 @@ Steven 不是在收藏電影台詞。
                             {on && (
                               <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
                                 {items.map((it, ii) => {
-                                  const cur = playing && freqQueue.idx === ii
+                                  const curItem = playing ? freqQueue.items[freqQueue.idx] : null
+                                  const cur = !!(curItem && curItem.text === it.text && curItem.pid === it.pid)
                                   const bd = cur ? T.amber : it.verified ? '#4ade8080' : '#facc1540'  // 綠=已校驗 黃=待校
                                   return (
                                     <span key={ii} onClick={() => playFreqQueue(w, [it])}
