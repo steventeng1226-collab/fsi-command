@@ -7335,17 +7335,17 @@ function AppIcon({ size = 36 }) {
 // ═══════════════════════════════════════════════════════════════
 // HEADER
 // ═══════════════════════════════════════════════════════════════
-function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProduce, onOpenListenLib, onOpenTraining, listenDue = 0 }) {
+function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProduce, onOpenFreq, onOpenListenLib, onOpenTraining, listenDue = 0, freqCount = 0, trainToday = false }) {
   const btn = (bg, bd, fg, bold = false) => ({
     display:'inline-flex', alignItems:'center', justifyContent:'center', gap:5,
     cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight: bold ? 700 : 400,
     color:fg, background:bg, border:`1px solid ${bd}`,
     borderRadius:7, padding:'4px 9px', flex:1, minWidth:0, whiteSpace:'nowrap',
   })
-  const badge = listenDue > 0 && (
-    <span style={{ background:'#f87171', color:'#2a0d0d', fontFamily:MONO, fontSize:9, fontWeight:700,
+  const mkBadge = (n, bg = '#f87171', fg = '#2a0d0d') => n > 0 && (
+    <span style={{ background:bg, color:fg, fontFamily:MONO, fontSize:9, fontWeight:700,
       borderRadius:9, padding:'0 5px', minWidth:14, textAlign:'center', lineHeight:'14px', flexShrink:0 }}>
-      {listenDue}
+      {n}
     </span>
   )
   return (
@@ -7358,7 +7358,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.28</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.29</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -7394,16 +7394,24 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
           )}
         </div>
 
-        {/* 第二列：🎯 聽力庫 · 🌅 今日盲聽（最常按的放右邊，右手拇指好按）*/}
-        <div style={{ display:'flex', gap:6 }}>
+        {/* 第二列：🎵 連音高頻 · 🎯 聽力庫 · 🌅 今日盲聽（三個並排，字縮小）*/}
+        <div style={{ display:'flex', gap:4 }}>
+          {onOpenFreq && (
+            <div onClick={onOpenFreq}
+              style={{ ...btn('#1a0f2e', '#a78bfa40', '#a78bfa'), fontSize:9, gap:3, padding:'5px 4px' }}>
+              🎵 連音高頻{mkBadge(freqCount, '#a78bfa', '#1a0f2e')}
+            </div>
+          )}
           {onOpenListenLib && (
-            <div onClick={onOpenListenLib} style={btn('#0d2a3a', '#38bdf840', '#38bdf8')}>
-              🎯 聽力庫{badge}
+            <div onClick={onOpenListenLib}
+              style={{ ...btn('#0d2a3a', '#38bdf840', '#38bdf8'), fontSize:9, gap:3, padding:'5px 4px' }}>
+              🎯 聽力庫{mkBadge(listenDue)}
             </div>
           )}
           {onOpenTraining && (
-            <div onClick={onOpenTraining} style={btn('#38bdf8', '#38bdf8', '#0d2a3a', true)}>
-              🌅 今日盲聽{badge}
+            <div onClick={onOpenTraining}
+              style={{ ...btn('#38bdf8', '#38bdf8', '#0d2a3a', true), fontSize:9, gap:3, padding:'5px 4px' }}>
+              🌅 今日盲聽{mkBadge(trainToday ? 0 : 1, '#f87171', '#2a0d0d')}
             </div>
           )}
         </div>
@@ -13751,7 +13759,40 @@ function buildChunks(en, target) {
   return out
 }
 
-// ── ⏱ 節奏比：量「你唸這句花多久」vs「原音多久」──────────────
+// ── 🎵 連音高頻（v6.29）：把「跨句的同類連音」聚合成清單 ──
+// 定位：以「功能詞」為聚合 key，用「漏聽率 × 出現次數」雙重加權排序。
+// 資料即時算（盲聽漏聽統計 + buildChunks 規則版），不需批次 AI 解析、開機就有。
+// 每一項附上它在各句的連音塊（含時間碼），供原音輪播——純耳朵訓練，不進句子。
+function computeFreqLinks(dictatedPhrases, minEnc = 2) {
+  const enc = {}, miss = {}
+  dictatedPhrases.forEach(p => {
+    tokenize(p.en).forEach(t => { enc[t.w] = (enc[t.w] ?? 0) + 1 })
+    ;(p.dict?.first?.miss ?? []).forEach(w => { miss[w] = (miss[w] ?? 0) + 1 })
+  })
+  // 只聚合功能詞（連音弱讀的主戰場）；實詞漏聽是字彙問題，不在這裡練
+  return Object.keys(enc)
+    .filter(w => FUNC_WORDS.has(w) && (enc[w] ?? 0) >= minEnc)
+    .map(w => {
+      const e = enc[w]
+      const m = Math.min(miss[w] ?? 0, e)
+      const rate = Math.round(100 * m / e)
+      // rate×enc 雙重加權：又常出現、又常漏的，排最前面
+      const score = rate * e
+      // 蒐集這個字在各句的實際連音塊（規則版即時算），附時間碼供播放
+      const items = []
+      dictatedPhrases.forEach(p => {
+        if (!(p.startSecs > 0 && p.endSecs > p.startSecs)) return  // 沒時間碼不能播原音
+        const chunks = buildChunks(p.en, w)
+        chunks.forEach(c => items.push({
+          pid: p.id, text: c.text, ipa: c.ipa,
+          startSecs: p.startSecs, endSecs: p.endSecs, en: p.en, target: w,
+        }))
+      })
+      return { w, miss:m, enc:e, rate, score, items }
+    })
+    .filter(x => x.items.length > 0)          // 沒有可播的連音塊就不列（例如全部沒時間碼）
+    .sort((a, b) => b.score - a.score || b.rate - a.rate)
+}
 // 連音的本質是「時間被壓縮」。sort of 唸成兩個字，就是比 sorəv 長。
 // 這個指標騙不了人，而且完全不受音色/麥克風/背景音影響——它量的是時間，不是聲學。
 // 先切掉頭尾靜音，只算真正發聲的長度，否則「按下錄音後猶豫了2秒」會把數字弄髒。
@@ -13855,7 +13896,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.28）：11 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.29）：11 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -13872,7 +13913,7 @@ const LINK_RULES = [
   { cls:'wk', t:'功能詞弱讀 → schwa',    eg:'what are you', ipa:'<wk>wɑːɾɚjə</wk>',      note:'of/to/and/your… 全塌成 ə，你的核心關卡' },
 ]
 
-function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpSignal, myProduceJumpSignal, blindJumpSignal, listenLibJumpSignal, trainingJumpSignal, onListenDue, onReturnFromKb }) {
+function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpSignal, myProduceJumpSignal, blindJumpSignal, listenLibJumpSignal, freqJumpSignal, trainingJumpSignal, onListenDue, onFreqCount, onReturnFromKb }) {
   const [db, setDb] = useState(() => {
     try {
       const s = localStorage.getItem('fsi:movie:db')
@@ -14082,6 +14123,14 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     onListenDue(due.length)
   }, [db, onListenDue])
 
+  // ── 🎵 回報「連音高頻類數」給 Header badge（只算當前電影，音檔才對得上）──
+  useEffect(() => {
+    if (!onFreqCount) return
+    const dict = uniqById((movie?.scenes ?? []).flatMap(s => s.phrases ?? []))
+                   .filter(p => p.dict?.first && !p.noBlind)
+    onFreqCount(computeFreqLinks(dict).length)
+  }, [db, movieId, onFreqCount]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── 🌅 今日盲聽快速開啟 ──
   useEffect(() => {
     if (!trainingJumpSignal) return
@@ -14107,6 +14156,21 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
       listenLibRef.current?.scrollIntoView({ behavior:'smooth', block:'start' })
     }, 120)
   }, [listenLibJumpSignal]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── 🎵 連音高頻快速開啟：展開聽力庫面板並切到 freq tab ──
+  useEffect(() => {
+    if (!freqJumpSignal) return
+    setView('movie')
+    setListenLibOpen(true)
+    setBlindStatsOpen(false)
+    setCorrectionPanelOpen(false)
+    setLibView('freq')
+    setLibWord(null)
+    setLibTestId(null)
+    setTimeout(() => {
+      listenLibRef.current?.scrollIntoView({ behavior:'smooth', block:'start' })
+    }, 120)
+  }, [freqJumpSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 請求瀏覽器「持久化儲存」：一般網頁的 IndexedDB 快取是「盡力而為」，
   // 系統可能在儲存壓力大或判定為不常用時自動清掉，即使手機還有很多空間。
@@ -15260,6 +15324,71 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
         setTimeout(() => { if (queueRef.current === token) step(i + 1) }, durMs + 1200)
       }
     }
+  }
+
+  // ── 🎵 連音高頻：原音輪播佇列（播的是「連音塊小片段」，不是整句）──
+  const [freqQueue, setFreqQueue] = useState(null)   // { items, idx, word }
+  const freqQueueRef = useRef(null)
+  function stopFreqQueue() {
+    freqQueueRef.current = null
+    setFreqQueue(null)
+    clearTimeout(audioStopRef.current)
+    audioElRef.current?.pause()
+  }
+  // items: [{ pid, target, startSecs, endSecs, en }]，連續播每個連音塊的原音（前一字+目標字）
+  function playFreqQueue(word, items) {
+    if (freqQueue) { stopFreqQueue(); return }
+    if (audioMode !== 'original') { showMovieToast('⚠ 連音高頻要聽電影原音，請先切到 🎬'); return }
+    const list = (items ?? []).filter(x => x.startSecs > 0 && x.endSecs > x.startSecs)
+    if (list.length === 0) { showMovieToast('⚠ 這些連音塊沒有時間碼，無法播原音'); return }
+    const token = {}
+    freqQueueRef.current = token
+    setFreqQueue({ items: list, idx: 0, word })
+    const rate = playRate || 1
+    const step = (i) => {
+      if (freqQueueRef.current !== token) return
+      if (i >= list.length) {
+        freqQueueRef.current = null
+        setFreqQueue(null)
+        showMovieToast(`✓ 「${word}」連音輪播完成（${list.length} 個）`)
+        return
+      }
+      setFreqQueue(q => q ? { ...q, idx: i } : q)
+      const it = list[i]
+      const p = findPhrase(it.pid)
+      if (!p) { step(i + 1); return }
+      const toks = tokenize(p.en)
+      const idx = toks.findIndex(t => t.w === it.target)
+      if (idx < 0) { step(i + 1); return }
+      const from = Math.max(0, idx - 1)          // 前一字當引子，聽得到連讀進入點
+      const total = toks.length
+      const sentDur = p.endSecs - p.startSecs
+      const PAD = 0.3
+      const startS = p.startSecs + (from / total) * sentDur - PAD
+      const endS   = p.startSecs + ((idx + 1) / total) * sentDur + PAD
+      const el = audioElRef.current
+      const currentMovie = db.movies.find(m => m.id === movieId)
+      const targetFile = getMovieMp3At(currentMovie, startS)
+      if (!el || !targetFile) { step(i + 1); return }
+      clearTimeout(audioStopRef.current)
+      const playSeg = () => {
+        el.playbackRate = rate
+        el.currentTime = Math.max(0, startS - targetFile.start)
+        el.play().catch(() => {})
+        const segMs = Math.max(300, (endS - startS) * 1000) / rate
+        audioStopRef.current = setTimeout(() => {
+          el.pause()
+          if (freqQueueRef.current === token) setTimeout(() => step(i + 1), 500)  // 塊與塊之間留 0.5s
+        }, segMs + 100)
+      }
+      const key = targetFile?.idbKey ?? targetFile?.url
+      if (audioSrcKeyRef.current !== key) {
+        const onReady = () => { if (audioSrcKeyRef.current === key) playSeg(); el.removeEventListener('canplay', onReady) }
+        el.addEventListener('canplay', onReady)
+        loadAudioFile(targetFile)
+      } else playSeg()
+    }
+    step(0)
   }
 
   // 跨場景更新單句（聽力庫在場景外練習時也要能寫回；限當前電影，音檔才對得上）
@@ -24460,6 +24589,7 @@ Steven 不是在收藏電影台詞。
             </div>
           )
           const weakWords = computeWeakWords(dictated)
+          const freqLinks = computeFreqLinks(dictated)
           const shown = libWord ? dictated.filter(p => (p.dict.first.miss ?? []).includes(libWord))
                       : libDueOnly ? due : lib
           return (
@@ -24582,10 +24712,10 @@ Steven 不是在收藏電影台詞。
 
               {/* 切換：依弱點 / 依句子 */}
               <div style={{ display:'flex', gap:6 }}>
-                {[['weak','🎯 依弱點'], ['sent','📋 依句子']].map(([v, label]) => (
-                  <div key={v} onClick={() => { setLibView(v); setLibWord(null) }}
-                    style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
-                      padding:'7px 0', borderRadius:7,
+                {[['freq','🎵 連音高頻'], ['weak','🎯 依弱點'], ['sent','📋 依句子']].map(([v, label]) => (
+                  <div key={v} onClick={() => { setLibView(v); setLibWord(null); stopFreqQueue() }}
+                    style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:9, fontWeight:700,
+                      padding:'7px 2px', borderRadius:7, whiteSpace:'nowrap',
                       background: libView===v ? '#38bdf8' : T.surf2,
                       color: libView===v ? '#0d2a3a' : T.txt3,
                       border:`1px solid ${libView===v ? '#38bdf8' : T.bdr}` }}>
@@ -24593,6 +24723,78 @@ Steven 不是在收藏電影台詞。
                   </div>
                 ))}
               </div>
+
+              {/* 🎵 連音高頻：跨句聚合同類連音，純原音耳朵訓練（不進句子）*/}
+              {libView === 'freq' && (
+                <>
+                  <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.6 }}>
+                    把你<b style={{ color:T.amber }}>盲聽時最常漏</b>的功能詞（of/are/to…）跨句聚合。
+                    排序 = 漏聽率 × 出現次數：又常出現、又常漏的排最前面。
+                    點 <b style={{ color:'#38bdf8' }}>🔥 連續聽</b> 會把同一個字在各句的連音<b>原音</b>一個接一個播 —— 純練耳朵，不看句子、不看中文。
+                  </div>
+                  {freqLinks.length === 0 ? (
+                    <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
+                      還沒有夠格的高頻連音（功能詞要「遇到 ≥2 次」且句子有時間碼）。多做幾句盲聽聽寫就會長出來。
+                    </div>
+                  ) : (
+                    <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                      {freqLinks.slice(0, 20).map(({ w, miss, enc, rate, items }) => {
+                        const on = libWord === w
+                        const playing = freqQueue?.word === w
+                        return (
+                          <div key={w} style={{ background: on ? '#0d2a3a' : T.surf,
+                            border:`1px solid ${on ? '#38bdf8' : T.bdr}`, borderRadius:8, padding:'7px 9px',
+                            display:'flex', flexDirection:'column', gap:6 }}>
+                            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                              <span onClick={() => setLibWord(on ? null : w)}
+                                style={{ cursor:'pointer', userSelect:'none', fontFamily:MONO, fontSize:13, fontWeight:700,
+                                  color:T.amber, minWidth:52, flexShrink:0 }}>
+                                ⚠ {w}
+                              </span>
+                              <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3, minWidth:70, flexShrink:0 }}>
+                                漏 {miss}/{enc} · {rate}%
+                              </span>
+                              <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3, flex:1, minWidth:0 }}>
+                                {items.length} 個連音塊
+                              </span>
+                              <span onClick={() => playFreqQueue(w, items)}
+                                style={{ cursor:'pointer', userSelect:'none', WebkitUserSelect:'none', WebkitTouchCallout:'none',
+                                  touchAction:'manipulation', flexShrink:0, fontFamily:MONO, fontSize:10, fontWeight:700,
+                                  padding:'5px 10px', borderRadius:7,
+                                  background: playing ? T.amber : '#38bdf8', color: playing ? '#1a1207' : '#0d2a3a' }}>
+                                {playing ? `⏹ ${freqQueue.idx + 1}/${freqQueue.items.length}` : `🔥 連續聽 ${items.length}`}
+                              </span>
+                            </div>
+                            {on && (
+                              <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
+                                {items.map((it, ii) => {
+                                  const cur = playing && freqQueue.idx === ii
+                                  return (
+                                    <span key={ii} onClick={() => playFreqQueue(w, [it])}
+                                      style={{ cursor:'pointer', userSelect:'none', WebkitUserSelect:'none', WebkitTouchCallout:'none',
+                                        touchAction:'manipulation', display:'inline-flex', alignItems:'center', gap:5,
+                                        background: cur ? T.amber : '#1a1030',
+                                        border:`1px solid ${cur ? T.amber : '#a78bfa40'}`, borderRadius:7, padding:'4px 9px' }}>
+                                      <span style={{ fontSize:11 }}>🔊</span>
+                                      <span style={{ fontFamily:MONO, fontSize:10, color: cur ? '#1a1207' : T.txt2 }}>{it.text}</span>
+                                      <span style={{ fontFamily:MONO, fontSize:9, color: cur ? '#1a1207' : T.txt3 }}>→</span>
+                                      <span style={{ fontFamily:MONO, fontSize:12, fontWeight:700, color: cur ? '#1a1207' : '#a78bfa' }}>{it.ipa}</span>
+                                    </span>
+                                  )
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                  <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.6 }}>
+                    連續轟炸同一個連音，大腦才會把「那團模糊的 ðerə」自動解析成 there are。
+                    音標是規則版近似，<b style={{ color:T.amber }}>以耳朵聽到的原音為準</b> —— 聽幾次你自己就會抓到那個音。
+                  </div>
+                </>
+              )}
 
               {/* 依弱點：漏字排行 → 點進去連聽含該字的所有句子 */}
               {libView === 'weak' && renderDiagnosis(dictated, true)}
@@ -24690,7 +24892,7 @@ Steven 不是在收藏電影台詞。
               )}
 
               {/* 句子清單 */}
-              {(libView === 'sent' || libWord) && shown.map(p => {
+              {libView !== 'freq' && (libView === 'sent' || libWord) && shown.map(p => {
                 const f = p.dict.first
                 const testing = libTestId === p.id
                 const res = dictResult[p.id]
@@ -26547,8 +26749,10 @@ export default function App() {
   const [myProduceJumpSignal, setMyProduceJumpSignal] = useState(0)
   const [blindJumpSignal, setBlindJumpSignal] = useState(0)
   const [listenLibJumpSignal, setListenLibJumpSignal] = useState(0)
+  const [freqJumpSignal, setFreqJumpSignal] = useState(0)
   const [trainingJumpSignal, setTrainingJumpSignal] = useState(0)
   const [listenDue, setListenDue] = useState(0)   // 今天該複習幾句（Header 紅點）
+  const [freqCount, setFreqCount] = useState(0)   // 連音高頻類數（Header badge）
   const [returnTab, setReturnTab] = useState(null)
   function openKnowledgeBase() {
     setReturnTab(tab)
@@ -26569,6 +26773,11 @@ export default function App() {
     setReturnTab(tab)
     setTab('movie')
     setListenLibJumpSignal(s => s + 1)
+  }
+  function openFreq() {
+    setReturnTab(tab)
+    setTab('movie')
+    setFreqJumpSignal(s => s + 1)
   }
   function openTraining() {
     setReturnTab(tab)
@@ -26722,7 +26931,7 @@ export default function App() {
   return (
     <div style={{ background:T.bg, minHeight:'100vh', maxWidth:480, margin:'0 auto', display:'flex', flexDirection:'column', position:'relative' }}>
       <style>{G}</style>
-      <Header audioMode={audioMode} toggleAudioMode={toggleAudioMode} onOpenKnowledgeBase={openKnowledgeBase} onOpenMyProduce={openMyProduce} onOpenListenLib={openListenLib} onOpenTraining={openTraining} listenDue={listenDue}/>
+      <Header audioMode={audioMode} toggleAudioMode={toggleAudioMode} onOpenKnowledgeBase={openKnowledgeBase} onOpenMyProduce={openMyProduce} onOpenFreq={openFreq} onOpenListenLib={openListenLib} onOpenTraining={openTraining} listenDue={listenDue} freqCount={freqCount} trainToday={getStreak().last === getTodayStr()}/>
       <div style={{ flex:1, overflowY:'auto', paddingBottom:'calc(110px + env(safe-area-inset-bottom, 20px))' }}>
         {tab==='phrase'   && <PhraseTab   settings={settings}/>}
         {tab==='practice' && <PracticeTab {...P}/>}
@@ -26731,7 +26940,7 @@ export default function App() {
         {tab==='email'    && <EmailTab    {...P}/>}
         <div style={{display: tab==='movie' ? 'flex' : 'none', flexDirection:'column', flex:1, minHeight:0}}>
           <MovieTab audioMode={audioMode} setAudioMode={setAudioMode} movieToast={movieToast} showMovieToast={showMovieToast}
-            kbJumpSignal={kbJumpSignal} myProduceJumpSignal={myProduceJumpSignal} blindJumpSignal={blindJumpSignal} listenLibJumpSignal={listenLibJumpSignal} trainingJumpSignal={trainingJumpSignal} onListenDue={setListenDue} onReturnFromKb={returnFromKnowledgeBase}/>
+            kbJumpSignal={kbJumpSignal} myProduceJumpSignal={myProduceJumpSignal} blindJumpSignal={blindJumpSignal} listenLibJumpSignal={listenLibJumpSignal} freqJumpSignal={freqJumpSignal} trainingJumpSignal={trainingJumpSignal} onListenDue={setListenDue} onFreqCount={setFreqCount} onReturnFromKb={returnFromKnowledgeBase}/>
         </div>
         {tab==='settings' && <SettingsTab {...P} movieToast={movieToast} showMovieToast={showMovieToast}/>}
       </div>
