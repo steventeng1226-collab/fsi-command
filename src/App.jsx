@@ -13948,6 +13948,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const [libTestId,     setLibTestId]     = useState(null)    // 正在重測的句子（遮住英文）
   const listenLibRef = useRef(null)                            // Header 跳轉時捲到聽力庫
   const [rulesOpen, setRulesOpen] = useState(false)            // 📋 聽力訓練守則面板
+  const [linkTableOpen, setLinkTableOpen] = useState(false)    // 📖 連讀速查表面板（漏宣告會讓聽力庫一展開就 ReferenceError → 整頁黑）
   // 🌅 今日盲聽（v5.86）：一鍵跑完，零決策
   const [trainOpen,  setTrainOpen]  = useState(false)
   const [trainN,     setTrainN]     = useState(null)   // 本次要練幾句（每次自己選）
@@ -15565,11 +15566,12 @@ Return ONLY a JSON object, no markdown:
     }
     if (last < src.length) parts.push({ t: src.slice(last) })
     const STY = {
-      w: { color:'#facc15', fontWeight:700 },                                        // 弱讀/縮讀（黃）← 你的核心問題
-      l: { color:'#38bdf8', borderBottom:'2px dotted #38bdf8' },                     // 連讀（藍）
-      d: { color:'#4ade80', textDecoration:'line-through', textDecorationThickness:'2px' }, // 失去爆破/吞音（綠）
-      f: { color:'#fb923c', borderBottom:'2px solid #fb923c' },                      // 音變（橘）
-      i: { color:'#f87171', fontWeight:700, fontSize:'0.8em', verticalAlign:'super' },  // 插入音（紅，上標）
+      wk: { color:'#facc15', fontWeight:700 },                                        // 弱讀/縮讀（黃）← 你的核心問題
+      lk: { color:'#38bdf8', borderBottom:'2px dotted #38bdf8' },                     // 連讀（藍）
+      si: { color:'#4ade80', textDecoration:'line-through', textDecorationThickness:'2px' }, // 不發音/失去爆破（綠）
+      ch: { color:'#fb923c', borderBottom:'2px solid #fb923c' },                      // 音變/彈舌（橘）
+      gl: { color:'#f87171', fontWeight:700 },                                        // 滑音（紅）
+      nw: { color:T.txt, fontWeight:700 },                                            // 生單詞（強調）
     }
     return (
       <span style={{ fontFamily:MONO, fontSize:size, color:T.txt, letterSpacing:'0.01em', lineHeight:1.8,
