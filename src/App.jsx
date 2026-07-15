@@ -7358,7 +7358,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.33</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.34</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13932,7 +13932,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.33）：11 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.34）：11 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -24628,6 +24628,13 @@ Steven 不是在收藏電影台詞。
                                       {threeStep?.pid === p.id
                                         ? (threeStep.step === 1 ? '① 🎬' : threeStep.step === 2 ? '② 🔊' : '③ 🎬')
                                         : '🔁 三步驟'}
+                                    </div>
+                                    <div onClick={() => excludeFromBlind(p)}
+                                      title="這句沒學習價值（如歌詞），排除掉，不再出現在盲聽"
+                                      style={{ cursor:'pointer', userSelect:'none', WebkitUserSelect:'none', WebkitTouchCallout:'none', touchAction:'manipulation',
+                                        fontFamily:MONO, fontSize:11, padding:'5px 9px', borderRadius:7,
+                                        background:T.surf2, color:T.txt3, border:`1px solid ${T.bdr}`, opacity:0.6 }}>
+                                      🚫
                                     </div>
                                   </div>
                                 </div>
