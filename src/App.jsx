@@ -7358,7 +7358,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.27</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.28</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13855,7 +13855,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.27）：11 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.28）：11 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -15513,6 +15513,49 @@ Return ONLY a JSON object, no markdown:
     } else play()
   }
 
+  // AI 連音塊常是多字（years of age），要播「整個片語」而非只有最後兩字。
+  // 用片語第一個字到最後一個字定範圍；找不到就退回單字版 playChunk。
+  function playChunkSpan(p, enPhrase) {
+    if (audioMode !== 'original') { showMovieToast('⚠ 連音塊要聽電影原音，請先切到 🎬'); return }
+    if (!(p.startSecs > 0 && p.endSecs > p.startSecs)) { showMovieToast('⚠ 這句沒有時間碼'); return }
+    const words = String(enPhrase).split(/\s+/).map(normWord).filter(Boolean)
+    const toks = tokenize(p.en)
+    if (words.length === 0) return
+    const firstIdx = toks.findIndex(t => t.w === words[0])
+    // 從 firstIdx 之後找最後一個字，確保是同一段連續片語
+    let lastIdx = -1
+    for (let i = Math.max(0, firstIdx); i < toks.length; i++) {
+      if (toks[i].w === words[words.length - 1]) { lastIdx = i; break }
+    }
+    if (firstIdx < 0 || lastIdx < firstIdx) { playChunk(p, words[words.length - 1]); return }
+    const from = Math.max(0, firstIdx - 1)      // 前面留一個字當引子，聽得到連讀進入點
+    const total = toks.length
+    const sentDur = p.endSecs - p.startSecs
+    const PAD = 0.35
+    const startS = p.startSecs + (from / total) * sentDur - PAD
+    const endS   = p.startSecs + ((lastIdx + 1) / total) * sentDur + PAD
+    const el = audioElRef.current
+    const currentMovie = db.movies.find(m => m.id === movieId)
+    const targetFile = getMovieMp3At(currentMovie, startS)
+    if (!el || !targetFile) { showMovieToast('⚠ 音檔還沒載入'); return }
+    clearTimeout(audioStopRef.current)
+    window.speechSynthesis?.cancel()
+    const rate = playRate || 1
+    const play = () => {
+      el.playbackRate = rate
+      el.currentTime = Math.max(0, startS - targetFile.start)
+      el.play().catch(() => {})
+      const durMs = Math.max(300, (endS - startS) * 1000) / rate
+      audioStopRef.current = setTimeout(() => el.pause(), durMs + 150)
+    }
+    const key = targetFile?.idbKey ?? targetFile?.url
+    if (audioSrcKeyRef.current !== key) {
+      const onReady = () => { if (audioSrcKeyRef.current === key) play(); el.removeEventListener('canplay', onReady) }
+      el.addEventListener('canplay', onReady)
+      loadAudioFile(targetFile)
+    } else play()
+  }
+
   // ── 🎬 連音解析（v6.27）：AI 產出「帶標記的音標」，前端上色 ──
   // 標記語法統一為雙字母六類：<wk>弱讀 <lk>連讀 <si>不發音 <ch>音變 <gl>滑音 <nw>生單詞
   // 結果存進句子（p.link），只查一次，之後離線也看得到。
@@ -15540,12 +15583,25 @@ Return ONLY a JSON object, no markdown:
           範例：I don't want it. → aɪ dəʊn<si>t</si> wɑː<ch>n</ch><lk>nɪt</lk>
           範例：Where does it hurt? → wer <wk>dəz</wk><lk>ɪt</lk><si>t</si> hɜːrt",
   "rules": ["用繁體中文寫出音變規則，每條一句話，2~5 條"],
-  "chunks": [{"en":"does it","ipa":"dəzɪt"}],
+  "chunks": [
+    {"en":"years of age","ipa":"jɪr·<lk>zə</lk>·<lk>veɪdʒ</lk>"}
+  ],
   "listen": "一句話：聽的時候該去聽什麼線索（而不是去找那個字的聲音）"
 }
 
+★ chunks 是本題最重要的部分，規則如下（務必嚴格遵守）：
+  1. 抓出句子裡「真實口語會黏成一團、沒有停頓」的連續片段（通常 2~4 個字，一定要包含被弱讀吞掉的功能詞）。
+  2. "ipa" 必須做「音節重組」：把前字字尾的子音（r/z/v/t/d/n/s/l 等）滑到後字開頭，用「·」標出重組後的音節切點，讓它看起來就是「連在一起」的樣子。
+  3. 連讀（子音滑到後字）的音節用 <lk> 包起來；弱讀的功能詞用 <wk>；其餘標籤照上面規則。
+  4. 絕對不要把字典音標逐字相接（例如 jɪrz əv eɪdʒ 這種分開的是錯的）；要呈現真實語流的黏著樣子（jɪr·zə·veɪdʒ）。
+  範例：
+    years of age    → {"en":"years of age","ipa":"jɪr·<lk>zə</lk>·<lk>veɪdʒ</lk>"}   （z 滑到 of，v 滑到 age）
+    corner of it    → {"en":"corner of","ipa":"kɔː·nə·<lk>rəv</lk>"}                （r 滑到 of，of 弱讀成 əv）
+    a lot of        → {"en":"a lot of","ipa":"ə·lɑ·<ch>ɾ</ch>·<lk>əv</lk>"}          （t 彈舌成 ɾ 再連 of）
+
 重點：這位學習者的診斷結果是「功能詞（介系詞/冠詞/be動詞）漏聽率 100%」，
-所以「弱讀」是他的核心問題 —— 只要句子裡有功能詞被弱讀，一定要用 <wk> 標出來。`
+所以「弱讀」是他的核心問題 —— 只要句子裡有功能詞被弱讀，一定要用 <wk> 標出來，
+而且一定要把它放進 chunks，用音節重組呈現「它是怎麼被前後字黏掉、失去獨立聲音的」。`
       const raw = await callAI([{ role:'user', content: usr }], sys)
       const data = JSON.parse(String(raw).replace(/```json|```/g, '').trim())
       updatePhraseAnyScene(p.id, x => ({ ...x, link: data }))
@@ -24720,7 +24776,7 @@ Steven 不是在收藏電影台詞。
                         {(p.link.chunks ?? []).length > 0 && (
                           <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
                             {p.link.chunks.map((c, i) => (
-                              <span key={i} onClick={() => playChunk(p, normWord(String(c.en).split(/\s+/).pop()))}
+                              <span key={i} onClick={() => playChunkSpan(p, c.en)}
                                 style={{ cursor:'pointer', userSelect:'none', WebkitUserSelect:'none',
                                   WebkitTouchCallout:'none', touchAction:'manipulation',
                                   display:'inline-flex', alignItems:'center', gap:5,
