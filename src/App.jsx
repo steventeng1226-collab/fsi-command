@@ -7358,7 +7358,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.30</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.32</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13747,62 +13747,86 @@ const REDUCE = {
 // 連音高頻聚合門檻：就是「真正會弱讀」的這批字（取代原本用寬鬆的 FUNC_WORDS，
 // 避免 I/he/she 這種不弱讀的代名詞洗版榜單）。
 const REDUCE_WORDS = new Set(Object.keys(REDUCE))
-// 從「使用者自己的句子」抓出含目標字的連音塊，套上弱化規則。
-// 不是給通用例句 —— 是他那一句的實際連音形式。
+
+// ⚠ 這些字「弱讀了但沒有真正的連音音變」——前後只是機械相接，練了學不到東西。
+// the/a/an 永遠就是 ðə/ə/ən，不會因前字而變化；練 16 次 ___ðə 沒有價值。
+// 連音高頻要練的是「字界模糊、子音滑動」的難點，不是「你早就知道的弱讀」。
+const NO_LINK_VALUE = new Set(['the', 'a', 'an', 'some'])
+
+// v6.32 架構調整：規則版「補不完」，不再假裝能算對音標。
+// buildChunks 只負責「找出連音塊 text」（哪個功能詞、跟前後哪個字黏在一起）——這它做得到。
+// 音標一律留空（ipa=''），標為未校驗；正確音標由 AI 校驗提供（水平覆蓋所有字，不靠殘缺的表）。
 function buildChunks(en, target) {
   const toks = tokenize(en)
   const out = []
+  const clean = s => String(s).replace(/[^A-Za-z0-9']/g, '')
   toks.forEach((t, i) => {
     if (t.w !== target) return
-    const red = REDUCE[t.w] ?? t.w
     if (i > 0) {
-      const prev = toks[i-1]
-      // 前一個字 + 弱化的目標字，黏成一團
-      const glued = prev.w + red
-      out.push({ text: `${prev.raw.replace(/[^A-Za-z0-9']/g,'')} ${t.raw.replace(/[^A-Za-z0-9']/g,'')}`, ipa: glued })
+      out.push({ text: `${clean(toks[i-1].raw)} ${clean(t.raw)}`, ipa: '' })
     } else if (i + 1 < toks.length) {
-      const next = toks[i+1]
-      out.push({ text: `${t.raw.replace(/[^A-Za-z0-9']/g,'')} ${next.raw.replace(/[^A-Za-z0-9']/g,'')}`, ipa: red + next.w })
+      out.push({ text: `${clean(t.raw)} ${clean(toks[i+1].raw)}`, ipa: '' })
     } else {
-      out.push({ text: t.raw, ipa: red })
+      out.push({ text: clean(t.raw), ipa: '' })
     }
   })
   return out
 }
 
-// ── 🎵 連音高頻（v6.29）：把「跨句的同類連音」聚合成清單 ──
+// ── 🔍 連音校驗表（v6.31）：AI 校驗過的連音塊，音標+狀態存這裡，永久保留不重複校 ──
+// key = `${target}|${text}`（如 "was|I was"）；value = { ipa, note, verifiedAt }
+const LINK_VERIFY_KEY = 'fsi:link:verified'
+function getLinkVerify() {
+  try { return JSON.parse(localStorage.getItem(LINK_VERIFY_KEY) ?? '{}') } catch { return {} }
+}
+function saveLinkVerify(map) {
+  try { localStorage.setItem(LINK_VERIFY_KEY, JSON.stringify(map)) } catch(e) {}
+}
+function linkKey(target, text) { return `${target}|${text}` }
+
+// ── 🎵 連音高頻（v6.31）：把「跨句的同類連音」聚合成清單 ──
 // 定位：以「功能詞」為聚合 key，用「漏聽率 × 出現次數」雙重加權排序。
-// 資料即時算（盲聽漏聽統計 + buildChunks 規則版），不需批次 AI 解析、開機就有。
-// 每一項附上它在各句的連音塊（含時間碼），供原音輪播——純耳朵訓練，不進句子。
+// v6.31 品質升級：排除純弱讀無音變的字（the/a/an）；連音塊去重；
+//   前字用音標（I was→aɪwəz）；套用 AI 校驗結果（🟢已校驗 / 🟡規則版草稿）。
 function computeFreqLinks(dictatedPhrases, minEnc = 2) {
   const enc = {}, miss = {}
   dictatedPhrases.forEach(p => {
     tokenize(p.en).forEach(t => { enc[t.w] = (enc[t.w] ?? 0) + 1 })
     ;(p.dict?.first?.miss ?? []).forEach(w => { miss[w] = (miss[w] ?? 0) + 1 })
   })
-  // 只聚合「真正會弱讀」的功能詞（REDUCE_WORDS）；
-  // 主格代名詞（I/he/she/we/they）不弱讀，實詞是字彙問題，都不在這裡練。
+  const verify = getLinkVerify()
   return Object.keys(enc)
-    .filter(w => REDUCE_WORDS.has(w) && (enc[w] ?? 0) >= minEnc)
+    // 只聚合「真正會弱讀 + 有連音價值」的功能詞：
+    //   REDUCE_WORDS 過濾不弱讀的代名詞；NO_LINK_VALUE 再踢掉純弱讀無音變的 the/a/an。
+    .filter(w => REDUCE_WORDS.has(w) && !NO_LINK_VALUE.has(w) && (enc[w] ?? 0) >= minEnc)
     .map(w => {
       const e = enc[w]
       const m = Math.min(miss[w] ?? 0, e)
       const rate = Math.round(100 * m / e)
-      // rate×enc 雙重加權：又常出現、又常漏的，排最前面
       const score = rate * e
-      // 蒐集這個字在各句的實際連音塊（規則版即時算），附時間碼供播放
       const items = []
+      const seen = new Set()                     // 去重：相同連音塊只留一個
       dictatedPhrases.forEach(p => {
-        if (!(p.startSecs > 0 && p.endSecs > p.startSecs)) return  // 沒時間碼不能播原音
-        const chunks = buildChunks(p.en, w)
-        chunks.forEach(c => items.push({
-          pid: p.id, text: c.text, ipa: c.ipa,
-          startSecs: p.startSecs, endSecs: p.endSecs, en: p.en, target: w,
-        }))
+        if (!(p.startSecs > 0 && p.endSecs > p.startSecs)) return
+        buildChunks(p.en, w).forEach(c => {
+          const dedupKey = `${w}|${c.text.toLowerCase()}`   // that was 重複只算一次
+          if (seen.has(dedupKey)) return
+          seen.add(dedupKey)
+          const vk = linkKey(w, c.text)
+          const v = verify[vk]                   // 有校驗紀錄 → 用校驗後的音標，標綠
+          items.push({
+            pid: p.id, text: c.text,
+            ipa: v ? v.ipa : '',                 // 未校驗一律空白（規則版不再假裝算得準）
+            note: v ? (v.note ?? '') : '',
+            verified: !!v,
+            startSecs: p.startSecs, endSecs: p.endSecs, en: p.en, target: w,
+          })
+        })
       })
-      return { w, miss:m, enc:e, rate, score, items }
+      const unverified = items.filter(x => !x.verified).length
+      return { w, miss:m, enc:e, rate, score, items, unverified }
     })
-    .filter(x => x.items.length > 0)          // 沒有可播的連音塊就不列（例如全部沒時間碼）
+    .filter(x => x.items.length > 0)
     .sort((a, b) => b.score - a.score || b.rate - a.rate)
 }
 // 連音的本質是「時間被壓縮」。sort of 唸成兩個字，就是比 sorəv 長。
@@ -13908,7 +13932,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.30）：11 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.32）：11 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -14020,6 +14044,8 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const shadowChunksRef = useRef([])
   const [recDur,    setRecDur]    = useState({})     // { pid: 你唸的秒數（切掉頭尾靜音）}
   const [linkBusy,  setLinkBusy]  = useState(null)   // 正在做連音解析的句子 id
+  const [verifyBusy, setVerifyBusy] = useState(null) // 正在 AI 校驗的功能詞
+  const [verifyTick, setVerifyTick] = useState(0)    // 校驗完成後強制重算 freqLinks
   const [asrBusy,   setAsrBusy]   = useState(null)   // 正在辨識的句子 id
   const [asrResult, setAsrResult] = useState({})     // { pid: { text, cmp } }
   const asrRef = useRef(null)
@@ -15750,6 +15776,52 @@ Return ONLY a JSON object, no markdown:
       showMovieToast('⚠ 連音解析失敗：' + (e?.message ?? ''))
     } finally {
       setLinkBusy(null)
+    }
+  }
+
+  // ── 🔍 AI 校驗連音（v6.31）：把某功能詞「未校驗的黃色連音塊」送 AI 複查 ──
+  // AI 拿到「原文片語 + 規則版音標」，逐一判斷對錯、修正、給一句聽點提示。
+  // 結果存進 LINK_VERIFY_KEY，永久保留，下次自動變綠、不重複校（省 token）。
+  async function verifyLinkWord(word, items) {
+    if (verifyBusy) return
+    const pending = (items ?? []).filter(x => !x.verified)   // 只校黃色
+    if (pending.length === 0) { showMovieToast('✓ 這個字的連音都校驗過了'); return }
+    setVerifyBusy(word)
+    try {
+      const sys = '你是英語連音（connected speech）教練，專門幫台灣學習者標「真實口語音標」。一律繁體中文。'
+      const list = pending.map((x, i) => `${i+1}. "${x.text}"`).join('\n')
+      const usr = `以下是「${word}」這個功能詞在各句的連音片段。請幫每一個標出「自然語速真實口語」的實際發音音標（不是字典逐字音標，是連讀後黏在一起的實際樣子）。
+
+${list}
+
+規則與注意：
+- 這些片段裡的「${word}」是被弱讀/連讀的重點，一定要呈現它「怎麼被前後字黏掉、失去獨立聲音」。
+- 代名詞 I 唸 /aɪ/、he=hi、she=ʃi、that=ðæt；the=ðə、a=ə、of=əv/ə、was=wəz、are=ər、to=tə、and=ən。
+- 連音重點：字界模糊、子音滑到後字（years of→jɪrzəv）、失去爆破、彈舌（flap T）。
+- 每個字都要標對，不管常不常見（boy was、night was 也要對）。用 IPA，精簡。不要 markdown、不要多餘文字。
+
+只回傳 JSON 陣列，順序對應上面編號，每項：
+[{"text":"<原文片語，原樣照抄>","ipa":"<真實連讀音標>","note":"<8字內：聽的時候該抓什麼線索>"}]`
+      const raw = await callAI([{ role:'user', content: usr }], sys)
+      const arr = JSON.parse(String(raw).replace(/```json|```/g, '').trim())
+      if (!Array.isArray(arr)) throw new Error('AI 回傳格式不對')
+      const map = getLinkVerify()
+      let n = 0
+      arr.forEach(item => {
+        if (!item?.text || !item?.ipa) return
+        // 用原文片語比對回哪個 pending（AI 可能微調大小寫，寬鬆比對）
+        const match = pending.find(x => x.text.toLowerCase().trim() === String(item.text).toLowerCase().trim())
+        const text = match ? match.text : item.text
+        map[linkKey(word, text)] = { ipa: String(item.ipa), note: String(item.note ?? ''), verifiedAt: getTodayStr() }
+        n++
+      })
+      saveLinkVerify(map)
+      setVerifyTick(t => t + 1)                    // 觸發 freqLinks 重算，黃轉綠
+      showMovieToast(`✓ 「${word}」已校驗 ${n} 個連音塊`)
+    } catch (e) {
+      showMovieToast('⚠ 校驗失敗：' + (e?.message ?? ''))
+    } finally {
+      setVerifyBusy(null)
     }
   }
 
@@ -24601,6 +24673,7 @@ Steven 不是在收藏電影台詞。
             </div>
           )
           const weakWords = computeWeakWords(dictated)
+          void verifyTick   // 校驗完成後 verifyTick 變化 → 重算 freqLinks，黃轉綠
           const freqLinks = computeFreqLinks(dictated)
           const shown = libWord ? dictated.filter(p => (p.dict.first.miss ?? []).includes(libWord))
                       : libDueOnly ? due : lib
@@ -24750,47 +24823,68 @@ Steven 不是在收藏電影台詞。
                     </div>
                   ) : (
                     <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-                      {freqLinks.slice(0, 20).map(({ w, miss, enc, rate, items }) => {
+                      {freqLinks.slice(0, 20).map(({ w, miss, enc, rate, items, unverified }) => {
                         const on = libWord === w
                         const playing = freqQueue?.word === w
+                        const verifying = verifyBusy === w
                         return (
                           <div key={w} style={{ background: on ? '#0d2a3a' : T.surf,
                             border:`1px solid ${on ? '#38bdf8' : T.bdr}`, borderRadius:8, padding:'7px 9px',
                             display:'flex', flexDirection:'column', gap:6 }}>
-                            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                            <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
                               <span onClick={() => setLibWord(on ? null : w)}
                                 style={{ cursor:'pointer', userSelect:'none', fontFamily:MONO, fontSize:13, fontWeight:700,
-                                  color:T.amber, minWidth:52, flexShrink:0 }}>
+                                  color:T.amber, minWidth:44, flexShrink:0 }}>
                                 ⚠ {w}
                               </span>
-                              <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3, minWidth:70, flexShrink:0 }}>
-                                漏 {miss}/{enc} · {rate}%
+                              <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3, flexShrink:0 }}>
+                                漏 {miss}/{enc}·{rate}%
                               </span>
-                              <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3, flex:1, minWidth:0 }}>
-                                {items.length} 個連音塊
+                              <span style={{ fontFamily:MONO, fontSize:8,
+                                color: unverified > 0 ? T.amber : '#4ade80', flex:1, minWidth:40 }}>
+                                {items.length}塊{unverified > 0 ? ` · 🟡${unverified}待校` : ' · 🟢全校驗'}
                               </span>
+                              {unverified > 0 && (
+                                <span onClick={() => verifyLinkWord(w, items)}
+                                  style={{ cursor:'pointer', userSelect:'none', WebkitUserSelect:'none', WebkitTouchCallout:'none',
+                                    touchAction:'manipulation', flexShrink:0, fontFamily:MONO, fontSize:9, fontWeight:700,
+                                    padding:'5px 8px', borderRadius:7,
+                                    background: verifying ? '#a78bfa' : '#1a1030',
+                                    color: verifying ? '#1a1030' : '#a78bfa', border:'1px solid #a78bfa60' }}>
+                                  {verifying ? '🔍 校驗中…' : `🔍 校驗 ${unverified}`}
+                                </span>
+                              )}
                               <span onClick={() => playFreqQueue(w, items)}
                                 style={{ cursor:'pointer', userSelect:'none', WebkitUserSelect:'none', WebkitTouchCallout:'none',
                                   touchAction:'manipulation', flexShrink:0, fontFamily:MONO, fontSize:10, fontWeight:700,
                                   padding:'5px 10px', borderRadius:7,
                                   background: playing ? T.amber : '#38bdf8', color: playing ? '#1a1207' : '#0d2a3a' }}>
-                                {playing ? `⏹ ${freqQueue.idx + 1}/${freqQueue.items.length}` : `🔥 連續聽 ${items.length}`}
+                                {playing ? `⏹ ${freqQueue.idx + 1}/${freqQueue.items.length}` : `🔥 聽 ${items.length}`}
                               </span>
                             </div>
                             {on && (
                               <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
                                 {items.map((it, ii) => {
                                   const cur = playing && freqQueue.idx === ii
+                                  const bd = cur ? T.amber : it.verified ? '#4ade8080' : '#facc1540'  // 綠=已校驗 黃=待校
                                   return (
                                     <span key={ii} onClick={() => playFreqQueue(w, [it])}
+                                      title={it.note || ''}
                                       style={{ cursor:'pointer', userSelect:'none', WebkitUserSelect:'none', WebkitTouchCallout:'none',
                                         touchAction:'manipulation', display:'inline-flex', alignItems:'center', gap:5,
                                         background: cur ? T.amber : '#1a1030',
-                                        border:`1px solid ${cur ? T.amber : '#a78bfa40'}`, borderRadius:7, padding:'4px 9px' }}>
-                                      <span style={{ fontSize:11 }}>🔊</span>
+                                        border:`1px solid ${bd}`, borderRadius:7, padding:'4px 9px' }}>
+                                      <span style={{ fontSize:10 }}>{it.verified ? '🟢' : '🔊'}</span>
                                       <span style={{ fontFamily:MONO, fontSize:10, color: cur ? '#1a1207' : T.txt2 }}>{it.text}</span>
-                                      <span style={{ fontFamily:MONO, fontSize:9, color: cur ? '#1a1207' : T.txt3 }}>→</span>
-                                      <span style={{ fontFamily:MONO, fontSize:12, fontWeight:700, color: cur ? '#1a1207' : '#a78bfa' }}>{it.ipa}</span>
+                                      {it.verified ? (
+                                        <>
+                                          <span style={{ fontFamily:MONO, fontSize:9, color: cur ? '#1a1207' : T.txt3 }}>→</span>
+                                          <span style={{ fontFamily:MONO, fontSize:12, fontWeight:700, color: cur ? '#1a1207' : '#a78bfa' }}>{it.ipa}</span>
+                                        </>
+                                      ) : (
+                                        // 選項B：未校驗不給可能錯的音標，只提示待校 —— 逼「校驗→綠→才練」的正路
+                                        <span style={{ fontFamily:MONO, fontSize:9, color: cur ? '#1a1207' : '#facc15', fontWeight:700 }}>· 🔍待校</span>
+                                      )}
                                     </span>
                                   )
                                 })}
@@ -24802,8 +24896,8 @@ Steven 不是在收藏電影台詞。
                     </div>
                   )}
                   <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.6 }}>
-                    連續轟炸同一個連音，大腦才會把「那團模糊的 ðerə」自動解析成 there are。
-                    音標是規則版近似，<b style={{ color:T.amber }}>以耳朵聽到的原音為準</b> —— 聽幾次你自己就會抓到那個音。
+                    🔍待校=規則版只找出連音塊、還沒給音標（規則版補不完，不假裝算得準）· 🟢=AI 校驗過（音標可信）。
+                    按 <b style={{ color:'#a78bfa' }}>🔍 校驗</b> 讓 AI 補上正確音標，永久變綠、不重複校。無論如何<b style={{ color:T.amber }}>以耳朵聽到的原音為準</b>。
                   </div>
                 </>
               )}
