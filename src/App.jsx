@@ -7358,7 +7358,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.26</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.27</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13855,7 +13855,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.26）：11 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.27）：11 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -15513,8 +15513,8 @@ Return ONLY a JSON object, no markdown:
     } else play()
   }
 
-  // ── 🎬 連音解析（v6.21）：AI 產出「帶標記的音標」，前端上色 ──
-  // 標記語法：<d>失去爆破</d> <f>音變</f> <l>連讀</l>
+  // ── 🎬 連音解析（v6.27）：AI 產出「帶標記的音標」，前端上色 ──
+  // 標記語法統一為雙字母六類：<wk>弱讀 <lk>連讀 <si>不發音 <ch>音變 <gl>滑音 <nw>生單詞
   // 結果存進句子（p.link），只查一次，之後離線也看得到。
   async function analyzeLinking(p) {
     if (linkBusy) return
@@ -15523,26 +15523,29 @@ Return ONLY a JSON object, no markdown:
       const sys = '你是英語連音（connected speech）教練，專門教台灣學習者聽懂真實語流。一律使用繁體中文。'
       const usr = `句子："${p.en}"
 
-請分析這句在「自然語速的真實口語」中會發生哪些音變，並回傳 JSON（不要 markdown、不要多餘文字）：
+請分析這句在「自然語速的真實口語」中會發生哪些音變，並回傳 JSON（不要 markdown、不要多餘文字）。
+
+⚠ 標記語法：只用以下六種「雙字母」標籤，絕對不要用單字母（不要用 <w> <l> <d> <f> <i>）：
+  <wk>…</wk> = 弱讀（功能詞塌成 schwa，例如 <wk>of</wk>、<wk>does</wk>）
+  <lk>…</lk> = 連讀（字與字黏在一起，例如 <lk>want to</lk>）
+  <si>…</si> = 不發音 / 失去爆破（字尾 p/t/k/b/d/g 只做嘴型，例如 didn<si>'t</si>）
+  <ch>…</ch> = 音變 / 彈舌（flap T、t+you→tʃ 等，例如 abou<ch>ɾ</ch>）
+  <gl>…</gl> = 滑音（母音間擠出 /w/ 或 /j/，例如 <gl>duːʷ</gl>ɪt）
+  <nw>…</nw> = 生單詞（實詞，可能是真的不認識的字，強調用）
 
 {
-  "enMarked": "把「英文原文」本身標記起來（保留原本的拼字與標點，只加標籤）：
-          <d>…</d> = 這幾個字母不發音 / 失去爆破（例如 didn<d>'t</d>、wan<d>ted</d>）
-          <l>…</l> = 這幾個字要連讀黏在一起（例如 <l>want to</l>）
-          <w>…</w> = 這個字被弱讀（例如 <w>does</w>、<w>of</w>）
-          <f>…</f> = 音變 / 彈舌
-          範例：I di<d>d</d>n'<d>t</d> <l>want to</l> be ordinary.",
-  "ipa": "整句的實際發音音標（不是字典音標，是連讀後的實際樣子），同樣用上面五種標籤：
-          <w>弱讀</w> <l>連讀</l> <d>不發音</d> <f>音變</f> <i>插入音</i>
-          範例：I don't want it. → aɪ dəʊn<d>t</d> wɑː<f>n</f><l>nɪt</l>
-          範例：Where does it hurt? → wer <w>dəz</w><l>ɪt</l><d>t</d> hɜːrt",
+  "enMarked": "把「英文原文」本身標記起來（保留原本的拼字與標點，只加上面六種標籤）。
+          範例：I di<si>d</si>n'<si>t</si> <lk>want to</lk> be ordinary.",
+  "ipa": "整句的實際發音音標（不是字典音標，是連讀後的實際樣子），同樣只用上面六種雙字母標籤。
+          範例：I don't want it. → aɪ dəʊn<si>t</si> wɑː<ch>n</ch><lk>nɪt</lk>
+          範例：Where does it hurt? → wer <wk>dəz</wk><lk>ɪt</lk><si>t</si> hɜːrt",
   "rules": ["用繁體中文寫出音變規則，每條一句話，2~5 條"],
   "chunks": [{"en":"does it","ipa":"dəzɪt"}],
   "listen": "一句話：聽的時候該去聽什麼線索（而不是去找那個字的聲音）"
 }
 
 重點：這位學習者的診斷結果是「功能詞（介系詞/冠詞/be動詞）漏聽率 100%」，
-所以「弱讀」是他的核心問題 —— 只要句子裡有功能詞被弱讀，一定要標出來。`
+所以「弱讀」是他的核心問題 —— 只要句子裡有功能詞被弱讀，一定要用 <wk> 標出來。`
       const raw = await callAI([{ role:'user', content: usr }], sys)
       const data = JSON.parse(String(raw).replace(/```json|```/g, '').trim())
       updatePhraseAnyScene(p.id, x => ({ ...x, link: data }))
@@ -15553,10 +15556,11 @@ Return ONLY a JSON object, no markdown:
     }
   }
 
-  // 把帶標記的音標渲染成彩色（<d>綠+刪除線 <f>橘+底線 <l>藍）
+  // 把帶標記的音標渲染成彩色。
+  // 相容兩套標記：新版雙字母 <wk><lk><si><ch><gl><nw>，舊版單字母 <w><l><d><f><i>（舊 p.link 資料）。
   function MarkedIPA({ text, size = 14 }) {
     const parts = []
-    const re = /<(wk|lk|si|ch|gl|nw)>(.*?)<\/\1>/g
+    const re = /<(wk|lk|si|ch|gl|nw|w|l|d|f|i)>(.*?)<\/\1>/g
     let last = 0, m
     const src = String(text ?? '')
     while ((m = re.exec(src)) !== null) {
@@ -15565,6 +15569,8 @@ Return ONLY a JSON object, no markdown:
       last = re.lastIndex
     }
     if (last < src.length) parts.push({ t: src.slice(last) })
+    // 舊單字母 → 新雙字母的映射（i 插入音 ≈ gl 滑音）
+    const ALIAS = { w:'wk', l:'lk', d:'si', f:'ch', i:'gl' }
     const STY = {
       wk: { color:'#facc15', fontWeight:700 },                                        // 弱讀/縮讀（黃）← 你的核心問題
       lk: { color:'#38bdf8', borderBottom:'2px dotted #38bdf8' },                     // 連讀（藍）
@@ -15576,7 +15582,7 @@ Return ONLY a JSON object, no markdown:
     return (
       <span style={{ fontFamily:MONO, fontSize:size, color:T.txt, letterSpacing:'0.01em', lineHeight:1.8,
         overflowWrap:'break-word' }}>
-        {parts.map((x, i) => <span key={i} style={x.k ? STY[x.k] : undefined}>{x.t}</span>)}
+        {parts.map((x, i) => <span key={i} style={x.k ? STY[ALIAS[x.k] ?? x.k] : undefined}>{x.t}</span>)}
       </span>
     )
   }
