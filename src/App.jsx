@@ -7358,7 +7358,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.25</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.26</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13855,7 +13855,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.25）：11 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.26）：11 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -24385,15 +24385,16 @@ Steven 不是在收藏電影台詞。
           const grad = all.filter(p => p.dict?.grad)
           const today = getTodayStr()
           const due = lib.filter(p => !p.dict.next || p.dict.next <= today)
-          if (lib.length === 0 && grad.length === 0) return (
+          // 依「漏掉率」分群：出現越頻繁的字一定漏越多次，用次數排會被 the/i/and 洗版
+          // ⚠ 一定要濾掉 noBlind：不然排除掉的句子還是會出現在弱點關卡
+          const dictated = all.filter(p => p.dict?.first && !p.noBlind)
+          // 空庫提示：lib/grad/dictated 全空才顯示（若 dictated 有資料，弱點關卡仍可運作）
+          if (lib.length === 0 && grad.length === 0 && dictated.length === 0) return (
             <div style={{ background:'#0a1520', border:'1px solid #38bdf830', borderRadius:10, padding:12,
               fontFamily:MONO, fontSize:10, color:T.txt3, lineHeight:1.6 }}>
               聽力庫還是空的。開盲聽模式做聽寫，<b style={{ color:'#38bdf8' }}>首次全詞率 &lt;60%</b> 的句子會自動收錄進來。
             </div>
           )
-          // 依「漏掉率」分群：出現越頻繁的字一定漏越多次，用次數排會被 the/i/and 洗版
-          // ⚠ 一定要濾掉 noBlind：不然排除掉的句子還是會出現在弱點關卡
-          const dictated = all.filter(p => p.dict?.first && !p.noBlind)
           const weakWords = computeWeakWords(dictated)
           const shown = libWord ? dictated.filter(p => (p.dict.first.miss ?? []).includes(libWord))
                       : libDueOnly ? due : lib
