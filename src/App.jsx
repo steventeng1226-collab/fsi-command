@@ -7358,7 +7358,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.35</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.41</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -8624,7 +8624,7 @@ function PracticeTab({ sentences, vocab, stats, settings, updateSentences, updat
   const [dailyCount, setDailyCount] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('fsi:daily') || 'null')
-      const today = new Date().toISOString().slice(0,10)
+      const today = getTodayStr()   // v6.40: 禁用 toISOString（UTC+7 清晨算成前一天，每日計數會晚 7 小時才重置）
       return (saved?.date === today) ? (saved.count ?? 0) : 0
     } catch { return 0 }
   })
@@ -8678,7 +8678,7 @@ function PracticeTab({ sentences, vocab, stats, settings, updateSentences, updat
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 1800) }
 
   function saveDailyCount(n) {
-    const today = new Date().toISOString().slice(0,10)
+    const today = getTodayStr()   // v6.40: 禁用 toISOString
     localStorage.setItem('fsi:daily', JSON.stringify({ date: today, count: n }))
     setDailyCount(n)
   }
@@ -13443,11 +13443,10 @@ function markBatchCompleted(movieId, batchIdx) {
   const completedDates = [...new Set([...(existing.completedDates ?? []), today])]
   const stage = existing.reviewStage ?? 0
   const intervalDays = REVIEW_INTERVALS[Math.min(stage, REVIEW_INTERVALS.length - 1)]
-  const nextDate = new Date(); nextDate.setDate(nextDate.getDate() + intervalDays)
   all[batchIdx] = {
     completedDates,
     reviewStage: Math.min(stage + 1, REVIEW_INTERVALS.length - 1),
-    nextReviewDate: nextDate.toISOString().slice(0,10),
+    nextReviewDate: addDaysStr(today, intervalDays),   // v6.40: 禁用 toISOString（UTC+7 清晨排程會少一天）
   }
   try { localStorage.setItem(key, JSON.stringify(all)) } catch(e) {}
 }
@@ -13677,8 +13676,8 @@ const CLASS_INFO = {
     tip:'is/was/are/been 在語流裡常被壓縮成一個子音或一個 schwa，幾乎不佔時間，聽感上像是前一個字的尾音。',
     how:'不要等一個獨立的 is，要聽「前一個字後面有沒有多一個 z / s / ə 的尾巴」。' },
   pron: { name:'代名詞', c:'#a78bfa',
-    tip:'I/you/it/me 在非重音位置會塌陷。主詞 I 常常只剩一個極短的 ə，甚至完全消失。',
-    how:'不要用「有沒有聽到 I」來判斷，要用「動詞前面有沒有一個短促的凸起」。' },
+    tip:'受詞/所有格代名詞（them/her/him/you）在非重音位置會塌陷（them→əm、him→ɪm）。但主格 I 永遠唸 aɪ 不弱讀——漏聽 I 通常是它被前後字的連讀蓋住，不是它消失。',
+    how:'受詞代名詞：聽動詞後面有沒有多一個弱尾巴（give it to them 的 əm）。主詞 I：聽動詞前面那個短促的 aɪ，它一定在。' },
   art:  { name:'冠詞', c:'#34d399',
     tip:'a / the 幾乎不發音，只是一個 ə / ðə 的滑音，通常跟前後字黏死。',
     how:'冠詞是最不需要「聽到」的字——用文法補回來就好，不要花力氣抓。' },
@@ -13701,7 +13700,7 @@ const LINK_HINT = {
   at:'at first → ətfirst ｜ look at it → lookədit',
   for:'for three → fərthree ｜ for a → fərə',
   as:'as soon as → əsuːnəz ｜ as you → əzyə',
-  with:'with it → wɪthit ｜ with a → wɪthə',
+  with:'with it → wɪðɪt ｜ with a → wɪðə',
   from:'from the → frəmðə',
   and:'love and work → luvənwork ｜ and → ən / n',
   the:'the → ðə（幾乎只剩一個滑音）',
@@ -13718,7 +13717,6 @@ const LINK_HINT = {
   can:'can → kən（不是 can，是 kən）',
   that:'that → ðət',
   have:'have → əv ｜ could have → couldəv',
-  been_:'',
 }
 
 // ════════ 🗣 跟讀：連音塊產生器（v5.95）════════
@@ -13732,6 +13730,9 @@ const LINK_HINT = {
 // 這張表的 key 同時是「連音高頻」的聚合門檻（REDUCE_WORDS），錯一個就污染整個榜。
 const REDUCE = {
   // 介系詞（真弱讀）
+  // ⚠ with:'wɪð' 是刻意的例外：wɪð 就是原音（with 不塌成 schwa），照 v6.30 標準本該移除，
+  //   但 with 有高連音價值（字尾 ð 黏後字：with it→wɪðɪt）且實測漏聽率極高——
+  //   這張表同時是連音高頻的聚合門檻，移除它 = with 從榜上消失。留著，當「連音門檻」不當「弱讀示範」。
   of:'əv', to:'tə', at:'ət', as:'əz', for:'fər', from:'frəm', with:'wɪð', than:'ðən',
   // 冠詞・限定詞
   a:'ə', an:'ən', the:'ðə', some:'səm',
@@ -13742,14 +13743,15 @@ const REDUCE = {
   // 連接詞（真弱讀）
   and:'ən', but:'bət', or:'ər', that:'ðət',
   // 受詞/所有格代名詞（句中確實弱化 —— give it to them 的 them=əm）
-  you:'yə', your:'yər', them:'əm', us:'əs', her:'ər', him:'ɪm',
+  you:'jə', your:'jər', them:'əm', us:'əs', her:'ər', him:'ɪm',
 }
 // 連音高頻聚合門檻：就是「真正會弱讀」的這批字（取代原本用寬鬆的 FUNC_WORDS，
 // 避免 I/he/she 這種不弱讀的代名詞洗版榜單）。
 const REDUCE_WORDS = new Set(Object.keys(REDUCE))
 
 // ⚠ 這些字「弱讀了但沒有真正的連音音變」——前後只是機械相接，練了學不到東西。
-// the/a/an 永遠就是 ðə/ə/ən，不會因前字而變化；練 16 次 ___ðə 沒有價值。
+// the=ðə（母音前變 ði：the apple→ðiˈæpəl，但那是受「後字」影響的固定規則，不是連音難點）；
+// a/an 永遠 ə/ən。這些不會因「前字」而變化；練 16 次 ___ðə 沒有價值。
 // 連音高頻要練的是「字界模糊、子音滑動」的難點，不是「你早就知道的弱讀」。
 const NO_LINK_VALUE = new Set(['the', 'a', 'an', 'some'])
 
@@ -13762,12 +13764,14 @@ function buildChunks(en, target) {
   const clean = s => String(s).replace(/[^A-Za-z0-9']/g, '')
   toks.forEach((t, i) => {
     if (t.w !== target) return
+    // v6.36: 存 token 位置（from/to），播放時直接定位——
+    //   之前播放端用 findIndex 重找，同句多個目標字永遠播到第一個；句首塊（取後字）也播錯範圍。
     if (i > 0) {
-      out.push({ text: `${clean(toks[i-1].raw)} ${clean(t.raw)}`, ipa: '' })
+      out.push({ text: `${clean(toks[i-1].raw)} ${clean(t.raw)}`, ipa: '', from: i - 1, to: i })
     } else if (i + 1 < toks.length) {
-      out.push({ text: `${clean(t.raw)} ${clean(toks[i+1].raw)}`, ipa: '' })
+      out.push({ text: `${clean(t.raw)} ${clean(toks[i+1].raw)}`, ipa: '', from: i, to: i + 1 })
     } else {
-      out.push({ text: clean(t.raw), ipa: '' })
+      out.push({ text: clean(t.raw), ipa: '', from: i, to: i })
     }
   })
   return out
@@ -13819,6 +13823,7 @@ function computeFreqLinks(dictatedPhrases, minEnc = 2) {
             ipa: v ? v.ipa : '',                 // 未校驗一律空白（規則版不再假裝算得準）
             note: v ? (v.note ?? '') : '',
             verified: !!v,
+            from: c.from, to: c.to,              // v6.36: 塊在句中的 token 位置，播放直接用
             startSecs: p.startSecs, endSecs: p.endSecs, en: p.en, target: w,
           })
         })
@@ -13864,6 +13869,7 @@ const SHADOW_SPEEDS = [0.6, 0.8, 1.0]   // 跟讀 / 升速用的三速階梯
 
 const BLIND_MIN_WORDS = 4
 function inBlindPool(p) {
+  if (p.noBlind) return false          // v6.39: 排除句（歌詞等）永不再抽——之前只擋顯示沒堵源頭，排除過但沒聽寫過的句子會回鍋
   if (p.starred) return false
   if ((p.rating ?? 0) < 3) return false
   return tokenize(p.en).length >= BLIND_MIN_WORDS
@@ -13932,14 +13938,14 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.35）：11 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.41）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
   { cls:'ch', t:'t 夾在兩母音間 → 濁化成 d/彈舌', eg:'about it', ipa:'ə-baʊ-<ch>ɾ</ch>-ɪt', note:'flap T：water→wader、later→lader' },
-  { cls:'lk', t:'子音 + 子音 → 取其一',  eg:'is he',      ipa:'<lk>ɪ-zi</lk>',           note:'兩個子音只發後面那個' },
+  { cls:'lk', t:'h 開頭代名詞 → h 常脫落',  eg:'is he',      ipa:'<lk>ɪ-zi</lk>',           note:'he/him/her/his 的 h 在句中脫落：is he→ɪzi、tell him→telɪm' },
   { cls:'lk', t:'相同子音 → 只讀一個',   eg:'Yes, sir',   ipa:'<lk>je-sɜːr</lk>',        note:'ss / tt / dd 相鄰只發一次' },
-  { cls:'si', t:'爆破音在字尾 → 停一拍不發', eg:"don't worry", ipa:'dəʊn<si>t</si> wʌri', note:'失去爆破：p/t/k/b/d/g 在字尾只做嘴型' },
+  { cls:'si', t:'爆破音在字尾 → 停一拍不發', eg:"don't worry", ipa:'doʊn<si>t</si> wʌri', note:'失去爆破：p/t/k/b/d/g 在字尾只做嘴型' },
   { cls:'gl', t:'圓唇母音 + 母音 → 插 /w/', eg:'do it',   ipa:'<gl>duːʷ</gl>ɪt',         note:'嘴型變圓，中間擠出 w' },
   { cls:'gl', t:'其他母音 + 母音 → 插 /j/', eg:'see it',  ipa:'<gl>siːʲ</gl>ɪt',         note:'口型不變圓，中間擠出 j（y音）' },
   { cls:'si', t:'t 在字尾 → 常省略',     eg:'sit down',   ipa:'<si>sɪ</si> daʊn',        note:'口語裡字尾 t 幾乎消失' },
@@ -14023,6 +14029,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const [libWord,       setLibWord]       = useState(null)    // 選中的弱點字
   const [libDueOnly,    setLibDueOnly]    = useState(false)   // 只看今天該複習的
   const [libTestId,     setLibTestId]     = useState(null)    // 正在重測的句子（遮住英文）
+  const [libRevealed,   setLibRevealed]   = useState({})      // v6.39: 到期句預設遮罩，明確點「看答案」才露出（防重測前偷看污染診斷）
   const listenLibRef = useRef(null)                            // Header 跳轉時捲到聽力庫
   const [rulesOpen, setRulesOpen] = useState(false)            // 📋 聽力訓練守則面板
   const [linkTableOpen, setLinkTableOpen] = useState(false)    // 📖 連讀速查表面板（漏宣告會讓聽力庫一展開就 ReferenceError → 整頁黑）
@@ -14993,19 +15000,20 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   }
   // 造句庫自評：套用跟電影句子一樣的間隔複習排程（3/7/16/35天）。
   // ✓完整說 → 進到下一階段間隔；✗說不出/◎說一半 → 退回最初階段，近期再複習。
+  // v6.40: 改用 getTodayStr/addDaysStr（禁用 toISOString——UTC+7 清晨會算成前一天，正好是 6:30 訓練時段）；
+  //   間隔對齊聽寫：第1次✓ +3、第2次 +7、第3次 +16、第4次起 +35（familiar，之後維持 35 天節奏）。
   function rateMyProduceSentence(id, rating) {
     const latest = db.myProduceSentences ?? []
-    const today = new Date()
+    const today = getTodayStr()
     const updated = latest.map(item => {
       if (item.id !== id) return item
       if (rating === 'good') {
-        const stage = Math.min((item.reviewStage ?? 0) + 1, REVIEW_INTERVALS.length - 1)
-        const nextDate = new Date(today.getTime() + REVIEW_INTERVALS[stage] * 86400000)
-        return { ...item, reviewStage: stage, nextReviewDate: nextDate.toISOString().slice(0,10),
-          familiar: stage >= REVIEW_INTERVALS.length - 1 }
+        const stage = Math.min((item.reviewStage ?? 0) + 1, REVIEW_INTERVALS.length)
+        const itv = REVIEW_INTERVALS[Math.min(stage - 1, REVIEW_INTERVALS.length - 1)]
+        return { ...item, reviewStage: stage, nextReviewDate: addDaysStr(today, itv),
+          familiar: stage >= REVIEW_INTERVALS.length }
       } else {
-        const nextDate = new Date(today.getTime() + REVIEW_INTERVALS[0] * 86400000)
-        return { ...item, reviewStage: 0, nextReviewDate: nextDate.toISOString().slice(0,10), familiar: false }
+        return { ...item, reviewStage: 0, nextReviewDate: addDaysStr(today, REVIEW_INTERVALS[0]), familiar: false }
       }
     })
     saveMyProduce(updated)
@@ -15115,7 +15123,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   }
   function appendKbItem(id, newContent) {
     const latestKb = db.knowledgeBase ?? []
-    const dateStr = new Date().toISOString().slice(0,10)
+    const dateStr = getTodayStr()   // v6.40: 禁用 toISOString
     saveKb(latestKb.map(k => k.id === id
       ? { ...k, content: (k.content ?? '') + `\n\n── 補充於 ${dateStr} ──\n` + newContent }
       : k
@@ -15211,12 +15219,13 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
 
   // targetSceneId 可選：批次練習（多場景）時，應該傳入該句子實際所屬的場景id，
   // 而不是用目前畫面上選定的單一 sceneId（否則會誤蓋成無關場景的練習日期）
+  // v6.41: 語意定為「最近一次練習日期」——每次練習更新（同一天只寫一次，避免重複 saveDb）。
+  //   舊邏輯「只記第一次、永不更新」跟欄位名 lastVisited 和 UI 呈現都對不上。
   function markScenePracticed(targetSceneId) {
     const sid = targetSceneId ?? sceneId
-    // 只在沒有日期時才記錄（保留第一次練習日期，不覆蓋）
+    const today = getTodayStr()
     const currentScene = db.movies.flatMap(m => m.scenes ?? []).find(sc => sc.id === sid)
-    if (!currentScene || currentScene.lastVisited) return // 找不到場景 或 已有日期，不更新
-    const today = new Date().toISOString().slice(0,10)
+    if (!currentScene || currentScene.lastVisited === today) return // 找不到場景 或 今天已記過
     saveDb({ ...db, movies: db.movies.map(m => ({
       ...m, scenes: m.scenes.map(sc => sc.id !== sid ? sc : { ...sc, lastVisited: today })
     }))})
@@ -15396,14 +15405,26 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
       const p = findPhrase(it.pid)
       if (!p) { step(i + 1); return }
       const toks = tokenize(p.en)
-      const idx = toks.findIndex(t => t.w === it.target)
-      if (idx < 0) { step(i + 1); return }
-      const from = Math.max(0, idx - 1)          // 前一字當引子，聽得到連讀進入點
-      const total = toks.length
+      // v6.36: 優先用塊自帶的 token 位置（buildChunks 存的 from/to）——
+      //   修掉「同句多個目標字永遠播第一個」和「句首塊只播一半」。
+      //   舊資料沒有 from/to 時退回 findIndex（向下相容）。
+      let fromTi = it.from, toTi = it.to
+      if (!(Number.isInteger(fromTi) && Number.isInteger(toTi) && toTi < toks.length && fromTi <= toTi)) {
+        const idx = toks.findIndex(t => t.w === it.target)
+        if (idx < 0) { step(i + 1); return }
+        fromTi = Math.max(0, idx - 1); toTi = idx
+      }
+      // v6.36: 字母數加權時間估算（取代均分）——
+      //   均分假設每個字等長，但功能詞在時間上被壓縮（這正是本 App 的核心洞察），
+      //   字母數和發音時長正相關，加權後切割準度明顯提升。
+      const lens = toks.map(t => Math.max(1, String(t.raw ?? t.w ?? '').replace(/[^A-Za-z0-9']/g, '').length))
+      const totalLen = lens.reduce((a, b) => a + b, 0) || 1
       const sentDur = p.endSecs - p.startSecs
+      const preLen  = lens.slice(0, fromTi).reduce((a, b) => a + b, 0)
+      const spanLen = lens.slice(fromTi, toTi + 1).reduce((a, b) => a + b, 0)
       const PAD = 0.3
-      const startS = p.startSecs + (from / total) * sentDur - PAD
-      const endS   = p.startSecs + ((idx + 1) / total) * sentDur + PAD
+      const startS = p.startSecs + (preLen / totalLen) * sentDur - PAD
+      const endS   = p.startSecs + ((preLen + spanLen) / totalLen) * sentDur + PAD
       const el = audioElRef.current
       const currentMovie = db.movies.find(m => m.id === movieId)
       const targetFile = getMovieMp3At(currentMovie, startS)
@@ -15470,7 +15491,9 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
         if (passed) {
           stage = Math.min(stage + 1, REVIEW_INTERVALS.length)
           if (stage >= REVIEW_INTERVALS.length) { grad = true; graduated = true; next = null }
-          else next = addDaysStr(today, REVIEW_INTERVALS[stage - 1])
+          // v6.39: INTERVALS[stage]（不是 stage-1）——進庫時已用掉 +3（INTERVALS[0]），
+          //   過關後排「下一階」：7/16/35。舊寫法 3 重複排兩次、35 永遠用不到，提早一輪畢業。
+          else next = addDaysStr(today, REVIEW_INTERVALS[stage])
         } else {
           stage = 0                            // 沒過關 → 打回原點，3天後再來
           next = addDaysStr(today, 3)
@@ -15747,8 +15770,8 @@ Return ONLY a JSON object, no markdown:
   "enMarked": "把「英文原文」本身標記起來（保留原本的拼字與標點，只加上面六種標籤）。
           範例：I di<si>d</si>n'<si>t</si> <lk>want to</lk> be ordinary.",
   "ipa": "整句的實際發音音標（不是字典音標，是連讀後的實際樣子），同樣只用上面六種雙字母標籤。
-          範例：I don't want it. → aɪ dəʊn<si>t</si> wɑː<ch>n</ch><lk>nɪt</lk>
-          範例：Where does it hurt? → wer <wk>dəz</wk><lk>ɪt</lk><si>t</si> hɜːrt",
+          範例：I don't want it. → aɪ doʊn<si>t</si> wɑː<ch>n</ch><lk>nɪt</lk>
+          範例：Where does it hurt? → wer <wk>dəz</wk><lk>ɪ</lk><si>t</si> hɜːrt",
   "rules": ["用繁體中文寫出音變規則，每條一句話，2~5 條"],
   "chunks": [
     {"en":"years of age","ipa":"jɪr·<lk>zə</lk>·<lk>veɪdʒ</lk>"}
@@ -15782,9 +15805,10 @@ Return ONLY a JSON object, no markdown:
   // ── 🔍 AI 校驗連音（v6.31）：把某功能詞「未校驗的黃色連音塊」送 AI 複查 ──
   // AI 拿到「原文片語 + 規則版音標」，逐一判斷對錯、修正、給一句聽點提示。
   // 結果存進 LINK_VERIFY_KEY，永久保留，下次自動變綠、不重複校（省 token）。
-  async function verifyLinkWord(word, items) {
+  async function verifyLinkWord(word, items, force = false) {
     if (verifyBusy) return
-    const pending = (items ?? []).filter(x => !x.verified)   // 只校黃色
+    // force=true：重校模式，連 🟢 也重送（修正錯的校驗結果會覆蓋舊值）
+    const pending = force ? (items ?? []) : (items ?? []).filter(x => !x.verified)
     if (pending.length === 0) { showMovieToast('✓ 這個字的連音都校驗過了'); return }
     setVerifyBusy(word)
     try {
@@ -15796,7 +15820,11 @@ ${list}
 
 規則與注意：
 - 這些片段裡的「${word}」是被弱讀/連讀的重點，一定要呈現它「怎麼被前後字黏掉、失去獨立聲音」。
-- 代名詞 I 唸 /aɪ/、he=hi、she=ʃi、that=ðæt；the=ðə、a=ə、of=əv/ə、was=wəz、are=ər、to=tə、and=ən。
+- 代名詞 I 唸 /aɪ/、he=hi、she=ʃi；the=ðə、a=ə、of=əv/ə、was=wəz、are=ər、to=tə、and=ən。
+- that 看用法：指示代名詞/句首重讀（That's mine、How that）=ðæt；連接詞/關係詞（know that、thought that 的 that 子句）弱讀=ðət。依片語判斷，不要一律 ðæt。
+- 弱讀後「母音絕不消失」：could=kəd、can=kən、have=əv/həv——弱讀是塌成 schwa，不是整個母音不見（kd 這種無母音的組合是錯的，發不出來）。
+- 母音與母音之間的 t 一律標彈舌 ɾ（美式）：that is→ðæɾɪz、get up→ɡeɾʌp。不要標成清楚的 t——那是字典音，不是口語。
+- 短母音不加長音符 ː：træk 不是 træːk；只有 iː/uː/ɑː/ɔː/ɜː 這類真正的長母音才用 ː。
 - 連音重點：字界模糊、子音滑到後字（years of→jɪrzəv）、失去爆破、彈舌（flap T）。
 - 每個字都要標對，不管常不常見（boy was、night was 也要對）。用 IPA，精簡。不要 markdown、不要多餘文字。
 
@@ -15817,7 +15845,7 @@ ${list}
       })
       saveLinkVerify(map)
       setVerifyTick(t => t + 1)                    // 觸發 freqLinks 重算，黃轉綠
-      showMovieToast(`✓ 「${word}」已校驗 ${n} 個連音塊`)
+      showMovieToast(force ? `🔄 「${word}」已重校 ${n} 個連音塊（覆蓋舊結果）` : `✓ 「${word}」已校驗 ${n} 個連音塊`)
     } catch (e) {
       showMovieToast('⚠ 校驗失敗：' + (e?.message ?? ''))
     } finally {
@@ -16640,7 +16668,7 @@ ${list}
           timeRange: newTimeRange,
           phrases: newPhrases,
           // 存進場景資料本身（不是只留在記憶體），重開頁面也能看到上次校正了多少
-          lastCorrection: { offset, appliedAt: new Date().toISOString().slice(0,10) },
+          lastCorrection: { offset, appliedAt: getTodayStr() },
         }
       })
       return { ...m, scenes: newScenes }
@@ -16751,9 +16779,9 @@ ${list}
       el.currentTime = offsetStart
       el.play().catch(() => setScenePlaying(false))
       setScenePlaying(true); setScenePlayPos(0); setScenePaused(false)
-      // 播放超過5秒才算真正練習，記錄日期
+      // v6.41: 播放超過 60 秒才算真正練習（舊的 5 秒門檻太弱——點進來確認一下聲音就被標記）
       clearTimeout(el._practiceDateTimer)
-      el._practiceDateTimer = setTimeout(() => { markScenePracticed() }, 5000)
+      el._practiceDateTimer = setTimeout(() => { markScenePracticed(scene.id) }, 60000)
     }
 
     const targetKey2 = targetFile?.idbKey ?? targetFile?.url
@@ -16975,8 +17003,9 @@ ${numbered}`
     function advance() {
       if (cancelled) return
       markPlayed(p.id)
-      // 第一句播完才算真正開始練習，記錄日期
-      if (playIdx === 0) markScenePracticed()
+      // v6.41: 播完前 2 句暖身後，每句標記「自己所屬場景」的練習日期（函數內同日去重，不重複寫）。
+      //   批次跨場景連播時，每個真的被播到的場景都會記到；不再誤標「目前選定的場景」。
+      if (playIdx >= Math.min(2, activePhrases.length - 1)) markScenePracticed(p._sceneId)
       setTimeout(() => {
         if (cancelled) return
         const next = playIdx + 1
@@ -19200,8 +19229,9 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                                 ph.id === cur.id ? { ...ph, familiar: fv } : ph
                               ))
                             }
-                            // 記錄日期（第一句）
-                            if (revIdx === 0) markScenePracticed()
+                            // v6.41: 自評本身就是主動練習——每次自評標記「這句所屬場景」（同日去重）。
+                            //   批次多場景時不再誤標目前選定的場景。
+                            markScenePracticed(cur._sceneId)
                             // 自動進下一句
                             const isLast = revIdx >= activePhrases.length - 1
                             setRevFlip(false)
@@ -22154,7 +22184,7 @@ Steven 不是在收藏電影台詞。
           )
         })()}
         {(() => {
-          const todayStr = new Date().toISOString().slice(0,10)
+          const todayStr = getTodayStr()   // v6.40: 禁用 toISOString（UTC+7 清晨算成前一天）
           const dueList = myProduceList.filter(i => !i.nextReviewDate || i.nextReviewDate <= todayStr)
           if (myProduceList.length === 0) return null
           return (
@@ -22172,7 +22202,7 @@ Steven 不是在收藏電影台詞。
 
         {/* 練習模式：一題一題出，自己講完再翻牌對照，自評套用間隔複習排程 */}
         {myProducePracticeOn && (() => {
-          const todayStr = new Date().toISOString().slice(0,10)
+          const todayStr = getTodayStr()   // v6.40: 禁用 toISOString（UTC+7 清晨算成前一天）
           const dueList = myProduceList.filter(i => !i.nextReviewDate || i.nextReviewDate <= todayStr)
           const queue = dueList.length > 0 ? dueList : myProduceList
           if (queue.length === 0) return null
@@ -22497,24 +22527,46 @@ Steven 不是在收藏電影台詞。
           </span>
         </div>
 
-        {/* ── 🎲 今天練一句：從知識庫隨機挑一句，每天固定同一句，隔天自動換 ── */}
+        {/* ── 🎲 今天練一句：從知識庫挑一句，每天固定同一句，隔天自動換 ── */}
         {(() => {
           const kbListToday = db.knowledgeBase ?? []
           if (kbListToday.length === 0) return null
-          // 用「今天是這一年第幾天」當種子，同一天固定挑同一筆，隔天自動換下一筆
           const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(),0,0)) / 86400000)
-          const todayItem = kbListToday[dayOfYear % kbListToday.length]
-          // 從內容裡挑一句適合開口念的例句：優先工作例句 > 電影例句 > Chunk第一行 > 標題
-          function extractPracticeSentence(content) {
-            const lines = (content ?? '').split('\n').map(l => l.trim())
+          // v6.40: 英文判斷——有英文字母且 CJK 佔比低。防中文翻譯行/中文標題被抽去練習（練一句/造句/加練同源）。
+          const looksEnglish = s => {
+            const str = String(s ?? '').trim()
+            if (!/[A-Za-z]{2,}/.test(str)) return false
+            const cjk = (str.match(/[\u4e00-\u9fff\u3400-\u4dbf]/g) ?? []).length
+            return cjk <= str.length * 0.2
+          }
+          // 從內容裡挑一句適合開口念的英文例句：優先工作例句 > 電影例句 > Chunk > 全文第一個英文行 > 英文標題。
+          // 整篇抽不出英文 → 回傳 null，這筆跳過。
+          function extractPracticeSentence(item) {
+            const lines = (item.content ?? '').split('\n').map(l => l.trim())
             const findAfter = marker => {
               const idx = lines.findIndex(l => l.includes(marker))
               if (idx < 0) return null
-              return lines.slice(idx+1).find(l => l && !l.startsWith('【'))
+              return lines.slice(idx+1).find(l => l && !l.startsWith('【') && looksEnglish(l))
             }
-            return findAfter('工作例句') || findAfter('電影例句') || findAfter('Chunk') || todayItem.title
+            return findAfter('工作例句') || findAfter('電影例句') || findAfter('Chunk')
+              || lines.find(l => l && !l.startsWith('【') && looksEnglish(l))
+              || (looksEnglish(item.title) ? item.title : null)
           }
-          const sentence = extractPracticeSentence(todayItem.content)
+          // v6.40: 每日抽題改用 id 雜湊（rendezvous）——新增筆記不再讓「今天這一句」跳掉；
+          //   舊寫法 dayOfYear % length，length 一變整個映射洗牌。
+          const hashScore = id => {
+            const s = `${id}|${dayOfYear}`
+            let h = 0
+            for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0
+            return h
+          }
+          const ranked = [...kbListToday].sort((a, b) => hashScore(b.id) - hashScore(a.id))
+          let todayItem = null, sentence = null
+          for (const it of ranked) {
+            const s = extractPracticeSentence(it)
+            if (s) { todayItem = it; sentence = s; break }
+          }
+          if (!todayItem) return null
           return (
             <div style={{ background:'linear-gradient(135deg, #1a1400, #0d0d00)', border:`1px solid ${T.amber}60`,
               borderRadius:13, padding:'14px', display:'flex', flexDirection:'column', gap:8 }}>
@@ -22544,10 +22596,10 @@ Steven 不是在收藏電影台詞。
                 <div onClick={() => {
                     // 從知識庫隨機再抽一句（跳過今天已練過的）
                     const usedIds = new Set([todayItem.id, ...extraPracticeItems.map(x => x.id)])
-                    const pool = kbListToday.filter(k => !usedIds.has(k.id))
+                    const pool = kbListToday.filter(k => !usedIds.has(k.id) && extractPracticeSentence(k))
                     if (pool.length === 0) { showMovieToast('知識庫所有句子都已經加練過了'); return }
                     const pick = pool[Math.floor(Math.random() * pool.length)]
-                    const s = extractPracticeSentence(pick.content)
+                    const s = extractPracticeSentence(pick)
                     setExtraPracticeItems(prev => [...prev, { ...pick, sentence: s }])
                   }}
                   style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:9, fontWeight:700,
@@ -23704,7 +23756,7 @@ Steven 不是在收藏電影台詞。
               <div
                 onClick={e => {
                   e.stopPropagation()
-                  const today = new Date().toISOString().slice(0,10)
+                  const today = getTodayStr()   // v6.40: 禁用 toISOString
                   if (s.lastVisited) {
                     // 有日期 → 需確認才清除（防誤觸）
                     if (!window.confirm(`確定清除「${s.name ?? '此場景'}」的練習記錄（${s.lastVisited.slice(5).replace('-','/')}）？`)) return
@@ -24201,7 +24253,7 @@ Steven 不是在收藏電影台詞。
           const due   = lib.filter(p => !p.dict.next || p.dict.next <= today)
           // ② 昨天練過的句子 → 依「抓字率最低」排序，最該回聽的優先（不是場景順序）
           const yPhrases = all
-            .filter(p => p.dict && (p.dict.first?.d === yest || p.dict.last?.d === yest))
+            .filter(p => !p.noBlind && p.dict && (p.dict.first?.d === yest || p.dict.last?.d === yest))
             .sort((a, b) => (a.dict.first?.rate ?? 100) - (b.dict.first?.rate ?? 100))
             .slice(0, 5)
           // ③ 今日 Top1 弱點字（依漏掉率，不是次數 —— 否則永遠是 the/i/and）
@@ -24838,35 +24890,36 @@ Steven 不是在收藏電影台詞。
                           <div key={w} style={{ background: on ? '#0d2a3a' : T.surf,
                             border:`1px solid ${on ? '#38bdf8' : T.bdr}`, borderRadius:8, padding:'7px 9px',
                             display:'flex', flexDirection:'column', gap:6 }}>
-                            <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+                            <div style={{ display:'flex', alignItems:'center', gap:5, flexWrap:'nowrap', overflow:'hidden' }}>
                               <span onClick={() => setLibWord(on ? null : w)}
                                 style={{ cursor:'pointer', userSelect:'none', fontFamily:MONO, fontSize:13, fontWeight:700,
-                                  color:T.amber, minWidth:44, flexShrink:0 }}>
+                                  color:T.amber, minWidth:36, flexShrink:0, whiteSpace:'nowrap' }}>
                                 ⚠ {w}
                               </span>
-                              <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3, flexShrink:0 }}>
+                              <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3, flexShrink:0, whiteSpace:'nowrap' }}>
                                 漏 {miss}/{enc}·{rate}%
                               </span>
                               <span style={{ fontFamily:MONO, fontSize:8,
-                                color: unverified > 0 ? T.amber : '#4ade80', flex:1, minWidth:40 }}>
-                                {items.length}塊{unverified > 0 ? ` · 🟡${unverified}待校` : ' · 🟢全校驗'}
+                                color: unverified > 0 ? T.amber : '#4ade80', flex:1, minWidth:0,
+                                whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                                {items.length}塊{unverified > 0 ? `·🟡${unverified}待校` : '·🟢全校驗'}
                               </span>
                               {unverified > 0 && (
                                 <span onClick={() => verifyLinkWord(w, items)}
                                   style={{ cursor:'pointer', userSelect:'none', WebkitUserSelect:'none', WebkitTouchCallout:'none',
-                                    touchAction:'manipulation', flexShrink:0, fontFamily:MONO, fontSize:9, fontWeight:700,
-                                    padding:'5px 8px', borderRadius:7,
+                                    touchAction:'manipulation', flexShrink:0, whiteSpace:'nowrap', fontFamily:MONO, fontSize:9, fontWeight:700,
+                                    padding:'5px 7px', borderRadius:7,
                                     background: verifying ? '#a78bfa' : '#1a1030',
                                     color: verifying ? '#1a1030' : '#a78bfa', border:'1px solid #a78bfa60' }}>
-                                  {verifying ? '🔍 校驗中…' : `🔍 校驗 ${unverified}`}
+                                  {verifying ? '🔍 校驗中…' : `🔍 ${unverified}`}
                                 </span>
                               )}
                               <span onClick={() => playFreqQueue(w, items)}
                                 style={{ cursor:'pointer', userSelect:'none', WebkitUserSelect:'none', WebkitTouchCallout:'none',
-                                  touchAction:'manipulation', flexShrink:0, fontFamily:MONO, fontSize:10, fontWeight:700,
-                                  padding:'5px 10px', borderRadius:7,
+                                  touchAction:'manipulation', flexShrink:0, whiteSpace:'nowrap', fontFamily:MONO, fontSize:10, fontWeight:700,
+                                  padding:'5px 8px', borderRadius:7,
                                   background: playing ? T.amber : '#38bdf8', color: playing ? '#1a1207' : '#0d2a3a' }}>
-                                {playing ? `⏹ ${freqQueue.idx + 1}/${freqQueue.items.length}` : `🔥 聽 ${items.length}`}
+                                {playing ? `⏹ ${freqQueue.idx + 1}/${freqQueue.items.length}` : `🔥 ${items.length}`}
                               </span>
                             </div>
                             {on && (
@@ -24888,6 +24941,11 @@ Steven 不是在收藏電影台詞。
                                         <>
                                           <span style={{ fontFamily:MONO, fontSize:9, color: cur ? '#1a1207' : T.txt3 }}>→</span>
                                           <span style={{ fontFamily:MONO, fontSize:12, fontWeight:700, color: cur ? '#1a1207' : '#a78bfa' }}>{it.ipa}</span>
+                                          {/* v6.37: 重校入口——校驗結果錯了（如 kd 沒母音、該彈舌沒彈舌）可單塊重送 AI 覆蓋 */}
+                                          <span onClick={(e) => { e.stopPropagation(); verifyLinkWord(w, [it], true) }}
+                                            title="這個音標怪怪的？重新送 AI 校驗一次（覆蓋舊結果）"
+                                            style={{ cursor:'pointer', fontSize:9, opacity:0.55, padding:'1px 3px',
+                                              userSelect:'none', WebkitUserSelect:'none', touchAction:'manipulation' }}>🔄</span>
                                         </>
                                       ) : (
                                         // 選項B：未校驗不給可能錯的音標，只提示待校 —— 逼「校驗→綠→才練」的正路
@@ -24905,7 +24963,7 @@ Steven 不是在收藏電影台詞。
                   )}
                   <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.6 }}>
                     🔍待校=規則版只找出連音塊、還沒給音標（規則版補不完，不假裝算得準）· 🟢=AI 校驗過（音標可信）。
-                    按 <b style={{ color:'#a78bfa' }}>🔍 校驗</b> 讓 AI 補上正確音標，永久變綠、不重複校。無論如何<b style={{ color:T.amber }}>以耳朵聽到的原音為準</b>。
+                    按 <b style={{ color:'#a78bfa' }}>🔍 校驗</b> 讓 AI 補上正確音標，永久變綠、不重複校；音標怪怪的按塊內 <b>🔄</b> 單塊重校覆蓋。無論如何<b style={{ color:T.amber }}>以耳朵聽到的原音為準</b>。
                   </div>
                 </>
               )}
@@ -25012,6 +25070,7 @@ Steven 不是在收藏電影台詞。
                 const res = dictResult[p.id]
                 const missSet = new Set(f.miss ?? [])
                 const isDue = !p.dict.next || p.dict.next <= today
+                const dueMasked = !res && isDue && !testing && !libRevealed[p.id]   // v6.39: 到期未重測且沒明確要求看答案
                 const isQueueCur = queuePlay && queuePlay.ids[queuePlay.idx] === p.id
                 return (
                   <div key={p.id}
@@ -25028,10 +25087,22 @@ Steven 不是在收藏電影台詞。
                           `　${threeStep.step === 1 ? '① 🎬 電影' : threeStep.step === 2 ? '② 🔊 系統' : '③ 🎬 回聽'}`}
                       </div>
                     )}
-                    {/* 重測中 → 遮住英文 */}
-                    {testing && !res ? (
-                      <div style={{ fontFamily:MONO, fontSize:12, color:T.txt3 }}>🎧 ●●●●●●●●●●</div>
-                    ) : (
+                    {/* 重測中 → 遮住英文；v6.39: 到期待重測也預設遮罩（先看到答案再重測 = 調記憶不是解碼，分數虛高）*/}
+                    {(() => {
+                      const masked = (testing && !res) || dueMasked
+                      return masked ? (
+                        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                          <div style={{ fontFamily:MONO, fontSize:12, color:T.txt3 }}>🎧 ●●●●●●●●●●</div>
+                          {!testing && (
+                            <span onClick={() => setLibRevealed(r => ({ ...r, [p.id]: true }))}
+                              style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                                fontFamily:MONO, fontSize:9, color:T.txt3, padding:'3px 8px',
+                                background:T.surf2, borderRadius:6, border:`1px solid ${T.bdr}` }}>
+                              👁 看答案（看了這次重測就不準）
+                            </span>
+                          )}
+                        </div>
+                      ) : (
                       <div style={{ fontFamily:MONO, fontSize:13, lineHeight:1.9,
                         minWidth:0, maxWidth:'100%', overflowWrap:'break-word' }}>
                         {tokenize(p.en).map((t, i) => {
@@ -25051,8 +25122,9 @@ Steven 不是在收藏電影台詞。
                           )
                         })}
                       </div>
-                    )}
-                    {p.zh?.trim() && !testing && (
+                      )
+                    })()}
+                    {p.zh?.trim() && !testing && !dueMasked && (
                       <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.6 }}>
                         {p.zh}
                       </div>
@@ -25066,7 +25138,7 @@ Steven 不是在收藏電影台詞。
                     </div>
 
                     {/* 🎬 連音解析：AI 產出帶標記的音標（失去爆破 / 音變 / 連讀）*/}
-                    {!testing && (p.link ? (
+                    {!testing && !dueMasked && (p.link ? (
                       <div style={{ background:'#1a1030', border:'1px solid #a78bfa40', borderRadius:9,
                         padding:'10px 12px', display:'flex', flexDirection:'column', gap:7,
                         minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
@@ -25124,7 +25196,7 @@ Steven 不是在收藏電影台詞。
                     ))}
 
                     {/* 弱點關卡模式：快速連音塊（規則版，免費即時）*/}
-                    {libWord && !testing && !p.link && (() => {
+                    {libWord && !testing && !dueMasked && !p.link && (() => {
                       const chunks = buildChunks(p.en, libWord)
                       if (chunks.length === 0) return null
                       return (
