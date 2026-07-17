@@ -7358,7 +7358,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.48</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.49</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13959,7 +13959,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.48）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.49）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -24724,23 +24724,6 @@ Steven 不是在收藏電影台詞。
                 )}
               </div>
 
-              {/* ④ 重測：到期的聽力庫句子 */}
-              <div style={{ borderLeft:`2px solid ${T.bdr}`, paddingLeft:10, display:'flex', flexDirection:'column', gap:6,
-                minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
-                <div style={{ fontFamily:MONO, fontSize:10, color:T.txt2, fontWeight:700 }}>④ 重測 · 到期句子</div>
-                {due.length === 0 ? (
-                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>今天沒有到期的，跳過。</div>
-                ) : (
-                  <div onClick={() => { setListenLibOpen(true); setLibView('sent'); setLibDueOnly(true); setLibWord(null)
-                                        setTimeout(() => listenLibRef.current?.scrollIntoView({ behavior:'smooth', block:'start' }), 120) }}
-                    style={{ cursor:'pointer', textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
-                      padding:'10px 0', borderRadius:8,
-                      background:T.amberD, color:T.amber, border:`1px solid ${T.amber}60` }}>
-                    ⏰ 今天該複習 {due.length} 句 → 去重測
-                  </div>
-                )}
-              </div>
-
               {/* 今日摘要 */}
               {tDiag.length > 0 && (
                 <div style={{ background:'#0d2a3a', border:'1px solid #38bdf840', borderRadius:9, padding:'10px 11px',
@@ -24865,10 +24848,16 @@ Steven 不是在收藏電影台詞。
           const lib  = all.filter(p => p.dict?.lib && !p.dict.grad)
           const grad = all.filter(p => p.dict?.grad)
           const today = getTodayStr()
-          // v6.48: 送出比對後 next 排到未來（或畢業離開 lib），舊寫法會讓卡片瞬間被過濾掉，
-          //   結果畫面根本來不及看。修法：今天重測過的（count≥2 排除首測）留在清單裡到今天結束。
-          const testedToday = all.filter(p => p.dict?.first && (p.dict.count ?? 0) >= 2 && p.dict.last?.d === today)
-          const due = uniqById([...lib.filter(p => !p.dict.next || p.dict.next <= today), ...testedToday])
+          // v6.49: 重測後卡片消失二修。v6.48 用 count≥2 判斷「今天重測過」，但舊資料可能沒有
+          //   count 欄位（(undefined??0)+1=1 過不了門檻）；且 testedToday 接在陣列尾端，卡片會
+          //   跳到清單最底部，看起來一樣是消失。改法：(1) 判斷改 last.d===今天 且 first.d≠今天
+          //   （首測當天必排 +3 天不可能當天到期，此條件精確等於「今天重測過」，不依賴 count）；
+          //   (2) 在 lib 原順序內過濾，重測後位置不動；今天畢業的句子補在尾端（少見，可接受）。
+          const retestedToday = p => p.dict?.last?.d === today && p.dict?.first?.d !== today
+          const due = [
+            ...lib.filter(p => (!p.dict.next || p.dict.next <= today) || retestedToday(p)),
+            ...grad.filter(retestedToday),
+          ]
           // 依「漏掉率」分群：出現越頻繁的字一定漏越多次，用次數排會被 the/i/and 洗版
           // ⚠ 一定要濾掉 noBlind：不然排除掉的句子還是會出現在弱點關卡
           const dictated = all.filter(p => p.dict?.first && !p.noBlind)
