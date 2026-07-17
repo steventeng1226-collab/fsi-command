@@ -7358,7 +7358,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.42</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.43</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13788,6 +13788,20 @@ function saveLinkVerify(map) {
 }
 function linkKey(target, text) { return `${target}|${text}` }
 
+// v6.43: 字母數加權時間估算——共用 helper，playFreqQueue / playChunk / playChunkSpan 三個播放器統一走這裡。
+//   均分假設每個字等長，但功能詞在時間上被壓縮（本 App 核心洞察），字母數與發音時長正相關。
+function estimateSpanTime(p, toks, fromTi, toTi, pad = 0.3) {
+  const lens = toks.map(t => Math.max(1, String(t.raw ?? t.w ?? '').replace(/[^A-Za-z0-9']/g, '').length))
+  const totalLen = lens.reduce((a, b) => a + b, 0) || 1
+  const sentDur = p.endSecs - p.startSecs
+  const preLen  = lens.slice(0, fromTi).reduce((a, b) => a + b, 0)
+  const spanLen = lens.slice(fromTi, toTi + 1).reduce((a, b) => a + b, 0)
+  return {
+    startS: p.startSecs + (preLen / totalLen) * sentDur - pad,
+    endS:   p.startSecs + ((preLen + spanLen) / totalLen) * sentDur + pad,
+  }
+}
+
 // ── 🎵 連音高頻（v6.31）：把「跨句的同類連音」聚合成清單 ──
 // 定位：以「功能詞」為聚合 key，用「漏聽率 × 出現次數」雙重加權排序。
 // v6.31 品質升級：排除純弱讀無音變的字（the/a/an）；連音塊去重；
@@ -13938,7 +13952,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.42）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.43）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -14442,6 +14456,40 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
           localStorage.setItem('fsi:train:streak', JSON.stringify({ ...local, best: ex.streak.best }))
         }
       }
+      // v6.43: DRILL 正/反向 SRS：逐 key 聯集，同 key 比 lastSeen（新的贏），沒戳保本機
+      for (const [lsKey, exKey] of [['fsi:ph:srs', 'phraseSrs'], ['fsi:ph:rsrs', 'phraseRsrs']]) {
+        const cloud = ex[exKey]
+        if (!cloud || typeof cloud !== 'object') continue
+        const local = JSON.parse(localStorage.getItem(lsKey) ?? '{}')
+        const merged = { ...local }
+        let changed = false
+        for (const [k, cv] of Object.entries(cloud)) {
+          const lv = local[k]
+          if (!lv) { merged[k] = cv; changed = true; continue }
+          if ((cv?.lastSeen ?? 0) > (lv?.lastSeen ?? 0)) { merged[k] = cv; changed = true }
+        }
+        if (changed) localStorage.setItem(lsKey, JSON.stringify(merged))
+      }
+      // v6.43: 場景批次複習：逐電影逐批次聯集——completedDates 聯集，stage/next 取「最新完成日」較新的那份
+      if (ex.reviewBatches && typeof ex.reviewBatches === 'object') {
+        for (const [mid, cloudAll] of Object.entries(ex.reviewBatches)) {
+          const lsKey = `fsi:review:batches:${mid}`
+          const local = JSON.parse(localStorage.getItem(lsKey) ?? '{}')
+          const merged = { ...local }
+          let changed = false
+          for (const [bi, cb] of Object.entries(cloudAll ?? {})) {
+            const lb = local[bi]
+            if (!lb) { merged[bi] = cb; changed = true; continue }
+            const dates = [...new Set([...(lb.completedDates ?? []), ...(cb.completedDates ?? [])])].sort()
+            const lMax = (lb.completedDates ?? []).reduce((a, d) => d > a ? d : a, '')
+            const cMax = (cb.completedDates ?? []).reduce((a, d) => d > a ? d : a, '')
+            const base = cMax > lMax ? cb : lb
+            const next = { ...base, completedDates: dates }
+            if (JSON.stringify(next) !== JSON.stringify(lb)) { merged[bi] = next; changed = true }
+          }
+          if (changed) localStorage.setItem(lsKey, JSON.stringify(merged))
+        }
+      }
     } catch(e) {}
   }
   useEffect(() => {
@@ -14935,10 +14983,21 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
         //   推送當下現場讀，不經過 React state——避免舊閉包互蓋，也保證推的是最新。
         extras: (() => {
           try {
+            // v6.43: 場景批次複習是每部電影一個 key，全部掃出來打包
+            const reviewBatches = {}
+            for (let i = 0; i < localStorage.length; i++) {
+              const k = localStorage.key(i)
+              if (k && k.startsWith('fsi:review:batches:')) {
+                reviewBatches[k.slice('fsi:review:batches:'.length)] = JSON.parse(localStorage.getItem(k) ?? '{}')
+              }
+            }
             return {
               linkVerified: JSON.parse(localStorage.getItem('fsi:link:verified') ?? '{}'),
               blindLog:     JSON.parse(localStorage.getItem('fsi:blind:log') ?? '[]'),
               streak:       JSON.parse(localStorage.getItem('fsi:train:streak') ?? 'null'),
+              phraseSrs:    JSON.parse(localStorage.getItem('fsi:ph:srs') ?? '{}'),    // v6.43: DRILL 正向 SRS
+              phraseRsrs:   JSON.parse(localStorage.getItem('fsi:ph:rsrs') ?? '{}'),   // v6.43: DRILL 反向 SRS
+              reviewBatches,                                                            // v6.43: 場景批次複習排程
               extrasAt:     Date.now(),
             }
           } catch { return null }
@@ -15474,17 +15533,8 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
         if (idx < 0) { step(i + 1); return }
         fromTi = Math.max(0, idx - 1); toTi = idx
       }
-      // v6.36: 字母數加權時間估算（取代均分）——
-      //   均分假設每個字等長，但功能詞在時間上被壓縮（這正是本 App 的核心洞察），
-      //   字母數和發音時長正相關，加權後切割準度明顯提升。
-      const lens = toks.map(t => Math.max(1, String(t.raw ?? t.w ?? '').replace(/[^A-Za-z0-9']/g, '').length))
-      const totalLen = lens.reduce((a, b) => a + b, 0) || 1
-      const sentDur = p.endSecs - p.startSecs
-      const preLen  = lens.slice(0, fromTi).reduce((a, b) => a + b, 0)
-      const spanLen = lens.slice(fromTi, toTi + 1).reduce((a, b) => a + b, 0)
-      const PAD = 0.3
-      const startS = p.startSecs + (preLen / totalLen) * sentDur - PAD
-      const endS   = p.startSecs + ((preLen + spanLen) / totalLen) * sentDur + PAD
+      // v6.43: 時間估算統一走共用 helper（字母數加權）
+      const { startS, endS } = estimateSpanTime(p, toks, fromTi, toTi, 0.3)
       const el = audioElRef.current
       const currentMovie = db.movies.find(m => m.id === movieId)
       const targetFile = getMovieMp3At(currentMovie, startS)
@@ -15729,18 +15779,19 @@ Return ONLY a JSON object, no markdown:
   // ── 🔊 播「連音塊」：從電影原音切出那一小段（依字在句中的位置比例估算）──
   // 沒有逐字時間碼，只能用比例定位 → 前後各留 0.35 秒緩衝，寧可多聽一點也不要切掉。
   // 系統音沒有用：TTS 會把 "novelty of" 唸成兩個清楚的字，那正是你要擺脫的東西。
-  function playChunk(p, targetWord) {
+  // v6.43: 接受可選的 fromTi/toTi（buildChunks 的塊自帶位置）——同句多個目標字不再永遠播第一個；
+  //   時間估算改走共用 helper（字母數加權），與 playFreqQueue 一致。沒傳位置時退回 findIndex（向下相容）。
+  function playChunk(p, targetWord, fromTiOpt, toTiOpt) {
     if (audioMode !== 'original') { showMovieToast('⚠ 連音塊要聽電影原音，請先切到 🎬'); return }
     if (!(p.startSecs > 0 && p.endSecs > p.startSecs)) { showMovieToast('⚠ 這句沒有時間碼'); return }
     const toks = tokenize(p.en)
-    const idx = toks.findIndex(t => t.w === targetWord)
-    if (idx < 0) return
-    const from = Math.max(0, idx - 1)           // 連音塊 = 前一個字 + 目標字
-    const total = toks.length
-    const sentDur = p.endSecs - p.startSecs
-    const PAD = 0.35
-    const startS = p.startSecs + (from / total) * sentDur - PAD
-    const endS   = p.startSecs + ((idx + 1) / total) * sentDur + PAD
+    let fromTi = fromTiOpt, toTi = toTiOpt
+    if (!(Number.isInteger(fromTi) && Number.isInteger(toTi) && toTi < toks.length && fromTi <= toTi)) {
+      const idx = toks.findIndex(t => t.w === targetWord)
+      if (idx < 0) return
+      fromTi = Math.max(0, idx - 1); toTi = idx        // 連音塊 = 前一個字 + 目標字
+    }
+    const { startS, endS } = estimateSpanTime(p, toks, fromTi, toTi, 0.35)
     const el = audioElRef.current
     const currentMovie = db.movies.find(m => m.id === movieId)
     const targetFile = getMovieMp3At(currentMovie, startS)
@@ -15779,11 +15830,8 @@ Return ONLY a JSON object, no markdown:
     }
     if (firstIdx < 0 || lastIdx < firstIdx) { playChunk(p, words[words.length - 1]); return }
     const from = Math.max(0, firstIdx - 1)      // 前面留一個字當引子，聽得到連讀進入點
-    const total = toks.length
-    const sentDur = p.endSecs - p.startSecs
-    const PAD = 0.35
-    const startS = p.startSecs + (from / total) * sentDur - PAD
-    const endS   = p.startSecs + ((lastIdx + 1) / total) * sentDur + PAD
+    // v6.43: 時間估算統一走共用 helper（字母數加權，取代均分）
+    const { startS, endS } = estimateSpanTime(p, toks, from, lastIdx, 0.35)
     const el = audioElRef.current
     const currentMovie = db.movies.find(m => m.id === movieId)
     const targetFile = getMovieMp3At(currentMovie, startS)
@@ -16385,7 +16433,8 @@ ${list}
   }
 
   function markPlayed(pid) {
-    updateScenePhrases(ps => ps.map(p => p.id === pid ? { ...p, played:true } : p))
+    // v6.43: 改走跨場景更新——批次多場景連播時，屬於其他場景的句子舊寫法會靜默失效（只找當前場景）
+    updatePhraseAnyScene(pid, p => ({ ...p, played: true }))
   }
   function resetScene() {
     updateScenePhrases(ps => ps.map(p => ({ ...p, played:false, starred:false })))
@@ -25263,7 +25312,7 @@ Steven 不是在收藏電影台詞。
                       return (
                         <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
                           {chunks.map((c, i) => (
-                            <span key={i} onClick={() => playChunk(p, libWord)}
+                            <span key={i} onClick={() => playChunk(p, libWord, c.from, c.to)}
                               style={{ cursor:'pointer', userSelect:'none', WebkitUserSelect:'none', WebkitTouchCallout:'none',
                               touchAction:'manipulation', display:'inline-flex', alignItems:'center', gap:5,
                               background:'#1a1030', border:'1px solid #a78bfa40', borderRadius:7,
@@ -25458,7 +25507,7 @@ Steven 不是在收藏電影台詞。
                           {chunks.length > 0 ? (
                             <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
                               {chunks.map((c, i) => (
-                                <div key={i} onClick={() => playChunk(p, target)}
+                                <div key={i} onClick={() => playChunk(p, target, c.from, c.to)}
                                   style={{ cursor:'pointer', userSelect:'none', WebkitUserSelect:'none', WebkitTouchCallout:'none',
                                   touchAction:'manipulation', display:'flex', alignItems:'center', gap:8, flexWrap:'wrap',
                                   background:'#0f0a1f', border:'1px solid #a78bfa25', borderRadius:8, padding:'8px 10px' }}>
