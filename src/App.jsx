@@ -7358,7 +7358,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.41</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.42</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13938,7 +13938,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.41）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.42）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -14397,6 +14397,53 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   }
 
   // ── 開 App 自動從 Sheets 讀入（背景靜默執行）──────────────
+  // v6.42: 雲端 extras（連音校驗/盲聽日誌/streak）聯集合併回 localStorage。
+  //   鐵律：一律「聯集、逐 key 取新、缺時間戳時本機優先」——
+  //   另一台裝置是空的或比較舊，數學上不可能清掉本機資料（聯集只加不減）。
+  function mergeExtrasFromCloud(ex) {
+    if (!ex) return
+    try {
+      // 連音校驗：逐 key 聯集。兩邊都有同一 key 時：比 verifiedAtMs（新的贏）→ 退而比 verifiedAt 日期 → 都沒有就保本機。
+      if (ex.linkVerified && typeof ex.linkVerified === 'object') {
+        const local = getLinkVerify()
+        const merged = { ...local }
+        let changed = false
+        for (const [k, cv] of Object.entries(ex.linkVerified)) {
+          const lv = local[k]
+          if (!lv) { merged[k] = cv; changed = true; continue }
+          const lms = lv.verifiedAtMs ?? 0, cms = cv.verifiedAtMs ?? 0
+          if (cms && lms && cms > lms) { merged[k] = cv; changed = true; continue }
+          if (!cms && !lms) {
+            const ld = lv.verifiedAt ?? '', cd = cv.verifiedAt ?? ''
+            if (cd > ld) { merged[k] = cv; changed = true }
+          }
+          // 其餘情況（本機較新、或只有本機有毫秒戳、或平手）→ 保本機
+        }
+        if (changed) { saveLinkVerify(merged); setVerifyTick(t => t + 1) }
+      }
+      // 盲聽日誌：append-only 聯集去重（以整筆 JSON 為指紋），依日期排序，套用同樣的 365 天窗
+      if (Array.isArray(ex.blindLog) && ex.blindLog.length > 0) {
+        const local = JSON.parse(localStorage.getItem('fsi:blind:log') ?? '[]')
+        const seen = new Set(local.map(e => JSON.stringify(e)))
+        const added = ex.blindLog.filter(e => e && !seen.has(JSON.stringify(e)))
+        if (added.length > 0) {
+          const cutoff = toLocalDateStr(new Date(Date.now() - 365 * 86400000))
+          const merged = [...local, ...added].filter(e => e.d >= cutoff).sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : 0))
+          localStorage.setItem('fsi:blind:log', JSON.stringify(merged))
+        }
+      }
+      // streak：取 last 較新者，best 取兩邊最大
+      if (ex.streak && ex.streak.last) {
+        const local = JSON.parse(localStorage.getItem('fsi:train:streak') ?? 'null')
+        if (!local || !local.last || ex.streak.last > local.last) {
+          const best = Math.max(ex.streak.best ?? 0, local?.best ?? 0)
+          localStorage.setItem('fsi:train:streak', JSON.stringify({ ...ex.streak, best }))
+        } else if ((ex.streak.best ?? 0) > (local.best ?? 0)) {
+          localStorage.setItem('fsi:train:streak', JSON.stringify({ ...local, best: ex.streak.best }))
+        }
+      }
+    } catch(e) {}
+  }
   useEffect(() => {
     async function autoInit() {
       if (!navigator.onLine) return
@@ -14412,6 +14459,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
         const json = await r.json()
         if (!json.ok || !json.movieDB) { setAutoSyncStatus('idle'); return }
         const sheetsDb       = json.movieDB
+        mergeExtrasFromCloud(sheetsDb.extras)   // v6.42: 三樣 localStorage 資料聯集合併（movie 合併之前先做，互不依賴）
         const transcriptDB   = json.transcriptDB ?? []
         const sheetsAt       = sheetsDb.updatedAt ?? 0
         const localAt        = db.updatedAt ?? 0
@@ -14883,6 +14931,18 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     try {
       const dbToSync = {
         ...ndWithTs,
+        // v6.42: 三個原本只活在 localStorage 的資料搭便車上雲（連音校驗/盲聽日誌/連續天數）。
+        //   推送當下現場讀，不經過 React state——避免舊閉包互蓋，也保證推的是最新。
+        extras: (() => {
+          try {
+            return {
+              linkVerified: JSON.parse(localStorage.getItem('fsi:link:verified') ?? '{}'),
+              blindLog:     JSON.parse(localStorage.getItem('fsi:blind:log') ?? '[]'),
+              streak:       JSON.parse(localStorage.getItem('fsi:train:streak') ?? 'null'),
+              extrasAt:     Date.now(),
+            }
+          } catch { return null }
+        })(),
         movies: ndWithTs.movies?.map(m => {
           const { transcript, ...rest } = m
           return rest
@@ -15840,12 +15900,13 @@ ${list}
         // 用原文片語比對回哪個 pending（AI 可能微調大小寫，寬鬆比對）
         const match = pending.find(x => x.text.toLowerCase().trim() === String(item.text).toLowerCase().trim())
         const text = match ? match.text : item.text
-        map[linkKey(word, text)] = { ipa: String(item.ipa), note: String(item.note ?? ''), verifiedAt: getTodayStr() }
+        map[linkKey(word, text)] = { ipa: String(item.ipa), note: String(item.note ?? ''), verifiedAt: getTodayStr(), verifiedAtMs: Date.now() }   // v6.42: 毫秒戳供跨裝置合併比新舊
         n++
       })
       saveLinkVerify(map)
       setVerifyTick(t => t + 1)                    // 觸發 freqLinks 重算，黃轉綠
       showMovieToast(force ? `🔄 「${word}」已重校 ${n} 個連音塊（覆蓋舊結果）` : `✓ 「${word}」已校驗 ${n} 個連音塊`)
+      autoPush(db)   // v6.42: 校驗結果搭 extras 上雲——只做校驗的 session 沒有 db 變更、不會自動推，這裡主動推一次
     } catch (e) {
       showMovieToast('⚠ 校驗失敗：' + (e?.message ?? ''))
     } finally {
