@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from "react"
+import { Fragment, useState, useEffect, useRef, useMemo, useCallback } from "react"
 
 // ═══════════════════════════════════════════════════════════════
 // GLOBAL STYLES
@@ -7358,7 +7358,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.50</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.53</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13959,7 +13959,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.50）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.53）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -14073,6 +14073,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const shadowChunksRef = useRef([])
   const [recDur,    setRecDur]    = useState({})     // { pid: 你唸的秒數（切掉頭尾靜音）}
   const [linkBusy,  setLinkBusy]  = useState(null)   // 正在做連音解析的句子 id
+  const [batchLink, setBatchLink] = useState(null)   // v6.53: 批次重跑進度 {i,n}
   const [verifyBusy, setVerifyBusy] = useState(null) // 正在 AI 校驗的功能詞
   const [verifyTick, setVerifyTick] = useState(0)    // 校驗完成後強制重算 freqLinks
   const [asrBusy,   setAsrBusy]   = useState(null)   // 正在辨識的句子 id
@@ -15865,10 +15866,7 @@ Return ONLY a JSON object, no markdown:
   // ── 🎬 連音解析（v6.27）：AI 產出「帶標記的音標」，前端上色 ──
   // 標記語法統一為雙字母六類：<wk>弱讀 <lk>連讀 <si>不發音 <ch>音變 <gl>滑音 <nw>生單詞
   // 結果存進句子（p.link），只查一次，之後離線也看得到。
-  async function analyzeLinking(p) {
-    if (linkBusy) return
-    setLinkBusy(p.id)
-    try {
+  async function linkOnce(p) {
       const sys = '你是英語連音（connected speech）教練，專門教台灣學習者聽懂真實語流。一律使用繁體中文。'
       const usr = `句子："${p.en}"
 
@@ -15918,12 +15916,35 @@ Return ONLY a JSON object, no markdown:
 6. rules/listen 純文字裡若提到音，必須用正確 IPA 符號（ə 不寫成 a、ɾ 不寫成 r、ʃ 不寫成 sh），與 ipa 欄位同一套標準。`
       const raw = await callAI([{ role:'user', content: usr }], sys)
       const data = JSON.parse(String(raw).replace(/```json|```/g, '').trim())
-      updatePhraseAnyScene(p.id, x => ({ ...x, link: data }))
+      updatePhraseAnyScene(p.id, x => ({ ...x, link: { ...data, at: Date.now() } }))   // v6.53: at＝新 prompt 世代戳，無 at 即舊資料
+  }
+
+  async function analyzeLinking(p) {
+    if (linkBusy) return
+    setLinkBusy(p.id)
+    try {
+      await linkOnce(p)
     } catch (e) {
       showMovieToast('⚠ 連音解析失敗：' + (e?.message ?? ''))
     } finally {
       setLinkBusy(null)
     }
+  }
+
+  // v6.53: 批次重跑——只挑「沒有時間戳」的舊版解析（v6.53 前生成＝舊 prompt，可能帶 that/fa 類錯誤）。
+  // 新資料不重跑（省 token）。單句失敗跳過續跑，跑完 toast 總結。
+  async function batchReanalyzeLinks() {
+    if (batchLink || linkBusy) return
+    const targets = uniqById((movie?.scenes ?? []).flatMap(s => (s.phrases ?? []))).filter(p => p.link && !p.link.at)
+    if (targets.length === 0) { showMovieToast('✓ 沒有舊版解析需要重跑'); return }
+    if (!confirm(`將用新規則重跑 ${targets.length} 句舊版連音解析（${targets.length} 次 AI 呼叫，需要幾分鐘與 API 費用）。新版解析不會動。繼續？`)) return
+    let ok = 0, fail = 0
+    for (let i = 0; i < targets.length; i++) {
+      setBatchLink({ i: i + 1, n: targets.length })
+      try { await linkOnce(targets[i]); ok++ } catch { fail++ }   // 單句失敗不中斷
+    }
+    setBatchLink(null)
+    showMovieToast(`✓ 批次重跑完成：成功 ${ok} 句${fail ? `、失敗 ${fail} 句（可再跑一次補）` : ''}`)
   }
 
   // ── 🔍 AI 校驗連音（v6.31）：把某功能詞「未校驗的黃色連音塊」送 AI 複查 ──
@@ -24660,6 +24681,14 @@ Steven 不是在收藏電影台詞。
                                   👉 {stripMark(cur.link.listen)}
                                 </div>
                               )}
+                              <div onClick={() => analyzeLinking(cur)}
+                                style={{ cursor:'pointer', userSelect:'none', alignSelf:'flex-start',
+                                  fontFamily:MONO, fontSize:9, fontWeight:700, padding:'4px 9px', borderRadius:6,
+                                  background: linkBusy === cur.id ? '#a78bfa' : 'transparent',
+                                  color: linkBusy === cur.id ? '#1a1030' : '#a78bfa80',
+                                  border:'1px solid #a78bfa30' }}>
+                                {linkBusy === cur.id ? '🔄 重新解析中…' : '🔄 重新解析（修正舊音標）'}
+                              </div>
                             </div>
                           ) : (
                             <div onClick={() => analyzeLinking(cur)}
@@ -24854,10 +24883,11 @@ Steven 不是在收藏電影台詞。
           //   （首測當天必排 +3 天不可能當天到期，此條件精確等於「今天重測過」，不依賴 count）；
           //   (2) 在 lib 原順序內過濾，重測後位置不動；今天畢業的句子補在尾端（少見，可接受）。
           const retestedToday = p => p.dict?.last?.d === today && p.dict?.first?.d !== today
-          const due = [
-            ...lib.filter(p => (!p.dict.next || p.dict.next <= today) || retestedToday(p)),
-            ...grad.filter(retestedToday),
-          ]
+          // v6.51: 到期清單分兩段——待測在前（原順序）、今天已重測收到後段（結果保留可回看），
+          //   送出比對後卡片「搬家」到已重測區，不再與待測交錯。
+          const duePending = lib.filter(p => (!p.dict.next || p.dict.next <= today) && !retestedToday(p))
+          const dueDone = [...lib.filter(retestedToday), ...grad.filter(retestedToday)]
+          const due = [...duePending, ...dueDone]
           // 依「漏掉率」分群：出現越頻繁的字一定漏越多次，用次數排會被 the/i/and 洗版
           // ⚠ 一定要濾掉 noBlind：不然排除掉的句子還是會出現在弱點關卡
           const dictated = all.filter(p => p.dict?.first && !p.noBlind)
@@ -24880,7 +24910,7 @@ Steven 不是在收藏電影台詞。
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:6 }}>
                 <span style={{ fontFamily:MONO, fontSize:10, color:'#38bdf8', fontWeight:700 }}>
                   🎯 聽力庫 {lib.length} 句待練
-                  {due.length > 0 && <span style={{ color:T.amber, marginLeft:6 }}>· 今天該複習 {due.length}</span>}
+                  {duePending.length > 0 && <span style={{ color:T.amber, marginLeft:6 }}>· 今天該複習 {duePending.length}</span>}
                   {grad.length > 0 && <span style={{ color:T.grn, marginLeft:6 }}>· 🎓 已畢業 {grad.length}</span>}
                 </span>
                 <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>本片</span>
@@ -24902,6 +24932,15 @@ Steven 不是在收藏電影台詞。
                     background: linkTableOpen ? '#a78bfa' : '#1a1030',
                     border:'1px solid #a78bfa50' }}>
                   📖 連讀速查
+                </div>
+                {/* v6.53: 批次重跑舊版句級解析（無時間戳=舊 prompt 世代）*/}
+                <div onClick={batchReanalyzeLinks}
+                  style={{ cursor:'pointer', userSelect:'none', fontFamily:MONO, fontSize:9, fontWeight:700, flexShrink:0,
+                    padding:'5px 10px', borderRadius:7,
+                    color: batchLink ? '#1a1030' : '#a78bfa80',
+                    background: batchLink ? '#a78bfa' : 'transparent',
+                    border:'1px solid #a78bfa30' }}>
+                  {batchLink ? `🔄 ${batchLink.i}/${batchLink.n}…` : '🔄 重跑舊解析'}
                 </div>
                 <SpeedBar/>
               </div>
@@ -25256,12 +25295,12 @@ Steven 不是在收藏電影台詞。
                     background: libDueOnly ? T.amber : T.surf2,
                     color: libDueOnly ? '#1a1207' : T.txt3,
                     border:`1px solid ${libDueOnly ? T.amber : T.bdr}` }}>
-                  ⏰ 只看今天該複習（{due.length}）
+                  ⏰ 只看今天該複習（{duePending.length}{dueDone.length > 0 ? ` · ✓${dueDone.length}` : ''}）
                 </div>
               )}
 
               {/* 句子清單 */}
-              {libView !== 'freq' && (libView === 'sent' || libWord) && shown.map(p => {
+              {libView !== 'freq' && (libView === 'sent' || libWord) && shown.map((p, si) => {
                 const f = p.dict.first
                 const testing = libTestId === p.id
                 const res = dictResult[p.id]
@@ -25269,7 +25308,21 @@ Steven 不是在收藏電影台詞。
                 const isDue = !p.dict.next || p.dict.next <= today
                 const dueMasked = !res && isDue && !testing && !libRevealed[p.id]   // v6.39: 到期未重測且沒明確要求看答案
                 const isQueueCur = queuePlay && queuePlay.ids[queuePlay.idx] === p.id
+                // v6.51: 到期檢視分區標題——待測段起點與已測段起點各插一條
+                const secDue = libDueOnly && !libWord && libView === 'sent'
+                const secHeader = !secDue ? null
+                  : si === 0 && duePending.length > 0 ? `⏰ 待重測（${duePending.length} 句）`
+                  : si === duePending.length && dueDone.length > 0 ? `✓ 今天已重測（${dueDone.length} 句）` : null
                 return (
+                  <Fragment key={p.id}>
+                  {secHeader && (
+                    <div style={{ fontFamily:MONO, fontSize:9, fontWeight:700, letterSpacing:'0.05em',
+                      color: secHeader.startsWith('✓') ? T.grn : T.amber,
+                      borderBottom:`1px dashed ${secHeader.startsWith('✓') ? T.grn : T.amber}40`,
+                      paddingBottom:3, marginTop: si === 0 ? 0 : 4 }}>
+                      {secHeader}
+                    </div>
+                  )}
                   <div key={p.id}
                     ref={el => { if (isQueueCur && el) el.scrollIntoView({ behavior:'smooth', block:'center' }) }}
                     style={{ background: isQueueCur ? '#0d2a3a' : T.surf,
@@ -25383,6 +25436,16 @@ Steven 不是在收藏電影台詞。
                             👉 {stripMark(p.link.listen)}
                           </div>
                         )}
+                        {/* v6.52: 重新解析——舊資料是用舊 prompt 生的（例如句尾 that 被誤標 ðə·tæ），
+                            用當前 prompt 覆蓋修正。analyzeLinking 本就覆蓋寫入 link。 */}
+                        <div onClick={() => analyzeLinking(p)}
+                          style={{ cursor:'pointer', userSelect:'none', alignSelf:'flex-start',
+                            fontFamily:MONO, fontSize:9, fontWeight:700, padding:'4px 9px', borderRadius:6,
+                            background: linkBusy === p.id ? '#a78bfa' : 'transparent',
+                            color: linkBusy === p.id ? '#1a1030' : '#a78bfa80',
+                            border:'1px solid #a78bfa30' }}>
+                          {linkBusy === p.id ? '🔄 重新解析中…' : '🔄 重新解析（修正舊音標）'}
+                        </div>
                       </div>
                     ) : (
                       <div onClick={() => analyzeLinking(p)}
@@ -25827,6 +25890,7 @@ Steven 不是在收藏電影台詞。
                       )
                     })()}
                   </div>
+                  </Fragment>
                 )
               })}
 
