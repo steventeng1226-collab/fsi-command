@@ -7358,7 +7358,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.49</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.50</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13959,7 +13959,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.49）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.50）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -25287,6 +25287,9 @@ Steven 不是在收藏電影台詞。
                     {/* 重測中 → 遮住英文；v6.39: 到期待重測也預設遮罩（先看到答案再重測 = 調記憶不是解碼，分數虛高）*/}
                     {(() => {
                       const masked = (testing && !res) || dueMasked
+                      // v6.50: 有 res（重測結果）時頂部句子不渲染——結果區的三色逐字是唯一句子。
+                      //   舊版兩套同時出現：句子顯示重複＋長按彈兩個單字框（兩處都掛 longPress）。
+                      if (!masked && res) return null
                       return masked ? (
                         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                           <div style={{ fontFamily:MONO, fontSize:12, color:T.txt3 }}>🎧 ●●●●●●●●●●</div>
@@ -25473,6 +25476,12 @@ Steven 不是在收藏電影台詞。
                                   </span>
                                 ))}
                               </div>
+                              {/* v6.50: 結果區補中文（頂部句子有 res 時不渲染，中文也要跟過來）*/}
+                              {p.zh?.trim() && (
+                                <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.6 }}>
+                                  {p.zh}
+                                </div>
+                              )}
                               <WordCard phraseId={p.id}/>
                               <div style={{ fontFamily:MONO, fontSize:10, color: pass ? T.grn : T.amber, fontWeight:700 }}>
                                 {pass ? '✅ 過關（≥80% 且原本漏的字都抓到）' : '✗ 還沒過關'}
