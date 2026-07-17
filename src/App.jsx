@@ -7358,7 +7358,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.43</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.45</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13806,6 +13806,13 @@ function estimateSpanTime(p, toks, fromTi, toTi, pad = 0.3) {
 // 定位：以「功能詞」為聚合 key，用「漏聽率 × 出現次數」雙重加權排序。
 // v6.31 品質升級：排除純弱讀無音變的字（the/a/an）；連音塊去重；
 //   前字用音標（I was→aɪwəz）；套用 AI 校驗結果（🟢已校驗 / 🟡規則版草稿）。
+// v6.45: 說明文字防呆——AI 偶爾把 MarkedIPA 標籤漏進「純文字欄位」（rules/listen/note），
+// 甚至配對壞掉（<wk>fa</lk>），顯示端直接裸露給使用者。這裡逐一剝除標籤（不管配對），
+// 已存的舊資料免重校也能正常顯示。涵蓋新版雙字母與舊版單字母兩套。
+function stripMark(s) {
+  return String(s ?? '').replace(/<\/?(wk|lk|si|ch|gl|nw|w|l|d|f|i)>/g, '')
+}
+
 function computeFreqLinks(dictatedPhrases, minEnc = 2) {
   const enc = {}, miss = {}
   dictatedPhrases.forEach(p => {
@@ -13835,7 +13842,7 @@ function computeFreqLinks(dictatedPhrases, minEnc = 2) {
           items.push({
             pid: p.id, text: c.text,
             ipa: v ? v.ipa : '',                 // 未校驗一律空白（規則版不再假裝算得準）
-            note: v ? (v.note ?? '') : '',
+            note: v ? stripMark(v.note ?? '') : '',   // v6.45: 剝除漏進來的標記
             verified: !!v,
             from: c.from, to: c.to,              // v6.36: 塊在句中的 token 位置，播放直接用
             startSecs: p.startSecs, endSecs: p.endSecs, en: p.en, target: w,
@@ -13952,7 +13959,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.43）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.45）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -14041,6 +14048,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const [listenLibOpen, setListenLibOpen] = useState(false)
   const [libView,       setLibView]       = useState('weak')  // 'weak'=依弱點 | 'sent'=依句子
   const [libWord,       setLibWord]       = useState(null)    // 選中的弱點字
+  const [linkCardsMore, setLinkCardsMore] = useState(false)   // v6.44: 連音解析卡「展開更多」（換字時重置）
   const [libDueOnly,    setLibDueOnly]    = useState(false)   // 只看今天該複習的
   const [libTestId,     setLibTestId]     = useState(null)    // 正在重測的句子（遮住英文）
   const [libRevealed,   setLibRevealed]   = useState({})      // v6.39: 到期句預設遮罩，明確點「看答案」才露出（防重測前偷看污染診斷）
@@ -15880,11 +15888,11 @@ Return ONLY a JSON object, no markdown:
   "ipa": "整句的實際發音音標（不是字典音標，是連讀後的實際樣子），同樣只用上面六種雙字母標籤。
           範例：I don't want it. → aɪ doʊn<si>t</si> wɑː<ch>n</ch><lk>nɪt</lk>
           範例：Where does it hurt? → wer <wk>dəz</wk><lk>ɪ</lk><si>t</si> hɜːrt",
-  "rules": ["用繁體中文寫出音變規則，每條一句話，2~5 條"],
+  "rules": ["用繁體中文寫出音變規則，每條一句話，2~5 條。⚠ 純文字：絕對不要在 rules 裡使用 <wk> <lk> 等任何角括號標籤（標籤只給 enMarked/ipa/chunks 用）；要指出某個音直接寫音標本身，例如「for 弱讀成 fə，與 you 連成 fəju」"],
   "chunks": [
     {"en":"years of age","ipa":"jɪr·<lk>zə</lk>·<lk>veɪdʒ</lk>"}
   ],
-  "listen": "一句話：聽的時候該去聽什麼線索（而不是去找那個字的聲音）"
+  "listen": "一句話：聽的時候該去聽什麼線索（而不是去找那個字的聲音）。⚠ 純文字，不要任何角括號標籤"
 }
 
 ★ chunks 是本題最重要的部分，規則如下（務必嚴格遵守）：
@@ -15937,7 +15945,7 @@ ${list}
 - 每個字都要標對，不管常不常見（boy was、night was 也要對）。用 IPA，精簡。不要 markdown、不要多餘文字。
 
 只回傳 JSON 陣列，順序對應上面編號，每項：
-[{"text":"<原文片語，原樣照抄>","ipa":"<真實連讀音標>","note":"<8字內：聽的時候該抓什麼線索>"}]`
+[{"text":"<原文片語，原樣照抄>","ipa":"<真實連讀音標>","note":"<8字內：聽的時候該抓什麼線索。純文字，禁止 <wk> <lk> 等任何角括號標籤>"}]`
       const raw = await callAI([{ role:'user', content: usr }], sys)
       const arr = JSON.parse(String(raw).replace(/```json|```/g, '').trim())
       if (!Array.isArray(arr)) throw new Error('AI 回傳格式不對')
@@ -15948,7 +15956,7 @@ ${list}
         // 用原文片語比對回哪個 pending（AI 可能微調大小寫，寬鬆比對）
         const match = pending.find(x => x.text.toLowerCase().trim() === String(item.text).toLowerCase().trim())
         const text = match ? match.text : item.text
-        map[linkKey(word, text)] = { ipa: String(item.ipa), note: String(item.note ?? ''), verifiedAt: getTodayStr(), verifiedAtMs: Date.now() }   // v6.42: 毫秒戳供跨裝置合併比新舊
+        map[linkKey(word, text)] = { ipa: String(item.ipa), note: stripMark(item.note ?? ''), verifiedAt: getTodayStr(), verifiedAtMs: Date.now() }   // v6.42: 毫秒戳供跨裝置合併比新舊；v6.45: note 剝標記
         n++
       })
       saveLinkVerify(map)
@@ -24565,12 +24573,12 @@ Steven 不是在收藏電影台詞。
                               </div>
                               {(cur.link.rules ?? []).map((r, i) => (
                                 <div key={i} style={{ fontFamily:MONO, fontSize:9, color:T.txt2, lineHeight:1.6 }}>
-                                  {i + 1}. {r}
+                                  {i + 1}. {stripMark(r)}
                                 </div>
                               ))}
                               {cur.link.listen && (
                                 <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, lineHeight:1.6, fontWeight:700 }}>
-                                  👉 {cur.link.listen}
+                                  👉 {stripMark(cur.link.listen)}
                                 </div>
                               )}
                             </div>
@@ -25001,7 +25009,7 @@ Steven 不是在收藏電影台詞。
                             border:`1px solid ${on ? '#38bdf8' : T.bdr}`, borderRadius:8, padding:'7px 9px',
                             display:'flex', flexDirection:'column', gap:6 }}>
                             <div style={{ display:'flex', alignItems:'center', gap:5, flexWrap:'nowrap', overflow:'hidden' }}>
-                              <span onClick={() => setLibWord(on ? null : w)}
+                              <span onClick={() => { setLibWord(on ? null : w); setLinkCardsMore(false) }}
                                 style={{ cursor:'pointer', userSelect:'none', fontFamily:MONO, fontSize:13, fontWeight:700,
                                   color:T.amber, minWidth:36, flexShrink:0, whiteSpace:'nowrap' }}>
                                 ⚠ {w}
@@ -25033,6 +25041,7 @@ Steven 不是在收藏電影台詞。
                               </span>
                             </div>
                             {on && (
+                              <>
                               <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
                                 {items.map((it, ii) => {
                                   const curItem = playing ? freqQueue.items[freqQueue.idx] : null
@@ -25061,10 +25070,69 @@ Steven 不是在收藏電影台詞。
                                         // 選項B：未校驗不給可能錯的音標，只提示待校 —— 逼「校驗→綠→才練」的正路
                                         <span style={{ fontFamily:MONO, fontSize:9, color: cur ? '#1a1207' : '#facc15', fontWeight:700 }}>· 🔍待校</span>
                                       )}
-                                    </span>
+                    </span>
                                   )
                                 })}
                               </div>
+                              {/* v6.44: 🔗 連音解析卡（方案A）——只渲染已校驗 item；原句大字＋連音塊底線高亮＋可信 IPA＋note。
+                                  全部待校時整區不出現（校驗才解鎖，跟「未校驗不假裝算得準」一脈相承）。 */}
+                              {(() => {
+                                const vItems = items.filter(x => x.verified)
+                                if (vItems.length === 0) return null
+                                const shown = linkCardsMore ? vItems : vItems.slice(0, 3)
+                                return (
+                                  <div style={{ display:'flex', flexDirection:'column', gap:6, marginTop:2 }}>
+                                    <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, letterSpacing:'0.05em' }}>
+                                      ── 🔗 連音解析（點卡片聽原音）──
+                                    </div>
+                                    {shown.map((it, ci) => {
+                                      const toks = tokenize(it.en)
+                                      const hasPos = Number.isInteger(it.from) && Number.isInteger(it.to)
+                                      return (
+                                        <div key={`lc_${ci}_${it.pid}_${it.text}`}
+                                          onClick={() => playFreqQueue(w, [it])}
+                                          style={{ cursor:'pointer', userSelect:'none', WebkitUserSelect:'none',
+                                            WebkitTouchCallout:'none', touchAction:'manipulation',
+                                            background:'#0a0f1a', border:`1px solid ${T.bdr2}`, borderRadius:9,
+                                            padding:'9px 11px', display:'flex', flexDirection:'column', gap:5 }}>
+                                          {/* 原句大字：連音塊（from~to）amber＋底線；舊資料無 from/to 整句不畫底線 */}
+                                          <div style={{ fontFamily:MONO, fontSize:14, fontWeight:600, color:T.txt, lineHeight:1.5 }}>
+                                            {toks.map((tk, ti) => {
+                                              const hit = hasPos && ti >= it.from && ti <= it.to
+                                              return (
+                                                <span key={ti} style={ hit
+                                                  ? { color:T.amber, borderBottom:`2px solid ${T.amber}`, paddingBottom:1 }
+                                                  : {} }>
+                                                  {tk.raw}{ti < toks.length - 1 ? ' ' : ''}
+                                                </span>
+                                              )
+                                            })}
+                                          </div>
+                                          {/* IPA 行：已校驗才有（方案A 卡片本身就限已校驗，必有 ipa）*/}
+                                          <div style={{ fontFamily:MONO, fontSize:13, fontWeight:700, color:'#a78bfa' }}>
+                                            /{it.ipa}/
+                                          </div>
+                                          {it.note && (
+                                            <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, lineHeight:1.5 }}>
+                                              💡 {it.note}
+                                            </div>
+                                          )}
+                                        </div>
+                                      )
+                                    })}
+                                    {!linkCardsMore && vItems.length > 3 && (
+                                      <div onClick={(e) => { e.stopPropagation(); setLinkCardsMore(true) }}
+                                        style={{ cursor:'pointer', userSelect:'none', WebkitUserSelect:'none',
+                                          touchAction:'manipulation', textAlign:'center', fontFamily:MONO, fontSize:10,
+                                          fontWeight:700, color:'#38bdf8', padding:'6px 0',
+                                          border:`1px dashed #38bdf860`, borderRadius:8 }}>
+                                        ▼ 展開更多 ({vItems.length - 3})
+                                      </div>
+                                    )}
+                                  </div>
+                                )
+                              })()}
+                              </>
                             )}
                           </div>
                         )
@@ -25266,7 +25334,7 @@ Steven 不是在收藏電影台詞。
                           <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
                             {p.link.rules.map((r, i) => (
                               <div key={i} style={{ fontFamily:MONO, fontSize:9, color:T.txt2, lineHeight:1.6 }}>
-                                {i + 1}. {r}
+                                {i + 1}. {stripMark(r)}
                               </div>
                             ))}
                           </div>
@@ -25290,7 +25358,7 @@ Steven 不是在收藏電影台詞。
                         )}
                         {p.link.listen && (
                           <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, lineHeight:1.6, fontWeight:700 }}>
-                            👉 {p.link.listen}
+                            👉 {stripMark(p.link.listen)}
                           </div>
                         )}
                       </div>
