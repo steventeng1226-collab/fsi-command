@@ -7358,7 +7358,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.45</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.48</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13959,7 +13959,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.45）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.48）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -15691,7 +15691,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     if (aiTipBusy) return
     setAiTipBusy(p.id)
     try {
-      const sys = '你是英語連音（connected speech）教練，專門教台灣學習者聽懂真實語流。回答一律用繁體中文，簡潔，不要客套。'
+      const sys = '你是英語連音（connected speech）教練，專門教台灣學習者聽懂真實語流。回答一律用繁體中文，簡潔，不要客套。輸出純文字：禁止 markdown（不要 ** 星號、不要 # 標題）。音標硬規則：弱讀母音絕不消失（could=kəd 不是 kd）；母音間的 t 標彈舌 ɾ；短母音不加 ː；that 指示代名詞/句尾受詞=ðæt、只有子句連接詞才 ðət；提到音一律用正確 IPA 符號（ə 不寫成 a）。'
       const usr = `句子："${p.en}"
 學習者聽不出這句裡的「${target}」（他把功能詞聽漏了）。
 
@@ -15701,7 +15701,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
 【怎麼唸】一句話告訴他嘴巴要怎麼動才能唸成一團
 【聽的時候找什麼】一句話告訴他該去聽哪個線索，而不是去找 ${target} 這個字的聲音`
       const res = await callAI([{ role:'user', content: usr }], sys)
-      setAiTip(t => ({ ...t, [p.id]: String(res ?? '').trim() }))
+      setAiTip(t => ({ ...t, [p.id]: String(res ?? '').replace(/\*\*/g, '').trim() }))   // v6.48: 剝 markdown 星號
     } catch (e) {
       showMovieToast('⚠ AI 精解失敗：' + (e?.message ?? ''))
     } finally {
@@ -15907,7 +15907,15 @@ Return ONLY a JSON object, no markdown:
 
 重點：這位學習者的診斷結果是「功能詞（介系詞/冠詞/be動詞）漏聽率 100%」，
 所以「弱讀」是他的核心問題 —— 只要句子裡有功能詞被弱讀，一定要用 <wk> 標出來，
-而且一定要把它放進 chunks，用音節重組呈現「它是怎麼被前後字黏掉、失去獨立聲音的」。`
+而且一定要把它放進 chunks，用音節重組呈現「它是怎麼被前後字黏掉、失去獨立聲音的」。
+
+★ 音標硬規則（v6.46，與校驗系統同一套標準，違反任一條就是錯的）：
+1. that 看用法：指示代名詞/指示限定詞/句尾受詞/重讀（That's mine、like that、that idea）=ðæt（句尾 t 可失去爆破但 æ 母音必須在）；只有連接詞/關係詞（know that、thought that 的 that 子句）才弱讀=ðət。不要一律弱讀。
+2. 弱讀後「母音絕不消失」：could=kəd、can=kən——弱讀是塌成 schwa，不是母音整個不見（kd 這種無母音組合發不出來，是錯的）。
+3. 母音與母音之間的 t 一律標彈舌 ɾ（美式）：that is→ðæɾɪz、get up→ɡeɾʌp，不標字典 t。
+4. 短母音不加長音符 ː：træk 不是 træːk；只有 iː/uː/ɑː/ɔː/ɜː 這類真正長母音才用 ː。
+5. 基準：I=aɪ、he=hi、she=ʃi、the=ðə、a=ə、of=əv/ə、was=wəz、are=ər、to=tə、and=ən。
+6. rules/listen 純文字裡若提到音，必須用正確 IPA 符號（ə 不寫成 a、ɾ 不寫成 r、ʃ 不寫成 sh），與 ipa 欄位同一套標準。`
       const raw = await callAI([{ role:'user', content: usr }], sys)
       const data = JSON.parse(String(raw).replace(/```json|```/g, '').trim())
       updatePhraseAnyScene(p.id, x => ({ ...x, link: data }))
@@ -24412,11 +24420,82 @@ Steven 不是在收藏電影台詞。
 
               <SpeedBar/>
 
-              {/* ① 診斷：新句聽寫 */}
+              {/* v6.47: 順序重排——回測比新句重要（提取練習固化映射），到期債先清。
+                  新順序：①到期重測 ②昨日回聽 ③新句聽寫 ④弱點轟炸。資料邏輯不動，純顯示順序。 */}
+              {/* ① 重測：到期的聽力庫句子（原④搬上來）*/}
+              <div style={{ borderLeft:'2px solid #38bdf8', paddingLeft:10, display:'flex', flexDirection:'column', gap:6,
+                minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
+                <div style={{ fontFamily:MONO, fontSize:10, color:'#38bdf8', fontWeight:700 }}>① 重測 · 到期句子</div>
+                {due.length === 0 ? (
+                  <div style={{ fontFamily:MONO, fontSize:9, color:T.grn, fontWeight:700 }}>✓ 今天沒有到期句，債清了。往下做新句。</div>
+                ) : (
+                  <div onClick={() => { setListenLibOpen(true); setLibView('sent'); setLibDueOnly(true); setLibWord(null)
+                                        setTimeout(() => listenLibRef.current?.scrollIntoView({ behavior:'smooth', block:'start' }), 120) }}
+                    style={{ cursor:'pointer', textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
+                      padding:'10px 0', borderRadius:8,
+                      background:T.amberD, color:T.amber, border:`1px solid ${T.amber}60` }}>
+                    ⏰ 今天該複習 {due.length} 句 → 去重測
+                  </div>
+                )}
+              </div>
+
+              {/* ② 鞏固：昨天的句子（位置不變，維持第二）*/}
+              <div style={{ borderLeft:`2px solid ${T.bdr}`, paddingLeft:10, display:'flex', flexDirection:'column', gap:6,
+                minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
+                <div style={{ fontFamily:MONO, fontSize:10, color:T.txt2, fontWeight:700 }}>
+                  ② 鞏固 · 昨天聽寫過的句子 <span style={{ color:T.txt3 }}>{yPhrases.length} 句</span>
+                </div>
+                {yPhrases.length === 0 ? (
+                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>昨天沒有紀錄，跳過。</div>
+                ) : (
+                  <>
+                    <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
+                      <b>不是新句</b> —— 是你昨天（{yest}）聽寫過的句子，取<b>抓字率最低的 5 句</b>。
+                      🔁 三步驟跑一遍，<b>不計分</b>。耳朵訓練靠重複曝露，不是靠考試。
+                    </div>
+                    <div onClick={() => startQueue(yPhrases, 'three')}
+                      style={{ cursor:'pointer', textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
+                        padding:'9px 0', borderRadius:8,
+                        background: queuePlay?.mode === 'three' ? T.amber : T.amberD,
+                        color: queuePlay?.mode === 'three' ? '#1a1207' : T.amber,
+                        border:`1px solid ${T.amber}60` }}>
+                      {queuePlay?.mode === 'three'
+                        ? `⏹ 停止（${queuePlay.idx + 1}/${queuePlay.ids.length}）`
+                        : `▶ 全部跑一遍（${yPhrases.length} 句，放著聽）`}
+                    </div>
+                    {yPhrases.map(p => {
+                      const r = p.dict.first?.rate ?? 0
+                      const lv = dictLevel(r)
+                      return (
+                        <div key={p.id} onClick={() => playThreeStep(p)}
+                          style={{ cursor:'pointer', display:'flex', alignItems:'flex-start', gap:8,
+                            background:T.surf, border:`1px solid ${threeStep?.pid === p.id ? '#38bdf8' : T.bdr}`,
+                            borderRadius:8, padding:'8px 10px' }}>
+                          <span style={{ fontSize:13, flexShrink:0, color:'#38bdf8', paddingTop:1 }}>
+                            {threeStep?.pid === p.id ? `${threeStep.step}` : '🔁'}
+                          </span>
+                          <span style={{ flex:1, minWidth:0, display:'flex', flexDirection:'column', gap:2 }}>
+                            <span style={{ fontFamily:MONO, fontSize:10, color:T.txt2, lineHeight:1.5 }}>{p.en}</span>
+                            {p.zh?.trim() && (
+                              <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.5 }}>{p.zh}</span>
+                            )}
+                          </span>
+                          <span style={{ fontFamily:MONO, fontSize:9, fontWeight:700, color:lv.c, flexShrink:0,
+                            background:lv.c+'20', border:`1px solid ${lv.c}50`, padding:'1px 6px', borderRadius:6 }}>
+                            {r}%
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </>
+                )}
+              </div>
+
+              {/* ③ 診斷：新句聽寫（原①）*/}
               <div style={{ borderLeft:'2px solid #38bdf8', paddingLeft:10, display:'flex', flexDirection:'column', gap:7,
                 minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
                 <div style={{ fontFamily:MONO, fontSize:10, color:'#38bdf8', fontWeight:700 }}>
-                  ① 診斷 · 新句聽寫
+                  ③ 診斷 · 新句聽寫
                   {trainN != null && <span style={{ color:T.txt3, marginLeft:6 }}>{Math.min(trainIdx, trainQueue.length)}/{trainQueue.length}</span>}
                   {doneStep1 && <span style={{ color:T.grn, marginLeft:6 }}>✓ 完成</span>}
                 </div>
@@ -24625,64 +24704,12 @@ Steven 不是在收藏電影台詞。
                 ) : null}
               </div>
 
-              {/* ② 鞏固：昨天的句子 */}
+              {/* ④ 轟炸：今日弱點字（原③）*/}
               <div style={{ borderLeft:`2px solid ${T.bdr}`, paddingLeft:10, display:'flex', flexDirection:'column', gap:6,
                 minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
-                <div style={{ fontFamily:MONO, fontSize:10, color:T.txt2, fontWeight:700 }}>
-                  ② 鞏固 · 昨天聽寫過的句子 <span style={{ color:T.txt3 }}>{yPhrases.length} 句</span>
-                </div>
-                {yPhrases.length === 0 ? (
-                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>昨天沒有紀錄，跳過。</div>
-                ) : (
-                  <>
-                    <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
-                      <b>不是新句</b> —— 是你昨天（{yest}）聽寫過的句子，取<b>抓字率最低的 5 句</b>。
-                      🔁 三步驟跑一遍，<b>不計分</b>。耳朵訓練靠重複曝露，不是靠考試。
-                    </div>
-                    <div onClick={() => startQueue(yPhrases, 'three')}
-                      style={{ cursor:'pointer', textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
-                        padding:'9px 0', borderRadius:8,
-                        background: queuePlay?.mode === 'three' ? T.amber : T.amberD,
-                        color: queuePlay?.mode === 'three' ? '#1a1207' : T.amber,
-                        border:`1px solid ${T.amber}60` }}>
-                      {queuePlay?.mode === 'three'
-                        ? `⏹ 停止（${queuePlay.idx + 1}/${queuePlay.ids.length}）`
-                        : `▶ 全部跑一遍（${yPhrases.length} 句，放著聽）`}
-                    </div>
-                    {yPhrases.map(p => {
-                      const r = p.dict.first?.rate ?? 0
-                      const lv = dictLevel(r)
-                      return (
-                        <div key={p.id} onClick={() => playThreeStep(p)}
-                          style={{ cursor:'pointer', display:'flex', alignItems:'flex-start', gap:8,
-                            background:T.surf, border:`1px solid ${threeStep?.pid === p.id ? '#38bdf8' : T.bdr}`,
-                            borderRadius:8, padding:'8px 10px' }}>
-                          <span style={{ fontSize:13, flexShrink:0, color:'#38bdf8', paddingTop:1 }}>
-                            {threeStep?.pid === p.id ? `${threeStep.step}` : '🔁'}
-                          </span>
-                          <span style={{ flex:1, minWidth:0, display:'flex', flexDirection:'column', gap:2 }}>
-                            <span style={{ fontFamily:MONO, fontSize:10, color:T.txt2, lineHeight:1.5 }}>{p.en}</span>
-                            {p.zh?.trim() && (
-                              <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.5 }}>{p.zh}</span>
-                            )}
-                          </span>
-                          <span style={{ fontFamily:MONO, fontSize:9, fontWeight:700, color:lv.c, flexShrink:0,
-                            background:lv.c+'20', border:`1px solid ${lv.c}50`, padding:'1px 6px', borderRadius:6 }}>
-                            {r}%
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </>
-                )}
-              </div>
-
-              {/* ③ 轟炸：今日弱點字 */}
-              <div style={{ borderLeft:`2px solid ${T.bdr}`, paddingLeft:10, display:'flex', flexDirection:'column', gap:6,
-                minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
-                <div style={{ fontFamily:MONO, fontSize:10, color:T.txt2, fontWeight:700 }}>③ 轟炸 · 今日弱點字</div>
+                <div style={{ fontFamily:MONO, fontSize:10, color:T.txt2, fontWeight:700 }}>④ 轟炸 · 今日弱點字</div>
                 {!topWord ? (
-                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>還沒有夠格的弱點字（要遇到 ≥3 次），先多做幾句 ①。</div>
+                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>還沒有夠格的弱點字（要遇到 ≥3 次），先多做幾句 ③。</div>
                 ) : (
                   <div onClick={() => { setListenLibOpen(true); setLibView('weak'); setLibWord(topWord.w)
                                         setTimeout(() => listenLibRef.current?.scrollIntoView({ behavior:'smooth', block:'start' }), 120) }}
@@ -24838,7 +24865,10 @@ Steven 不是在收藏電影台詞。
           const lib  = all.filter(p => p.dict?.lib && !p.dict.grad)
           const grad = all.filter(p => p.dict?.grad)
           const today = getTodayStr()
-          const due = lib.filter(p => !p.dict.next || p.dict.next <= today)
+          // v6.48: 送出比對後 next 排到未來（或畢業離開 lib），舊寫法會讓卡片瞬間被過濾掉，
+          //   結果畫面根本來不及看。修法：今天重測過的（count≥2 排除首測）留在清單裡到今天結束。
+          const testedToday = all.filter(p => p.dict?.first && (p.dict.count ?? 0) >= 2 && p.dict.last?.d === today)
+          const due = uniqById([...lib.filter(p => !p.dict.next || p.dict.next <= today), ...testedToday])
           // 依「漏掉率」分群：出現越頻繁的字一定漏越多次，用次數排會被 the/i/and 洗版
           // ⚠ 一定要濾掉 noBlind：不然排除掉的句子還是會出現在弱點關卡
           const dictated = all.filter(p => p.dict?.first && !p.noBlind)
@@ -25780,9 +25810,21 @@ Steven 不是在收藏電影台詞。
                               whiteSpace:'pre-wrap', background:'#0f0a1f', border:'1px solid #a78bfa25',
                               borderRadius:8, padding:'9px 10px', minWidth:0, maxWidth:'100%',
                               overflowWrap:'break-word' }}>
+                              <div onClick={() => setAiTip(t => { const n = { ...t }; delete n[p.id]; return n })}
+                                style={{ cursor:'pointer', userSelect:'none', textAlign:'right', fontFamily:MONO,
+                                  fontSize:9, color:T.txt3, fontWeight:700, marginBottom:4 }}>
+                                ✕ 收起精解
+                              </div>
                               {aiTip[p.id]}
                             </div>
                           )}
+                          {/* v6.48: 跟讀面板收起（跟讀按鈕再點一次也可收，這裡給明顯出口）*/}
+                          <div onClick={() => setShadowId(null)}
+                            style={{ cursor:'pointer', userSelect:'none', textAlign:'center', fontFamily:MONO,
+                              fontSize:10, fontWeight:700, color:T.txt3, padding:'7px 0',
+                              border:`1px dashed ${T.bdr}`, borderRadius:8 }}>
+                            ✕ 收起跟讀
+                          </div>
                         </div>
                       )
                     })()}
