@@ -7358,7 +7358,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.59</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.61</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13971,7 +13971,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.59）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.61）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -14601,6 +14601,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   // ── ⭐ 重點句 view state ──────────────────────────────────
   const [starMode,        setStarMode]        = useState('list')   // 'list'|'reverse'|'familiar'|'unfamiliar'
   const [starFlip,        setStarFlip]        = useState({})       // { [phraseId]: true } 已翻牌
+  const [starLinkOpen,    setStarLinkOpen]    = useState({})       // v6.60: { [phraseId]: true } 星號卡連音解析展開
   const [starNoteId,      setStarNoteId]      = useState(null)  // starred view 備註編輯中的 phraseId
   const [starNoteText,    setStarNoteText]    = useState('')
   const [starFamiliar,    setStarFamiliar]    = useState(() => {
@@ -22102,6 +22103,65 @@ Steven 不是在收藏電影台詞。
                   📝 {p.note}
                 </div>
               ) : null}
+              {/* v6.60: 連音解析（複用聽力庫同款）——預設收起；已有 p.link 直接展開，沒有則現場生成 */}
+              <div onClick={() => {
+                  if (!p.link) { analyzeLinking(p); setStarLinkOpen(o => ({ ...o, [p.id]: true })) }
+                  else setStarLinkOpen(o => ({ ...o, [p.id]: !o[p.id] }))
+                }}
+                style={{ cursor:'pointer', userSelect:'none', alignSelf:'flex-start',
+                  fontFamily:MONO, fontSize:9, fontWeight:700, padding:'4px 10px', borderRadius:6,
+                  background: (linkBusy === p.id || starLinkOpen[p.id]) ? '#a78bfa' : 'transparent',
+                  color: (linkBusy === p.id || starLinkOpen[p.id]) ? '#1a1030' : '#a78bfa',
+                  border:'1px solid #a78bfa40' }}>
+                {linkBusy === p.id ? '🎬 解析中…' : starLinkOpen[p.id] ? '🎬 收起連音' : '🎬 連音解析'}
+              </div>
+              {starLinkOpen[p.id] && p.link && (
+                <div style={{ background:'#1a1030', border:'1px solid #a78bfa40', borderRadius:9,
+                  padding:'10px 12px', display:'flex', flexDirection:'column', gap:7,
+                  minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
+                  {p.link.en && <MarkedIPA text={p.link.en} size={15}/>}
+                  <MarkedIPA text={p.link.ipa} size={13}/>
+                  {(p.link.rules ?? []).length > 0 && (
+                    <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
+                      {p.link.rules.map((r, i) => (
+                        <div key={i} style={{ fontFamily:MONO, fontSize:9, color:T.txt2, lineHeight:1.6 }}>
+                          {i + 1}. {stripMark(r)}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {(p.link.chunks ?? []).length > 0 && (
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                      {p.link.chunks.map((c, i) => (
+                        <span key={i} onClick={e => { e.stopPropagation(); playChunkSpan(p, c.en) }}
+                          style={{ cursor:'pointer', userSelect:'none', WebkitUserSelect:'none',
+                            WebkitTouchCallout:'none', touchAction:'manipulation',
+                            display:'inline-flex', alignItems:'center', gap:5,
+                            background:'#0f0a1f', border:'1px solid #a78bfa30', borderRadius:7,
+                            padding:'5px 9px' }}>
+                          <span style={{ fontSize:12 }}>🔊</span>
+                          <span style={{ fontFamily:MONO, fontSize:11, color:T.txt2 }}>{c.en}</span>
+                          <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>→</span>
+                          <MarkedIPA text={c.ipa} size={13}/>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {p.link.listen && (
+                    <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, lineHeight:1.6, fontWeight:700 }}>
+                      👉 {stripMark(p.link.listen)}
+                    </div>
+                  )}
+                  <div onClick={e => { e.stopPropagation(); analyzeLinking(p) }}
+                    style={{ cursor:'pointer', userSelect:'none', alignSelf:'flex-start',
+                      fontFamily:MONO, fontSize:9, fontWeight:700, padding:'4px 9px', borderRadius:6,
+                      background: linkBusy === p.id ? '#a78bfa' : 'transparent',
+                      color: linkBusy === p.id ? '#1a1030' : '#a78bfa80',
+                      border:'1px solid #a78bfa30' }}>
+                    {linkBusy === p.id ? '🔄 重新解析中…' : '🔄 重新解析（修正舊音標）'}
+                  </div>
+                </div>
+              )}
               {/* 熟悉度標記 */}
               <div style={{ display:'flex', gap:6, marginTop:2, flexWrap:'wrap',
                 position:'relative', zIndex:2, pointerEvents:'auto' }}
@@ -22727,24 +22787,52 @@ Steven 不是在收藏電影台詞。
             for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0
             return h
           }
-          const ranked = [...kbListToday].sort((a, b) => hashScore(b.id) - hashScore(a.id))
-          let todayItem = null, sentence = null
-          for (const it of ranked) {
-            const s = extractPracticeSentence(it)
-            if (s) { todayItem = it; sentence = s; break }
+          // v6.61: 雙模式抽題——抽得出完整英文句＝例句模式；抽不出但標題含英文 pattern
+          //   （grow from... / behind + 人）＝句型模式（練句型造句）。幾乎全部筆記入池，重複率大降。
+          const pickPractice = item => {
+            const s = extractPracticeSentence(item)
+            if (s) return { sentence: s, mode: 'sent' }
+            if (/[A-Za-z]{2,}/.test(String(item.title ?? ''))) return { sentence: String(item.title).trim(), mode: 'pattern' }
+            return null
           }
+          const ranked = [...kbListToday].sort((a, b) => hashScore(b.id) - hashScore(a.id))
+          // v6.61: 防連日重複——用昨天的 dayOfYear 算出昨天的贏家，今天贏家若同一篇（且池>1）取下一名
+          const hashScoreY = id => {
+            const s = `${id}|${dayOfYear - 1}`
+            let h = 0
+            for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0
+            return h
+          }
+          const eligible = ranked.filter(it => pickPractice(it))
+          const yWinner = [...eligible].sort((a, b) => hashScoreY(b.id) - hashScoreY(a.id))[0]
+          let todayItem = null, picked = null
+          for (const it of eligible) {
+            if (eligible.length > 1 && yWinner && it.id === yWinner.id && it.id === eligible[0].id) continue   // 跳過昨天贏家
+            todayItem = it; picked = pickPractice(it); break
+          }
+          if (!todayItem && eligible.length > 0) { todayItem = eligible[0]; picked = pickPractice(todayItem) }
           if (!todayItem) return null
+          const sentence = picked.sentence
+          const isPattern = picked.mode === 'pattern'
           return (
             <div style={{ background:'linear-gradient(135deg, #1a1400, #0d0d00)', border:`1px solid ${T.amber}60`,
               borderRadius:13, padding:'14px', display:'flex', flexDirection:'column', gap:8 }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:8, flexWrap:'wrap' }}>
-                <span style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:T.amber, flexShrink:0 }}>🎲 今天練一句</span>
+                <span style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:T.amber, flexShrink:0 }}>
+                  {isPattern ? '🎲 今天練一個句型' : '🎲 今天練一句'}
+                  <span style={{ color:T.txt3, fontWeight:400, marginLeft:6 }}>池 {eligible.length}/{kbListToday.length}</span>
+                </span>
                 <SpeakRow text={sentence} color={T.amber} compact/>
               </div>
               <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>{todayItem.title}</div>
               <div style={{ fontFamily:MONO, fontSize:13, color:T.txt, lineHeight:1.6, fontWeight:600 }}>
                 {sentence}
               </div>
+              {isPattern && (
+                <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, lineHeight:1.6 }}>
+                  ✍ 用這個句型造一句你工作/生活會說的話
+                </div>
+              )}
               <div style={{ display:'flex', gap:6 }}>
                 <div onClick={() => openKbItemDirect(todayItem.id)}
                   style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:9, fontWeight:700,
@@ -22760,6 +22848,7 @@ Steven 不是在收藏電影台詞。
                     padding:'8px 0', borderRadius:8, background:'#1a0f2e', border:'1px solid #a78bfa60', color:'#a78bfa' }}>
                   🖊️ 造句
                 </div>
+                {!isPattern && (
                 <div onClick={() => {
                     // 從知識庫隨機再抽一句（跳過今天已練過的）
                     const usedIds = new Set([todayItem.id, ...extraPracticeItems.map(x => x.id)])
@@ -22773,6 +22862,7 @@ Steven 不是在收藏電影台詞。
                     padding:'8px 0', borderRadius:8, background:'#0a3a1a', border:`1px solid ${T.grn}60`, color:T.grn }}>
                   ➕ 加練
                 </div>
+                )}
               </div>
             </div>
           )
