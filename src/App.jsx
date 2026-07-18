@@ -7358,7 +7358,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.55</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.57</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13551,9 +13551,21 @@ function tokenize(text) {
 // 集合比對會把你的 the 配給後面那個 the → 算你抓到。但你其實是把 At 聽成 the，
 // 那是一次「誤聽」，卻被記成命中，分數虛高，還吞掉了 At→the 這個關鍵資訊。
 // 用 DP 對齊（跟語音辨識算 WER 同一套）：命中/漏掉/誤聽 各歸各位，替換配對還能直接抓出混淆對。
+// v6.57: 口語縮讀正規化——你聽到 wanna 打 wanna，代表已成功解碼 want to 的連音形，
+// 這正是訓練目標本身，判錯等於懲罰進步。比對前雙向展開成標準形（打縮讀/原文縮讀都通）。
+const CONTRACT_EXPAND = {
+  wanna:['want','to'], gonna:['going','to'], gotta:['got','to'], lemme:['let','me'],
+  kinda:['kind','of'], sorta:['sort','of'], outta:['out','of'], lotta:['lot','of'],
+  gimme:['give','me'], gotcha:['got','you'], betcha:['bet','you'], dunno:["don't",'know'],
+  hafta:['have','to'], cmon:['come','on'],
+}
+
 function compareDictation(heardRaw, enRaw) {
-  const tgt   = tokenize(enRaw)
-  const heard = tokenize(heardRaw).map(t => t.w)
+  const tgt   = tokenize(enRaw).flatMap(t => {
+    const exp = CONTRACT_EXPAND[t.w]
+    return exp ? exp.map((w, k) => ({ w, raw: k === 0 ? t.raw : '' })) : [t]   // 原文縮讀：展開後首 token 保留原字顯示
+  })
+  const heard = tokenize(heardRaw).map(t => t.w).flatMap(w => CONTRACT_EXPAND[w] ?? [w])
   const tokens = tgt.map(t => ({ w:t.w, raw:t.raw, hit:false, fuzzy:false, content: !FUNC_WORDS.has(t.w) }))
   const n = tokens.length, m = heard.length
 
@@ -13959,7 +13971,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.55）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.57）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -15914,7 +15926,8 @@ Return ONLY a JSON object, no markdown:
 3. 母音與母音之間的 t 一律標彈舌 ɾ（美式）：that is→ðæɾɪz、get up→ɡeɾʌp，不標字典 t。
 4. 短母音不加長音符 ː：træk 不是 træːk；只有 iː/uː/ɑː/ɔː/ɜː 這類真正長母音才用 ː。
 5. 基準：I=aɪ、he=hi、she=ʃi、the=ðə、a=ə、of=əv/ə、was=wəz、are=ər、to=tə、and=ən。
-6. rules/listen 純文字裡若提到音，必須用正確 IPA 符號（ə 不寫成 a、ɾ 不寫成 r、ʃ 不寫成 sh），與 ipa 欄位同一套標準。`
+6. rules/listen 純文字裡若提到音，必須用正確 IPA 符號（ə 不寫成 a、ɾ 不寫成 r、ʃ 不寫成 sh），與 ipa 欄位同一套標準。
+7. 連讀點不可漏：句中所有「前字子音尾＋後字母音頭」的相鄰組合（例如 guess I→ge·saɪ、years of→jɪr·zəv）都必須逐一檢查，有連讀就要在 ipa 做音節重組、在 rules 列一條、視重要性放進 chunks——不要只挑最明顯的幾個。`
       const raw = await callAI([{ role:'user', content: usr }], sys)
       const data = JSON.parse(String(raw).replace(/```json|```/g, '').trim())
       updatePhraseAnyScene(p.id, x => ({ ...x, link: { ...data, at: Date.now() } }))   // v6.53: at＝新 prompt 世代戳，無 at 即舊資料
@@ -25551,7 +25564,7 @@ Steven 不是在收藏電影台詞。
                                   {p.zh}
                                 </div>
                               )}
-                              <WordCard phraseId={p.id}/>
+                              {/* v6.56: WordCard 移除——外層已常駐一個，兩個同時渲染會讓長按彈兩張單字卡 */}
                               <div style={{ fontFamily:MONO, fontSize:10, color: pass ? T.grn : T.amber, fontWeight:700 }}>
                                 {pass ? '✅ 過關（≥80% 且原本漏的字都抓到）' : '✗ 還沒過關'}
                                 <span style={{ color:T.txt2, fontWeight:400, marginLeft:6 }}>
