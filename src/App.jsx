@@ -7358,7 +7358,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.53</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.55</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13959,7 +13959,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.53）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.55）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -14074,6 +14074,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const [recDur,    setRecDur]    = useState({})     // { pid: 你唸的秒數（切掉頭尾靜音）}
   const [linkBusy,  setLinkBusy]  = useState(null)   // 正在做連音解析的句子 id
   const [batchLink, setBatchLink] = useState(null)   // v6.53: 批次重跑進度 {i,n}
+  const [lastRetestId, setLastRetestId] = useState(null)   // v6.54: 剛送出比對的句子——釘在待測段原位顯示結果，開始測下一句才歸檔
   const [verifyBusy, setVerifyBusy] = useState(null) // 正在 AI 校驗的功能詞
   const [verifyTick, setVerifyTick] = useState(0)    // 校驗完成後強制重算 freqLinks
   const [asrBusy,   setAsrBusy]   = useState(null)   // 正在辨識的句子 id
@@ -24883,10 +24884,14 @@ Steven 不是在收藏電影台詞。
           //   （首測當天必排 +3 天不可能當天到期，此條件精確等於「今天重測過」，不依賴 count）；
           //   (2) 在 lib 原順序內過濾，重測後位置不動；今天畢業的句子補在尾端（少見，可接受）。
           const retestedToday = p => p.dict?.last?.d === today && p.dict?.first?.d !== today
-          // v6.51: 到期清單分兩段——待測在前（原順序）、今天已重測收到後段（結果保留可回看），
-          //   送出比對後卡片「搬家」到已重測區，不再與待測交錯。
-          const duePending = lib.filter(p => (!p.dict.next || p.dict.next <= today) && !retestedToday(p))
-          const dueDone = [...lib.filter(retestedToday), ...grad.filter(retestedToday)]
+          // v6.51: 到期清單分兩段——待測在前（原順序）、今天已重測收到後段（結果保留可回看）。
+          // v6.54: 剛送出的那句（lastRetestId）釘在待測段原位——立刻搬到後段等於瞬移到 50+ 張卡
+          //   底下，結果根本看不到。開始重測下一句時才歸檔到已重測段。
+          const duePending = [
+            ...lib.filter(p => ((!p.dict.next || p.dict.next <= today) && !retestedToday(p)) || p.id === lastRetestId),
+            ...grad.filter(p => p.id === lastRetestId),   // 剛送出就畢業的句子離開 lib，也要釘住
+          ]
+          const dueDone = [...lib.filter(retestedToday), ...grad.filter(retestedToday)].filter(p => p.id !== lastRetestId)
           const due = [...duePending, ...dueDone]
           // 依「漏掉率」分群：出現越頻繁的字一定漏越多次，用次數排會被 the/i/and 洗版
           // ⚠ 一定要濾掉 noBlind：不然排除掉的句子還是會出現在弱點關卡
@@ -25341,8 +25346,9 @@ Steven 不是在收藏電影台詞。
                     {(() => {
                       const masked = (testing && !res) || dueMasked
                       // v6.50: 有 res（重測結果）時頂部句子不渲染——結果區的三色逐字是唯一句子。
-                      //   舊版兩套同時出現：句子顯示重複＋長按彈兩個單字框（兩處都掛 longPress）。
-                      if (!masked && res) return null
+                      // v6.55: 但結果區只在 testing 時渲染；測完換下一句後 res 還在、testing 已走，
+                      //   舊條件會把英文藏了又沒有結果區補位 → 卡片只剩中文。加 testing 條件。
+                      if (!masked && res && testing) return null
                       return masked ? (
                         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                           <div style={{ fontFamily:MONO, fontSize:12, color:T.txt3 }}>🎧 ●●●●●●●●●●</div>
@@ -25378,7 +25384,7 @@ Steven 不是在收藏電影台詞。
                       )
                     })()}
                     {p.zh?.trim() && !testing && !dueMasked && (
-                      <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.6 }}>
+                      <div style={{ fontFamily:MONO, fontSize:12, color:T.txt2, lineHeight:1.6 }}>
                         {p.zh}
                       </div>
                     )}
@@ -25507,7 +25513,7 @@ Steven 不是在收藏電影台詞。
                               style={{ width:'100%', boxSizing:'border-box', background:T.surf2,
                                 border:'1px solid #38bdf850', borderRadius:8, padding:'10px 11px',
                                 color:T.txt, fontFamily:MONO, fontSize:14, outline:'none' }} />
-                            <div onClick={() => submitDictation(p)}
+                            <div onClick={() => { setLastRetestId(p.id); submitDictation(p) }}
                               style={{ cursor:'pointer', textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
                                 padding:'9px 0', borderRadius:8,
                                 background:'#38bdf8', color:'#0d2a3a', border:'1px solid #38bdf8' }}>
@@ -25541,7 +25547,7 @@ Steven 不是在收藏電影台詞。
                               </div>
                               {/* v6.50: 結果區補中文（頂部句子有 res 時不渲染，中文也要跟過來）*/}
                               {p.zh?.trim() && (
-                                <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.6 }}>
+                                <div style={{ fontFamily:MONO, fontSize:12, color:T.txt2, lineHeight:1.6 }}>
                                   {p.zh}
                                 </div>
                               )}
@@ -25622,6 +25628,7 @@ Steven 不是在收藏電影台詞。
                               return
                             }
                             setLibTestId(p.id); setDictInput(v => ({ ...v, [p.id]: '' })); setDictResult(r => { const n={...r}; delete n[p.id]; return n })
+                            if (lastRetestId !== p.id) setLastRetestId(null)   // v6.54: 開始測下一句，前一句歸檔到已重測段
                           }}
                           title={isDue ? '重測' : `${p.dict.next} 才開放`}
                           style={{ cursor:'pointer', flex:1, minWidth:0, textAlign:'center', whiteSpace:'nowrap',
