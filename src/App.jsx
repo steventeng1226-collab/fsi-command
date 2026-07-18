@@ -7358,7 +7358,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.57</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.59</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13971,7 +13971,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.57）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.59）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -15927,7 +15927,12 @@ Return ONLY a JSON object, no markdown:
 4. 短母音不加長音符 ː：træk 不是 træːk；只有 iː/uː/ɑː/ɔː/ɜː 這類真正長母音才用 ː。
 5. 基準：I=aɪ、he=hi、she=ʃi、the=ðə、a=ə、of=əv/ə、was=wəz、are=ər、to=tə、and=ən。
 6. rules/listen 純文字裡若提到音，必須用正確 IPA 符號（ə 不寫成 a、ɾ 不寫成 r、ʃ 不寫成 sh），與 ipa 欄位同一套標準。
-7. 連讀點不可漏：句中所有「前字子音尾＋後字母音頭」的相鄰組合（例如 guess I→ge·saɪ、years of→jɪr·zəv）都必須逐一檢查，有連讀就要在 ipa 做音節重組、在 rules 列一條、視重要性放進 chunks——不要只挑最明顯的幾個。`
+7. 連讀逐組檢核（程序，不可跳過）：先把句中每一組「前字子音尾＋後字母音頭」的相鄰對全部列出來（例如 guess I、might even、years of），逐組判定有無連讀；**有連讀的必須在 ipa 欄位做音節重組**（guess I→gɛ·saɪ，s 滑到 I），並在 rules 列一條。只寫進 rules 而 ipa 沒重組＝錯；只挑最明顯的幾組＝錯。
+8. 實詞永不弱讀：<wk> 標籤與「弱讀」一詞**只准用於功能詞**（介系詞/冠詞/代名詞/be動詞/助動詞/連接詞）。動詞/名詞/形容詞/副詞等實詞（guess、think、track、meeting…）沒有弱讀這回事——它們的正常發音就是正常發音，不要為了交差硬掰成弱讀；實詞可發生的音變只有連讀/彈舌/失去爆破/滑音。把實詞標成弱讀或說它「弱讀成（其實是原音）」＝錯。
+9. 相同或同部位子音相鄰（t+t、ð+ð、m+m、s+s、d+d）＝**合併為單一稍長的音**（gemination），只做一次舌位/嘴型：with that→wɪ‿ðæt（一個 ð）、that too→ðæt̚·tuː（一次 t 位）。說「相鄰但各自發音」＝錯。
+10. 失去爆破 ≠ 不發音：p/t/k/b/d/g 接子音時是「憋住不釋放」——嘴型到位、有短促頓挫感，標 p̚ t̚ k̚ 記號、歸「音變」類（<ch>），描述必須寫「只做嘴型憋住、有頓挫」。「不發音」（<si> 刪除線）只准用於真正脫落的音（如 h 脫落）。把失爆標成 <si> 不發音＝錯。
+11. h 脫落有條件：只有**代名詞** he/him/his/her 和**助動詞** have/has/had 在句中弱位置才脫落 h（is he→ɪzi、should have→ʃʊdəv）。have/has 當**主要動詞**（擁有義：I still have music）是句子核心動詞，h 保留、發 hæv/həv，絕不塌成 əv/ləv。
+12. 連讀是**整串重切音節**（連鎖），不是只成對處理：I'm on a→aɪ·mɑ·nə（m 滑向 on、n 再滑向 a，連續搬家），ipa 欄位要呈現重切後的音節，不要停在只處理一對相鄰字。`
       const raw = await callAI([{ role:'user', content: usr }], sys)
       const data = JSON.parse(String(raw).replace(/```json|```/g, '').trim())
       updatePhraseAnyScene(p.id, x => ({ ...x, link: { ...data, at: Date.now() } }))   // v6.53: at＝新 prompt 世代戳，無 at 即舊資料
@@ -15945,11 +15950,12 @@ Return ONLY a JSON object, no markdown:
     }
   }
 
-  // v6.53: 批次重跑——只挑「沒有時間戳」的舊版解析（v6.53 前生成＝舊 prompt，可能帶 that/fa 類錯誤）。
-  // 新資料不重跑（省 token）。單句失敗跳過續跑，跑完 toast 總結。
+  // v6.53: 批次重跑。v6.58: 改用 prompt 世代判斷——LINK_PROMPT_VER 是「當前 prompt 最後修改日」，
+  // 凡 link.at 早於它（或沒有 at）都算舊世代可重跑；prompt 再改版時更新此日期即可。
+  const LINK_PROMPT_VER = Date.parse('2026-07-19T13:30:00Z')   // v6.59: 9-12 條上線時刻（越南 20:30）
   async function batchReanalyzeLinks() {
     if (batchLink || linkBusy) return
-    const targets = uniqById((movie?.scenes ?? []).flatMap(s => (s.phrases ?? []))).filter(p => p.link && !p.link.at)
+    const targets = uniqById((movie?.scenes ?? []).flatMap(s => (s.phrases ?? []))).filter(p => p.link && (!p.link.at || p.link.at < LINK_PROMPT_VER))
     if (targets.length === 0) { showMovieToast('✓ 沒有舊版解析需要重跑'); return }
     if (!confirm(`將用新規則重跑 ${targets.length} 句舊版連音解析（${targets.length} 次 AI 呼叫，需要幾分鐘與 API 費用）。新版解析不會動。繼續？`)) return
     let ok = 0, fail = 0
@@ -24888,8 +24894,9 @@ Steven 不是在收藏電影台詞。
         {/* ── 🎯 聽力庫（v5.83）：首次全詞率 <60% 自動收錄，依「漏字」分群轟炸 ── */}
         {listenLibOpen && (() => {
           const all = uniqById((movie?.scenes ?? []).flatMap(s => s.phrases ?? []))
-          const lib  = all.filter(p => p.dict?.lib && !p.dict.grad)
-          const grad = all.filter(p => p.dict?.grad)
+          // v6.59: 濾 noBlind——音樂句按 🚫 排除後要退出聽力庫與到期清單（之前只擋抽題沒擋這裡）
+          const lib  = all.filter(p => p.dict?.lib && !p.dict.grad && !p.noBlind)
+          const grad = all.filter(p => p.dict?.grad && !p.noBlind)
           const today = getTodayStr()
           // v6.49: 重測後卡片消失二修。v6.48 用 count≥2 判斷「今天重測過」，但舊資料可能沒有
           //   count 欄位（(undefined??0)+1=1 過不了門檻）；且 testedToday 接在陣列尾端，卡片會
