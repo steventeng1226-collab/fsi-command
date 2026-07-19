@@ -7378,7 +7378,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.66</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.67</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13991,7 +13991,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.66）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.67）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -14106,6 +14106,8 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const [recDur,    setRecDur]    = useState({})     // { pid: 你唸的秒數（切掉頭尾靜音）}
   const [linkBusy,  setLinkBusy]  = useState(null)   // 正在做連音解析的句子 id
   const [linkStage, setLinkStage] = useState(null)   // v6.65: 'gen'=①生成中 | 'verify'=②校驗中（2-call 流程可視化）
+  const [tutorMode, setTutorMode] = useState(false)  // v6.67: 👩‍🏫 家教模式——弱點關卡全卡遮罩，課堂用
+  const [tutorReveal, setTutorReveal] = useState({}) // v6.67: 家教模式逐卡揭答案（獨立於 libRevealed，不污染重測遮罩）
   const [batchLink, setBatchLink] = useState(null)   // v6.53: 批次重跑進度 {i,n}
   const [lastRetestId, setLastRetestId] = useState(null)   // v6.54: 剛送出比對的句子——釘在待測段原位顯示結果，開始測下一句才歸檔
   const [verifyBusy, setVerifyBusy] = useState(null) // 正在 AI 校驗的功能詞
@@ -25498,6 +25500,27 @@ Steven 不是在收藏電影台詞。
                       <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
                         連續轟炸同一個音塊，大腦才會建立「那團模糊的 əz = as」的映射。放著聽，不用一句一句點。
                       </div>
+                      {/* v6.67: 👩‍🏫 家教模式——課堂用：全卡遮罩（英文/中文/解析全藏），逐卡揭答案；
+                          📋 匯出：純英文句子清單複製到剪貼簿，事前傳給老師當唸稿 */}
+                      <div style={{ display:'flex', gap:6 }}>
+                        <div onClick={() => { setTutorMode(v => !v); setTutorReveal({}) }}
+                          style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
+                            padding:'8px 0', borderRadius:8,
+                            background: tutorMode ? '#a78bfa' : T.surf2,
+                            color: tutorMode ? '#1a1030' : '#a78bfa',
+                            border:'1px solid #a78bfa50' }}>
+                          {tutorMode ? '👩‍🏫 家教模式 ON（全遮）' : '👩‍🏫 家教模式'}
+                        </div>
+                        <div onClick={async () => {
+                          const txt = shown.map((p, i) => `${i + 1}. ${p.en}`).join('\n')
+                          try { await navigator.clipboard.writeText(txt); showMovieToast(`📋 已複製 ${shown.length} 句，傳給老師當唸稿`) }
+                          catch { showMovieToast('⚠ 複製失敗，請手動長按選取') }
+                        }}
+                          style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
+                            padding:'8px 0', borderRadius:8, background:T.surf2, color:T.txt2, border:`1px solid ${T.bdr}` }}>
+                          📋 匯出句子給老師
+                        </div>
+                      </div>
                     </div>
                   )}
                 </>
@@ -25523,6 +25546,7 @@ Steven 不是在收藏電影台詞。
                 const missSet = new Set(f.miss ?? [])
                 const isDue = !p.dict.next || p.dict.next <= today
                 const dueMasked = !res && isDue && !testing && !libRevealed[p.id]   // v6.39: 到期未重測且沒明確要求看答案
+                const tutorMasked = tutorMode && libWord && !testing && !tutorReveal[p.id]   // v6.67: 家教模式全遮（獨立揭示，不動 libRevealed）
                 const isQueueCur = queuePlay && queuePlay.ids[queuePlay.idx] === p.id
                 // v6.51: 到期檢視分區標題——待測段起點與已測段起點各插一條
                 const secDue = libDueOnly && !libWord && libView === 'sent'
@@ -25555,7 +25579,7 @@ Steven 不是在收藏電影台詞。
                     )}
                     {/* 重測中 → 遮住英文；v6.39: 到期待重測也預設遮罩（先看到答案再重測 = 調記憶不是解碼，分數虛高）*/}
                     {(() => {
-                      const masked = (testing && !res) || dueMasked
+                      const masked = (testing && !res) || dueMasked || tutorMasked   // v6.67: 家教模式也遮
                       // v6.50: 有 res（重測結果）時頂部句子不渲染——結果區的三色逐字是唯一句子。
                       // v6.55: 但結果區只在 testing 時渲染；測完換下一句後 res 還在、testing 已走，
                       //   舊條件會把英文藏了又沒有結果區補位 → 卡片只剩中文。加 testing 條件。
@@ -25563,7 +25587,14 @@ Steven 不是在收藏電影台詞。
                       return masked ? (
                         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                           <div style={{ fontFamily:MONO, fontSize:12, color:T.txt3 }}>🎧 ●●●●●●●●●●</div>
-                          {!testing && (
+                          {tutorMasked ? (
+                            <span onClick={() => setTutorReveal(r => ({ ...r, [p.id]: true }))}
+                              style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                                fontFamily:MONO, fontSize:9, color:'#a78bfa', padding:'3px 8px',
+                                background:'#1a1030', borderRadius:6, border:'1px solid #a78bfa50' }}>
+                              👁 揭答案（報完抓到的字再按）
+                            </span>
+                          ) : !testing && (
                             <span onClick={() => setLibRevealed(r => ({ ...r, [p.id]: true }))}
                               style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
                                 fontFamily:MONO, fontSize:9, color:T.txt3, padding:'3px 8px',
@@ -25594,21 +25625,21 @@ Steven 不是在收藏電影台詞。
                       </div>
                       )
                     })()}
-                    {p.zh?.trim() && !testing && !dueMasked && (
+                    {p.zh?.trim() && !testing && !dueMasked && !tutorMasked && (
                       <div style={{ fontFamily:MONO, fontSize:12, color:T.txt2, lineHeight:1.6 }}>
                         {p.zh}
                       </div>
                     )}
-                    <WordCard phraseId={p.id}/>
-                    <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
+                    {!tutorMasked && <WordCard phraseId={p.id}/>}
+                    {!tutorMasked && <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
                       首次 全詞 {f.rate}% · 實詞 {f.cRate}%
                       {p.dict.count > 1 && ` · 最近 全詞 ${p.dict.last.rate}%`}
                       {' · '}進度 {p.dict.stage ?? 0}/{REVIEW_INTERVALS.length}
                       {isDue && <span style={{ color:T.amber, fontWeight:700 }}> · ⏰ 今天可重測</span>}
-                    </div>
+                    </div>}
 
                     {/* 🎬 連音解析：AI 產出帶標記的音標（失去爆破 / 音變 / 連讀）*/}
-                    {!testing && !dueMasked && (p.link ? (
+                    {!testing && !dueMasked && !tutorMasked && (p.link ? (
                       <div style={{ background:'#1a1030', border:'1px solid #a78bfa40', borderRadius:9,
                         padding:'10px 12px', display:'flex', flexDirection:'column', gap:7,
                         minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
@@ -25676,7 +25707,7 @@ Steven 不是在收藏電影台詞。
                     ))}
 
                     {/* 弱點關卡模式：快速連音塊（規則版，免費即時）*/}
-                    {libWord && !testing && !dueMasked && !p.link && (() => {
+                    {libWord && !testing && !dueMasked && !tutorMasked && !p.link && (() => {
                       const chunks = buildChunks(p.en, libWord)
                       if (chunks.length === 0) return null
                       return (
