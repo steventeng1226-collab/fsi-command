@@ -452,6 +452,12 @@ async function callAI(messages, system = '', _unused) {
   if (!navigator.onLine) throw new Error('目前離線（飛航模式），AI 功能需要網路連線')
   const se = getAISettings()
   const provider = se.aiProvider || 'anthropic'
+  // v6.66: 60s 超時——之前 fetch 無超時，網路卡住會讓 linkBusy 永久不釋放，之後所有解析全被靜默擋掉
+  const withTimeout = (ms = 60000) => {
+    const ctrl = new AbortController()
+    const t = setTimeout(() => ctrl.abort(), ms)
+    return { signal: ctrl.signal, done: () => clearTimeout(t) }
+  }
 
   if (provider === 'gemini') {
     const apiKey = se.geminiKey || ''
@@ -459,11 +465,18 @@ async function callAI(messages, system = '', _unused) {
     const contents = []
     if (system) contents.push({ role:'user', parts:[{ text: system }] }, { role:'model', parts:[{ text:'OK, understood.' }] })
     messages.forEach(m => contents.push({ role: m.role === 'assistant' ? 'model' : 'user', parts:[{ text: m.content }] }))
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents, generationConfig: { maxOutputTokens: 1000 } })
-    })
+    const tm = withTimeout()
+    let r
+    try {
+      r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents, generationConfig: { maxOutputTokens: 4000 } }),   // v6.66: 1000→4000，16條規則的解析 JSON 會被 1000 截斷
+        signal: tm.signal
+      })
+    } catch (e) {
+      throw (e?.name === 'AbortError' ? new Error('AI 回應逾時（60秒），請重試') : e)
+    } finally { tm.done() }
     const d = await r.json()
     if (!r.ok) throw new Error(d.error?.message ?? 'Gemini error ' + r.status)
     return d.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
@@ -476,16 +489,23 @@ async function callAI(messages, system = '', _unused) {
     // Anthropic（預設）
     const apiKey = se.apiKey || ''
     if (!apiKey) throw new Error('請先在 Setup 設定 Anthropic API Key')
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 1000, system, messages })
-    })
+    const tm = withTimeout()
+    let r
+    try {
+      r = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 4000, system, messages }),   // v6.66: 1000→4000，連音解析 JSON 被 1000 截斷導致 parse 失敗＝「按了沒動作」根因
+        signal: tm.signal
+      })
+    } catch (e) {
+      throw (e?.name === 'AbortError' ? new Error('AI 回應逾時（60秒），請重試') : e)
+    } finally { tm.done() }
     const d = await r.json()
     if (!r.ok) throw new Error(d.error?.message ?? 'API error ' + r.status)
     return d.content?.[0]?.text ?? ''
@@ -7358,7 +7378,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.65</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.66</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13971,7 +13991,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.65）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.66）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
