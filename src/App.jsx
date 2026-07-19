@@ -7358,7 +7358,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.61</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.62</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13971,7 +13971,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.61）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.62）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -15933,9 +15933,25 @@ Return ONLY a JSON object, no markdown:
 9. 相同或同部位子音相鄰（t+t、ð+ð、m+m、s+s、d+d）＝**合併為單一稍長的音**（gemination），只做一次舌位/嘴型：with that→wɪ‿ðæt（一個 ð）、that too→ðæt̚·tuː（一次 t 位）。說「相鄰但各自發音」＝錯。
 10. 失去爆破 ≠ 不發音：p/t/k/b/d/g 接子音時是「憋住不釋放」——嘴型到位、有短促頓挫感，標 p̚ t̚ k̚ 記號、歸「音變」類（<ch>），描述必須寫「只做嘴型憋住、有頓挫」。「不發音」（<si> 刪除線）只准用於真正脫落的音（如 h 脫落）。把失爆標成 <si> 不發音＝錯。
 11. h 脫落有條件：只有**代名詞** he/him/his/her 和**助動詞** have/has/had 在句中弱位置才脫落 h（is he→ɪzi、should have→ʃʊdəv）。have/has 當**主要動詞**（擁有義：I still have music）是句子核心動詞，h 保留、發 hæv/həv，絕不塌成 əv/ləv。
-12. 連讀是**整串重切音節**（連鎖），不是只成對處理：I'm on a→aɪ·mɑ·nə（m 滑向 on、n 再滑向 a，連續搬家），ipa 欄位要呈現重切後的音節，不要停在只處理一對相鄰字。`
+12. 連讀是**整串重切音節**（連鎖），不是只成對處理：I'm on a→aɪ·mɑ·nə（m 滑向 on、n 再滑向 a，連續搬家），ipa 欄位要呈現重切後的音節，不要停在只處理一對相鄰字。
+13. 彈舌 ɾ **只准來自 /t/ 或 /d/**：s、z、n、l 等其他子音絕不彈舌。s 尾接母音頭只是普通連讀滑移（promise you→prɑ·mɪ·sju，s 滑向 ju），說「s 彈舌成 ɾ」＝錯。
+14. t 的兩條路涇渭分明：t 接**母音**＝彈舌 ɾ（just in→dʒʌ·sɾɪn、at your 例外走 tʃ）；t 接**子音**才失去爆破 t̚。把「t+母音」說成失爆只做嘴型＝錯（實錯：just in 被標失爆，但 t 在母音 i 前該彈舌）。
+15. 連讀時前字的子音**正常發音、絕不標 <si> 刪除線**：see why 的 s、years 的 z 在連讀中都完整發出，只是滑向後字。<si> 只准標真正脫落的音（h 脫落、輔音叢簡化）。把連讀起點子音標成不發音＝錯。
+16. 母音守恆（最重要的防幻覺規則）：ipa 欄位裡的**每一個母音都必須來自原句某個字的字典發音**。連讀/彈舌/失爆只搬動或替換子音，絕不憑空生出新母音。輸出前逐音節自檢：「這個母音是哪個字的？」答不出來＝幻覺＝錯（實錯：promise you 被寫成 prɑ·mɪ·saɪ·ju，saɪ 的 aɪ 母音無中生有）。`
       const raw = await callAI([{ role:'user', content: usr }], sys)
-      const data = JSON.parse(String(raw).replace(/```json|```/g, '').trim())
+      let data = JSON.parse(String(raw).replace(/```json|```/g, '').trim())
+      // ── v6.62 二次校驗 pass（方案2：生成→檢查官）──
+      // 遵循度問題的解法：第一次生成後，第二次 call 只做「逐條驗證」，不重新創作。
+      // 專抓四類高發錯誤（都是使用者耳朵抓到過的實錯）：
+      //   A 幻覺母音（promise you→saɪ）  B s/z/n/l 被彈舌  C t+母音被標失爆  D 連讀起點子音被標刪除線
+      // 校驗官只回 {"ok":true} 或修正後完整 JSON；本身失敗（斷線/格式爛）就用初版，不阻斷。
+      try {
+        const vSys = '你是 IPA 音標校驗官。只做檢查與修正，不重新創作。一律回 JSON，不要 markdown。'
+        const vUsr = `原句："${p.en}"\n待驗解析：${JSON.stringify({ enMarked: data.enMarked, ipa: data.ipa, rules: data.rules, chunks: data.chunks })}\n\n逐條檢查以下四類錯誤（每類都有真實誤判前例）：\nA. 幻覺母音：ipa/chunks 裡每個母音必須來自原句某字的字典發音。逐音節問「這個母音是哪個字的」，答不出＝幻覺（前例：promise you 被寫成 prɑ·mɪ·saɪ·ju，aɪ 無中生有，正解 prɑ·mɪ·sju）。\nB. 彈舌 ɾ 只准來自 /t/ 或 /d/：s/z/n/l 被標彈舌＝錯（s+母音是普通連讀滑移）。\nC. t 接母音＝彈舌 ɾ；t 接子音才失爆 t̚。t+母音被說成失爆只做嘴型＝錯（前例：just in 該是 dʒʌ·sɾɪn）。\nD. 連讀起點的子音正常發音，絕不標 <si> 刪除線（前例：see why 的 s 被標不發音，錯；s 完整發出滑向 why）。\n\n全部正確 → 回 {"ok":true}\n有任何錯 → 回修正後的**完整** JSON（enMarked/ipa/rules/chunks/listen 五欄齊全，只改錯的部分，標籤語法照舊：<wk><lk><si><ch><gl><nw>）`
+        const vRaw = await callAI([{ role:'user', content: vUsr }], vSys)
+        const v = JSON.parse(String(vRaw).replace(/```json|```/g, '').trim())
+        if (!v.ok && v.ipa) data = { ...data, ...v }   // 校驗官修正版覆蓋（缺欄用初版補）
+      } catch(e) { /* 校驗失敗不阻斷，用初版 */ }
       updatePhraseAnyScene(p.id, x => ({ ...x, link: { ...data, at: Date.now() } }))   // v6.53: at＝新 prompt 世代戳，無 at 即舊資料
   }
 
@@ -15953,7 +15969,7 @@ Return ONLY a JSON object, no markdown:
 
   // v6.53: 批次重跑。v6.58: 改用 prompt 世代判斷——LINK_PROMPT_VER 是「當前 prompt 最後修改日」，
   // 凡 link.at 早於它（或沒有 at）都算舊世代可重跑；prompt 再改版時更新此日期即可。
-  const LINK_PROMPT_VER = Date.parse('2026-07-19T13:30:00Z')   // v6.59: 9-12 條上線時刻（越南 20:30）
+  const LINK_PROMPT_VER = Date.parse('2026-07-20T01:00:00Z')   // v6.62: 13-16 條＋二次校驗 pass 上線時刻（越南 08:00）
   async function batchReanalyzeLinks() {
     if (batchLink || linkBusy) return
     const targets = uniqById((movie?.scenes ?? []).flatMap(s => (s.phrases ?? []))).filter(p => p.link && (!p.link.at || p.link.at < LINK_PROMPT_VER))
@@ -16118,7 +16134,8 @@ ${list}
   }
 
   // ── 👆 長按才查單字（輕碰不觸發）──
-  // 之前 onClick 一碰就跳字卡，練習時手指掃過就誤觸。改成按住 ~350ms 才觸發。
+  // 之前 onClick 一碰就跳字卡，練習時手指掃過就誤觸。改成按住才觸發。
+  // v6.62: 350ms 仍會誤觸（滑動停頓也算按住）→ 拉長到 600ms。
   const pressTimerRef = useRef(null)
   const pressFiredRef = useRef(false)
   function longPress(phraseId, word, sentence) {
@@ -16129,7 +16146,7 @@ ${list}
         pressFiredRef.current = true
         if (navigator.vibrate) { try { navigator.vibrate(15) } catch(e) {} }  // 觸發時震一下，給回饋
         tapWord(phraseId, word, sentence)
-      }, 350)
+      }, 600)
     }
     const cancel = () => clearTimeout(pressTimerRef.current)
     return {
