@@ -7358,7 +7358,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.64</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.65</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13971,7 +13971,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.64）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.65）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -14085,6 +14085,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const shadowChunksRef = useRef([])
   const [recDur,    setRecDur]    = useState({})     // { pid: 你唸的秒數（切掉頭尾靜音）}
   const [linkBusy,  setLinkBusy]  = useState(null)   // 正在做連音解析的句子 id
+  const [linkStage, setLinkStage] = useState(null)   // v6.65: 'gen'=①生成中 | 'verify'=②校驗中（2-call 流程可視化）
   const [batchLink, setBatchLink] = useState(null)   // v6.53: 批次重跑進度 {i,n}
   const [lastRetestId, setLastRetestId] = useState(null)   // v6.54: 剛送出比對的句子——釘在待測段原位顯示結果，開始測下一句才歸檔
   const [verifyBusy, setVerifyBusy] = useState(null) // 正在 AI 校驗的功能詞
@@ -15940,6 +15941,7 @@ Return ONLY a JSON object, no markdown:
 14. t 的兩條路涇渭分明：t 接**母音**＝彈舌 ɾ（just in→dʒʌ·sɾɪn、at your 例外走 tʃ）；t 接**子音**才失去爆破 t̚。把「t+母音」說成失爆只做嘴型＝錯（實錯：just in 被標失爆，但 t 在母音 i 前該彈舌）。
 15. 連讀時前字的子音**正常發音、絕不標 <si> 刪除線**：see why 的 s、years 的 z 在連讀中都完整發出，只是滑向後字。<si> 只准標真正脫落的音（h 脫落、輔音叢簡化）。把連讀起點子音標成不發音＝錯。
 16. 母音守恆（最重要的防幻覺規則）：ipa 欄位裡的**每一個母音都必須來自原句某個字的字典發音**。連讀/彈舌/失爆只搬動或替換子音，絕不憑空生出新母音。輸出前逐音節自檢：「這個母音是哪個字的？」答不出來＝幻覺＝錯（實錯：promise you 被寫成 prɑ·mɪ·saɪ·ju，saɪ 的 aɪ 母音無中生有）。`
+      setLinkStage('gen')
       const raw = await callAI([{ role:'user', content: usr }], sys)
       let data = JSON.parse(String(raw).replace(/```json|```/g, '').trim())
       // ── v6.62 二次校驗 pass（方案2：生成→檢查官）──
@@ -15948,6 +15950,7 @@ Return ONLY a JSON object, no markdown:
       //   A 幻覺母音（promise you→saɪ）  B s/z/n/l 被彈舌  C t+母音被標失爆  D 連讀起點子音被標刪除線
       // 校驗官只回 {"ok":true} 或修正後完整 JSON；本身失敗（斷線/格式爛）就用初版，不阻斷。
       try {
+        setLinkStage('verify')
         const vSys = '你是 IPA 音標校驗官。只做檢查與修正，不重新創作。一律回 JSON，不要 markdown。'
         const vUsr = `原句："${p.en}"\n待驗解析：${JSON.stringify({ enMarked: data.enMarked, ipa: data.ipa, rules: data.rules, chunks: data.chunks })}\n\n逐條檢查以下六類錯誤（每類都有真實誤判前例）：\nA. 幻覺母音：ipa/chunks 裡每個母音必須來自原句某字的字典發音。逐音節問「這個母音是哪個字的」，答不出＝幻覺（前例：promise you 被寫成 prɑ·mɪ·saɪ·ju，aɪ 無中生有，正解 prɑ·mɪ·sju）。\nB. 彈舌 ɾ 只准來自 /t/ 或 /d/：s/z/n/l 被標彈舌＝錯（s+母音是普通連讀滑移）。\nC. t 接母音＝彈舌 ɾ；t 接子音才失爆 t̚。t+母音被說成失爆只做嘴型＝錯（前例：just in 該是 dʒʌ·sɾɪn）。\nD. 連讀起點的子音正常發音，絕不標 <si> 刪除線（前例：see why 的 s 被標不發音，錯；s 完整發出滑向 why）。\nE. 漏重組：把句中每組「前字子音尾＋後字母音頭」相鄰對列出，逐組檢查 ipa 是否真的做了音節重切。字典音標逐字排列（bʌt ɪf aɪ kʊd 各字分開）＝錯，正解要連鎖重切（bʌ·ɾɪ·faɪ·kʊd）。rules 有講連讀但 ipa 沒重組也＝錯。\nF. 字帳守恆：把 ipa 音節依序讀回來，必須能對回原句「每個字恰好一次」——不可重複（前例：what 的 wa 在 bəwa 和 waɾaɪ 出現兩次）、不可遺漏。對不上帳＝錯。\n\n全部正確 → 回 {"ok":true}\n有任何錯 → 回修正後的**完整** JSON（enMarked/ipa/rules/chunks/listen 五欄齊全，只改錯的部分，標籤語法照舊：<wk><lk><si><ch><gl><nw>）`
         const vRaw = await callAI([{ role:'user', content: vUsr }], vSys)
@@ -15958,14 +15961,14 @@ Return ONLY a JSON object, no markdown:
   }
 
   async function analyzeLinking(p) {
-    if (linkBusy) return
+    if (linkBusy) { showMovieToast('⏳ 上一句還在解析中，等它跑完再按'); return }   // v6.65: 不再靜默返回
     setLinkBusy(p.id)
     try {
       await linkOnce(p)
     } catch (e) {
-      showMovieToast('⚠ 連音解析失敗：' + (e?.message ?? ''))
+      showMovieToast('⚠ 連音解析失敗（可再按一次重試）：' + (e?.message ?? ''), 5000)   // v6.65: 停 5 秒
     } finally {
-      setLinkBusy(null)
+      setLinkBusy(null); setLinkStage(null)
     }
   }
 
@@ -20239,7 +20242,7 @@ Steven 不是在收藏電影台詞。
                       onChange={e => setDictInput(v => ({ ...v, [p.id]: e.target.value }))}
                       onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); submitDictation(p) } }}
                       placeholder="打你聽到的字，空格分開（不用完整句子）"
-                      autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false}
+                      autoComplete="one-time-code" autoCorrect="off" autoCapitalize="none" spellCheck={false}
                       style={{ width:'100%', boxSizing:'border-box', background:T.surf2,
                         border:'1px solid #38bdf850', borderRadius:8, padding:'11px 12px',
                         color:T.txt, fontFamily:MONO, fontSize:14, outline:'none' }} />
@@ -22142,7 +22145,7 @@ Steven 不是在收藏電影台詞。
                   background: (linkBusy === p.id || starLinkOpen[p.id]) ? '#a78bfa' : 'transparent',
                   color: (linkBusy === p.id || starLinkOpen[p.id]) ? '#1a1030' : '#a78bfa',
                   border:'1px solid #a78bfa40' }}>
-                {linkBusy === p.id ? '🎬 解析中…' : starLinkOpen[p.id] ? '🎬 收起連音' : '🎬 連音解析'}
+                {linkBusy === p.id ? (linkStage === 'verify' ? '② 校驗中…' : '① 生成中…') : starLinkOpen[p.id] ? '🎬 收起連音' : '🎬 連音解析'}
               </div>
               {starLinkOpen[p.id] && p.link && (
                 <div style={{ background:'#1a1030', border:'1px solid #a78bfa40', borderRadius:9,
@@ -22187,7 +22190,7 @@ Steven 不是在收藏電影台詞。
                       background: linkBusy === p.id ? '#a78bfa' : 'transparent',
                       color: linkBusy === p.id ? '#1a1030' : '#a78bfa80',
                       border:'1px solid #a78bfa30' }}>
-                    {linkBusy === p.id ? '🔄 重新解析中…' : '🔄 重新解析（修正舊音標）'}
+                    {linkBusy === p.id ? (linkStage === 'verify' ? '② 校驗中…' : '① 生成中…') : '🔄 重新解析（修正舊音標）'}
                   </div>
                 </div>
               )}
@@ -24779,7 +24782,7 @@ Steven 不是在收藏電影台詞。
                           onChange={e => setDictInput(v => ({ ...v, [cur.id]: e.target.value }))}
                           onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); submitDictation(cur) } }}
                           placeholder="打你聽到的字，空格分開"
-                          autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false}
+                          autoComplete="one-time-code" autoCorrect="off" autoCapitalize="none" spellCheck={false}
                           style={{ width:'100%', boxSizing:'border-box', background:T.surf2,
                             border:'1px solid #38bdf850', borderRadius:8, padding:'11px 12px',
                             color:T.txt, fontFamily:MONO, fontSize:14, outline:'none' }} />
@@ -24870,7 +24873,7 @@ Steven 不是在收藏電影台詞。
                                   background: linkBusy === cur.id ? '#a78bfa' : 'transparent',
                                   color: linkBusy === cur.id ? '#1a1030' : '#a78bfa80',
                                   border:'1px solid #a78bfa30' }}>
-                                {linkBusy === cur.id ? '🔄 重新解析中…' : '🔄 重新解析（修正舊音標）'}
+                                {linkBusy === cur.id ? (linkStage === 'verify' ? '② 校驗中…' : '① 生成中…') : '🔄 重新解析（修正舊音標）'}
                               </div>
                             </div>
                           ) : null}
@@ -24903,7 +24906,7 @@ Steven 不是在收藏電影台詞。
                                   background: linkBusy === cur.id ? '#a78bfa' : '#1a1030',
                                   color: linkBusy === cur.id ? '#1a1030' : '#a78bfa',
                                   border:'1px solid #a78bfa50' }}>
-                                {linkBusy === cur.id ? '🎬 解析中…' : '🎬 連音解析'}
+                                {linkBusy === cur.id ? (linkStage === 'verify' ? '② 校驗中…' : '① 生成中…') : '🎬 連音解析'}
                               </div>
                             )}
                             <div onClick={() => excludeAndRefill(cur)}
@@ -25638,7 +25641,7 @@ Steven 不是在收藏電影台詞。
                             background: linkBusy === p.id ? '#a78bfa' : 'transparent',
                             color: linkBusy === p.id ? '#1a1030' : '#a78bfa80',
                             border:'1px solid #a78bfa30' }}>
-                          {linkBusy === p.id ? '🔄 重新解析中…' : '🔄 重新解析（修正舊音標）'}
+                          {linkBusy === p.id ? (linkStage === 'verify' ? '② 校驗中…' : '① 生成中…') : '🔄 重新解析（修正舊音標）'}
                         </div>
                       </div>
                     ) : (
@@ -25648,7 +25651,7 @@ Steven 不是在收藏電影台詞。
                           background: linkBusy === p.id ? '#a78bfa' : '#1a1030',
                           color: linkBusy === p.id ? '#1a1030' : '#a78bfa',
                           border:'1px solid #a78bfa50' }}>
-                        {linkBusy === p.id ? '🎬 解析中…' : '🎬 連音解析'}
+                        {linkBusy === p.id ? (linkStage === 'verify' ? '② 校驗中…' : '① 生成中…') : '🎬 連音解析'}
                       </div>
                     ))}
 
@@ -25697,7 +25700,7 @@ Steven 不是在收藏電影台詞。
                               onChange={e => setDictInput(v => ({ ...v, [p.id]: e.target.value }))}
                               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); submitDictation(p) } }}
                               placeholder="打你聽到的字，空格分開"
-                              autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false}
+                              autoComplete="one-time-code" autoCorrect="off" autoCapitalize="none" spellCheck={false}
                               style={{ width:'100%', boxSizing:'border-box', background:T.surf2,
                                 border:'1px solid #38bdf850', borderRadius:8, padding:'10px 11px',
                                 color:T.txt, fontFamily:MONO, fontSize:14, outline:'none' }} />
@@ -27403,9 +27406,9 @@ export default function App() {
     () => localStorage.getItem('fsi:movie:audioMode') ?? 'original'
   )
   const [movieToast, setMovieToast] = useState('')
-  const showMovieToast = (msg) => {
+  const showMovieToast = (msg, ms = 2000) => {
     setMovieToast(msg)
-    setTimeout(() => setMovieToast(''), 2000)
+    setTimeout(() => setMovieToast(''), ms)
   }
   // 知識庫快速切換：記住原本在哪個分頁，存完知識庫可以馬上切回去
   const [kbJumpSignal, setKbJumpSignal] = useState(0)
