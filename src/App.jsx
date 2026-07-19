@@ -448,6 +448,77 @@ function getAISettings() {
   try { return JSON.parse(localStorage.getItem('fsi:se') || '{}') } catch { return {} }
 }
 
+// ── v6.68: 連音 prompt 主體（模組層，供內容 hash 版本化）──
+// LINK_PV 由 prompt 內容自動導出：規則一改、hash 即變，批次重跑自動辨識舊世代——
+// 免手動維護 LINK_PROMPT_VER 日期（改了 prompt 忘推日期 → 舊句吃不到新規則且無感）。
+const LINK_PROMPT_BODY = `請分析這句在「自然語速的真實口語」中會發生哪些音變，並回傳 JSON（不要 markdown、不要多餘文字）。
+
+⚠ 標記語法：只用以下六種「雙字母」標籤，絕對不要用單字母（不要用 <w> <l> <d> <f> <i>）：
+  <wk>…</wk> = 弱讀（功能詞塌成 schwa，例如 <wk>of</wk>、<wk>does</wk>）
+  <lk>…</lk> = 連讀（字與字黏在一起，例如 <lk>want to</lk>）
+  <si>…</si> = 不發音 / 失去爆破（字尾 p/t/k/b/d/g 只做嘴型，例如 didn<si>'t</si>）
+  <ch>…</ch> = 音變 / 彈舌（flap T、t+you→tʃ 等，例如 abou<ch>ɾ</ch>）
+  <gl>…</gl> = 滑音（母音間擠出 /w/ 或 /j/，例如 <gl>duːʷ</gl>ɪt）
+  <nw>…</nw> = 生單詞（實詞，可能是真的不認識的字，強調用）
+
+{
+  "enMarked": "把「英文原文」本身標記起來（保留原本的拼字與標點，只加上面六種標籤）。
+          範例：I di<si>d</si>n'<si>t</si> <lk>want to</lk> be ordinary.",
+  "ipa": "整句的實際發音音標（不是字典音標，是連讀後的實際樣子），同樣只用上面六種雙字母標籤。
+          範例：I don't want it. → aɪ doʊn<si>t</si> wɑː<ch>n</ch><lk>nɪt</lk>
+          範例：Where does it hurt? → wer <wk>dəz</wk><lk>ɪ</lk><si>t</si> hɜːrt",
+  "rules": ["用繁體中文寫出音變規則，每條一句話，2~5 條。⚠ 純文字：絕對不要在 rules 裡使用 <wk> <lk> 等任何角括號標籤（標籤只給 enMarked/ipa/chunks 用）；要指出某個音直接寫音標本身，例如「for 弱讀成 fə，與 you 連成 fəju」"],
+  "chunks": [
+    {"en":"years of age","ipa":"jɪr·<lk>zə</lk>·<lk>veɪdʒ</lk>"}
+  ],
+  "listen": "一句話：聽的時候該去聽什麼線索（而不是去找那個字的聲音）。⚠ 純文字，不要任何角括號標籤"
+}
+
+★ chunks 是本題最重要的部分，規則如下（務必嚴格遵守）：
+  1. 抓出句子裡「真實口語會黏成一團、沒有停頓」的連續片段（通常 2~4 個字，一定要包含被弱讀吞掉的功能詞）。
+  2. "ipa" 必須做「音節重組」：把前字字尾的子音（r/z/v/t/d/n/s/l 等）滑到後字開頭，用「·」標出重組後的音節切點，讓它看起來就是「連在一起」的樣子。
+  3. 連讀（子音滑到後字）的音節用 <lk> 包起來；弱讀的功能詞用 <wk>；其餘標籤照上面規則。
+  4. 絕對不要把字典音標逐字相接（例如 jɪrz əv eɪdʒ 這種分開的是錯的）；要呈現真實語流的黏著樣子（jɪr·zə·veɪdʒ）。
+  範例：
+    years of age    → {"en":"years of age","ipa":"jɪr·<lk>zə</lk>·<lk>veɪdʒ</lk>"}   （z 滑到 of，v 滑到 age）
+    corner of it    → {"en":"corner of","ipa":"kɔː·nə·<lk>rəv</lk>"}                （r 滑到 of，of 弱讀成 əv）
+    a lot of        → {"en":"a lot of","ipa":"ə·lɑ·<ch>ɾ</ch>·<lk>əv</lk>"}          （t 彈舌成 ɾ 再連 of）
+
+重點：這位學習者的診斷結果是「功能詞（介系詞/冠詞/be動詞）漏聽率 100%」，
+所以「弱讀」是他的核心問題 —— 只要句子裡有功能詞被弱讀，一定要用 <wk> 標出來，
+而且一定要把它放進 chunks，用音節重組呈現「它是怎麼被前後字黏掉、失去獨立聲音的」。
+
+★ 音標硬規則（v6.46，與校驗系統同一套標準，違反任一條就是錯的）：
+1. that 看用法：指示代名詞/指示限定詞/句尾受詞/重讀（That's mine、like that、that idea）=ðæt（句尾 t 可失去爆破但 æ 母音必須在）；只有連接詞/關係詞（know that、thought that 的 that 子句）才弱讀=ðət。不要一律弱讀。
+2. 弱讀後「母音絕不消失」：could=kəd、can=kən——弱讀是塌成 schwa，不是母音整個不見（kd 這種無母音組合發不出來，是錯的）。
+3. 母音與母音之間的 t 一律標彈舌 ɾ（美式）：that is→ðæɾɪz、get up→ɡeɾʌp，不標字典 t。
+4. 短母音不加長音符 ː：træk 不是 træːk；只有 iː/uː/ɑː/ɔː/ɜː 這類真正長母音才用 ː。
+5. 基準：I=aɪ、he=hi、she=ʃi、the=ðə、a=ə、of=əv/ə、was=wəz、are=ər、to=tə、and=ən。
+6. rules/listen 純文字裡若提到音，必須用正確 IPA 符號（ə 不寫成 a、ɾ 不寫成 r、ʃ 不寫成 sh），與 ipa 欄位同一套標準。
+7. 連讀逐組檢核（程序，不可跳過）：先把句中每一組「前字子音尾＋後字母音頭」的相鄰對全部列出來（例如 guess I、might even、years of），逐組判定有無連讀；**有連讀的必須在 ipa 欄位做音節重組**（guess I→gɛ·saɪ，s 滑到 I），並在 rules 列一條。只寫進 rules 而 ipa 沒重組＝錯；只挑最明顯的幾組＝錯。
+8. 實詞永不弱讀：<wk> 標籤與「弱讀」一詞**只准用於功能詞**（介系詞/冠詞/代名詞/be動詞/助動詞/連接詞）。動詞/名詞/形容詞/副詞等實詞（guess、think、track、meeting…）沒有弱讀這回事——它們的正常發音就是正常發音，不要為了交差硬掰成弱讀；實詞可發生的音變只有連讀/彈舌/失去爆破/滑音。把實詞標成弱讀或說它「弱讀成（其實是原音）」＝錯。
+9. 相同或同部位子音相鄰（t+t、ð+ð、m+m、s+s、d+d）＝**合併為單一稍長的音**（gemination），只做一次舌位/嘴型：with that→wɪ‿ðæt（一個 ð）、that too→ðæt̚·tuː（一次 t 位）。說「相鄰但各自發音」＝錯。
+10. 失去爆破 ≠ 不發音：p/t/k/b/d/g 接子音時是「憋住不釋放」——嘴型到位、有短促頓挫感，標 p̚ t̚ k̚ 記號、歸「音變」類（<ch>），描述必須寫「只做嘴型憋住、有頓挫」。「不發音」（<si> 刪除線）只准用於真正脫落的音（如 h 脫落）。把失爆標成 <si> 不發音＝錯。
+11. h 脫落有條件：只有**代名詞** he/him/his/her 和**助動詞** have/has/had 在句中弱位置才脫落 h（is he→ɪzi、should have→ʃʊdəv）。have/has 當**主要動詞**（擁有義：I still have music）是句子核心動詞，h 保留、發 hæv/həv，絕不塌成 əv/ləv。
+12. 連讀是**整串重切音節**（連鎖），不是只成對處理：I'm on a→aɪ·mɑ·nə（m 滑向 on、n 再滑向 a，連續搬家），ipa 欄位要呈現重切後的音節，不要停在只處理一對相鄰字。
+13. 彈舌 ɾ **只准來自 /t/ 或 /d/**：s、z、n、l 等其他子音絕不彈舌。s 尾接母音頭只是普通連讀滑移（promise you→prɑ·mɪ·sju，s 滑向 ju），說「s 彈舌成 ɾ」＝錯。
+14. t 的兩條路涇渭分明：t 接**母音**＝彈舌 ɾ（just in→dʒʌ·sɾɪn、at your 例外走 tʃ）；t 接**子音**才失去爆破 t̚。把「t+母音」說成失爆只做嘴型＝錯（實錯：just in 被標失爆，但 t 在母音 i 前該彈舌）。
+15. 連讀時前字的子音**正常發音、絕不標 <si> 刪除線**：see why 的 s、years 的 z 在連讀中都完整發出，只是滑向後字。<si> 只准標真正脫落的音（h 脫落、輔音叢簡化）。把連讀起點子音標成不發音＝錯。
+16. 母音守恆（最重要的防幻覺規則）：ipa 欄位裡的**每一個母音都必須來自原句某個字的字典發音**。連讀/彈舌/失爆只搬動或替換子音，絕不憑空生出新母音。輸出前逐音節自檢：「這個母音是哪個字的？」答不出來＝幻覺＝錯（實錯：promise you 被寫成 prɑ·mɪ·saɪ·ju，saɪ 的 aɪ 母音無中生有）。`
+const LINK_VERIFY_BODY = `逐條檢查以下六類錯誤（每類都有真實誤判前例）：\nA. 幻覺母音：ipa/chunks 裡每個母音必須來自原句某字的字典發音。逐音節問「這個母音是哪個字的」，答不出＝幻覺（前例：promise you 被寫成 prɑ·mɪ·saɪ·ju，aɪ 無中生有，正解 prɑ·mɪ·sju）。\nB. 彈舌 ɾ 只准來自 /t/ 或 /d/：s/z/n/l 被標彈舌＝錯（s+母音是普通連讀滑移）。\nC. t 接母音＝彈舌 ɾ；t 接子音才失爆 t̚。t+母音被說成失爆只做嘴型＝錯（前例：just in 該是 dʒʌ·sɾɪn）。\nD. 連讀起點的子音正常發音，絕不標 <si> 刪除線（前例：see why 的 s 被標不發音，錯；s 完整發出滑向 why）。\nE. 漏重組：把句中每組「前字子音尾＋後字母音頭」相鄰對列出，逐組檢查 ipa 是否真的做了音節重切。字典音標逐字排列（bʌt ɪf aɪ kʊd 各字分開）＝錯，正解要連鎖重切（bʌ·ɾɪ·faɪ·kʊd）。rules 有講連讀但 ipa 沒重組也＝錯。\nF. 字帳守恆：把 ipa 音節依序讀回來，必須能對回原句「每個字恰好一次」——不可重複（前例：what 的 wa 在 bəwa 和 waɾaɪ 出現兩次）、不可遺漏。對不上帳＝錯。\n\n全部正確 → 回 {"ok":true}\n有任何錯 → 回修正後的**完整** JSON（enMarked/ipa/rules/chunks/listen 五欄齊全，只改錯的部分，標籤語法照舊：<wk><lk><si><ch><gl><nw>）`
+function strHash(x) { let h = 5381; for (let i = 0; i < x.length; i++) h = ((h << 5) + h + x.charCodeAt(i)) | 0; return (h >>> 0).toString(36) }
+const LINK_PV = strHash(LINK_PROMPT_BODY + '|' + LINK_VERIFY_BODY)
+// v6.68: AI JSON 容錯解析——很多「解析失敗」只是 AI 在 JSON 前後多講了話；抽出 {...} 主體再試一次
+function parseAIJson(raw) {
+  const t = String(raw).replace(/```json|```/g, '').trim()
+  try { return JSON.parse(t) } catch {}
+  const a = t.indexOf('{'), b = t.lastIndexOf('}')
+  if (a >= 0 && b > a) return JSON.parse(t.slice(a, b + 1))
+  const a2 = t.indexOf('['), b2 = t.lastIndexOf(']')
+  if (a2 >= 0 && b2 > a2) return JSON.parse(t.slice(a2, b2 + 1))
+  throw new Error('AI 回傳非 JSON')
+}
+
 async function callAI(messages, system = '', _unused) {
   if (!navigator.onLine) throw new Error('目前離線（飛航模式），AI 功能需要網路連線')
   const se = getAISettings()
@@ -7378,7 +7449,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.67</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.69</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13991,7 +14062,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.67）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.69）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -14108,6 +14179,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const [linkStage, setLinkStage] = useState(null)   // v6.65: 'gen'=①生成中 | 'verify'=②校驗中（2-call 流程可視化）
   const [tutorMode, setTutorMode] = useState(false)  // v6.67: 👩‍🏫 家教模式——弱點關卡全卡遮罩，課堂用
   const [tutorReveal, setTutorReveal] = useState({}) // v6.67: 家教模式逐卡揭答案（獨立於 libRevealed，不污染重測遮罩）
+  const [linkErr, setLinkErr] = useState({})         // v6.69: 每句解析錯誤上卡（toast 一閃即逝抓不到屍體）
   const [batchLink, setBatchLink] = useState(null)   // v6.53: 批次重跑進度 {i,n}
   const [lastRetestId, setLastRetestId] = useState(null)   // v6.54: 剛送出比對的句子——釘在待測段原位顯示結果，開始測下一句才歸檔
   const [verifyBusy, setVerifyBusy] = useState(null) // 正在 AI 校驗的功能詞
@@ -15794,7 +15866,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
 Return ONLY a JSON object, no markdown:
 {"phonetic":"/IPA/","pos":"詞性（例如：名詞/動詞/形容詞/副詞/介系詞/連接詞/片語，用繁體中文2-4字表示）","zh":"中文意思（3~5字）","example":"${sentence}"}`
       const raw = await callAI([{ role:'user', content: prompt }])
-      const info = JSON.parse(String(raw).replace(/```json|```/g, '').trim())
+      const info = parseAIJson(raw)
       const ok = addToVocab(w, info.phonetic, info.zh, info.example ?? sentence, info.pos)
       showMovieToast(ok ? `✓ 「${w}」已加入單字庫` : `「${w}」已在單字庫`)
     } catch (e) {
@@ -15907,88 +15979,38 @@ Return ONLY a JSON object, no markdown:
   // 結果存進句子（p.link），只查一次，之後離線也看得到。
   async function linkOnce(p) {
       const sys = '你是英語連音（connected speech）教練，專門教台灣學習者聽懂真實語流。一律使用繁體中文。'
-      const usr = `句子："${p.en}"
-
-請分析這句在「自然語速的真實口語」中會發生哪些音變，並回傳 JSON（不要 markdown、不要多餘文字）。
-
-⚠ 標記語法：只用以下六種「雙字母」標籤，絕對不要用單字母（不要用 <w> <l> <d> <f> <i>）：
-  <wk>…</wk> = 弱讀（功能詞塌成 schwa，例如 <wk>of</wk>、<wk>does</wk>）
-  <lk>…</lk> = 連讀（字與字黏在一起，例如 <lk>want to</lk>）
-  <si>…</si> = 不發音 / 失去爆破（字尾 p/t/k/b/d/g 只做嘴型，例如 didn<si>'t</si>）
-  <ch>…</ch> = 音變 / 彈舌（flap T、t+you→tʃ 等，例如 abou<ch>ɾ</ch>）
-  <gl>…</gl> = 滑音（母音間擠出 /w/ 或 /j/，例如 <gl>duːʷ</gl>ɪt）
-  <nw>…</nw> = 生單詞（實詞，可能是真的不認識的字，強調用）
-
-{
-  "enMarked": "把「英文原文」本身標記起來（保留原本的拼字與標點，只加上面六種標籤）。
-          範例：I di<si>d</si>n'<si>t</si> <lk>want to</lk> be ordinary.",
-  "ipa": "整句的實際發音音標（不是字典音標，是連讀後的實際樣子），同樣只用上面六種雙字母標籤。
-          範例：I don't want it. → aɪ doʊn<si>t</si> wɑː<ch>n</ch><lk>nɪt</lk>
-          範例：Where does it hurt? → wer <wk>dəz</wk><lk>ɪ</lk><si>t</si> hɜːrt",
-  "rules": ["用繁體中文寫出音變規則，每條一句話，2~5 條。⚠ 純文字：絕對不要在 rules 裡使用 <wk> <lk> 等任何角括號標籤（標籤只給 enMarked/ipa/chunks 用）；要指出某個音直接寫音標本身，例如「for 弱讀成 fə，與 you 連成 fəju」"],
-  "chunks": [
-    {"en":"years of age","ipa":"jɪr·<lk>zə</lk>·<lk>veɪdʒ</lk>"}
-  ],
-  "listen": "一句話：聽的時候該去聽什麼線索（而不是去找那個字的聲音）。⚠ 純文字，不要任何角括號標籤"
-}
-
-★ chunks 是本題最重要的部分，規則如下（務必嚴格遵守）：
-  1. 抓出句子裡「真實口語會黏成一團、沒有停頓」的連續片段（通常 2~4 個字，一定要包含被弱讀吞掉的功能詞）。
-  2. "ipa" 必須做「音節重組」：把前字字尾的子音（r/z/v/t/d/n/s/l 等）滑到後字開頭，用「·」標出重組後的音節切點，讓它看起來就是「連在一起」的樣子。
-  3. 連讀（子音滑到後字）的音節用 <lk> 包起來；弱讀的功能詞用 <wk>；其餘標籤照上面規則。
-  4. 絕對不要把字典音標逐字相接（例如 jɪrz əv eɪdʒ 這種分開的是錯的）；要呈現真實語流的黏著樣子（jɪr·zə·veɪdʒ）。
-  範例：
-    years of age    → {"en":"years of age","ipa":"jɪr·<lk>zə</lk>·<lk>veɪdʒ</lk>"}   （z 滑到 of，v 滑到 age）
-    corner of it    → {"en":"corner of","ipa":"kɔː·nə·<lk>rəv</lk>"}                （r 滑到 of，of 弱讀成 əv）
-    a lot of        → {"en":"a lot of","ipa":"ə·lɑ·<ch>ɾ</ch>·<lk>əv</lk>"}          （t 彈舌成 ɾ 再連 of）
-
-重點：這位學習者的診斷結果是「功能詞（介系詞/冠詞/be動詞）漏聽率 100%」，
-所以「弱讀」是他的核心問題 —— 只要句子裡有功能詞被弱讀，一定要用 <wk> 標出來，
-而且一定要把它放進 chunks，用音節重組呈現「它是怎麼被前後字黏掉、失去獨立聲音的」。
-
-★ 音標硬規則（v6.46，與校驗系統同一套標準，違反任一條就是錯的）：
-1. that 看用法：指示代名詞/指示限定詞/句尾受詞/重讀（That's mine、like that、that idea）=ðæt（句尾 t 可失去爆破但 æ 母音必須在）；只有連接詞/關係詞（know that、thought that 的 that 子句）才弱讀=ðət。不要一律弱讀。
-2. 弱讀後「母音絕不消失」：could=kəd、can=kən——弱讀是塌成 schwa，不是母音整個不見（kd 這種無母音組合發不出來，是錯的）。
-3. 母音與母音之間的 t 一律標彈舌 ɾ（美式）：that is→ðæɾɪz、get up→ɡeɾʌp，不標字典 t。
-4. 短母音不加長音符 ː：træk 不是 træːk；只有 iː/uː/ɑː/ɔː/ɜː 這類真正長母音才用 ː。
-5. 基準：I=aɪ、he=hi、she=ʃi、the=ðə、a=ə、of=əv/ə、was=wəz、are=ər、to=tə、and=ən。
-6. rules/listen 純文字裡若提到音，必須用正確 IPA 符號（ə 不寫成 a、ɾ 不寫成 r、ʃ 不寫成 sh），與 ipa 欄位同一套標準。
-7. 連讀逐組檢核（程序，不可跳過）：先把句中每一組「前字子音尾＋後字母音頭」的相鄰對全部列出來（例如 guess I、might even、years of），逐組判定有無連讀；**有連讀的必須在 ipa 欄位做音節重組**（guess I→gɛ·saɪ，s 滑到 I），並在 rules 列一條。只寫進 rules 而 ipa 沒重組＝錯；只挑最明顯的幾組＝錯。
-8. 實詞永不弱讀：<wk> 標籤與「弱讀」一詞**只准用於功能詞**（介系詞/冠詞/代名詞/be動詞/助動詞/連接詞）。動詞/名詞/形容詞/副詞等實詞（guess、think、track、meeting…）沒有弱讀這回事——它們的正常發音就是正常發音，不要為了交差硬掰成弱讀；實詞可發生的音變只有連讀/彈舌/失去爆破/滑音。把實詞標成弱讀或說它「弱讀成（其實是原音）」＝錯。
-9. 相同或同部位子音相鄰（t+t、ð+ð、m+m、s+s、d+d）＝**合併為單一稍長的音**（gemination），只做一次舌位/嘴型：with that→wɪ‿ðæt（一個 ð）、that too→ðæt̚·tuː（一次 t 位）。說「相鄰但各自發音」＝錯。
-10. 失去爆破 ≠ 不發音：p/t/k/b/d/g 接子音時是「憋住不釋放」——嘴型到位、有短促頓挫感，標 p̚ t̚ k̚ 記號、歸「音變」類（<ch>），描述必須寫「只做嘴型憋住、有頓挫」。「不發音」（<si> 刪除線）只准用於真正脫落的音（如 h 脫落）。把失爆標成 <si> 不發音＝錯。
-11. h 脫落有條件：只有**代名詞** he/him/his/her 和**助動詞** have/has/had 在句中弱位置才脫落 h（is he→ɪzi、should have→ʃʊdəv）。have/has 當**主要動詞**（擁有義：I still have music）是句子核心動詞，h 保留、發 hæv/həv，絕不塌成 əv/ləv。
-12. 連讀是**整串重切音節**（連鎖），不是只成對處理：I'm on a→aɪ·mɑ·nə（m 滑向 on、n 再滑向 a，連續搬家），ipa 欄位要呈現重切後的音節，不要停在只處理一對相鄰字。
-13. 彈舌 ɾ **只准來自 /t/ 或 /d/**：s、z、n、l 等其他子音絕不彈舌。s 尾接母音頭只是普通連讀滑移（promise you→prɑ·mɪ·sju，s 滑向 ju），說「s 彈舌成 ɾ」＝錯。
-14. t 的兩條路涇渭分明：t 接**母音**＝彈舌 ɾ（just in→dʒʌ·sɾɪn、at your 例外走 tʃ）；t 接**子音**才失去爆破 t̚。把「t+母音」說成失爆只做嘴型＝錯（實錯：just in 被標失爆，但 t 在母音 i 前該彈舌）。
-15. 連讀時前字的子音**正常發音、絕不標 <si> 刪除線**：see why 的 s、years 的 z 在連讀中都完整發出，只是滑向後字。<si> 只准標真正脫落的音（h 脫落、輔音叢簡化）。把連讀起點子音標成不發音＝錯。
-16. 母音守恆（最重要的防幻覺規則）：ipa 欄位裡的**每一個母音都必須來自原句某個字的字典發音**。連讀/彈舌/失爆只搬動或替換子音，絕不憑空生出新母音。輸出前逐音節自檢：「這個母音是哪個字的？」答不出來＝幻覺＝錯（實錯：promise you 被寫成 prɑ·mɪ·saɪ·ju，saɪ 的 aɪ 母音無中生有）。`
+      const usr = `句子："${p.en}"\n\n${LINK_PROMPT_BODY}`
       setLinkStage('gen')
       const raw = await callAI([{ role:'user', content: usr }], sys)
-      let data = JSON.parse(String(raw).replace(/```json|```/g, '').trim())
+      let data = parseAIJson(raw)
+      // v6.68 信心跳過：沒有連讀塊的簡單句（無重組需求）直接存，省一次校驗 call
+      const needVerify = (data.chunks ?? []).length > 0
       // ── v6.62 二次校驗 pass（方案2：生成→檢查官）──
       // 遵循度問題的解法：第一次生成後，第二次 call 只做「逐條驗證」，不重新創作。
       // 專抓六類高發錯誤（都是使用者耳朵抓到過的實錯）：
       //   A 幻覺母音（promise you→saɪ）  B s/z/n/l 被彈舌  C t+母音被標失爆  D 連讀起點子音被標刪除線
       // 校驗官只回 {"ok":true} 或修正後完整 JSON；本身失敗（斷線/格式爛）就用初版，不阻斷。
-      try {
+      try { if (needVerify) {
         setLinkStage('verify')
         const vSys = '你是 IPA 音標校驗官。只做檢查與修正，不重新創作。一律回 JSON，不要 markdown。'
-        const vUsr = `原句："${p.en}"\n待驗解析：${JSON.stringify({ enMarked: data.enMarked, ipa: data.ipa, rules: data.rules, chunks: data.chunks })}\n\n逐條檢查以下六類錯誤（每類都有真實誤判前例）：\nA. 幻覺母音：ipa/chunks 裡每個母音必須來自原句某字的字典發音。逐音節問「這個母音是哪個字的」，答不出＝幻覺（前例：promise you 被寫成 prɑ·mɪ·saɪ·ju，aɪ 無中生有，正解 prɑ·mɪ·sju）。\nB. 彈舌 ɾ 只准來自 /t/ 或 /d/：s/z/n/l 被標彈舌＝錯（s+母音是普通連讀滑移）。\nC. t 接母音＝彈舌 ɾ；t 接子音才失爆 t̚。t+母音被說成失爆只做嘴型＝錯（前例：just in 該是 dʒʌ·sɾɪn）。\nD. 連讀起點的子音正常發音，絕不標 <si> 刪除線（前例：see why 的 s 被標不發音，錯；s 完整發出滑向 why）。\nE. 漏重組：把句中每組「前字子音尾＋後字母音頭」相鄰對列出，逐組檢查 ipa 是否真的做了音節重切。字典音標逐字排列（bʌt ɪf aɪ kʊd 各字分開）＝錯，正解要連鎖重切（bʌ·ɾɪ·faɪ·kʊd）。rules 有講連讀但 ipa 沒重組也＝錯。\nF. 字帳守恆：把 ipa 音節依序讀回來，必須能對回原句「每個字恰好一次」——不可重複（前例：what 的 wa 在 bəwa 和 waɾaɪ 出現兩次）、不可遺漏。對不上帳＝錯。\n\n全部正確 → 回 {"ok":true}\n有任何錯 → 回修正後的**完整** JSON（enMarked/ipa/rules/chunks/listen 五欄齊全，只改錯的部分，標籤語法照舊：<wk><lk><si><ch><gl><nw>）`
+        const vUsr = `原句："${p.en}"\n待驗解析：${JSON.stringify({ enMarked: data.enMarked, ipa: data.ipa, rules: data.rules, chunks: data.chunks })}\n\n${LINK_VERIFY_BODY}`
         const vRaw = await callAI([{ role:'user', content: vUsr }], vSys)
-        const v = JSON.parse(String(vRaw).replace(/```json|```/g, '').trim())
+        const v = parseAIJson(vRaw)
         if (!v.ok && v.ipa) data = { ...data, ...v }   // 校驗官修正版覆蓋（缺欄用初版補）
-      } catch(e) { /* 校驗失敗不阻斷，用初版 */ }
-      updatePhraseAnyScene(p.id, x => ({ ...x, link: { ...data, at: Date.now() } }))   // v6.53: at＝新 prompt 世代戳，無 at 即舊資料
+      } } catch(e) { /* 校驗失敗不阻斷，用初版 */ }
+      updatePhraseAnyScene(p.id, x => ({ ...x, link: { ...data, at: Date.now(), pv: LINK_PV } }))   // v6.68: pv＝prompt 內容 hash（自動世代）；at 保留為時間戳
   }
 
   async function analyzeLinking(p) {
     if (linkBusy) { showMovieToast('⏳ 上一句還在解析中，等它跑完再按'); return }   // v6.65: 不再靜默返回
     setLinkBusy(p.id)
+    setLinkErr(e => ({ ...e, [p.id]: null }))   // v6.69: 重試時清掉舊錯誤
     try {
       await linkOnce(p)
     } catch (e) {
-      showMovieToast('⚠ 連音解析失敗（可再按一次重試）：' + (e?.message ?? ''), 5000)   // v6.65: 停 5 秒
+      console.error('[連音解析失敗]', p.en, e)   // v6.69: console 留完整堆疊
+      setLinkErr(x => ({ ...x, [p.id]: String(e?.message ?? e ?? '未知錯誤') }))   // v6.69: 錯誤上卡，停留到重試
+      showMovieToast('⚠ 連音解析失敗（錯誤已顯示在卡片上）', 4000)
     } finally {
       setLinkBusy(null); setLinkStage(null)
     }
@@ -15999,14 +16021,21 @@ Return ONLY a JSON object, no markdown:
   const LINK_PROMPT_VER = Date.parse('2026-07-20T02:30:00Z')   // v6.64: 校驗 E漏重組+F字帳守恆 上線（越南 09:30）
   async function batchReanalyzeLinks() {
     if (batchLink || linkBusy) return
-    const targets = uniqById((movie?.scenes ?? []).flatMap(s => (s.phrases ?? []))).filter(p => p.link && (!p.link.at || p.link.at < LINK_PROMPT_VER))
+    // v6.68: 世代判斷改用 prompt 內容 hash（pv）；無 pv 的舊資料退回時間戳判斷（相容 v6.67 前）
+    const targets = uniqById((movie?.scenes ?? []).flatMap(s => (s.phrases ?? []))).filter(p =>
+      p.link && (p.link.pv ? p.link.pv !== LINK_PV : (!p.link.at || p.link.at < LINK_PROMPT_VER)))
     if (targets.length === 0) { showMovieToast('✓ 沒有舊版解析需要重跑'); return }
-    if (!confirm(`將用新規則重跑 ${targets.length} 句舊版連音解析（${targets.length} 次 AI 呼叫，需要幾分鐘與 API 費用）。新版解析不會動。繼續？`)) return
-    let ok = 0, fail = 0
-    for (let i = 0; i < targets.length; i++) {
-      setBatchLink({ i: i + 1, n: targets.length })
-      try { await linkOnce(targets[i]); ok++ } catch { fail++ }   // 單句失敗不中斷
+    if (!confirm(`將用新規則重跑 ${targets.length} 句舊版連音解析（最多 ${targets.length * 2} 次 AI 呼叫，需要幾分鐘與 API 費用）。新版解析不會動。繼續？`)) return
+    let ok = 0, fail = 0, done = 0, idx = 0
+    // v6.68: 併發 2 的工作池——逐句 await 全庫太慢，2 併發時間近乎砍半且不撞 rate limit
+    const worker = async () => {
+      while (idx < targets.length) {
+        const t = targets[idx++]
+        try { await linkOnce(t); ok++ } catch { fail++ }   // 單句失敗不中斷
+        setBatchLink({ i: ++done, n: targets.length })
+      }
     }
+    await Promise.all([worker(), worker()])
     setBatchLink(null)
     showMovieToast(`✓ 批次重跑完成：成功 ${ok} 句${fail ? `、失敗 ${fail} 句（可再跑一次補）` : ''}`)
   }
@@ -16040,7 +16069,7 @@ ${list}
 只回傳 JSON 陣列，順序對應上面編號，每項：
 [{"text":"<原文片語，原樣照抄>","ipa":"<真實連讀音標>","note":"<8字內：聽的時候該抓什麼線索。純文字，禁止 <wk> <lk> 等任何角括號標籤>"}]`
       const raw = await callAI([{ role:'user', content: usr }], sys)
-      const arr = JSON.parse(String(raw).replace(/```json|```/g, '').trim())
+      const arr = parseAIJson(raw)
       if (!Array.isArray(arr)) throw new Error('AI 回傳格式不對')
       const map = getLinkVerify()
       let n = 0
@@ -24939,6 +24968,14 @@ Steven 不是在收藏電影台詞。
                               🚫 排除並遞補
                             </div>
                           </div>
+                          {/* v6.69: 解析錯誤上卡——停留到重試，不再一閃即逝 */}
+                          {linkErr[cur.id] && (
+                            <div style={{ fontFamily:MONO, fontSize:9, color:'#f87171', background:'#2a0d0d',
+                              border:'1px solid #f8717150', borderRadius:8, padding:'8px 10px', lineHeight:1.6,
+                              overflowWrap:'break-word' }}>
+                              ⚠ 解析失敗：{linkErr[cur.id]}<br/>（再按一次 🎬 連音解析重試；若持續失敗請截圖此訊息）
+                            </div>
+                          )}
                         </div>
                       )
                     })()}
@@ -25707,6 +25744,14 @@ Steven 不是在收藏電影台詞。
                     ))}
 
                     {/* 弱點關卡模式：快速連音塊（規則版，免費即時）*/}
+                    {/* v6.69: 解析錯誤上卡（聽力庫/弱點關卡卡片） */}
+                    {linkErr[p.id] && !tutorMasked && (
+                      <div style={{ fontFamily:MONO, fontSize:9, color:'#f87171', background:'#2a0d0d',
+                        border:'1px solid #f8717150', borderRadius:8, padding:'8px 10px', lineHeight:1.6,
+                        overflowWrap:'break-word' }}>
+                        ⚠ 解析失敗：{linkErr[p.id]}（再按一次重試；持續失敗請截圖）
+                      </div>
+                    )}
                     {libWord && !testing && !dueMasked && !tutorMasked && !p.link && (() => {
                       const chunks = buildChunks(p.en, libWord)
                       if (chunks.length === 0) return null
@@ -26869,6 +26914,30 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
           })}
         </div>
       </div>
+
+      {/* v6.68: 本機儲存容量監控——fsi: 資料持續成長（連音解析/blindLog/verified），
+          Chrome 上限約 5-10MB；爆掉的症狀是「靜默存不進去」很難查，這裡提早看見 */}
+      {(() => {
+        let total = 0, fsi = 0
+        try {
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i); const v = localStorage.getItem(k) ?? ''
+            const b = (k.length + v.length) * 2
+            total += b; if (k.startsWith('fsi:')) fsi += b
+          }
+        } catch {}
+        const mb = x => (x / 1048576).toFixed(2)
+        const warn = total > 4 * 1048576
+        return (
+          <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+            <label style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>📦 本機儲存用量</label>
+            <span style={{ fontFamily:MONO, fontSize:10, color: warn ? T.amber : T.txt3 }}>
+              App 資料（fsi:）{mb(fsi)} MB · 全站共 {mb(total)} MB · Chrome 上限約 5–10 MB
+              {warn && ' — ⚠ 接近上限，資料已上雲的舊 log 可考慮清理'}
+            </span>
+          </div>
+        )
+      })()}
 
       {/* Anthropic API Key */}
       <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
