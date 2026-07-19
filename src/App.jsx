@@ -7358,7 +7358,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.62</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.64</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13971,7 +13971,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.62）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.64）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -14093,6 +14093,8 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const [asrResult, setAsrResult] = useState({})     // { pid: { text, cmp } }
   const asrRef = useRef(null)
   const trainRef = useRef(null)
+  // v6.63: 今日盲聽流程導航條——四個步驟區塊的捲動錨點
+  const stepRefs = [useRef(null), useRef(null), useRef(null), useRef(null)]
   const [sceneRangeFrom, setSceneRangeFrom] = useState('') // 場景範圍選取：起始場景號
   const [sceneRangeTo,   setSceneRangeTo]   = useState('') // 場景範圍選取：結束場景號
   const [multiScenePhrases, setMultiScenePhrases] = useState([]) // 多場景合併重點句
@@ -15942,12 +15944,12 @@ Return ONLY a JSON object, no markdown:
       let data = JSON.parse(String(raw).replace(/```json|```/g, '').trim())
       // ── v6.62 二次校驗 pass（方案2：生成→檢查官）──
       // 遵循度問題的解法：第一次生成後，第二次 call 只做「逐條驗證」，不重新創作。
-      // 專抓四類高發錯誤（都是使用者耳朵抓到過的實錯）：
+      // 專抓六類高發錯誤（都是使用者耳朵抓到過的實錯）：
       //   A 幻覺母音（promise you→saɪ）  B s/z/n/l 被彈舌  C t+母音被標失爆  D 連讀起點子音被標刪除線
       // 校驗官只回 {"ok":true} 或修正後完整 JSON；本身失敗（斷線/格式爛）就用初版，不阻斷。
       try {
         const vSys = '你是 IPA 音標校驗官。只做檢查與修正，不重新創作。一律回 JSON，不要 markdown。'
-        const vUsr = `原句："${p.en}"\n待驗解析：${JSON.stringify({ enMarked: data.enMarked, ipa: data.ipa, rules: data.rules, chunks: data.chunks })}\n\n逐條檢查以下四類錯誤（每類都有真實誤判前例）：\nA. 幻覺母音：ipa/chunks 裡每個母音必須來自原句某字的字典發音。逐音節問「這個母音是哪個字的」，答不出＝幻覺（前例：promise you 被寫成 prɑ·mɪ·saɪ·ju，aɪ 無中生有，正解 prɑ·mɪ·sju）。\nB. 彈舌 ɾ 只准來自 /t/ 或 /d/：s/z/n/l 被標彈舌＝錯（s+母音是普通連讀滑移）。\nC. t 接母音＝彈舌 ɾ；t 接子音才失爆 t̚。t+母音被說成失爆只做嘴型＝錯（前例：just in 該是 dʒʌ·sɾɪn）。\nD. 連讀起點的子音正常發音，絕不標 <si> 刪除線（前例：see why 的 s 被標不發音，錯；s 完整發出滑向 why）。\n\n全部正確 → 回 {"ok":true}\n有任何錯 → 回修正後的**完整** JSON（enMarked/ipa/rules/chunks/listen 五欄齊全，只改錯的部分，標籤語法照舊：<wk><lk><si><ch><gl><nw>）`
+        const vUsr = `原句："${p.en}"\n待驗解析：${JSON.stringify({ enMarked: data.enMarked, ipa: data.ipa, rules: data.rules, chunks: data.chunks })}\n\n逐條檢查以下六類錯誤（每類都有真實誤判前例）：\nA. 幻覺母音：ipa/chunks 裡每個母音必須來自原句某字的字典發音。逐音節問「這個母音是哪個字的」，答不出＝幻覺（前例：promise you 被寫成 prɑ·mɪ·saɪ·ju，aɪ 無中生有，正解 prɑ·mɪ·sju）。\nB. 彈舌 ɾ 只准來自 /t/ 或 /d/：s/z/n/l 被標彈舌＝錯（s+母音是普通連讀滑移）。\nC. t 接母音＝彈舌 ɾ；t 接子音才失爆 t̚。t+母音被說成失爆只做嘴型＝錯（前例：just in 該是 dʒʌ·sɾɪn）。\nD. 連讀起點的子音正常發音，絕不標 <si> 刪除線（前例：see why 的 s 被標不發音，錯；s 完整發出滑向 why）。\nE. 漏重組：把句中每組「前字子音尾＋後字母音頭」相鄰對列出，逐組檢查 ipa 是否真的做了音節重切。字典音標逐字排列（bʌt ɪf aɪ kʊd 各字分開）＝錯，正解要連鎖重切（bʌ·ɾɪ·faɪ·kʊd）。rules 有講連讀但 ipa 沒重組也＝錯。\nF. 字帳守恆：把 ipa 音節依序讀回來，必須能對回原句「每個字恰好一次」——不可重複（前例：what 的 wa 在 bəwa 和 waɾaɪ 出現兩次）、不可遺漏。對不上帳＝錯。\n\n全部正確 → 回 {"ok":true}\n有任何錯 → 回修正後的**完整** JSON（enMarked/ipa/rules/chunks/listen 五欄齊全，只改錯的部分，標籤語法照舊：<wk><lk><si><ch><gl><nw>）`
         const vRaw = await callAI([{ role:'user', content: vUsr }], vSys)
         const v = JSON.parse(String(vRaw).replace(/```json|```/g, '').trim())
         if (!v.ok && v.ipa) data = { ...data, ...v }   // 校驗官修正版覆蓋（缺欄用初版補）
@@ -15969,7 +15971,7 @@ Return ONLY a JSON object, no markdown:
 
   // v6.53: 批次重跑。v6.58: 改用 prompt 世代判斷——LINK_PROMPT_VER 是「當前 prompt 最後修改日」，
   // 凡 link.at 早於它（或沒有 at）都算舊世代可重跑；prompt 再改版時更新此日期即可。
-  const LINK_PROMPT_VER = Date.parse('2026-07-20T01:00:00Z')   // v6.62: 13-16 條＋二次校驗 pass 上線時刻（越南 08:00）
+  const LINK_PROMPT_VER = Date.parse('2026-07-20T02:30:00Z')   // v6.64: 校驗 E漏重組+F字帳守恆 上線（越南 09:30）
   async function batchReanalyzeLinks() {
     if (batchLink || linkBusy) return
     const targets = uniqById((movie?.scenes ?? []).flatMap(s => (s.phrases ?? []))).filter(p => p.link && (!p.link.at || p.link.at < LINK_PROMPT_VER))
@@ -16363,6 +16365,16 @@ ${list}
     }
     setTrainN(n); setTrainQueue(q); setTrainIdx(0)
     setBlindRevealed({}); setDictResult({}); setDictInput({})
+  }
+  // v6.64: ③ 新句聽寫的「🚫 排除＋遞補」——confirm 防誤觸；排除後抽一句新句補到隊尾，
+  // 今天目標句數不變（遇到音樂句不會白白少練一句）。未送出/已送出兩態共用。
+  function excludeAndRefill(p) {
+    if (!window.confirm(`確定排除這句？\n「${p.en}」\n排除後永不再出現在盲聽/重測。`)) return
+    excludeFromBlind(p); stopThreeStep()
+    const extra = buildTrainQueue(trainQueue.length + 1).find(id => !trainQueue.includes(id) && id !== p.id)
+    if (extra) setTrainQueue(q => [...q, extra])
+    setTrainIdx(i => i + 1)
+    showMovieToast('🚫 已排除，遞補一句新句')
   }
   // 依 id 找句子（跨場景，限本片）
   function findPhrase(pid) {
@@ -24570,8 +24582,46 @@ Steven 不是在收藏電影台詞。
 
               {/* v6.47: 順序重排——回測比新句重要（提取練習固化映射），到期債先清。
                   新順序：①到期重測 ②昨日回聽 ③新句聽寫 ④弱點轟炸。資料邏輯不動，純顯示順序。 */}
+              {/* v6.63: 流程導航條——一眼看今天做到哪，不用讀文字。
+                  ✓完成(綠) / ●進行中(橘高亮，自動判定) / 待開始(暗)。
+                  ②回聽無持久完成紀錄 → 視為加分題不搶「進行中」；進行中只在 ①→③→④ 流轉。 */}
+              {(() => {
+                const steps = [
+                  { t:'① 重測', done: due.length === 0, doneTxt:'✓ 債清', pendTxt:`${due.length} 句待測` },
+                  { t:'② 回聽', done: yPhrases.length === 0, doneTxt:'— 昨無', pendTxt:`${yPhrases.length} 句` },
+                  { t:'③ 新句', done: doneStep1, doneTxt:'✓ 完成',
+                    pendTxt: trainN == null ? '待開始' : `${Math.min(trainIdx, trainQueue.length)}/${trainQueue.length}` },
+                  { t:'④ 轟炸', done: !topWord, doneTxt:'— 無', pendTxt: topWord ? topWord.w : '—' },
+                ]
+                const active = due.length > 0 ? 0 : (!doneStep1 ? 2 : (topWord ? 3 : -1))
+                return (
+                  <div style={{ display:'flex', gap:5, minWidth:0 }}>
+                    {steps.map((s, i) => {
+                      const isAct = i === active
+                      return (
+                        <div key={i}
+                          onClick={() => stepRefs[i].current?.scrollIntoView({ behavior:'smooth', block:'start' })}
+                          style={{ cursor:'pointer', flex:1, minWidth:0, textAlign:'center',
+                            padding:'7px 2px', borderRadius:9, boxSizing:'border-box',
+                            background: isAct ? T.amberD : (s.done ? T.grn + '12' : T.surf),
+                            border: isAct ? `2px solid ${T.amber}` : `1px solid ${s.done ? T.grn + '50' : T.bdr}`,
+                            display:'flex', flexDirection:'column', gap:2 }}>
+                          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:700,
+                            color: isAct ? T.amber : (s.done ? T.grn : T.txt3) }}>{s.t}</span>
+                          <span style={{ fontFamily:MONO, fontSize:8, fontWeight: isAct ? 700 : 400,
+                            color: isAct ? T.amber : (s.done ? T.grn : T.txt3),
+                            overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                            {s.done ? s.doneTxt : (isAct ? `● ${s.pendTxt}` : s.pendTxt)}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              })()}
+
               {/* ① 重測：到期的聽力庫句子（原④搬上來）*/}
-              <div style={{ borderLeft:'2px solid #38bdf8', paddingLeft:10, display:'flex', flexDirection:'column', gap:6,
+              <div ref={stepRefs[0]} style={{ borderLeft:'2px solid #38bdf8', paddingLeft:10, display:'flex', flexDirection:'column', gap:6,
                 minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
                 <div style={{ fontFamily:MONO, fontSize:10, color:'#38bdf8', fontWeight:700 }}>① 重測 · 到期句子</div>
                 {due.length === 0 ? (
@@ -24588,7 +24638,7 @@ Steven 不是在收藏電影台詞。
               </div>
 
               {/* ② 鞏固：昨天的句子（位置不變，維持第二）*/}
-              <div style={{ borderLeft:`2px solid ${T.bdr}`, paddingLeft:10, display:'flex', flexDirection:'column', gap:6,
+              <div ref={stepRefs[1]} style={{ borderLeft:`2px solid ${T.bdr}`, paddingLeft:10, display:'flex', flexDirection:'column', gap:6,
                 minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
                 <div style={{ fontFamily:MONO, fontSize:10, color:T.txt2, fontWeight:700 }}>
                   ② 鞏固 · 昨天聽寫過的句子 <span style={{ color:T.txt3 }}>{yPhrases.length} 句</span>
@@ -24640,7 +24690,7 @@ Steven 不是在收藏電影台詞。
               </div>
 
               {/* ③ 診斷：新句聽寫（原①）*/}
-              <div style={{ borderLeft:'2px solid #38bdf8', paddingLeft:10, display:'flex', flexDirection:'column', gap:7,
+              <div ref={stepRefs[2]} style={{ borderLeft:'2px solid #38bdf8', paddingLeft:10, display:'flex', flexDirection:'column', gap:7,
                 minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
                 <div style={{ fontFamily:MONO, fontSize:10, color:'#38bdf8', fontWeight:700 }}>
                   ③ 診斷 · 新句聽寫
@@ -24739,6 +24789,12 @@ Steven 不是在收藏電影台詞。
                             background:'#38bdf8', color:'#0d2a3a', border:'1px solid #38bdf8' }}>
                           送出比對
                         </div>
+                        <div onClick={() => excludeAndRefill(cur)}
+                          title="這句沒有學習價值（如歌詞），不用送出直接排除"
+                          style={{ cursor:'pointer', alignSelf:'center', fontFamily:MONO, fontSize:9, color:T.txt3,
+                            padding:'5px 12px', borderRadius:6, opacity:0.7 }}>
+                          🚫 這句沒學習價值（如音樂），排除並遞補
+                        </div>
                       </>
                     ) : (() => {
                       const c = dictResult[cur.id]
@@ -24817,18 +24873,10 @@ Steven 不是在收藏電影台詞。
                                 {linkBusy === cur.id ? '🔄 重新解析中…' : '🔄 重新解析（修正舊音標）'}
                               </div>
                             </div>
-                          ) : (
-                            <div onClick={() => analyzeLinking(cur)}
-                              style={{ cursor:'pointer', textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
-                                padding:'8px 0', borderRadius:8,
-                                background: linkBusy === cur.id ? '#a78bfa' : '#1a1030',
-                                color: linkBusy === cur.id ? '#1a1030' : '#a78bfa',
-                                border:'1px solid #a78bfa50' }}>
-                              {linkBusy === cur.id ? '🎬 解析中…' : '🎬 連音解析（這句為什麼聽不到）'}
-                            </div>
-                          )}
+                          ) : null}
 
-                          {/* 🔁 三步驟 與 下一句 分左右，避免誤按（之前上下堆疊，指頭常滑到） */}
+                          {/* v6.64 按鈕重排：第一行 三步驟｜下一句（大顆主動線），
+                              第二行 🎬連音解析｜🚫排除（次要）——之前解析鈕在三步驟正上方，常誤觸 */}
                           <div style={{ display:'flex', gap:8 }}>
                             <div onClick={() => playThreeStep(cur)}
                               style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
@@ -24847,11 +24895,24 @@ Steven 不是在收藏電影台詞。
                               下一句 →
                             </div>
                           </div>
-                          <div onClick={() => { excludeFromBlind(cur); stopThreeStep(); setTrainIdx(i => i + 1) }}
-                            title="這句沒有學習價值，排除掉"
-                            style={{ cursor:'pointer', alignSelf:'center', fontFamily:MONO, fontSize:9, color:T.txt3,
-                              padding:'5px 12px', borderRadius:6, opacity:0.7 }}>
-                            🚫 這句沒學習價值，排除
+                          <div style={{ display:'flex', gap:8 }}>
+                            {!cur.link && (
+                              <div onClick={() => analyzeLinking(cur)}
+                                style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
+                                  padding:'9px 0', borderRadius:8,
+                                  background: linkBusy === cur.id ? '#a78bfa' : '#1a1030',
+                                  color: linkBusy === cur.id ? '#1a1030' : '#a78bfa',
+                                  border:'1px solid #a78bfa50' }}>
+                                {linkBusy === cur.id ? '🎬 解析中…' : '🎬 連音解析'}
+                              </div>
+                            )}
+                            <div onClick={() => excludeAndRefill(cur)}
+                              title="這句沒有學習價值，排除掉並遞補新句"
+                              style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
+                                padding:'9px 0', borderRadius:8,
+                                background:T.surf, color:T.txt3, border:`1px solid ${T.bdr}` }}>
+                              🚫 排除並遞補
+                            </div>
                           </div>
                         </div>
                       )
@@ -24861,7 +24922,7 @@ Steven 不是在收藏電影台詞。
               </div>
 
               {/* ④ 轟炸：今日弱點字（原③）*/}
-              <div style={{ borderLeft:`2px solid ${T.bdr}`, paddingLeft:10, display:'flex', flexDirection:'column', gap:6,
+              <div ref={stepRefs[3]} style={{ borderLeft:`2px solid ${T.bdr}`, paddingLeft:10, display:'flex', flexDirection:'column', gap:6,
                 minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
                 <div style={{ fontFamily:MONO, fontSize:10, color:T.txt2, fontWeight:700 }}>④ 轟炸 · 今日弱點字</div>
                 {!topWord ? (
