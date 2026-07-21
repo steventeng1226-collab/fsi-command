@@ -7481,7 +7481,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.79</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.80</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14094,7 +14094,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.79）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.80）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -14238,6 +14238,13 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const [sceneRangeTo,   setSceneRangeTo]   = useState('') // 場景範圍選取：結束場景號
   const [multiScenePhrases, setMultiScenePhrases] = useState([]) // 多場景合併重點句
   const [dailyPage, setDailyPage] = useState(0) // 重點句子練習：當前頁碼（每頁固定句數）
+  // v6.80: 重點句 chunk 背誦——把整句記憶（10-12字）降成 3-4 個節奏單位，
+  //   背的是真實語流形狀而非逐字拼接。A=全部顯示（熟悉期）/ B=逐塊揭開（主動回憶）。
+  const [starChunkMode, setStarChunkMode] = useState(() => {
+    try { return localStorage.getItem('fsi:starChunkMode') ?? 'A' } catch { return 'A' }
+  })
+  const setChunkMode = m => { setStarChunkMode(m); try { localStorage.setItem('fsi:starChunkMode', m) } catch {} }
+  const [chunkReveal, setChunkReveal] = useState({})   // B 模式：{ pid: 已揭開幾塊 }（不落地，離開即重置）
   const [reviewPickMode, setReviewPickMode] = useState(false) // 完成一組後：挑選「今日用句」
   const [reviewPicks, setReviewPicks] = useState(new Set())   // 已勾選的今日用句 phraseId
   const [playIdx,    setPlayIdx]    = useState(0)
@@ -14832,6 +14839,92 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   //   針對使用者最大瓶頸「不知道字在哪裡斷」——教的是哪裡「可以斷」，不是哪裡「黏在一起」。
   // v6.79: 連音卡底部共用列——⚠ 回報鈕 ＋ 🔄 重新解析。
   //   回報只需你判斷「聽起來怪」，不必分辨錯誤類型（分類交給後續人工分析）。
+  // v6.80: 重點句 chunk 背誦盒——A 全部顯示 / B 逐塊揭開。
+  //   沒解析過就只顯示一顆 🎬 連音（點了才跑那一句，避免全庫批次燒額度）。
+  const StarChunkBox = ({ p }) => {
+    const rh = p.link?.rhythm ?? []
+    const busy = linkBusy === p.id
+    if (rh.length === 0) {
+      return (
+        <div onClick={e => { e.stopPropagation(); analyzeLinking(p) }}
+          style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+            alignSelf:'flex-start', marginTop:7,
+            fontFamily:MONO, fontSize:9, fontWeight:700, padding:'5px 10px', borderRadius:7,
+            background: busy ? '#4ade80' : 'transparent',
+            color: busy ? '#0a1a14' : '#4ade8090',
+            border:'1px solid #4ade8040' }}>
+          {busy ? (linkStage === 'verify' ? '② 校驗中…' : '① 生成中…') : '🎵 產生 chunk（單句）'}
+        </div>
+      )
+    }
+    const shownN = starChunkMode === 'A' ? rh.length : (chunkReveal[p.id] ?? 0)
+    return (
+      <div style={{ display:'flex', flexDirection:'column', gap:5, marginTop:8,
+        background:'#0a1a14', border:'1px solid #4ade8030', borderRadius:8, padding:'8px 10px' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:6, flexWrap:'wrap' }}>
+          <span style={{ fontFamily:MONO, fontSize:8, color:'#4ade80', fontWeight:700 }}>
+            🎵 chunk 背誦 · {rh.length} 塊
+          </span>
+          <div style={{ display:'flex', gap:4 }}>
+            {[['A','看著唸'],['B','回想']].map(([k, lbl]) => (
+              <span key={k} onClick={e => { e.stopPropagation(); setChunkMode(k)
+                  if (k === 'B') setChunkReveal(x => ({ ...x, [p.id]: 0 })) }}
+                style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                  fontFamily:MONO, fontSize:8, fontWeight:700, padding:'3px 8px', borderRadius:6,
+                  background: starChunkMode === k ? '#4ade8025' : 'transparent',
+                  color: starChunkMode === k ? '#4ade80' : T.txt3,
+                  border:`1px solid ${starChunkMode === k ? '#4ade80' : T.bdr}` }}>
+                {lbl}
+              </span>
+            ))}
+          </div>
+        </div>
+        <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
+          {rh.map((c, i) => {
+            const open = i < shownN
+            return (
+              <span key={i}
+                onClick={e => { e.stopPropagation()
+                  if (open) playChunkSpan(p, c.en)
+                  else setChunkReveal(x => ({ ...x, [p.id]: i + 1 })) }}
+                style={{ cursor:'pointer', userSelect:'none', WebkitUserSelect:'none',
+                  touchAction:'manipulation', display:'inline-flex', flexDirection:'column',
+                  alignItems:'center', gap:2, minWidth:0,
+                  background: open ? '#0f2a1f' : T.surf2,
+                  border:`1px solid ${open ? '#4ade8040' : T.bdr}`,
+                  borderRadius:7, padding:'5px 9px' }}>
+                {open ? (
+                  <>
+                    <span style={{ fontFamily:MONO, fontSize:10, color:T.txt2, whiteSpace:'nowrap' }}>{c.en}</span>
+                    <span style={{ fontFamily:MONO, fontSize:12, color:'#4ade80', fontWeight:700, whiteSpace:'nowrap' }}>
+                      {stripMark(c.ipa ?? '')}
+                    </span>
+                  </>
+                ) : (
+                  <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3, padding:'4px 6px' }}>
+                    ▢ 第 {i + 1} 塊
+                  </span>
+                )}
+              </span>
+            )
+          })}
+        </div>
+        {starChunkMode === 'B' && shownN < rh.length && (
+          <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
+            先自己回想，卡住再點方塊揭開（已揭 {shownN}/{rh.length}）
+          </div>
+        )}
+        {starChunkMode === 'B' && shownN >= rh.length && (
+          <div onClick={e => { e.stopPropagation(); setChunkReveal(x => ({ ...x, [p.id]: 0 })) }}
+            style={{ cursor:'pointer', userSelect:'none', alignSelf:'flex-start',
+              fontFamily:MONO, fontSize:8, fontWeight:700, padding:'3px 8px', borderRadius:6,
+              color:'#4ade80', border:'1px solid #4ade8040' }}>
+            ↺ 再蓋起來
+          </div>
+        )}
+      </div>
+    )
+  }
   const LinkFooter = ({ p }) => {
     const rep = !!linkErrReport[p.id]
     return (
@@ -16251,6 +16344,47 @@ Return ONLY a JSON object, no markdown:
         + `（單句按 🔄 重新解析時，紅框會顯示實際錯誤訊息。）`)
     } else {
       showMovieToast(`✓ 批次重跑完成：成功 ${ok} 句${fail ? `、失敗 ${fail} 句（可再跑一次補）` : ''}`)
+    }
+  }
+
+  // ── v6.80: 本段批次 chunk——只跑「目前這一組重點句」裡還沒解析的，數量可控、成本透明 ──
+  //   刻意不做全庫 356 句一次跑：規則還在修，跑了要重跑等於花兩次錢。
+  async function batchChunkCurrentBatch() {
+    if (batchLink || linkBusy) return
+    // 從 db 撈最新 link（multiScenePhrases 是快照，可能沒有剛跑完的結果）
+    const lk = {}
+    ;(movie?.scenes ?? []).forEach(s => (s.phrases ?? []).forEach(x => { if (x.link) lk[x.id] = x.link }))
+    const targets = (multiScenePhrases ?? [])
+      .map(p => (lk[p.id] ? { ...p, link: lk[p.id] } : p))
+      .filter(p => !(p.link?.rhythm?.length))
+    if (targets.length === 0) { showMovieToast('✓ 這一組的 chunk 都產生好了'); return }
+    const calls = targets.length * 2
+    const estUsd = (calls * 0.02).toFixed(1)
+    if (!confirm(
+      `為這一組重點句產生 chunk\n\n`
+      + `待處理：${targets.length} 句（本組共 ${multiScenePhrases.length} 句）\n`
+      + `AI 呼叫：最多 ${calls} 次（生成＋校驗各一）\n`
+      + `粗估費用：約 $${estUsd} USD\n\n`
+      + `▸ 已有 chunk 的句子會跳過。\n`
+      + `▸ 額度不足會中途失敗，可稍後再跑一次補。\n\n`
+      + `繼續嗎？`)) return
+    setBatchLink({ i: 0, n: targets.length })
+    let ok = 0, fail = 0, idx = 0
+    const worker = async () => {
+      while (idx < targets.length) {
+        const my = idx++
+        try { await linkOnce(targets[my]); ok++ } catch { fail++ }   // 用 linkOnce 繞過 linkBusy 單句鎖
+        setBatchLink({ i: ok + fail, n: targets.length })
+      }
+    }
+    await Promise.all([worker(), worker()])   // 併發 2，與全庫批次一致
+    setBatchLink(null)
+    if (fail > 0 && fail >= ok) {
+      alert(`本組 chunk 產生結束，但失敗 ${fail} 句（成功 ${ok} 句）。\n\n`
+        + `失敗比例偏高，最可能是 API 額度耗盡或金鑰失效。\n`
+        + `請確認 Anthropic 餘額後再跑一次即可補上。`)
+    } else {
+      showMovieToast(`✓ 本組 chunk 完成：${ok} 句${fail ? `、失敗 ${fail} 句` : ''}`)
     }
   }
 
@@ -21000,6 +21134,9 @@ Steven 不是在收藏電影台詞。
               )}
             </div>
 
+            {/* v6.80: chunk 背誦盒（只在重點句子練習頁出現）*/}
+            {view === 'starred' && deletingPhraseId !== p.id && <StarChunkBox p={p}/>}
+
             {/* 底部按鈕列：一行六顆，純icon不帶文字。播放最常按，放第一個位置；造句較少按，放最後 */}
             {deletingPhraseId !== p.id && (
               <div style={{ display:'flex', gap:6, marginTop:10, paddingRight:38 }}>
@@ -21547,8 +21684,13 @@ Steven 不是在收藏電影台詞。
       return getStart(a) - getStart(b)
     })
     // multiScenePhrases 有值時（從場景列表多選進入），優先使用它
+    // v6.80: multiScenePhrases 是進入時的快照，link 跑完後不會跟著更新——
+    //   從 db 撈最新的 link 補上，否則產生完 chunk 畫面不會變。
+    const _linkById = {}
+    ;(currentMovie?.scenes ?? []).forEach(s => (s.phrases ?? []).forEach(x => { if (x.link) _linkById[x.id] = x.link }))
     const allPhrases = multiScenePhrases.length > 0
-      ? [...multiScenePhrases].sort((a, b) => (a._sortKey ?? a.startSecs ?? 0) - (b._sortKey ?? b.startSecs ?? 0)) // 時間正序
+      ? [...multiScenePhrases].map(x => (_linkById[x.id] ? { ...x, link: _linkById[x.id] } : x))
+          .sort((a, b) => (a._sortKey ?? a.startSecs ?? 0) - (b._sortKey ?? b.startSecs ?? 0)) // 時間正序
       : sortedScenes
           .flatMap(s => (s.phrases ?? []).map((p, idx) => ({
             ...p, sceneName: s.name ?? s.title ?? '', sceneTimeRange: s.timeRange ?? '', _sceneIdx: idx, _sceneId: s.id
@@ -22001,6 +22143,28 @@ Steven 不是在收藏電影台詞。
                   </>
                 ) : (
                   <>
+                    {/* v6.80: 本段批次 chunk——只跑這一組，成本可控 */}
+                    {(() => {
+                      const need = multiScenePhrases.filter(x => !(_linkById[x.id]?.rhythm?.length || x.link?.rhythm?.length)).length
+                      const has  = multiScenePhrases.length - need
+                      return (
+                        <div onClick={batchChunkCurrentBatch}
+                          style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                            display:'flex', alignItems:'center', justifyContent:'space-between', gap:6,
+                            background: batchLink ? '#4ade8020' : '#0a1a14',
+                            border:'1px solid #4ade8040', borderRadius:9, padding:'7px 11px' }}>
+                          <span style={{ fontFamily:MONO, fontSize:9, fontWeight:700, color:'#4ade80' }}>
+                            {batchLink ? `🎵 產生中… ${batchLink.i}/${batchLink.n}`
+                              : need === 0 ? '🎵 本組 chunk 已完成'
+                              : `🎵 產生本組 chunk（${need} 句待處理）💸`}
+                          </span>
+                          <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
+                            {has}/{multiScenePhrases.length} 已有
+                          </span>
+                        </div>
+                      )
+                    })()}
+
                     {/* 標題行：⭐標題 + 結束練習 + 日期 + 組別選單 + 進度 */}
                     <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
                       <span style={{ fontFamily:MONO, fontSize:9, fontWeight:700, color:T.amber }}>⭐ 重點句子練習</span>
