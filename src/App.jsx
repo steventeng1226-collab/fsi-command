@@ -502,10 +502,16 @@ const LINK_PROMPT_BODY = `請分析這句在「自然語速的真實口語」中
 11. h 脫落有條件：只有**代名詞** he/him/his/her 和**助動詞** have/has/had 在句中弱位置才脫落 h（is he→ɪzi、should have→ʃʊdəv）。have/has 當**主要動詞**（擁有義：I still have music）是句子核心動詞，h 保留、發 hæv/həv，絕不塌成 əv/ləv。
 12. 連讀是**整串重切音節**（連鎖），不是只成對處理：I'm on a→aɪ·mɑ·nə（m 滑向 on、n 再滑向 a，連續搬家），ipa 欄位要呈現重切後的音節，不要停在只處理一對相鄰字。
 13. 彈舌 ɾ **只准來自 /t/ 或 /d/**：s、z、n、l 等其他子音絕不彈舌。s 尾接母音頭只是普通連讀滑移（promise you→prɑ·mɪ·sju，s 滑向 ju），說「s 彈舌成 ɾ」＝錯。
-14. t 的兩條路涇渭分明：t 接**母音**＝彈舌 ɾ（just in→dʒʌ·sɾɪn、at your 例外走 tʃ）；t 接**子音**才失去爆破 t̚。把「t+母音」說成失爆只做嘴型＝錯（實錯：just in 被標失爆，但 t 在母音 i 前該彈舌）。
+14. t 的兩條路涇渭分明，且**標記前必須先做前置判定**：先明白寫出「t 後面緊接的那個音是 X，X 是母音／子音」，確認後才准選路。t 接**母音**＝彈舌 ɾ（just in→dʒʌ·sɾɪn、at your 例外走 tʃ）；t 接**子音**才失去爆破 t̚。⚠ 高頻實錯全部來自「把子音誤判成母音」：might take（t 後是 t，子音→失爆/合併，不是彈舌）、bit to（t 後是 t，子音）、out what（t 後是 w，子音，不是 what 的母音——要看緊接的第一個音，不是那個字的其他音）。判定對象永遠是「下一個字的第一個音」，不是那個字裡任何母音。把「t+子音」標成彈舌＝錯。
 15. 連讀時前字的子音**正常發音、絕不標 <si> 刪除線**：see why 的 s、years 的 z 在連讀中都完整發出，只是滑向後字。<si> 只准標真正脫落的音（h 脫落、輔音叢簡化）。把連讀起點子音標成不發音＝錯。
-16. 母音守恆（最重要的防幻覺規則）：ipa 欄位裡的**每一個母音都必須來自原句某個字的字典發音**。連讀/彈舌/失爆只搬動或替換子音，絕不憑空生出新母音。輸出前逐音節自檢：「這個母音是哪個字的？」答不出來＝幻覺＝錯（實錯：promise you 被寫成 prɑ·mɪ·saɪ·ju，saɪ 的 aɪ 母音無中生有）。`
-const LINK_VERIFY_BODY = `逐條檢查以下七類錯誤（每類都有真實誤判前例）：\nA. 幻覺母音：ipa/chunks 裡每個母音必須來自原句某字的字典發音。逐音節問「這個母音是哪個字的」，答不出＝幻覺（前例：promise you 被寫成 prɑ·mɪ·saɪ·ju，aɪ 無中生有，正解 prɑ·mɪ·sju）。\nB. 彈舌 ɾ 只准來自 /t/ 或 /d/：s/z/n/l 被標彈舌＝錯（s+母音是普通連讀滑移）。\nC. t 接母音＝彈舌 ɾ；t 接子音才失爆 t̚。t+母音被說成失爆只做嘴型＝錯（前例：just in 該是 dʒʌ·sɾɪn）。\nD. 連讀起點的子音正常發音，絕不標 <si> 刪除線（前例：see why 的 s 被標不發音，錯；s 完整發出滑向 why）。\nE. 漏重組（強制逐組清點，不可抽樣）：先把原句相鄰字兩兩掃過一遍，列出全部「前字子音尾＋後字母音頭」的配對清單（例如 place I、guess I、might even、years of），一組都不能略。接著逐組對照 ipa：該組是否真的做了音節重切？只要有任何一組沒重切就是錯——不是「大部分重組了就算過」。前例一：bʌt ɪf aɪ kʊd 各字分開＝錯，正解 bʌ·ɾɪ·faɪ·kʊd。前例二：I love the idea of having a place I can go 裡 the idea of 有重組，但 place I（s＋aɪ）仍寫成 pleɪs aɪ 分開＝仍算錯，正解 pleɪ·saɪ。rules 有講連讀但 ipa 沒重組也＝錯。\nF. 字帳守恆：把 ipa 音節依序讀回來，必須能對回原句「每個字恰好一次」——不可重複（前例：what 的 wa 在 bəwa 和 waɾaɪ 出現兩次）、不可遺漏。對不上帳＝錯。\nG. 規則與 ipa 一致（新增）：逐條讀 rules，每條描述的音變都必須在 ipa 欄位找得到對應痕跡；ipa 找不到＝該條 rule 是幻覺。並反查連讀類型是否成立——連讀只發生在「子音尾＋母音頭」，母音尾＋子音頭（I guess＝aɪ＋g）不構成連讀，寫成「I 的滑音與 guess 的 g 黏合成 gaɪ」＝錯（gaɪ 這個音節在 ipa 裡根本不存在）。\n\n全部正確 → 回 {"ok":true}\n有任何錯 → 回修正後的**完整** JSON（enMarked/ipa/rules/chunks/listen 五欄齊全，只改錯的部分，標籤語法照舊：<wk><lk><si><ch><gl><nw>）`
+16. 母音守恆（最重要的防幻覺規則）：ipa 欄位裡的**每一個母音都必須來自原句某個字的字典發音**。連讀/彈舌/失爆只搬動或替換子音，絕不憑空生出新母音。輸出前逐音節自檢：「這個母音是哪個字的？」答不出來＝幻覺＝錯（實錯：promise you 被寫成 prɑ·mɪ·saɪ·ju，saɪ 的 aɪ 母音無中生有）。
+17. 子音守恆（雙向）：(a) **不可蒸發**——原句每個字的字典子音都必須在 ipa 有下落：保留原位、搬到後字、或明確標為失爆/脫落，三者擇一，不可無聲消失（實錯：figure out 寫成 fɪɡ·ə·aʊt，figure 的 j 與 r 憑空不見，正解 fɪ·ɡjə·raʊt）。(b) **不可憑空生出**——ipa 裡每個子音都要答得出來自原句哪個字（實錯：grandson 寫成 græn·ɾ·sʌn，中間的 ɾ 原句沒有）。
+18. 母音尾＋母音頭＝滑音（<gl>），不是連讀（<lk>）：兩個母音相鄰時中間擠出 /w/ 或 /j/ 過渡（Also I→ɔːl·soʊ·waɪ 擠出 w；see it→siː·jɪt 擠出 j），ipa 必須把這個 w/j 寫出來。連讀（<lk>）只發生在「子音尾＋母音頭」。母音尾＋子音頭（I guess＝aɪ＋g）則兩者皆非，不要硬掰。
+19. rules 欄位溯源檢查：每條 rule 提到的**字**必須真的在原句裡、提到的**音**必須真的在該字的字典發音裡。輸出前逐條自問「這個字/這個音在原句哪裡」，答不出＝該條是幻覺，必須刪掉重寫（實錯：說「been：n 滑向 a，with schwa 弱讀」但原句沒有 with；說「Also 字尾 z 與 I 連讀」但 also 字尾是 oʊ 沒有 z；說「company 的 pany 連讀 aːn 滑向 a」但 company 裡沒有 aːn，且單字內部音節不叫連讀）。
+20. 術語不可自相矛盾：說「接子音 X」時 X 必須真的是子音，說「在母音 Y 前」時 Y 必須真的是母音（實錯：「take 字尾 k 接子音 ə」——ə 是母音；「out 的 t 在 what 母音 ə 前」——緊接的是 w，子音）。
+21. ipa 主行與 chunks 必須一致：同一段文字在兩處的音標要相同，不可各寫各的（實錯：主行寫 tu·sɪ·bɪ、chunks 寫 ə·juː·ɛ·sɪ·bi，兩者對不上）。
+22. listen 欄位不可誤導耳朵：描述必須與 ipa 相符，不可說出會把耳朵導向錯誤切分的話（實錯：「grandson 聽起來是從 ran 音開始」——開頭是 gr，這會教錯切分點）。`
+const LINK_VERIFY_BODY = `逐條檢查以下十一類錯誤（每類都有真實誤判前例）：\nA. 幻覺母音：ipa/chunks 裡每個母音必須來自原句某字的字典發音。逐音節問「這個母音是哪個字的」，答不出＝幻覺（前例：promise you 被寫成 prɑ·mɪ·saɪ·ju，aɪ 無中生有，正解 prɑ·mɪ·sju）。\nB. 彈舌 ɾ 只准來自 /t/ 或 /d/：s/z/n/l 被標彈舌＝錯（s+母音是普通連讀滑移）。\nC. 彈舌路徑判定（**逐個 ɾ 前置檢查**）：對 ipa 裡每一個 ɾ，先寫出「它來自哪個 t/d，該 t/d 後面緊接的第一個音是什麼，那個音是母音還是子音」。t 接母音＝彈舌 ɾ；t 接子音＝失爆 t̚。判定對象是**下一個字的第一個音**，不是那個字裡其他母音——高頻實錯：might take（後接 t）、bit to（後接 t）、out what（後接 w，不是 what 的 ə）三例全被誤標彈舌。t+子音標成彈舌＝錯；t+母音標成失爆＝錯（前例：just in 該是 dʒʌ·sɾɪn）。\nD. 連讀起點的子音正常發音，絕不標 <si> 刪除線（前例：see why 的 s 被標不發音，錯；s 完整發出滑向 why）。\nE. 漏重組（強制逐組清點，不可抽樣）：先把原句相鄰字兩兩掃過一遍，列出全部「前字子音尾＋後字母音頭」的配對清單（例如 place I、guess I、might even、years of），一組都不能略。接著逐組對照 ipa：該組是否真的做了音節重切？只要有任何一組沒重切就是錯——不是「大部分重組了就算過」。前例一：bʌt ɪf aɪ kʊd 各字分開＝錯，正解 bʌ·ɾɪ·faɪ·kʊd。前例二：I love the idea of having a place I can go 裡 the idea of 有重組，但 place I（s＋aɪ）仍寫成 pleɪs aɪ 分開＝仍算錯，正解 pleɪ·saɪ。rules 有講連讀但 ipa 沒重組也＝錯。\nF. 字帳守恆：把 ipa 音節依序讀回來，必須能對回原句「每個字恰好一次」——不可重複（前例：what 的 wa 在 bəwa 和 waɾaɪ 出現兩次）、不可遺漏。對不上帳＝錯。\nG. 規則與 ipa 一致（新增）：逐條讀 rules，每條描述的音變都必須在 ipa 欄位找得到對應痕跡；ipa 找不到＝該條 rule 是幻覺。並反查連讀類型是否成立——連讀只發生在「子音尾＋母音頭」，母音尾＋子音頭（I guess＝aɪ＋g）不構成連讀，寫成「I 的滑音與 guess 的 g 黏合成 gaɪ」＝錯（gaɪ 這個音節在 ipa 裡根本不存在）。\nH. 子音守恆（雙向）：(a) 不可蒸發——原句每個字的字典子音都要在 ipa 找得到下落（保留／搬到後字／明確標失爆或脫落），無聲消失＝錯（前例：figure out 寫成 fɪɡ·ə·aʊt，j 與 r 憑空不見，正解 fɪ·ɡjə·raʊt）。(b) 不可憑空生出——ipa 每個子音都要答得出來自原句哪個字（前例：grandson 寫成 græn·ɾ·sʌn，那個 ɾ 原句沒有）。\nI. rules 溯源（雙向）：逐條檢查每條 rule——提到的字必須真的在原句、提到的音必須真的在該字的字典發音裡、描述的音變必須在 ipa 找得到。三者缺一＝該條是幻覺，須刪除或改寫（前例：「been：n 滑向 a，with schwa 弱讀」原句無 with；「Also 字尾 z 與 I 連讀」also 字尾是 oʊ 無 z；「company 的 pany 連讀 aːn 滑向 a」company 無 aːn，且單字內部不叫連讀）。同時檢查術語自洽：「接子音 X」的 X 必須是子音，「在母音 Y 前」的 Y 必須是母音（前例：「k 接子音 ə」——ə 是母音）。\nJ. ipa 主行與 chunks 一致：同一段文字在主行與 chunks 的音標必須相同，對不上＝錯（前例：主行 tu·sɪ·bɪ、chunks ə·juː·ɛ·sɪ·bi）。並檢查 listen 欄位不得誤導切分（前例：「grandson 從 ran 音開始」——開頭是 gr）。\nK. 滑音與連讀不可混淆：母音尾＋母音頭＝滑音，ipa 必須寫出擠出的 w 或 j（Also I→ɔːl·soʊ·waɪ）；子音尾＋母音頭才是連讀；母音尾＋子音頭兩者皆非。標錯類別或漏掉 w/j＝錯。\n\n全部正確 → 回 {"ok":true}\n有任何錯 → 回修正後的**完整** JSON（enMarked/ipa/rules/chunks/listen 五欄齊全，只改錯的部分，標籤語法照舊：<wk><lk><si><ch><gl><nw>）`
 function strHash(x) { let h = 5381; for (let i = 0; i < x.length; i++) h = ((h << 5) + h + x.charCodeAt(i)) | 0; return (h >>> 0).toString(36) }
 const LINK_PV = strHash(LINK_PROMPT_BODY + '|' + LINK_VERIFY_BODY)
 // v6.68: AI JSON 容錯解析——很多「解析失敗」只是 AI 在 JSON 前後多講了話；抽出 {...} 主體再試一次
@@ -7449,7 +7455,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.73</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.74</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14062,7 +14068,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.73）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.74）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -14775,6 +14781,38 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
       return next
     })
   }
+  // v6.74: 歸因按鈕列抽成共用元件——避免三處渲染路徑各貼一份（雙渲染路徑是慣犯家族）
+  const CauseRow = ({ pid, rate, compact = false }) => (
+    <div style={{ display:'flex', flexDirection:'column', gap:4, marginTop:2,
+      borderTop:`1px dashed ${T.bdr}`, paddingTop:7 }}>
+      <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
+        這句錯在哪？（自問：如果當時知道意思，我能切對嗎？）
+      </div>
+      <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
+        {CAUSE_DEF.map(cd => {
+          const on = dictCause[pid]?.cause === cd.k
+          return (
+            <div key={cd.k} onClick={() => markDictCause(pid, cd.k, rate)}
+              style={{ cursor:'pointer', userSelect:'none', WebkitUserSelect:'none', touchAction:'manipulation',
+                flex:'1 1 0', minWidth:0, textAlign:'center',
+                fontFamily:MONO, fontSize: compact ? 8 : 9, fontWeight: on ? 700 : 400,
+                padding: compact ? '5px 2px' : '6px 2px', borderRadius:7, whiteSpace:'nowrap',
+                background: on ? cd.color+'25' : T.surf2,
+                border:`1px solid ${on ? cd.color : T.bdr}`,
+                color: on ? cd.color : T.txt3 }}>
+              {cd.icon} {cd.label}
+            </div>
+          )
+        })}
+      </div>
+      {dictCause[pid] && (
+        <div style={{ fontFamily:MONO, fontSize:8, lineHeight:1.5,
+          color: CAUSE_DEF.find(x => x.k === dictCause[pid].cause)?.color ?? T.txt3 }}>
+          {CAUSE_DEF.find(x => x.k === dictCause[pid].cause)?.tip}
+        </div>
+      )}
+    </div>
+  )
   // v5.82：播放次數不設上限（多聽幾次才「啊，是as！」正是迴路建立的時刻），
   // 但要記次數：≤3次送出=診斷樣本（進統計）；>3次送出=練習樣本（不進診斷）
   const [blindPlays, setBlindPlays] = useState({})   // { phraseId: 本輪已聽次數 }（畫面顯示用）
@@ -20408,37 +20446,9 @@ Steven 不是在收藏電影台詞。
                         首次成績（診斷基準）：全詞 {p.dict.first.rate}% · 實詞 {p.dict.first.cRate}% · 已聽寫 {p.dict.count} 次
                       </div>
                     )}
-                    {/* v6.73: 錯誤歸因四選一——把「錯」拆成可行動類別，累積出訓練分配依據 */}
+                    {/* v6.74: 錯誤歸因（共用元件） */}
                     {(c.missed.length > 0 || c.misheard.length > 0) && (
-                      <div style={{ display:'flex', flexDirection:'column', gap:4, marginTop:2,
-                        borderTop:`1px dashed ${T.bdr}`, paddingTop:7 }}>
-                        <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
-                          這句錯在哪？（自問：如果當時知道意思，我能切對嗎？）
-                        </div>
-                        <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
-                          {CAUSE_DEF.map(cd => {
-                            const on = dictCause[p.id]?.cause === cd.k
-                            return (
-                              <div key={cd.k} onClick={() => markDictCause(p.id, cd.k, c.rate)}
-                                style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
-                                  flex:'1 1 0', minWidth:0, textAlign:'center',
-                                  fontFamily:MONO, fontSize:9, fontWeight:on ? 700 : 400,
-                                  padding:'6px 2px', borderRadius:7, whiteSpace:'nowrap',
-                                  background: on ? cd.color+'25' : T.surf2,
-                                  border:`1px solid ${on ? cd.color : T.bdr}`,
-                                  color: on ? cd.color : T.txt3 }}>
-                                {cd.icon} {cd.label}
-                              </div>
-                            )
-                          })}
-                        </div>
-                        {dictCause[p.id] && (
-                          <div style={{ fontFamily:MONO, fontSize:8, lineHeight:1.5,
-                            color: CAUSE_DEF.find(x => x.k === dictCause[p.id].cause)?.color ?? T.txt3 }}>
-                            {CAUSE_DEF.find(x => x.k === dictCause[p.id].cause)?.tip}
-                          </div>
-                        )}
-                      </div>
+                      <CauseRow pid={p.id} rate={c.rate}/>
                     )}
                     {/* 🔁 三步驟對照：知道答案後回聽電影原音，才是真正在建立連音解碼迴路 */}
                     <div onClick={() => playThreeStep(p)}
@@ -24968,6 +24978,10 @@ Steven 不是在收藏電影台詞。
                               ))}
                             </div>
                           )}
+                          {/* v6.74: 錯誤歸因（③卡渲染路徑） */}
+                          {(c.missed.length > 0 || (c.misheard?.length ?? 0) > 0) && (
+                            <CauseRow pid={cur.id} rate={c.rate}/>
+                          )}
                           {/* 🎬 連音解析：剛聽寫完、記憶最熱的時候，才是看解析的最佳時機 */}
                           {cur.link ? (
                             <div style={{ background:'#1a1030', border:'1px solid #a78bfa40', borderRadius:9,
@@ -25270,8 +25284,14 @@ Steven 不是在收藏電影台詞。
           const weakWords = computeWeakWords(dictated)
           void verifyTick   // 校驗完成後 verifyTick 變化 → 重算 freqLinks，黃轉綠
           const freqLinks = computeFreqLinks(dictated)
+          // v6.74: 一般模式也排序——待重測（今天可測）排上方，今天已重測的沉到下方。
+          //   判定沿用 retestedToday；lastRetestId 釘在待測段（同 v6.54 邏輯，避免剛送出就瞬移）。
+          const libSorted = [
+            ...lib.filter(p => !retestedToday(p) || p.id === lastRetestId),
+            ...lib.filter(p => retestedToday(p) && p.id !== lastRetestId),
+          ]
           const shown = libWord ? dictated.filter(p => (p.dict.first.miss ?? []).includes(libWord))
-                      : libDueOnly ? due : lib
+                      : libDueOnly ? due : libSorted
           return (
             <div style={{ background:'#0a1520', border:'1px solid #38bdf830', borderRadius:10, padding:12,
               display:'flex', flexDirection:'column', gap:9,
@@ -25701,9 +25721,17 @@ Steven 不是在收藏電影台詞。
                 const isQueueCur = queuePlay && queuePlay.ids[queuePlay.idx] === p.id
                 // v6.51: 到期檢視分區標題——待測段起點與已測段起點各插一條
                 const secDue = libDueOnly && !libWord && libView === 'sent'
-                const secHeader = !secDue ? null
-                  : si === 0 && duePending.length > 0 ? `⏰ 待重測（${duePending.length} 句）`
-                  : si === duePending.length && dueDone.length > 0 ? `✓ 今天已重測（${dueDone.length} 句）` : null
+                // v6.74: 一般模式（非 due-only）也插分區標題，對應 libSorted 的待測／已測兩段
+                const secAll = !libDueOnly && !libWord && libView === 'sent'
+                const libPendN = secAll ? lib.filter(x => !retestedToday(x) || x.id === lastRetestId).length : 0
+                const libDoneN = secAll ? lib.length - libPendN : 0
+                const secHeader = secDue
+                  ? (si === 0 && duePending.length > 0 ? `⏰ 待重測（${duePending.length} 句）`
+                   : si === duePending.length && dueDone.length > 0 ? `✓ 今天已重測（${dueDone.length} 句）` : null)
+                  : secAll
+                  ? (si === 0 && libPendN > 0 ? `⏰ 待重測（${libPendN} 句）`
+                   : si === libPendN && libDoneN > 0 ? `✓ 今天已重測（${libDoneN} 句）` : null)
+                  : null
                 return (
                   <Fragment key={p.id}>
                   {secHeader && (
@@ -25984,6 +26012,10 @@ Steven 不是在收藏電影台詞。
                                     </span>
                                   )}
                                 </div>
+                              )}
+                              {/* v6.74: 錯誤歸因（聽力庫渲染路徑）*/}
+                              {(res.missed.length > 0 || res.misheard.length > 0) && (
+                                <CauseRow pid={p.id} rate={res.rate} compact/>
                               )}
                               <div onClick={() => playThreeStep(p)}
                                 style={{ cursor:'pointer', textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
