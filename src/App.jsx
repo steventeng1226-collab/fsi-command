@@ -7449,7 +7449,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.69</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.70</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14062,7 +14062,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.69）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.70）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -22879,21 +22879,31 @@ Steven 不是在收藏電影台詞。
             return null
           }
           const ranked = [...kbListToday].sort((a, b) => hashScore(b.id) - hashScore(a.id))
-          // v6.61: 防連日重複——用昨天的 dayOfYear 算出昨天的贏家，今天贏家若同一篇（且池>1）取下一名
-          const hashScoreY = id => {
-            const s = `${id}|${dayOfYear - 1}`
-            let h = 0
-            for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0
-            return h
-          }
           const eligible = ranked.filter(it => pickPractice(it))
-          const yWinner = [...eligible].sort((a, b) => hashScoreY(b.id) - hashScoreY(a.id))[0]
+          // v6.70: 防重複升級——不只避昨天，避開「最近 7 天抽過的」（fsi:dailyPickHist 記錄 {d:dayOfYear, id}）
+          //   池小時自動縮短回看天數（最多 池數-1），保證一定抽得出
+          let hist = []
+          try { hist = JSON.parse(localStorage.getItem('fsi:dailyPickHist') ?? '[]') } catch { hist = [] }
+          const lookback = Math.min(7, Math.max(0, eligible.length - 1))
+          const recentIds = new Set(hist.filter(h => h.d !== dayOfYear && dayOfYear - h.d <= lookback && dayOfYear - h.d > 0).map(h => h.id))
+          const todayRec = hist.find(h => h.d === dayOfYear)
           let todayItem = null, picked = null
-          for (const it of eligible) {
-            if (eligible.length > 1 && yWinner && it.id === yWinner.id && it.id === eligible[0].id) continue   // 跳過昨天贏家
-            todayItem = it; picked = pickPractice(it); break
+          if (todayRec) {
+            // 今天已抽過就鎖定同一篇（當天不跳）
+            todayItem = eligible.find(it => it.id === todayRec.id) ?? null
+            if (todayItem) picked = pickPractice(todayItem)
           }
-          if (!todayItem && eligible.length > 0) { todayItem = eligible[0]; picked = pickPractice(todayItem) }
+          if (!todayItem) {
+            for (const it of eligible) {
+              if (recentIds.has(it.id)) continue
+              todayItem = it; picked = pickPractice(it); break
+            }
+            if (!todayItem && eligible.length > 0) { todayItem = eligible[0]; picked = pickPractice(todayItem) }
+            if (todayItem && (!todayRec || todayRec.id !== todayItem.id)) {
+              const next = [...hist.filter(h => h.d !== dayOfYear && dayOfYear - h.d <= 14 && dayOfYear - h.d > -300), { d: dayOfYear, id: todayItem.id }]
+              try { localStorage.setItem('fsi:dailyPickHist', JSON.stringify(next)) } catch {}
+            }
+          }
           if (!todayItem) return null
           const sentence = picked.sentence
           const isPattern = picked.mode === 'pattern'
