@@ -495,7 +495,7 @@ const LINK_PROMPT_BODY = `請分析這句在「自然語速的真實口語」中
 4. 短母音不加長音符 ː：træk 不是 træːk；只有 iː/uː/ɑː/ɔː/ɜː 這類真正長母音才用 ː。
 5. 基準：I=aɪ、he=hi、she=ʃi、the=ðə、a=ə、of=əv/ə、was=wəz、are=ər、to=tə、and=ən。
 6. rules/listen 純文字裡若提到音，必須用正確 IPA 符號（ə 不寫成 a、ɾ 不寫成 r、ʃ 不寫成 sh），與 ipa 欄位同一套標準。
-7. 連讀逐組檢核（程序，不可跳過）：先把句中每一組「前字子音尾＋後字母音頭」的相鄰對全部列出來（例如 guess I、might even、years of），逐組判定有無連讀；**有連讀的必須在 ipa 欄位做音節重組**（guess I→gɛ·saɪ，s 滑到 I），並在 rules 列一條。只寫進 rules 而 ipa 沒重組＝錯；只挑最明顯的幾組＝錯。
+7. 連讀逐組檢核（程序，不可跳過）：先把句中每一組「前字子音尾＋後字母音頭」的相鄰對全部列出來（例如 guess I、might even、years of），逐組判定有無連讀；**有連讀的必須在 ipa 欄位做音節重組**（guess I→gɛ·saɪ，s 滑到 I），並在 rules 列一條。只寫進 rules 而 ipa 沒重組＝錯；只挑最明顯的幾組＝錯（實錯：I love the idea of having a place I can go 裡 the idea of 重組了，但 place I 仍寫成 pleɪs aɪ 分開，正解 pleɪ·saɪ）。⚠ 反向限制：連讀**只發生在「子音尾＋母音頭」**——母音尾＋子音頭（I guess＝aɪ＋g、he can＝i＋k）不是連讀，不要在 rules 硬掰成「黏合」。
 8. 實詞永不弱讀：<wk> 標籤與「弱讀」一詞**只准用於功能詞**（介系詞/冠詞/代名詞/be動詞/助動詞/連接詞）。動詞/名詞/形容詞/副詞等實詞（guess、think、track、meeting…）沒有弱讀這回事——它們的正常發音就是正常發音，不要為了交差硬掰成弱讀；實詞可發生的音變只有連讀/彈舌/失去爆破/滑音。把實詞標成弱讀或說它「弱讀成（其實是原音）」＝錯。
 9. 相同或同部位子音相鄰（t+t、ð+ð、m+m、s+s、d+d）＝**合併為單一稍長的音**（gemination），只做一次舌位/嘴型：with that→wɪ‿ðæt（一個 ð）、that too→ðæt̚·tuː（一次 t 位）。說「相鄰但各自發音」＝錯。
 10. 失去爆破 ≠ 不發音：p/t/k/b/d/g 接子音時是「憋住不釋放」——嘴型到位、有短促頓挫感，標 p̚ t̚ k̚ 記號、歸「音變」類（<ch>），描述必須寫「只做嘴型憋住、有頓挫」。「不發音」（<si> 刪除線）只准用於真正脫落的音（如 h 脫落）。把失爆標成 <si> 不發音＝錯。
@@ -505,7 +505,7 @@ const LINK_PROMPT_BODY = `請分析這句在「自然語速的真實口語」中
 14. t 的兩條路涇渭分明：t 接**母音**＝彈舌 ɾ（just in→dʒʌ·sɾɪn、at your 例外走 tʃ）；t 接**子音**才失去爆破 t̚。把「t+母音」說成失爆只做嘴型＝錯（實錯：just in 被標失爆，但 t 在母音 i 前該彈舌）。
 15. 連讀時前字的子音**正常發音、絕不標 <si> 刪除線**：see why 的 s、years 的 z 在連讀中都完整發出，只是滑向後字。<si> 只准標真正脫落的音（h 脫落、輔音叢簡化）。把連讀起點子音標成不發音＝錯。
 16. 母音守恆（最重要的防幻覺規則）：ipa 欄位裡的**每一個母音都必須來自原句某個字的字典發音**。連讀/彈舌/失爆只搬動或替換子音，絕不憑空生出新母音。輸出前逐音節自檢：「這個母音是哪個字的？」答不出來＝幻覺＝錯（實錯：promise you 被寫成 prɑ·mɪ·saɪ·ju，saɪ 的 aɪ 母音無中生有）。`
-const LINK_VERIFY_BODY = `逐條檢查以下六類錯誤（每類都有真實誤判前例）：\nA. 幻覺母音：ipa/chunks 裡每個母音必須來自原句某字的字典發音。逐音節問「這個母音是哪個字的」，答不出＝幻覺（前例：promise you 被寫成 prɑ·mɪ·saɪ·ju，aɪ 無中生有，正解 prɑ·mɪ·sju）。\nB. 彈舌 ɾ 只准來自 /t/ 或 /d/：s/z/n/l 被標彈舌＝錯（s+母音是普通連讀滑移）。\nC. t 接母音＝彈舌 ɾ；t 接子音才失爆 t̚。t+母音被說成失爆只做嘴型＝錯（前例：just in 該是 dʒʌ·sɾɪn）。\nD. 連讀起點的子音正常發音，絕不標 <si> 刪除線（前例：see why 的 s 被標不發音，錯；s 完整發出滑向 why）。\nE. 漏重組：把句中每組「前字子音尾＋後字母音頭」相鄰對列出，逐組檢查 ipa 是否真的做了音節重切。字典音標逐字排列（bʌt ɪf aɪ kʊd 各字分開）＝錯，正解要連鎖重切（bʌ·ɾɪ·faɪ·kʊd）。rules 有講連讀但 ipa 沒重組也＝錯。\nF. 字帳守恆：把 ipa 音節依序讀回來，必須能對回原句「每個字恰好一次」——不可重複（前例：what 的 wa 在 bəwa 和 waɾaɪ 出現兩次）、不可遺漏。對不上帳＝錯。\n\n全部正確 → 回 {"ok":true}\n有任何錯 → 回修正後的**完整** JSON（enMarked/ipa/rules/chunks/listen 五欄齊全，只改錯的部分，標籤語法照舊：<wk><lk><si><ch><gl><nw>）`
+const LINK_VERIFY_BODY = `逐條檢查以下七類錯誤（每類都有真實誤判前例）：\nA. 幻覺母音：ipa/chunks 裡每個母音必須來自原句某字的字典發音。逐音節問「這個母音是哪個字的」，答不出＝幻覺（前例：promise you 被寫成 prɑ·mɪ·saɪ·ju，aɪ 無中生有，正解 prɑ·mɪ·sju）。\nB. 彈舌 ɾ 只准來自 /t/ 或 /d/：s/z/n/l 被標彈舌＝錯（s+母音是普通連讀滑移）。\nC. t 接母音＝彈舌 ɾ；t 接子音才失爆 t̚。t+母音被說成失爆只做嘴型＝錯（前例：just in 該是 dʒʌ·sɾɪn）。\nD. 連讀起點的子音正常發音，絕不標 <si> 刪除線（前例：see why 的 s 被標不發音，錯；s 完整發出滑向 why）。\nE. 漏重組（強制逐組清點，不可抽樣）：先把原句相鄰字兩兩掃過一遍，列出全部「前字子音尾＋後字母音頭」的配對清單（例如 place I、guess I、might even、years of），一組都不能略。接著逐組對照 ipa：該組是否真的做了音節重切？只要有任何一組沒重切就是錯——不是「大部分重組了就算過」。前例一：bʌt ɪf aɪ kʊd 各字分開＝錯，正解 bʌ·ɾɪ·faɪ·kʊd。前例二：I love the idea of having a place I can go 裡 the idea of 有重組，但 place I（s＋aɪ）仍寫成 pleɪs aɪ 分開＝仍算錯，正解 pleɪ·saɪ。rules 有講連讀但 ipa 沒重組也＝錯。\nF. 字帳守恆：把 ipa 音節依序讀回來，必須能對回原句「每個字恰好一次」——不可重複（前例：what 的 wa 在 bəwa 和 waɾaɪ 出現兩次）、不可遺漏。對不上帳＝錯。\nG. 規則與 ipa 一致（新增）：逐條讀 rules，每條描述的音變都必須在 ipa 欄位找得到對應痕跡；ipa 找不到＝該條 rule 是幻覺。並反查連讀類型是否成立——連讀只發生在「子音尾＋母音頭」，母音尾＋子音頭（I guess＝aɪ＋g）不構成連讀，寫成「I 的滑音與 guess 的 g 黏合成 gaɪ」＝錯（gaɪ 這個音節在 ipa 裡根本不存在）。\n\n全部正確 → 回 {"ok":true}\n有任何錯 → 回修正後的**完整** JSON（enMarked/ipa/rules/chunks/listen 五欄齊全，只改錯的部分，標籤語法照舊：<wk><lk><si><ch><gl><nw>）`
 function strHash(x) { let h = 5381; for (let i = 0; i < x.length; i++) h = ((h << 5) + h + x.charCodeAt(i)) | 0; return (h >>> 0).toString(36) }
 const LINK_PV = strHash(LINK_PROMPT_BODY + '|' + LINK_VERIFY_BODY)
 // v6.68: AI JSON 容錯解析——很多「解析失敗」只是 AI 在 JSON 前後多講了話；抽出 {...} 主體再試一次
@@ -7440,7 +7440,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
     </span>
   )
   return (
-    <header style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 14px',
+    <header id="app-sticky-header" style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 14px',
       display:'flex', alignItems:'flex-start', gap:9, position:'sticky', top:0, zIndex:10,
       maxWidth:'100%', boxSizing:'border-box', overflowX:'hidden' }}>
       <AppIcon size={30} />
@@ -7449,7 +7449,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.71</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.73</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14062,7 +14062,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.71）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.73）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -14188,6 +14188,15 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const [asrResult, setAsrResult] = useState({})     // { pid: { text, cmp } }
   const asrRef = useRef(null)
   const trainRef = useRef(null)
+  // v6.72: 捲動時扣掉 sticky Header 高度——block:'start' 會被浮動 Header 蓋住
+  //   （「今日盲聽」標籤列看不到的根因）。量測實際 Header 高度，量不到退回 150px。
+  const scrollToTop = el => {
+    if (!el) return
+    const hdr = document.getElementById('app-sticky-header')
+    const off = (hdr?.getBoundingClientRect().height ?? 150) + 8
+    const y = el.getBoundingClientRect().top + window.scrollY - off
+    window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' })
+  }
   // v6.63: 今日盲聽流程導航條——四個步驟區塊的捲動錨點
   const stepRefs = [useRef(null), useRef(null), useRef(null), useRef(null)]
   const [sceneRangeFrom, setSceneRangeFrom] = useState('') // 場景範圍選取：起始場景號
@@ -14272,7 +14281,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     setKbReturnState({ view, sceneId })
     setView('library')
     setTimeout(() => {
-      document.getElementById('kb-section')?.scrollIntoView({ behavior:'smooth', block:'start' })
+      scrollToTop(document.getElementById('kb-section'))
     }, 100)
   }, [kbJumpSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -14318,7 +14327,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     setBlindStatsOpen(false)
     setTrainN(null); setTrainQueue([]); setTrainIdx(0)
     setStreak(getStreak())
-    setTimeout(() => { trainRef.current?.scrollIntoView({ behavior:'smooth', block:'start' }) }, 120)
+    setTimeout(() => { scrollToTop(trainRef.current) }, 120)
   }, [trainingJumpSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 🎯 聽力庫快速開啟：回到片庫頁並展開聽力庫面板 ──
@@ -14331,7 +14340,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     setLibWord(null)
     setLibTestId(null)
     setTimeout(() => {
-      listenLibRef.current?.scrollIntoView({ behavior:'smooth', block:'start' })
+      scrollToTop(listenLibRef.current)
     }, 120)
   }, [listenLibJumpSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -14346,7 +14355,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     setLibWord(null)
     setLibTestId(null)
     setTimeout(() => {
-      listenLibRef.current?.scrollIntoView({ behavior:'smooth', block:'start' })
+      scrollToTop(listenLibRef.current)
     }, 120)
   }, [freqJumpSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -14744,6 +14753,28 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   // 🖊 聽寫模式（v5.81）：每句都打你聽到的字 → 自動比對逐字稿 → 客觀抓字率
   const [dictInput,  setDictInput]  = useState({})   // { phraseId: '打的字' }
   const [dictResult, setDictResult] = useState({})   // { phraseId: compareDictation回傳值 }
+  // v6.73: 聽寫錯誤四類歸因——把「錯」拆成可行動的類別
+  //   nohear=聽不到（音層缺失）｜nosplit=聽到但切不開（切分失敗）
+  //   nomean=切對但認不出字（辨義）｜audio=原音本身不清（素材問題，不算能力）
+  //   儲存於 fsi:dictCause（新 key）：{ [phraseId]: {cause, at, rate} }
+  const CAUSE_DEF = [
+    { k:'nohear',  label:'聽不到',   icon:'🕳', color:'#f87171', tip:'看到答案才知道那裡有聲音 → ④弱點轟炸、跟讀' },
+    { k:'nosplit', label:'切不開',   icon:'✂️', color:'#38bdf8', tip:'有聽到一團音但拆不開字 → 連音解析、chunk 邊界' },
+    { k:'nomean',  label:'認不出字', icon:'❓', color:'#a78bfa', tip:'切對了但不確定是哪個字 → 詞彙、語境' },
+    { k:'audio',   label:'原音不清', icon:'🔇', color:'#8a95a0', tip:'素材問題，不算你的錯 → 考慮 🚫 排除' },
+  ]
+  const [dictCause, setDictCause] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('fsi:dictCause') ?? '{}') } catch { return {} }
+  })
+  const markDictCause = (pid, k, rate) => {
+    setDictCause(prev => {
+      const next = { ...prev }
+      if (next[pid]?.cause === k) delete next[pid]                       // 再點一次取消
+      else next[pid] = { cause: k, at: Date.now(), rate: rate ?? null }
+      try { localStorage.setItem('fsi:dictCause', JSON.stringify(next)) } catch {}
+      return next
+    })
+  }
   // v5.82：播放次數不設上限（多聽幾次才「啊，是as！」正是迴路建立的時刻），
   // 但要記次數：≤3次送出=診斷樣本（進統計）；>3次送出=練習樣本（不進診斷）
   const [blindPlays, setBlindPlays] = useState({})   // { phraseId: 本輪已聽次數 }（畫面顯示用）
@@ -15398,7 +15429,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   function openKbItemDirect(itemId) {
     setKbOpen(itemId)
     setTimeout(() => {
-      document.getElementById('kb-section')?.scrollIntoView({ behavior:'smooth', block:'start' })
+      scrollToTop(document.getElementById('kb-section'))
       setTimeout(() => {
         document.getElementById('kb-item-' + itemId)?.scrollIntoView({ behavior:'smooth', block:'center' })
       }, 400)
@@ -16376,7 +16407,7 @@ ${list}
         {/* 行動 */}
         {hero && (
           <div onClick={() => { setListenLibOpen(true); setLibView('weak'); setLibWord(hero.w)
-                                setTimeout(() => listenLibRef.current?.scrollIntoView({ behavior:'smooth', block:'start' }), 120) }}
+                                setTimeout(() => scrollToTop(listenLibRef.current), 120) }}
             style={{ cursor:'pointer', textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
               padding:'9px 0', borderRadius:8,
               background:info.c+'20', color:info.c, border:`1px solid ${info.c}60` }}>
@@ -20375,6 +20406,38 @@ Steven 不是在收藏電影台詞。
                     {p.dict?.first && p.dict.count > 1 && (
                       <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
                         首次成績（診斷基準）：全詞 {p.dict.first.rate}% · 實詞 {p.dict.first.cRate}% · 已聽寫 {p.dict.count} 次
+                      </div>
+                    )}
+                    {/* v6.73: 錯誤歸因四選一——把「錯」拆成可行動類別，累積出訓練分配依據 */}
+                    {(c.missed.length > 0 || c.misheard.length > 0) && (
+                      <div style={{ display:'flex', flexDirection:'column', gap:4, marginTop:2,
+                        borderTop:`1px dashed ${T.bdr}`, paddingTop:7 }}>
+                        <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
+                          這句錯在哪？（自問：如果當時知道意思，我能切對嗎？）
+                        </div>
+                        <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
+                          {CAUSE_DEF.map(cd => {
+                            const on = dictCause[p.id]?.cause === cd.k
+                            return (
+                              <div key={cd.k} onClick={() => markDictCause(p.id, cd.k, c.rate)}
+                                style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                                  flex:'1 1 0', minWidth:0, textAlign:'center',
+                                  fontFamily:MONO, fontSize:9, fontWeight:on ? 700 : 400,
+                                  padding:'6px 2px', borderRadius:7, whiteSpace:'nowrap',
+                                  background: on ? cd.color+'25' : T.surf2,
+                                  border:`1px solid ${on ? cd.color : T.bdr}`,
+                                  color: on ? cd.color : T.txt3 }}>
+                                {cd.icon} {cd.label}
+                              </div>
+                            )
+                          })}
+                        </div>
+                        {dictCause[p.id] && (
+                          <div style={{ fontFamily:MONO, fontSize:8, lineHeight:1.5,
+                            color: CAUSE_DEF.find(x => x.k === dictCause[p.id].cause)?.color ?? T.txt3 }}>
+                            {CAUSE_DEF.find(x => x.k === dictCause[p.id].cause)?.tip}
+                          </div>
+                        )}
                       </div>
                     )}
                     {/* 🔁 三步驟對照：知道答案後回聽電影原音，才是真正在建立連音解碼迴路 */}
@@ -24665,7 +24728,7 @@ Steven 不是在收藏電影台詞。
                       const isAct = i === active
                       return (
                         <div key={i}
-                          onClick={() => stepRefs[i].current?.scrollIntoView({ behavior:'smooth', block:'start' })}
+                          onClick={() => scrollToTop(stepRefs[i].current)}
                           style={{ cursor:'pointer', flex:1, minWidth:0, textAlign:'center',
                             padding:'7px 2px', borderRadius:9, boxSizing:'border-box',
                             background: isAct ? T.amberD : (s.done ? T.grn + '12' : T.surf),
@@ -24693,7 +24756,7 @@ Steven 不是在收藏電影台詞。
                   <div style={{ fontFamily:MONO, fontSize:9, color:T.grn, fontWeight:700 }}>✓ 今天沒有到期句，債清了。往下做新句。</div>
                 ) : (
                   <div onClick={() => { setListenLibOpen(true); setLibView('sent'); setLibDueOnly(true); setLibWord(null)
-                                        setTimeout(() => listenLibRef.current?.scrollIntoView({ behavior:'smooth', block:'start' }), 120) }}
+                                        setTimeout(() => scrollToTop(listenLibRef.current), 120) }}
                     style={{ cursor:'pointer', textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
                       padding:'10px 0', borderRadius:8,
                       background:T.amberD, color:T.amber, border:`1px solid ${T.amber}60` }}>
@@ -25003,7 +25066,7 @@ Steven 不是在收藏電影台詞。
                   <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>還沒有夠格的弱點字（要遇到 ≥3 次），先多做幾句 ③。</div>
                 ) : (
                   <div onClick={() => { setListenLibOpen(true); setLibView('weak'); setLibWord(topWord.w)
-                                        setTimeout(() => listenLibRef.current?.scrollIntoView({ behavior:'smooth', block:'start' }), 120) }}
+                                        setTimeout(() => scrollToTop(listenLibRef.current), 120) }}
                     style={{ cursor:'pointer', textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
                       padding:'10px 0', borderRadius:8,
                       background:T.amberD, color:T.amber, border:`1px solid ${T.amber}60` }}>
@@ -25125,6 +25188,45 @@ Steven 不是在收藏電影台詞。
 
               {/* 🔬 診斷結論：每次練完都給一個「下一步怎麼聽」的結論 */}
               {renderDiagnosis(dictatedT)}
+
+              {/* v6.73: 錯誤成因分布——告訴你該把時間配到哪一種訓練 */}
+              {(() => {
+                const all = Object.values(dictCause)
+                if (all.length < 3) return null      // 樣本太少不顯示，免得誤導
+                const cnt = {}
+                all.forEach(v => { cnt[v.cause] = (cnt[v.cause] ?? 0) + 1 })
+                const top = CAUSE_DEF.map(cd => ({ ...cd, n: cnt[cd.k] ?? 0 }))
+                  .sort((a, b) => b.n - a.n)
+                const tot = all.length
+                return (
+                  <div style={{ display:'flex', flexDirection:'column', gap:6,
+                    background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:10, padding:'10px 12px' }}>
+                    <div style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:T.txt2 }}>
+                      🧭 錯誤成因分布 <span style={{ color:T.txt3, fontWeight:400 }}>（已標記 {tot} 句）</span>
+                    </div>
+                    {top.filter(t => t.n > 0).map(t => {
+                      const pct = Math.round(t.n / tot * 100)
+                      return (
+                        <div key={t.k} style={{ display:'flex', flexDirection:'column', gap:3 }}>
+                          <div style={{ display:'flex', justifyContent:'space-between', fontFamily:MONO, fontSize:9 }}>
+                            <span style={{ color:t.color }}>{t.icon} {t.label}</span>
+                            <span style={{ color:T.txt3 }}>{t.n} 句 · {pct}%</span>
+                          </div>
+                          <div style={{ height:5, borderRadius:3, background:T.bdr, overflow:'hidden' }}>
+                            <div style={{ width:`${pct}%`, height:'100%', background:t.color, borderRadius:3 }}/>
+                          </div>
+                        </div>
+                      )
+                    })}
+                    <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.6 }}>
+                      {top[0].k === 'nohear'  ? '主因是「聽不到」→ 時間配給 ④ 弱點轟炸與跟讀。'
+                     : top[0].k === 'nosplit' ? '主因是「切不開」→ 時間配給連音解析與 chunk 邊界，轟炸效益較低。'
+                     : top[0].k === 'nomean'  ? '主因是「認不出字」→ 聲音層已通，補詞彙與語境。'
+                     :                          '主因是素材音質 → 考慮 🚫 排除，別把素材難度算成自己的能力。'}
+                    </div>
+                  </div>
+                )
+              })()}
 
               <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.6 }}>
                 💡 只做完 ① 就算今天有練。②③④ 是加分題。做到一半離開也沒關係，紀錄都存好了。
