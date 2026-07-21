@@ -519,7 +519,7 @@ const LINK_PROMPT_BODY = `請分析這句在「自然語速的真實口語」中
 5. 基準：I=aɪ、he=hi、she=ʃi、the=ðə、a=ə、of=əv/ə、was=wəz、are=ər、to=tə、and=ən。
 6. rules/listen 純文字裡若提到音，必須用正確 IPA 符號（ə 不寫成 a、ɾ 不寫成 r、ʃ 不寫成 sh），與 ipa 欄位同一套標準。
 7. 連讀逐組檢核（程序，不可跳過）：先把句中每一組「前字子音尾＋後字母音頭」的相鄰對全部列出來（例如 guess I、might even、years of），逐組判定有無連讀；**有連讀的必須在 ipa 欄位做音節重組**（guess I→gɛ·saɪ，s 滑到 I），並在 rules 列一條。只寫進 rules 而 ipa 沒重組＝錯；只挑最明顯的幾組＝錯（實錯：I love the idea of having a place I can go 裡 the idea of 重組了，但 place I 仍寫成 pleɪs aɪ 分開，正解 pleɪ·saɪ）。⚠ 反向限制：連讀**只發生在「子音尾＋母音頭」**——母音尾＋子音頭（I guess＝aɪ＋g、he can＝i＋k）不是連讀，不要在 rules 硬掰成「黏合」。
-8. 實詞永不弱讀：<wk> 標籤與「弱讀」一詞**只准用於功能詞**（介系詞/冠詞/代名詞/be動詞/助動詞/連接詞）。動詞/名詞/形容詞/副詞等實詞（guess、think、track、meeting…）沒有弱讀這回事——它們的正常發音就是正常發音，不要為了交差硬掰成弱讀；實詞可發生的音變只有連讀/彈舌/失去爆破/滑音。把實詞標成弱讀或說它「弱讀成（其實是原音）」＝錯。
+8. 實詞永不弱讀：<wk> 標籤與「弱讀」一詞**只准用於功能詞**（介系詞/冠詞/代名詞/be動詞/助動詞/連接詞）。動詞/名詞/形容詞/副詞等實詞（guess、think、track、meeting…）沒有弱讀這回事——它們的正常發音就是正常發音，不要為了交差硬掰成弱讀；實詞可發生的音變只有連讀/彈舌/失去爆破/滑音。把實詞標成弱讀或說它「弱讀成（其實是原音）」＝錯。⚠ 判定詞性前先確認：不可把實詞硬說成功能詞來合理化弱讀（實錯：read 被說成「作功能詞（過去式助動詞）在句中弱位置塌成 schwa」——read 是主要動詞、實詞，英語也沒有「過去式助動詞 read」這種東西，且 ipa 實際寫的是 rɛd，母音是 ɛ 不是 ə，rule 與 ipa 自己就對不上）。判定順序：先問「這個字在句中是什麼詞性」，是實詞就直接排除弱讀選項，不要再找理由。
 9. 相同或同部位子音相鄰（t+t、ð+ð、m+m、s+s、d+d）＝**合併為單一稍長的音**（gemination），只做一次舌位/嘴型：with that→wɪ‿ðæt（一個 ð）、that too→ðæt̚·tuː（一次 t 位）。說「相鄰但各自發音」＝錯。
 10. 失去爆破 ≠ 不發音：p/t/k/b/d/g 接子音時是「憋住不釋放」——嘴型到位、有短促頓挫感，標 p̚ t̚ k̚ 記號、歸「音變」類（<ch>），描述必須寫「只做嘴型憋住、有頓挫」。「不發音」（<si> 刪除線）只准用於真正脫落的音（如 h 脫落）。把失爆標成 <si> 不發音＝錯。
 11. h 脫落有條件：只有**代名詞** he/him/his/her 和**助動詞** have/has/had 在句中弱位置才脫落 h（is he→ɪzi、should have→ʃʊdəv）。have/has 當**主要動詞**（擁有義：I still have music）是句子核心動詞，h 保留、發 hæv/həv，絕不塌成 əv/ləv。
@@ -535,8 +535,9 @@ const LINK_PROMPT_BODY = `請分析這句在「自然語速的真實口語」中
 21. ipa 主行與 chunks 必須一致：同一段文字在兩處的音標要相同，不可各寫各的（實錯：主行寫 tu·sɪ·bɪ、chunks 寫 ə·juː·ɛ·sɪ·bi，兩者對不上）。
 22. listen 欄位不可誤導耳朵：描述必須與 ipa 相符，不可說出會把耳朵導向錯誤切分的話（實錯：「grandson 聽起來是從 ran 音開始」——開頭是 gr，這會教錯切分點）。
 23. 連讀方向不可逆：連讀永遠是**前字的尾子音往後滑到後字開頭**，絕不可能後字的音往前滑。描述時主語必須是前面那個字（實錯：「could 字尾 d 滑向 this 的 ð」——但 this 在 could 前面，方向倒反）。
-24. 四種相鄰組合只有一種是連讀，判定前先分類：(a) 子音尾＋母音頭＝連讀 <lk>，重組音節；(b) 母音尾＋母音頭＝滑音 <gl>，擠出 w/j；(c) 母音尾＋子音頭＝兩者皆非，不做處理；(d) **子音尾＋子音頭＝也不是連讀**——依情況走失爆、同部位合併或正常相接，絕不可硬把前字子音搬到後字（實錯：this could 是 s＋k，被寫成 ðɪ·skʊd 把 s 搬走，正解 ðɪs·kʊd 兩字不連讀）。`
-const LINK_VERIFY_BODY = `逐條檢查以下十三類錯誤（每類都有真實誤判前例）：\nA. 幻覺母音：ipa/chunks 裡每個母音必須來自原句某字的字典發音。逐音節問「這個母音是哪個字的」，答不出＝幻覺（前例：promise you 被寫成 prɑ·mɪ·saɪ·ju，aɪ 無中生有，正解 prɑ·mɪ·sju）。\nB. 彈舌 ɾ 只准來自 /t/ 或 /d/：s/z/n/l 被標彈舌＝錯（s+母音是普通連讀滑移）。\nC. 彈舌路徑判定（**逐個 ɾ 前置檢查**）：對 ipa 裡每一個 ɾ，先寫出「它來自哪個 t/d，該 t/d 後面緊接的第一個音是什麼，那個音是母音還是子音」。t 接母音＝彈舌 ɾ；t 接子音＝失爆 t̚。判定對象是**下一個字的第一個音**，不是那個字裡其他母音——高頻實錯：might take（後接 t）、bit to（後接 t）、out what（後接 w，不是 what 的 ə）三例全被誤標彈舌。t+子音標成彈舌＝錯；t+母音標成失爆＝錯（前例：just in 該是 dʒʌ·sɾɪn）。\nD. 連讀起點的子音正常發音，絕不標 <si> 刪除線（前例：see why 的 s 被標不發音，錯；s 完整發出滑向 why）。\nE. 漏重組（強制逐組清點，不可抽樣）：先把原句相鄰字兩兩掃過一遍，列出全部「前字子音尾＋後字母音頭」的配對清單（例如 place I、guess I、might even、years of），一組都不能略。接著逐組對照 ipa：該組是否真的做了音節重切？只要有任何一組沒重切就是錯——不是「大部分重組了就算過」。前例一：bʌt ɪf aɪ kʊd 各字分開＝錯，正解 bʌ·ɾɪ·faɪ·kʊd。前例二：I love the idea of having a place I can go 裡 the idea of 有重組，但 place I（s＋aɪ）仍寫成 pleɪs aɪ 分開＝仍算錯，正解 pleɪ·saɪ。rules 有講連讀但 ipa 沒重組也＝錯。\nF. 字帳守恆：把 ipa 音節依序讀回來，必須能對回原句「每個字恰好一次」——不可重複（前例：what 的 wa 在 bəwa 和 waɾaɪ 出現兩次）、不可遺漏。對不上帳＝錯。\nG. 規則與 ipa 一致（新增）：逐條讀 rules，每條描述的音變都必須在 ipa 欄位找得到對應痕跡；ipa 找不到＝該條 rule 是幻覺。並反查連讀類型是否成立——連讀只發生在「子音尾＋母音頭」，母音尾＋子音頭（I guess＝aɪ＋g）不構成連讀，寫成「I 的滑音與 guess 的 g 黏合成 gaɪ」＝錯（gaɪ 這個音節在 ipa 裡根本不存在）。\nH. 子音守恆（雙向）：(a) 不可蒸發——原句每個字的字典子音都要在 ipa 找得到下落（保留／搬到後字／明確標失爆或脫落），無聲消失＝錯（前例：figure out 寫成 fɪɡ·ə·aʊt，j 與 r 憑空不見，正解 fɪ·ɡjə·raʊt）。(b) 不可憑空生出——ipa 每個子音都要答得出來自原句哪個字（前例：grandson 寫成 græn·ɾ·sʌn，那個 ɾ 原句沒有）。\nI. rules 溯源（雙向）：逐條檢查每條 rule——提到的字必須真的在原句、提到的音必須真的在該字的字典發音裡、描述的音變必須在 ipa 找得到。三者缺一＝該條是幻覺，須刪除或改寫（前例：「been：n 滑向 a，with schwa 弱讀」原句無 with；「Also 字尾 z 與 I 連讀」also 字尾是 oʊ 無 z；「company 的 pany 連讀 aːn 滑向 a」company 無 aːn，且單字內部不叫連讀）。同時檢查術語自洽：「接子音 X」的 X 必須是子音，「在母音 Y 前」的 Y 必須是母音（前例：「k 接子音 ə」——ə 是母音）。\nJ. ipa 主行與 chunks 一致：同一段文字在主行與 chunks 的音標必須相同，對不上＝錯（前例：主行 tu·sɪ·bɪ、chunks ə·juː·ɛ·sɪ·bi）。並檢查 listen 欄位不得誤導切分（前例：「grandson 從 ran 音開始」——開頭是 gr）。\nK. 滑音與連讀不可混淆：母音尾＋母音頭＝滑音，ipa 必須寫出擠出的 w 或 j（Also I→ɔːl·soʊ·waɪ）；子音尾＋母音頭才是連讀；母音尾＋子音頭兩者皆非。標錯類別或漏掉 w/j＝錯。\nL. 連讀方向：連讀只能「前字尾子音→後字開頭」。rules 描述的主語必須是前面那個字，寫成後字的音往前滑＝錯（前例：「could 字尾 d 滑向 this 的 ð」，但 this 在 could 前面）。並檢查該組是否真的是「子音尾＋母音頭」——子音尾＋子音頭不是連讀，不可把前字子音搬到後字（前例：this could 是 s＋k，寫成 ðɪ·skʊd 錯，正解 ðɪs·kʊd）。\nM. rhythm 覆蓋守恆：把 rhythm 陣列所有 en 依序接起來，必須剛好等於原句每個字一次（不重複、不遺漏、順序相同，標點可省）。對不上＝錯。且 rhythm 的 ipa 必須寫成連續一串，不可有 · 切點或角括號標籤。\n\n全部正確 → 回 {"ok":true}\n有任何錯 → 回修正後的**完整** JSON（enMarked/ipa/rules/chunks/rhythm/listen 六欄齊全，只改錯的部分，標籤語法照舊：<wk><lk><si><ch><gl><nw>）`
+24. 四種相鄰組合只有一種是連讀，判定前先分類：(a) 子音尾＋母音頭＝連讀 <lk>，重組音節；(b) 母音尾＋母音頭＝滑音 <gl>，擠出 w/j；(c) 母音尾＋子音頭＝兩者皆非，不做處理；(d) **子音尾＋子音頭＝也不是連讀**——依情況走失爆、同部位合併或正常相接，絕不可硬把前字子音搬到後字（實錯：this could 是 s＋k，被寫成 ðɪ·skʊd 把 s 搬走，正解 ðɪs·kʊd 兩字不連讀）。
+25. rules 之間不可互相矛盾：同一組相鄰字只能有一個判定結論。輸出前把 rules 通讀一遍，檢查有沒有兩條在講同一組字卻給出相反結果，有就刪掉錯的那條（實錯：rule 3 說「don't 的 t 接子音 r，失去爆破」、rule 4 又說「don't 與 retire 形成連讀」——t＋r 是子音＋子音，依規則 24 不是連讀，rule 3 對、rule 4 該刪）。`
+const LINK_VERIFY_BODY = `逐條檢查以下十五類錯誤（每類都有真實誤判前例）：\nA. 幻覺母音：ipa/chunks 裡每個母音必須來自原句某字的字典發音。逐音節問「這個母音是哪個字的」，答不出＝幻覺（前例：promise you 被寫成 prɑ·mɪ·saɪ·ju，aɪ 無中生有，正解 prɑ·mɪ·sju）。\nB. 彈舌 ɾ 只准來自 /t/ 或 /d/：s/z/n/l 被標彈舌＝錯（s+母音是普通連讀滑移）。\nC. 彈舌路徑判定（**逐個 ɾ 前置檢查**）：對 ipa 裡每一個 ɾ，先寫出「它來自哪個 t/d，該 t/d 後面緊接的第一個音是什麼，那個音是母音還是子音」。t 接母音＝彈舌 ɾ；t 接子音＝失爆 t̚。判定對象是**下一個字的第一個音**，不是那個字裡其他母音——高頻實錯：might take（後接 t）、bit to（後接 t）、out what（後接 w，不是 what 的 ə）三例全被誤標彈舌。t+子音標成彈舌＝錯；t+母音標成失爆＝錯（前例：just in 該是 dʒʌ·sɾɪn）。\nD. 連讀起點的子音正常發音，絕不標 <si> 刪除線（前例：see why 的 s 被標不發音，錯；s 完整發出滑向 why）。\nE. 漏重組（強制逐組清點，不可抽樣）：先把原句相鄰字兩兩掃過一遍，列出全部「前字子音尾＋後字母音頭」的配對清單（例如 place I、guess I、might even、years of），一組都不能略。接著逐組對照 ipa：該組是否真的做了音節重切？只要有任何一組沒重切就是錯——不是「大部分重組了就算過」。前例一：bʌt ɪf aɪ kʊd 各字分開＝錯，正解 bʌ·ɾɪ·faɪ·kʊd。前例二：I love the idea of having a place I can go 裡 the idea of 有重組，但 place I（s＋aɪ）仍寫成 pleɪs aɪ 分開＝仍算錯，正解 pleɪ·saɪ。rules 有講連讀但 ipa 沒重組也＝錯。\nF. 字帳守恆：把 ipa 音節依序讀回來，必須能對回原句「每個字恰好一次」——不可重複（前例：what 的 wa 在 bəwa 和 waɾaɪ 出現兩次）、不可遺漏。對不上帳＝錯。\nG. 規則與 ipa 一致（新增）：逐條讀 rules，每條描述的音變都必須在 ipa 欄位找得到對應痕跡；ipa 找不到＝該條 rule 是幻覺。並反查連讀類型是否成立——連讀只發生在「子音尾＋母音頭」，母音尾＋子音頭（I guess＝aɪ＋g）不構成連讀，寫成「I 的滑音與 guess 的 g 黏合成 gaɪ」＝錯（gaɪ 這個音節在 ipa 裡根本不存在）。\nH. 子音守恆（雙向）：(a) 不可蒸發——原句每個字的字典子音都要在 ipa 找得到下落（保留／搬到後字／明確標失爆或脫落），無聲消失＝錯（前例：figure out 寫成 fɪɡ·ə·aʊt，j 與 r 憑空不見，正解 fɪ·ɡjə·raʊt）。(b) 不可憑空生出——ipa 每個子音都要答得出來自原句哪個字（前例：grandson 寫成 græn·ɾ·sʌn，那個 ɾ 原句沒有）。\nI. rules 溯源（雙向）：逐條檢查每條 rule——提到的字必須真的在原句、提到的音必須真的在該字的字典發音裡、描述的音變必須在 ipa 找得到。三者缺一＝該條是幻覺，須刪除或改寫（前例：「been：n 滑向 a，with schwa 弱讀」原句無 with；「Also 字尾 z 與 I 連讀」also 字尾是 oʊ 無 z；「company 的 pany 連讀 aːn 滑向 a」company 無 aːn，且單字內部不叫連讀）。同時檢查術語自洽：「接子音 X」的 X 必須是子音，「在母音 Y 前」的 Y 必須是母音（前例：「k 接子音 ə」——ə 是母音）。\nJ. ipa 主行與 chunks 一致：同一段文字在主行與 chunks 的音標必須相同，對不上＝錯（前例：主行 tu·sɪ·bɪ、chunks ə·juː·ɛ·sɪ·bi）。並檢查 listen 欄位不得誤導切分（前例：「grandson 從 ran 音開始」——開頭是 gr）。\nK. 滑音與連讀不可混淆：母音尾＋母音頭＝滑音，ipa 必須寫出擠出的 w 或 j（Also I→ɔːl·soʊ·waɪ）；子音尾＋母音頭才是連讀；母音尾＋子音頭兩者皆非。標錯類別或漏掉 w/j＝錯。\nL. 連讀方向：連讀只能「前字尾子音→後字開頭」。rules 描述的主語必須是前面那個字，寫成後字的音往前滑＝錯（前例：「could 字尾 d 滑向 this 的 ð」，但 this 在 could 前面）。並檢查該組是否真的是「子音尾＋母音頭」——子音尾＋子音頭不是連讀，不可把前字子音搬到後字（前例：this could 是 s＋k，寫成 ðɪ·skʊd 錯，正解 ðɪs·kʊd）。\nM. rhythm 覆蓋守恆：把 rhythm 陣列所有 en 依序接起來，必須剛好等於原句每個字一次（不重複、不遺漏、順序相同，標點可省）。對不上＝錯。且 rhythm 的 ipa 必須寫成連續一串，不可有 · 切點或角括號標籤。\nN. rules 交叉一致：通讀 rules，同一組相鄰字不可有兩條給出相反判定（前例：rule 3 說 dont 的 t 接子音 r 失爆、rule 4 又說 dont 與 retire 連讀，互相矛盾，依「子音＋子音不是連讀」應保留失爆那條）。\nO. 詞性判定：檢查被標 <wk> 或被描述為「弱讀」的字是否真的是功能詞。實詞（主要動詞/名詞/形容詞/副詞）被說成弱讀＝錯，包括用「其實是某種功能詞」來合理化的情形（前例：read 被說成「過去式助動詞」而弱讀成 schwa，但 read 是主要動詞，且 ipa 寫的是 rɛd 不是 rəd）。\n\n全部正確 → 回 {"ok":true}\n有任何錯 → 回修正後的**完整** JSON（enMarked/ipa/rules/chunks/rhythm/listen 六欄齊全，只改錯的部分，標籤語法照舊：<wk><lk><si><ch><gl><nw>）`
 function strHash(x) { let h = 5381; for (let i = 0; i < x.length; i++) h = ((h << 5) + h + x.charCodeAt(i)) | 0; return (h >>> 0).toString(36) }
 const LINK_PV = strHash(LINK_PROMPT_BODY + '|' + LINK_VERIFY_BODY)
 // v6.68: AI JSON 容錯解析——很多「解析失敗」只是 AI 在 JSON 前後多講了話；抽出 {...} 主體再試一次
@@ -7480,7 +7481,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.77</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.78</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14093,7 +14094,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.77）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.78）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -14816,11 +14817,31 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const RhythmRow = ({ p, size = 12 }) => {
     const rh = p.link?.rhythm ?? []
     if (rh.length === 0) return null
+    // v6.78: 📋 複製純文字給老師——老師要求「附原句純文字，她才能重錄一次她會怎麼說」。
+    //   格式：原句 + 逐塊 en → ipa，貼進 Zalo 即可搭配截圖。
+    const copyForTutor = e => {
+      e.stopPropagation()
+      const body = `${p.en}\n\nChunks:\n`
+        + rh.map(c => `${c.en} → ${stripMark(c.ipa ?? '')}`).join('\n')
+      navigator.clipboard?.writeText(body)
+        .then(() => showMovieToast?.('📋 已複製（原句＋節奏切塊），可貼給老師'))
+        .catch(() => showMovieToast?.('⚠ 複製失敗，請長按手動選取'))
+    }
     return (
       <div style={{ display:'flex', flexDirection:'column', gap:5,
         background:'#0a1a14', border:'1px solid #4ade8030', borderRadius:8, padding:'8px 10px' }}>
-        <div style={{ fontFamily:MONO, fontSize:8, color:'#4ade80', fontWeight:700 }}>
-          🎵 節奏切塊 · 一塊＝一口氣（點播放該塊）
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:6, flexWrap:'wrap' }}>
+          <span style={{ fontFamily:MONO, fontSize:8, color:'#4ade80', fontWeight:700 }}>
+            🎵 節奏切塊 · 一塊＝一口氣（點播放該塊）
+          </span>
+          <span onClick={copyForTutor}
+            title="複製原句＋節奏切塊純文字，貼給老師驗證"
+            style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+              fontFamily:MONO, fontSize:8, fontWeight:700, flexShrink:0,
+              padding:'3px 8px', borderRadius:6,
+              background:'#0f2a1f', color:'#4ade80', border:'1px solid #4ade8040' }}>
+            📋 複製給老師
+          </span>
         </div>
         <div style={{ display:'flex', flexWrap:'wrap', gap:5, alignItems:'stretch' }}>
           {rh.map((c, i) => (
