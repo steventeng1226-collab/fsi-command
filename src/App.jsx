@@ -537,7 +537,7 @@ const LINK_PROMPT_BODY = `請分析這句在「自然語速的真實口語」中
 23. 連讀方向不可逆：連讀永遠是**前字的尾子音往後滑到後字開頭**，絕不可能後字的音往前滑。描述時主語必須是前面那個字（實錯：「could 字尾 d 滑向 this 的 ð」——但 this 在 could 前面，方向倒反）。
 24. 四種相鄰組合只有一種是連讀，判定前先分類：(a) 子音尾＋母音頭＝連讀 <lk>，重組音節；(b) 母音尾＋母音頭＝滑音 <gl>，擠出 w/j；(c) 母音尾＋子音頭＝兩者皆非，不做處理；(d) **子音尾＋子音頭＝也不是連讀**——依情況走失爆、同部位合併或正常相接，絕不可硬把前字子音搬到後字（實錯：this could 是 s＋k，被寫成 ðɪ·skʊd 把 s 搬走，正解 ðɪs·kʊd 兩字不連讀）。
 25. rules 之間不可互相矛盾：同一組相鄰字只能有一個判定結論。輸出前把 rules 通讀一遍，檢查有沒有兩條在講同一組字卻給出相反結果，有就刪掉錯的那條（實錯：rule 3 說「don't 的 t 接子音 r，失去爆破」、rule 4 又說「don't 與 retire 形成連讀」——t＋r 是子音＋子音，依規則 24 不是連讀，rule 3 對、rule 4 該刪）。`
-const LINK_VERIFY_BODY = `逐條檢查以下十五類錯誤（每類都有真實誤判前例）：\nA. 幻覺母音：ipa/chunks 裡每個母音必須來自原句某字的字典發音。逐音節問「這個母音是哪個字的」，答不出＝幻覺（前例：promise you 被寫成 prɑ·mɪ·saɪ·ju，aɪ 無中生有，正解 prɑ·mɪ·sju）。\nB. 彈舌 ɾ 只准來自 /t/ 或 /d/：s/z/n/l 被標彈舌＝錯（s+母音是普通連讀滑移）。\nC. 彈舌路徑判定（**逐個 ɾ 前置檢查**）：對 ipa 裡每一個 ɾ，先寫出「它來自哪個 t/d，該 t/d 後面緊接的第一個音是什麼，那個音是母音還是子音」。t 接母音＝彈舌 ɾ；t 接子音＝失爆 t̚。判定對象是**下一個字的第一個音**，不是那個字裡其他母音——高頻實錯：might take（後接 t）、bit to（後接 t）、out what（後接 w，不是 what 的 ə）三例全被誤標彈舌。t+子音標成彈舌＝錯；t+母音標成失爆＝錯（前例：just in 該是 dʒʌ·sɾɪn）。\nD. 連讀起點的子音正常發音，絕不標 <si> 刪除線（前例：see why 的 s 被標不發音，錯；s 完整發出滑向 why）。\nE. 漏重組（強制逐組清點，不可抽樣）：先把原句相鄰字兩兩掃過一遍，列出全部「前字子音尾＋後字母音頭」的配對清單（例如 place I、guess I、might even、years of），一組都不能略。接著逐組對照 ipa：該組是否真的做了音節重切？只要有任何一組沒重切就是錯——不是「大部分重組了就算過」。前例一：bʌt ɪf aɪ kʊd 各字分開＝錯，正解 bʌ·ɾɪ·faɪ·kʊd。前例二：I love the idea of having a place I can go 裡 the idea of 有重組，但 place I（s＋aɪ）仍寫成 pleɪs aɪ 分開＝仍算錯，正解 pleɪ·saɪ。rules 有講連讀但 ipa 沒重組也＝錯。\nF. 字帳守恆：把 ipa 音節依序讀回來，必須能對回原句「每個字恰好一次」——不可重複（前例：what 的 wa 在 bəwa 和 waɾaɪ 出現兩次）、不可遺漏。對不上帳＝錯。\nG. 規則與 ipa 一致（新增）：逐條讀 rules，每條描述的音變都必須在 ipa 欄位找得到對應痕跡；ipa 找不到＝該條 rule 是幻覺。並反查連讀類型是否成立——連讀只發生在「子音尾＋母音頭」，母音尾＋子音頭（I guess＝aɪ＋g）不構成連讀，寫成「I 的滑音與 guess 的 g 黏合成 gaɪ」＝錯（gaɪ 這個音節在 ipa 裡根本不存在）。\nH. 子音守恆（雙向）：(a) 不可蒸發——原句每個字的字典子音都要在 ipa 找得到下落（保留／搬到後字／明確標失爆或脫落），無聲消失＝錯（前例：figure out 寫成 fɪɡ·ə·aʊt，j 與 r 憑空不見，正解 fɪ·ɡjə·raʊt）。(b) 不可憑空生出——ipa 每個子音都要答得出來自原句哪個字（前例：grandson 寫成 græn·ɾ·sʌn，那個 ɾ 原句沒有）。\nI. rules 溯源（雙向）：逐條檢查每條 rule——提到的字必須真的在原句、提到的音必須真的在該字的字典發音裡、描述的音變必須在 ipa 找得到。三者缺一＝該條是幻覺，須刪除或改寫（前例：「been：n 滑向 a，with schwa 弱讀」原句無 with；「Also 字尾 z 與 I 連讀」also 字尾是 oʊ 無 z；「company 的 pany 連讀 aːn 滑向 a」company 無 aːn，且單字內部不叫連讀）。同時檢查術語自洽：「接子音 X」的 X 必須是子音，「在母音 Y 前」的 Y 必須是母音（前例：「k 接子音 ə」——ə 是母音）。\nJ. ipa 主行與 chunks 一致：同一段文字在主行與 chunks 的音標必須相同，對不上＝錯（前例：主行 tu·sɪ·bɪ、chunks ə·juː·ɛ·sɪ·bi）。並檢查 listen 欄位不得誤導切分（前例：「grandson 從 ran 音開始」——開頭是 gr）。\nK. 滑音與連讀不可混淆：母音尾＋母音頭＝滑音，ipa 必須寫出擠出的 w 或 j（Also I→ɔːl·soʊ·waɪ）；子音尾＋母音頭才是連讀；母音尾＋子音頭兩者皆非。標錯類別或漏掉 w/j＝錯。\nL. 連讀方向：連讀只能「前字尾子音→後字開頭」。rules 描述的主語必須是前面那個字，寫成後字的音往前滑＝錯（前例：「could 字尾 d 滑向 this 的 ð」，但 this 在 could 前面）。並檢查該組是否真的是「子音尾＋母音頭」——子音尾＋子音頭不是連讀，不可把前字子音搬到後字（前例：this could 是 s＋k，寫成 ðɪ·skʊd 錯，正解 ðɪs·kʊd）。\nM. rhythm 覆蓋守恆：把 rhythm 陣列所有 en 依序接起來，必須剛好等於原句每個字一次（不重複、不遺漏、順序相同，標點可省）。對不上＝錯。且 rhythm 的 ipa 必須寫成連續一串，不可有 · 切點或角括號標籤。\nN. rules 交叉一致：通讀 rules，同一組相鄰字不可有兩條給出相反判定（前例：rule 3 說 dont 的 t 接子音 r 失爆、rule 4 又說 dont 與 retire 連讀，互相矛盾，依「子音＋子音不是連讀」應保留失爆那條）。\nO. 詞性判定：檢查被標 <wk> 或被描述為「弱讀」的字是否真的是功能詞。實詞（主要動詞/名詞/形容詞/副詞）被說成弱讀＝錯，包括用「其實是某種功能詞」來合理化的情形（前例：read 被說成「過去式助動詞」而弱讀成 schwa，但 read 是主要動詞，且 ipa 寫的是 rɛd 不是 rəd）。\n\n全部正確 → 回 {"ok":true}\n有任何錯 → 回修正後的**完整** JSON（enMarked/ipa/rules/chunks/rhythm/listen 六欄齊全，只改錯的部分，標籤語法照舊：<wk><lk><si><ch><gl><nw>）`
+const LINK_VERIFY_BODY = `逐條檢查以下十五類錯誤（每類都有真實誤判前例）：\nA. 幻覺母音：ipa/chunks 裡每個母音必須來自原句某字的字典發音。逐音節問「這個母音是哪個字的」，答不出＝幻覺（前例：promise you 被寫成 prɑ·mɪ·saɪ·ju，aɪ 無中生有，正解 prɑ·mɪ·sju）。\nB. 彈舌 ɾ 只准來自 /t/ 或 /d/：s/z/n/l 被標彈舌＝錯（s+母音是普通連讀滑移）。\nC. 彈舌路徑判定（**逐個 ɾ 前置檢查**）：對 ipa 裡每一個 ɾ，先寫出「它來自哪個 t/d，該 t/d 後面緊接的第一個音是什麼，那個音是母音還是子音」。t 接母音＝彈舌 ɾ；t 接子音＝失爆 t̚。判定對象是**下一個字的第一個音**，不是那個字裡其他母音——高頻實錯：might take（後接 t）、bit to（後接 t）、out what（後接 w，不是 what 的 ə）三例全被誤標彈舌。t+子音標成彈舌＝錯；t+母音標成失爆＝錯（前例：just in 該是 dʒʌ·sɾɪn）。\nD. 連讀起點的子音正常發音，絕不標 <si> 刪除線（前例：see why 的 s 被標不發音，錯；s 完整發出滑向 why）。\nE. 漏重組（強制逐組清點，不可抽樣）：先把原句相鄰字兩兩掃過一遍，列出全部「前字子音尾＋後字母音頭」的配對清單（例如 place I、guess I、might even、years of），一組都不能略。接著逐組對照 ipa：該組是否真的做了音節重切？只要有任何一組沒重切就是錯——不是「大部分重組了就算過」。前例一：bʌt ɪf aɪ kʊd 各字分開＝錯，正解 bʌ·ɾɪ·faɪ·kʊd。前例二：I love the idea of having a place I can go 裡 the idea of 有重組，但 place I（s＋aɪ）仍寫成 pleɪs aɪ 分開＝仍算錯，正解 pleɪ·saɪ。rules 有講連讀但 ipa 沒重組也＝錯。\nF. 字帳守恆：把 ipa 音節依序讀回來，必須能對回原句「每個字恰好一次」——不可重複（前例：what 的 wa 在 bəwa 和 waɾaɪ 出現兩次）、不可遺漏。對不上帳＝錯。\nG. 規則與 ipa 一致（新增）：逐條讀 rules，每條描述的音變都必須在 ipa 欄位找得到對應痕跡；ipa 找不到＝該條 rule 是幻覺。並反查連讀類型是否成立——連讀只發生在「子音尾＋母音頭」，母音尾＋子音頭（I guess＝aɪ＋g）不構成連讀，寫成「I 的滑音與 guess 的 g 黏合成 gaɪ」＝錯（gaɪ 這個音節在 ipa 裡根本不存在）。\nH. 子音守恆（雙向）：(a) 不可蒸發——原句每個字的字典子音都要在 ipa 找得到下落（保留／搬到後字／明確標失爆或脫落），無聲消失＝錯（前例：figure out 寫成 fɪɡ·ə·aʊt，j 與 r 憑空不見，正解 fɪ·ɡjə·raʊt）。(b) 不可憑空生出——ipa 每個子音都要答得出來自原句哪個字（前例：grandson 寫成 græn·ɾ·sʌn，那個 ɾ 原句沒有）。\nI. rules 溯源（雙向）：逐條檢查每條 rule——提到的字必須真的在原句、提到的音必須真的在該字的字典發音裡、描述的音變必須在 ipa 找得到。三者缺一＝該條是幻覺，須刪除或改寫（前例：「been：n 滑向 a，with schwa 弱讀」原句無 with；「Also 字尾 z 與 I 連讀」also 字尾是 oʊ 無 z；「company 的 pany 連讀 aːn 滑向 a」company 無 aːn，且單字內部不叫連讀）。同時檢查術語自洽：「接子音 X」的 X 必須是子音，「在母音 Y 前」的 Y 必須是母音（前例：「k 接子音 ə」——ə 是母音）。\nJ. ipa 主行與 chunks 一致：同一段文字在主行與 chunks 的音標必須相同，對不上＝錯（前例：主行 tu·sɪ·bɪ、chunks ə·juː·ɛ·sɪ·bi）。並檢查 listen 欄位不得誤導切分（前例：「grandson 從 ran 音開始」——開頭是 gr）。\nK. 滑音與連讀不可混淆：母音尾＋母音頭＝滑音，ipa 必須寫出擠出的 w 或 j（Also I→ɔːl·soʊ·waɪ）；子音尾＋母音頭才是連讀；母音尾＋子音頭兩者皆非。標錯類別或漏掉 w/j＝錯。\nL. 連讀方向：連讀只能「前字尾子音→後字開頭」。rules 描述的主語必須是前面那個字，寫成後字的音往前滑＝錯（前例：「could 字尾 d 滑向 this 的 ð」，但 this 在 could 前面）。並檢查該組是否真的是「子音尾＋母音頭」——子音尾＋子音頭不是連讀，不可把前字子音搬到後字（前例：this could 是 s＋k，寫成 ðɪ·skʊd 錯，正解 ðɪs·kʊd）。\nM. rhythm 覆蓋守恆：把 rhythm 陣列所有 en 依序接起來，必須剛好等於原句每個字一次（不重複、不遺漏、順序相同，標點可省）。對不上＝錯。且 rhythm 的 ipa 必須寫成連續一串，不可有 · 切點或角括號標籤。\nN. rules 交叉一致：通讀 rules，同一組相鄰字不可有兩條給出相反判定（前例：rule 3 說 dont 的 t 接子音 r 失爆、rule 4 又說 dont 與 retire 連讀，互相矛盾，依「子音＋子音不是連讀」應保留失爆那條）。\nO. 詞性判定：檢查被標 <wk> 或被描述為「弱讀」的字是否真的是功能詞。實詞（主要動詞/名詞/形容詞/副詞）被說成弱讀＝錯，包括用「其實是某種功能詞」來合理化的情形（前例：read 被說成「過去式助動詞」而弱讀成 schwa，但 read 是主要動詞，且 ipa 寫的是 rɛd 不是 rəd）。\n\n⚠ 輸出方式（務必照做）：不要只在心裡判斷——**必須逐項寫出檢核結果**，漏寫任何一項視同未檢查。先輸出 check 物件，A 到 O 每一項都要有值：通過寫 "ok"，不通過寫一句話說明哪裡錯。\n格式：\n{"check":{"A":"ok","B":"ok","C":"ok","D":"ok","E":"ok","F":"ok","G":"ok","H":"ok","I":"fail: rule5 說「k 接子音 i」，但 i 是母音","J":"fail: 主行 sta·pɪ 與 chunks stɑ·p̚ 不符","K":"ok","L":"ok","M":"ok","N":"fail: rule5 說失爆、rule6 說連讀，同一組矛盾","O":"ok"},\n "ok":false,\n "enMarked":"…","ipa":"…","rules":[…],"chunks":[…],"rhythm":[…],"listen":"…"}\n\n· 十五項全為 "ok" → "ok" 設 true，其餘欄位可省略。\n· 任一項 fail → "ok" 設 false，並附上修正後的**完整** JSON（enMarked/ipa/rules/chunks/rhythm/listen 六欄齊全，只改錯的部分，標籤語法照舊：<wk><lk><si><ch><gl><nw>）。\n· check 裡的 fail 說明必須與你實際做的修正一致。`
 function strHash(x) { let h = 5381; for (let i = 0; i < x.length; i++) h = ((h << 5) + h + x.charCodeAt(i)) | 0; return (h >>> 0).toString(36) }
 const LINK_PV = strHash(LINK_PROMPT_BODY + '|' + LINK_VERIFY_BODY)
 // v6.68: AI JSON 容錯解析——很多「解析失敗」只是 AI 在 JSON 前後多講了話；抽出 {...} 主體再試一次
@@ -7481,7 +7481,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.78</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.79</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14094,7 +14094,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.78）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.79）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -14798,6 +14798,22 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     { k:'nomean',  label:'認不出字', icon:'❓', color:'#a78bfa', tip:'切對了但不確定是哪個字 → 詞彙、語境' },
     { k:'audio',   label:'原音不清', icon:'🔇', color:'#8a95a0', tip:'素材問題，不算你的錯 → 考慮 🚫 排除' },
   ]
+  // v6.79: 連音解析錯誤回報——prompt 已 25 條規則＋15 類校驗，加規則的邊際效益在遞減，
+  //   甚至可能因注意力稀釋讓原本有效的規則失效。沒有數據就是在盲改，
+  //   所以記錄「每個 prompt 世代（pv）的錯誤回報率」，用來判斷是變好還是變壞。
+  //   儲存於 fsi:linkErrReport（新 key）：{ [phraseId]: {pv, at, en} }
+  const [linkErrReport, setLinkErrReport] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('fsi:linkErrReport') ?? '{}') } catch { return {} }
+  })
+  const reportLinkErr = (p) => {
+    setLinkErrReport(prev => {
+      const next = { ...prev }
+      if (next[p.id]) delete next[p.id]                    // 再點一次取消
+      else next[p.id] = { pv: p.link?.pv ?? '?', at: Date.now(), en: p.en }
+      try { localStorage.setItem('fsi:linkErrReport', JSON.stringify(next)) } catch {}
+      return next
+    })
+  }
   const [dictCause, setDictCause] = useState(() => {
     try { return JSON.parse(localStorage.getItem('fsi:dictCause') ?? '{}') } catch { return {} }
   })
@@ -14814,6 +14830,32 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   // v6.76: 🎵 節奏切塊（老師教的 chunking sounds）——與 chunks 不同層次：
   //   chunks = 微觀音變（只挑有連讀的片段）；rhythm = 宏觀節奏（整句無縫切成呼吸單位）。
   //   針對使用者最大瓶頸「不知道字在哪裡斷」——教的是哪裡「可以斷」，不是哪裡「黏在一起」。
+  // v6.79: 連音卡底部共用列——⚠ 回報鈕 ＋ 🔄 重新解析。
+  //   回報只需你判斷「聽起來怪」，不必分辨錯誤類型（分類交給後續人工分析）。
+  const LinkFooter = ({ p }) => {
+    const rep = !!linkErrReport[p.id]
+    return (
+      <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+        <div onClick={e => { e.stopPropagation(); analyzeLinking(p) }}
+          style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+            fontFamily:MONO, fontSize:9, fontWeight:700, padding:'4px 9px', borderRadius:6,
+            background: linkBusy === p.id ? '#a78bfa' : 'transparent',
+            color: linkBusy === p.id ? '#1a1030' : '#a78bfa80',
+            border:'1px solid #a78bfa30' }}>
+          {linkBusy === p.id ? (linkStage === 'verify' ? '② 校驗中…' : '① 生成中…') : '🔄 重新解析'}
+        </div>
+        <div onClick={e => { e.stopPropagation(); reportLinkErr(p) }}
+          title="覺得這句解析怪怪的就按一下——不用分辨是哪種錯，累積起來用來判斷 prompt 改得好不好"
+          style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+            fontFamily:MONO, fontSize:9, fontWeight:700, padding:'4px 9px', borderRadius:6,
+            background: rep ? '#f8717125' : 'transparent',
+            color: rep ? '#f87171' : '#f8717170',
+            border:`1px solid ${rep ? '#f87171' : '#f8717130'}` }}>
+          {rep ? '⚠ 已回報有錯' : '⚠ 這句怪怪的'}
+        </div>
+      </div>
+    )
+  }
   const RhythmRow = ({ p, size = 12 }) => {
     const rh = p.link?.rhythm ?? []
     if (rh.length === 0) return null
@@ -16145,7 +16187,9 @@ Return ONLY a JSON object, no markdown:
         const vUsr = `原句："${p.en}"\n待驗解析：${JSON.stringify({ enMarked: data.enMarked, ipa: data.ipa, rules: data.rules, chunks: data.chunks, rhythm: data.rhythm })}\n\n${LINK_VERIFY_BODY}`
         const vRaw = await callAI([{ role:'user', content: vUsr }], vSys)
         const v = parseAIJson(vRaw)
-        if (!v.ok && v.ipa) data = { ...data, ...v }   // 校驗官修正版覆蓋（缺欄用初版補）
+        // v6.79: 校驗改為逐項打勾輸出，v.check 只是稽核紀錄，不可併進 data
+        if (!v.ok && v.ipa) { const { check, ok, ...fix } = v; data = { ...data, ...fix } }
+        if (v.check) console.log('[連音校驗]', p.en, v.check)   // 留在 console 供追查漏檢項
       } } catch(e) { /* 校驗失敗不阻斷，用初版 */ }
       updatePhraseAnyScene(p.id, x => ({ ...x, link: { ...data, at: Date.now(), pv: LINK_PV } }))   // v6.68: pv＝prompt 內容 hash（自動世代）；at 保留為時間戳
   }
@@ -22411,14 +22455,7 @@ Steven 不是在收藏電影台詞。
                       👉 {stripMark(p.link.listen)}
                     </div>
                   )}
-                  <div onClick={e => { e.stopPropagation(); analyzeLinking(p) }}
-                    style={{ cursor:'pointer', userSelect:'none', alignSelf:'flex-start',
-                      fontFamily:MONO, fontSize:9, fontWeight:700, padding:'4px 9px', borderRadius:6,
-                      background: linkBusy === p.id ? '#a78bfa' : 'transparent',
-                      color: linkBusy === p.id ? '#1a1030' : '#a78bfa80',
-                      border:'1px solid #a78bfa30' }}>
-                    {linkBusy === p.id ? (linkStage === 'verify' ? '② 校驗中…' : '① 生成中…') : '🔄 重新解析（修正舊音標）'}
-                  </div>
+                  <LinkFooter p={p}/>
                 </div>
               )}
               {/* 熟悉度標記 */}
@@ -25110,14 +25147,7 @@ Steven 不是在收藏電影台詞。
                                   👉 {stripMark(cur.link.listen)}
                                 </div>
                               )}
-                              <div onClick={() => analyzeLinking(cur)}
-                                style={{ cursor:'pointer', userSelect:'none', alignSelf:'flex-start',
-                                  fontFamily:MONO, fontSize:9, fontWeight:700, padding:'4px 9px', borderRadius:6,
-                                  background: linkBusy === cur.id ? '#a78bfa' : 'transparent',
-                                  color: linkBusy === cur.id ? '#1a1030' : '#a78bfa80',
-                                  border:'1px solid #a78bfa30' }}>
-                                {linkBusy === cur.id ? (linkStage === 'verify' ? '② 校驗中…' : '① 生成中…') : '🔄 重新解析（修正舊音標）'}
-                              </div>
+                              <LinkFooter p={cur}/>
                             </div>
                           ) : null}
 
@@ -25445,6 +25475,41 @@ Steven 不是在收藏電影台詞。
                 </div>
                 <SpeedBar/>
               </div>
+
+              {/* v6.79: prompt 世代品質追蹤——回報率上升代表改壞了，該回退而不是繼續加規則 */}
+              {(() => {
+                const reps = Object.values(linkErrReport)
+                if (reps.length === 0) return null
+                const byPv = {}
+                reps.forEach(r => { byPv[r.pv] = (byPv[r.pv] ?? 0) + 1 })
+                // 各世代的「已解析句數」當分母
+                const totByPv = {}
+                dictated.forEach(x => { const v = x.link?.pv; if (v) totByPv[v] = (totByPv[v] ?? 0) + 1 })
+                const rows = Object.keys(byPv).map(pv => ({
+                  pv, err: byPv[pv], tot: totByPv[pv] ?? 0,
+                  rate: totByPv[pv] ? Math.round(byPv[pv] / totByPv[pv] * 100) : null,
+                })).sort((a, b) => b.err - a.err)
+                const curPv = LINK_PV
+                return (
+                  <div style={{ display:'flex', flexDirection:'column', gap:5,
+                    background:'#1a0d0d', border:'1px solid #f8717130', borderRadius:9, padding:'9px 11px' }}>
+                    <div style={{ fontFamily:MONO, fontSize:9, color:'#f87171', fontWeight:700 }}>
+                      ⚠ 解析品質追蹤 · 共回報 {reps.length} 句
+                    </div>
+                    {rows.map(r => (
+                      <div key={r.pv} style={{ display:'flex', justifyContent:'space-between',
+                        fontFamily:MONO, fontSize:8, color: r.pv === curPv ? '#fbbf24' : T.txt3 }}>
+                        <span>{r.pv === curPv ? '▶ 目前世代' : `舊世代 ${String(r.pv).slice(0, 6)}`}</span>
+                        <span>{r.err} 錯{r.rate !== null ? ` / ${r.tot} 句 · ${r.rate}%` : ''}</span>
+                      </div>
+                    ))}
+                    <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
+                      目前世代的比率若高於舊世代，代表 prompt 改壞了——該回退，不是繼續加規則。
+                    </div>
+                  </div>
+                )
+              })()}
+
               {linkTableOpen && (() => {
                 const weak = computeWeakWords(dictated, 2)
                 const clsScore = {}
@@ -26007,14 +26072,7 @@ Steven 不是在收藏電影台詞。
                         )}
                         {/* v6.52: 重新解析——舊資料是用舊 prompt 生的（例如句尾 that 被誤標 ðə·tæ），
                             用當前 prompt 覆蓋修正。analyzeLinking 本就覆蓋寫入 link。 */}
-                        <div onClick={() => analyzeLinking(p)}
-                          style={{ cursor:'pointer', userSelect:'none', alignSelf:'flex-start',
-                            fontFamily:MONO, fontSize:9, fontWeight:700, padding:'4px 9px', borderRadius:6,
-                            background: linkBusy === p.id ? '#a78bfa' : 'transparent',
-                            color: linkBusy === p.id ? '#1a1030' : '#a78bfa80',
-                            border:'1px solid #a78bfa30' }}>
-                          {linkBusy === p.id ? (linkStage === 'verify' ? '② 校驗中…' : '① 生成中…') : '🔄 重新解析（修正舊音標）'}
-                        </div>
+                        <LinkFooter p={p}/>
                       </div>
                     ) : (
                       <div onClick={() => analyzeLinking(p)}
