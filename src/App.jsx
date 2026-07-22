@@ -538,8 +538,33 @@ const LINK_PROMPT_BODY = `請分析這句在「自然語速的真實口語」中
 24. 四種相鄰組合只有一種是連讀，判定前先分類：(a) 子音尾＋母音頭＝連讀 <lk>，重組音節；(b) 母音尾＋母音頭＝滑音 <gl>，擠出 w/j；(c) 母音尾＋子音頭＝兩者皆非，不做處理；(d) **子音尾＋子音頭＝也不是連讀**——依情況走失爆、同部位合併或正常相接，絕不可硬把前字子音搬到後字（實錯：this could 是 s＋k，被寫成 ðɪ·skʊd 把 s 搬走，正解 ðɪs·kʊd 兩字不連讀）。
 25. rules 之間不可互相矛盾：同一組相鄰字只能有一個判定結論。輸出前把 rules 通讀一遍，檢查有沒有兩條在講同一組字卻給出相反結果，有就刪掉錯的那條（實錯：rule 3 說「don't 的 t 接子音 r，失去爆破」、rule 4 又說「don't 與 retire 形成連讀」——t＋r 是子音＋子音，依規則 24 不是連讀，rule 3 對、rule 4 該刪）。`
 const LINK_VERIFY_BODY = `逐條檢查以下十五類錯誤（每類都有真實誤判前例）：\nA. 幻覺母音：ipa/chunks 裡每個母音必須來自原句某字的字典發音。逐音節問「這個母音是哪個字的」，答不出＝幻覺（前例：promise you 被寫成 prɑ·mɪ·saɪ·ju，aɪ 無中生有，正解 prɑ·mɪ·sju）。\nB. 彈舌 ɾ 只准來自 /t/ 或 /d/：s/z/n/l 被標彈舌＝錯（s+母音是普通連讀滑移）。\nC. 彈舌路徑判定（**逐個 ɾ 前置檢查**）：對 ipa 裡每一個 ɾ，先寫出「它來自哪個 t/d，該 t/d 後面緊接的第一個音是什麼，那個音是母音還是子音」。t 接母音＝彈舌 ɾ；t 接子音＝失爆 t̚。判定對象是**下一個字的第一個音**，不是那個字裡其他母音——高頻實錯：might take（後接 t）、bit to（後接 t）、out what（後接 w，不是 what 的 ə）三例全被誤標彈舌。t+子音標成彈舌＝錯；t+母音標成失爆＝錯（前例：just in 該是 dʒʌ·sɾɪn）。\nD. 連讀起點的子音正常發音，絕不標 <si> 刪除線（前例：see why 的 s 被標不發音，錯；s 完整發出滑向 why）。\nE. 漏重組（強制逐組清點，不可抽樣）：先把原句相鄰字兩兩掃過一遍，列出全部「前字子音尾＋後字母音頭」的配對清單（例如 place I、guess I、might even、years of），一組都不能略。接著逐組對照 ipa：該組是否真的做了音節重切？只要有任何一組沒重切就是錯——不是「大部分重組了就算過」。前例一：bʌt ɪf aɪ kʊd 各字分開＝錯，正解 bʌ·ɾɪ·faɪ·kʊd。前例二：I love the idea of having a place I can go 裡 the idea of 有重組，但 place I（s＋aɪ）仍寫成 pleɪs aɪ 分開＝仍算錯，正解 pleɪ·saɪ。rules 有講連讀但 ipa 沒重組也＝錯。\nF. 字帳守恆：把 ipa 音節依序讀回來，必須能對回原句「每個字恰好一次」——不可重複（前例：what 的 wa 在 bəwa 和 waɾaɪ 出現兩次）、不可遺漏。對不上帳＝錯。\nG. 規則與 ipa 一致（新增）：逐條讀 rules，每條描述的音變都必須在 ipa 欄位找得到對應痕跡；ipa 找不到＝該條 rule 是幻覺。並反查連讀類型是否成立——連讀只發生在「子音尾＋母音頭」，母音尾＋子音頭（I guess＝aɪ＋g）不構成連讀，寫成「I 的滑音與 guess 的 g 黏合成 gaɪ」＝錯（gaɪ 這個音節在 ipa 裡根本不存在）。\nH. 子音守恆（雙向）：(a) 不可蒸發——原句每個字的字典子音都要在 ipa 找得到下落（保留／搬到後字／明確標失爆或脫落），無聲消失＝錯（前例：figure out 寫成 fɪɡ·ə·aʊt，j 與 r 憑空不見，正解 fɪ·ɡjə·raʊt）。(b) 不可憑空生出——ipa 每個子音都要答得出來自原句哪個字（前例：grandson 寫成 græn·ɾ·sʌn，那個 ɾ 原句沒有）。\nI. rules 溯源（雙向）：逐條檢查每條 rule——提到的字必須真的在原句、提到的音必須真的在該字的字典發音裡、描述的音變必須在 ipa 找得到。三者缺一＝該條是幻覺，須刪除或改寫（前例：「been：n 滑向 a，with schwa 弱讀」原句無 with；「Also 字尾 z 與 I 連讀」also 字尾是 oʊ 無 z；「company 的 pany 連讀 aːn 滑向 a」company 無 aːn，且單字內部不叫連讀）。同時檢查術語自洽：「接子音 X」的 X 必須是子音，「在母音 Y 前」的 Y 必須是母音（前例：「k 接子音 ə」——ə 是母音）。\nJ. ipa 主行與 chunks 一致：同一段文字在主行與 chunks 的音標必須相同，對不上＝錯（前例：主行 tu·sɪ·bɪ、chunks ə·juː·ɛ·sɪ·bi）。並檢查 listen 欄位不得誤導切分（前例：「grandson 從 ran 音開始」——開頭是 gr）。\nK. 滑音與連讀不可混淆：母音尾＋母音頭＝滑音，ipa 必須寫出擠出的 w 或 j（Also I→ɔːl·soʊ·waɪ）；子音尾＋母音頭才是連讀；母音尾＋子音頭兩者皆非。標錯類別或漏掉 w/j＝錯。\nL. 連讀方向：連讀只能「前字尾子音→後字開頭」。rules 描述的主語必須是前面那個字，寫成後字的音往前滑＝錯（前例：「could 字尾 d 滑向 this 的 ð」，但 this 在 could 前面）。並檢查該組是否真的是「子音尾＋母音頭」——子音尾＋子音頭不是連讀，不可把前字子音搬到後字（前例：this could 是 s＋k，寫成 ðɪ·skʊd 錯，正解 ðɪs·kʊd）。\nM. rhythm 覆蓋守恆：把 rhythm 陣列所有 en 依序接起來，必須剛好等於原句每個字一次（不重複、不遺漏、順序相同，標點可省）。對不上＝錯。且 rhythm 的 ipa 必須寫成連續一串，不可有 · 切點或角括號標籤。\nN. rules 交叉一致：通讀 rules，同一組相鄰字不可有兩條給出相反判定（前例：rule 3 說 dont 的 t 接子音 r 失爆、rule 4 又說 dont 與 retire 連讀，互相矛盾，依「子音＋子音不是連讀」應保留失爆那條）。\nO. 詞性判定：檢查被標 <wk> 或被描述為「弱讀」的字是否真的是功能詞。實詞（主要動詞/名詞/形容詞/副詞）被說成弱讀＝錯，包括用「其實是某種功能詞」來合理化的情形（前例：read 被說成「過去式助動詞」而弱讀成 schwa，但 read 是主要動詞，且 ipa 寫的是 rɛd 不是 rəd）。\n\n⚠ 輸出方式（務必照做）：不要只在心裡判斷——**必須逐項寫出檢核結果**，漏寫任何一項視同未檢查。先輸出 check 物件，A 到 O 每一項都要有值：通過寫 "ok"，不通過寫一句話說明哪裡錯。\n格式：\n{"check":{"A":"ok","B":"ok","C":"ok","D":"ok","E":"ok","F":"ok","G":"ok","H":"ok","I":"fail: rule5 說「k 接子音 i」，但 i 是母音","J":"fail: 主行 sta·pɪ 與 chunks stɑ·p̚ 不符","K":"ok","L":"ok","M":"ok","N":"fail: rule5 說失爆、rule6 說連讀，同一組矛盾","O":"ok"},\n "ok":false,\n "enMarked":"…","ipa":"…","rules":[…],"chunks":[…],"rhythm":[…],"listen":"…"}\n\n· 十五項全為 "ok" → "ok" 設 true，其餘欄位可省略。\n· 任一項 fail → "ok" 設 false，並附上修正後的**完整** JSON（enMarked/ipa/rules/chunks/rhythm/listen 六欄齊全，只改錯的部分，標籤語法照舊：<wk><lk><si><ch><gl><nw>）。\n· check 裡的 fail 說明必須與你實際做的修正一致。`
+// ── v6.83: 單字連音校驗 prompt（原本 inline 在 verifyLinkWord 裡，第三份埋在函式中的語音學規則）──
+// 抽到模組層的兩個理由：(1) 可版本化追蹤 (2) 與上面 25 條規則並列，改規則時看得到它、不會漂移。
+// 佔位符 {{WORD}} / {{LIST}} 在呼叫端替換——保持字串靜態，hash 才穩定。
+const LINK_VERIFY_WORD_BODY = `以下是「{{WORD}}」這個字在各句的連音片段。請幫每一個標出「自然語速真實口語」的實際發音音標（不是字典逐字音標，是連讀後黏在一起的實際樣子）。
+
+{{LIST}}
+
+規則與注意：
+- 這些片段裡的「{{WORD}}」是觀察重點：若它在該片段**確實**被弱讀/連讀，就呈現它「怎麼被前後字黏掉、失去獨立聲音」。
+- ⚠ 但「{{WORD}}」**不必然弱讀**。若它在該片段是重讀或完整發音，就照實標出完整形——絕不可為了配合本題的提問方式而硬掰出一個弱讀形。判斷依據是該片段的實際語境與詞性，不是這段提示的框架（實錯：my 被硬標成 mi，但 my 是限定詞，在 my house 這類片段唸完整的 maɪ）。
+- 代名詞 I 唸 /aɪ/、he=hi、she=ʃi；my=maɪ（限定詞，一般不弱讀）；the=ðə、a=ə、of=əv/ə、was=wəz、are=ər、to=tə、and=ən。
+- that 看用法：指示代名詞/句首重讀（That's mine、How that）=ðæt；連接詞/關係詞（know that、thought that 的 that 子句）弱讀=ðət。依片語判斷，不要一律 ðæt。
+- 弱讀後「母音絕不消失」：could=kəd、can=kən、have=əv/həv——弱讀是塌成 schwa，不是整個母音不見（kd 這種無母音的組合是錯的，發不出來）。
+- 母音與母音之間的 t 一律標彈舌 ɾ（美式）：that is→ðæɾɪz、get up→ɡeɾʌp。不要標成清楚的 t——那是字典音，不是口語。
+- 短母音不加長音符 ː：træk 不是 træːk；只有 iː/uː/ɑː/ɔː/ɜː 這類真正的長母音才用 ː。
+- 連音重點：字界模糊、子音滑到後字（years of→jɪrzəv）、失去爆破、彈舌（flap T）。
+- 每個字都要標對，不管常不常見（boy was、night was 也要對）。用 IPA，精簡。不要 markdown、不要多餘文字。
+
+只回傳 JSON 陣列，順序對應上面編號，每項：
+[{"text":"<原文片語，原樣照抄>","ipa":"<真實連讀音標>","note":"<8字內：聽的時候該抓什麼線索。純文字，禁止 <wk> <lk> 等任何角括號標籤>"}]`
 function strHash(x) { let h = 5381; for (let i = 0; i < x.length; i++) h = ((h << 5) + h + x.charCodeAt(i)) | 0; return (h >>> 0).toString(36) }
 const LINK_PV = strHash(LINK_PROMPT_BODY + '|' + LINK_VERIFY_BODY)
+// v6.83: 單字校驗走**獨立世代**，刻意不併入 LINK_PV——
+// 這份 prompt 只影響 fsi:link:verified，與主解析 p.link 無關。若折進 LINK_PV，
+// 改一句校驗提示就會讓全部句子的主解析被判為舊世代 → 觸發不必要的全量重跑（花錢）。
+// 此值目前只「蓋章記錄」在校驗結果上，不強制重校；日後要追世代品質時才有依據。
+const LINK_VW_PV = strHash(LINK_VERIFY_WORD_BODY)
 // v6.68: AI JSON 容錯解析——很多「解析失敗」只是 AI 在 JSON 前後多講了話；抽出 {...} 主體再試一次
 function parseAIJson(raw) {
   const t = String(raw).replace(/```json|```/g, '').trim()
@@ -7481,7 +7506,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.82</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.84</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14094,7 +14119,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.82）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.84）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -14344,11 +14369,18 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   }, [blindJumpSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── ⏰ 回報「今天該複習幾句」給 Header 顯示紅點（到期了不會主動提醒 = 斷點）──
+  // v6.84: 補上兩個過濾器，與聽力庫面板的 duePending 對齊——
+  //   (a) !p.noBlind：v6.59 加排除功能時只補了面板，徽章漏掉，被 🚫 的句子仍在數字裡
+  //   (b) retestedToday：今天已重測完的不該再催
+  // 刻意保留「跨片統計」（db.movies 不篩 movieId）：紅點的用途就是提醒你另一部片積了多少，
+  // 改成只算本片會讓沒在看的那片一路沉下去。面板則標「本片」並另列其他片數量。
   useEffect(() => {
     if (!onListenDue) return
     const today = getTodayStr()
+    const retested = p => p.dict?.last?.d === today && p.dict?.first?.d !== today
     const all = uniqById((db.movies ?? []).flatMap(m => (m.scenes ?? []).flatMap(s => s.phrases ?? [])))
-    const due = all.filter(p => p.dict?.lib && !p.dict.grad && (!p.dict.next || p.dict.next <= today))
+    const due = all.filter(p => p.dict?.lib && !p.dict.grad && !p.noBlind
+      && (!p.dict.next || p.dict.next <= today) && !retested(p))
     onListenDue(due.length)
   }, [db, onListenDue])
 
@@ -15949,8 +15981,21 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
 
   // ── ▶ 連播佇列（v6.00）：把「6句連著聽」真的做出來 ──
   // 之前這只是說法，程式沒有連播 —— 你得一句一句手動點。現在是真的了。
-  const [queuePlay, setQueuePlay] = useState(null)   // { ids, idx, mode:'plain'|'three' }
+  const [queuePlay, setQueuePlay] = useState(null)   // { ids, idx, mode:'plain'|'three'|'shadow', gap:bool }
   const queueRef = useRef(null)
+  // v6.84: 🗣 跟讀連播的留白秒數。3 秒是起點，長句不夠用，所以實際留白取
+  //   max(這個設定, 原音長度 + 400ms)——保證你至少有跟完一次的時間。
+  const [shadowGap, setShadowGap] = useState(() => {
+    const n = parseInt(localStorage.getItem('fsi:shadowGap') ?? '3', 10)
+    return Number.isFinite(n) && n >= 2 && n <= 8 ? n : 3
+  })
+  function cycleShadowGap() {
+    setShadowGap(v => {
+      const next = v >= 8 ? 2 : v + 1
+      try { localStorage.setItem('fsi:shadowGap', String(next)) } catch {}
+      return next
+    })
+  }
   function stopQueue() {
     queueRef.current = null
     setQueuePlay(null)
@@ -15986,7 +16031,22 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
           : Math.max(2000, String(p.en ?? '').split(' ').length * 450)
         const durMs = rawMs / (playRate || 1)          // ⚠ 除以語速
         speakPhrase(p.id, p.en, playRate, p)
-        setTimeout(() => { if (queueRef.current === token) step(i + 1) }, durMs + 1200)
+        if (mode === 'shadow') {
+          // v6.84: 播完 → 進留白段（gap:true 讓卡片顯示「🗣 換你唸」）→ 下一句。
+          // 留白至少和原音一樣長，否則長句根本跟不完就被下一句蓋掉。
+          setTimeout(() => {
+            if (queueRef.current !== token) return
+            setQueuePlay(q => q ? { ...q, gap: true } : q)
+            const gapMs = Math.max(shadowGap * 1000, durMs + 400)
+            setTimeout(() => {
+              if (queueRef.current !== token) return
+              setQueuePlay(q => q ? { ...q, gap: false } : q)
+              step(i + 1)
+            }, gapMs)
+          }, durMs + 250)
+        } else {
+          setTimeout(() => { if (queueRef.current === token) step(i + 1) }, durMs + 1200)
+        }
       }
     }
   }
@@ -16496,22 +16556,8 @@ Return ONLY a JSON object, no markdown:
     try {
       const sys = '你是英語連音（connected speech）教練，專門幫台灣學習者標「真實口語音標」。一律繁體中文。'
       const list = pending.map((x, i) => `${i+1}. "${x.text}"`).join('\n')
-      const usr = `以下是「${word}」這個功能詞在各句的連音片段。請幫每一個標出「自然語速真實口語」的實際發音音標（不是字典逐字音標，是連讀後黏在一起的實際樣子）。
-
-${list}
-
-規則與注意：
-- 這些片段裡的「${word}」是被弱讀/連讀的重點，一定要呈現它「怎麼被前後字黏掉、失去獨立聲音」。
-- 代名詞 I 唸 /aɪ/、he=hi、she=ʃi；the=ðə、a=ə、of=əv/ə、was=wəz、are=ər、to=tə、and=ən。
-- that 看用法：指示代名詞/句首重讀（That's mine、How that）=ðæt；連接詞/關係詞（know that、thought that 的 that 子句）弱讀=ðət。依片語判斷，不要一律 ðæt。
-- 弱讀後「母音絕不消失」：could=kəd、can=kən、have=əv/həv——弱讀是塌成 schwa，不是整個母音不見（kd 這種無母音的組合是錯的，發不出來）。
-- 母音與母音之間的 t 一律標彈舌 ɾ（美式）：that is→ðæɾɪz、get up→ɡeɾʌp。不要標成清楚的 t——那是字典音，不是口語。
-- 短母音不加長音符 ː：træk 不是 træːk；只有 iː/uː/ɑː/ɔː/ɜː 這類真正的長母音才用 ː。
-- 連音重點：字界模糊、子音滑到後字（years of→jɪrzəv）、失去爆破、彈舌（flap T）。
-- 每個字都要標對，不管常不常見（boy was、night was 也要對）。用 IPA，精簡。不要 markdown、不要多餘文字。
-
-只回傳 JSON 陣列，順序對應上面編號，每項：
-[{"text":"<原文片語，原樣照抄>","ipa":"<真實連讀音標>","note":"<8字內：聽的時候該抓什麼線索。純文字，禁止 <wk> <lk> 等任何角括號標籤>"}]`
+      // v6.83: prompt 本體已移至模組層 LINK_VERIFY_WORD_BODY，這裡只做佔位符替換
+      const usr = LINK_VERIFY_WORD_BODY.split('{{WORD}}').join(word).split('{{LIST}}').join(list)
       const raw = await callAI([{ role:'user', content: usr }], sys)
       const arr = parseAIJson(raw)
       if (!Array.isArray(arr)) throw new Error('AI 回傳格式不對')
@@ -16522,7 +16568,7 @@ ${list}
         // 用原文片語比對回哪個 pending（AI 可能微調大小寫，寬鬆比對）
         const match = pending.find(x => x.text.toLowerCase().trim() === String(item.text).toLowerCase().trim())
         const text = match ? match.text : item.text
-        map[linkKey(word, text)] = { ipa: String(item.ipa), note: stripMark(item.note ?? ''), verifiedAt: getTodayStr(), verifiedAtMs: Date.now() }   // v6.42: 毫秒戳供跨裝置合併比新舊；v6.45: note 剝標記
+        map[linkKey(word, text)] = { ipa: String(item.ipa), note: stripMark(item.note ?? ''), verifiedAt: getTodayStr(), verifiedAtMs: Date.now(), vpv: LINK_VW_PV }   // v6.42: 毫秒戳供跨裝置合併比新舊；v6.45: note 剝標記；v6.83: vpv＝校驗 prompt 世代（記錄用，不自動重校）
         n++
       })
       saveLinkVerify(map)
@@ -25404,7 +25450,7 @@ Steven 不是在收藏電影台詞。
                       background:T.amberD, color:T.amber, border:`1px solid ${T.amber}60` }}>
                     🎯 進入「{topWord.w}」關卡 · 漏掉率 {topWord.rate}%（{topWord.miss}/{topWord.enc}）
                     <div style={{ fontSize:8, color:T.txt3, fontWeight:400, marginTop:2 }}>
-                      {topWordSents} 句連著聽
+                      {topWordSents} 句連著聽 · 🗣 可跟讀連播
                     </div>
                   </div>
                 )}
@@ -25589,6 +25635,13 @@ Steven 不是在收藏電影台詞。
           ]
           const dueDone = [...lib.filter(retestedToday), ...grad.filter(retestedToday)].filter(p => p.id !== lastRetestId)
           const due = [...duePending, ...dueDone]
+          // v6.84: 其他影片還有幾句到期——Header 徽章是跨片統計，本面板只算本片。
+          // 兩個數字對不上時會以為壞了（實例：徽章 36、面板 1），這行把差額講清楚。
+          // 過濾條件與徽章完全一致，否則又是一組對不起來的數字。
+          const otherDue = uniqById((db.movies ?? []).filter(m => m.id !== movieId)
+            .flatMap(m => (m.scenes ?? []).flatMap(s => s.phrases ?? [])))
+            .filter(p => p.dict?.lib && !p.dict.grad && !p.noBlind
+              && (!p.dict.next || p.dict.next <= today) && !retestedToday(p)).length
           // 依「漏掉率」分群：出現越頻繁的字一定漏越多次，用次數排會被 the/i/and 洗版
           // ⚠ 一定要濾掉 noBlind：不然排除掉的句子還是會出現在弱點關卡
           const dictated = all.filter(p => p.dict?.first && !p.noBlind)
@@ -25630,6 +25683,14 @@ Steven 不是在收藏電影台詞。
                 </span>
                 <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>本片</span>
               </div>
+              {/* v6.84: Header 徽章是跨片總數，這裡只算本片——差額寫出來，不然會以為數字壞了 */}
+              {otherDue > 0 && (
+                <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6,
+                  background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:7, padding:'6px 9px' }}>
+                  📺 其他影片還有 <b style={{ color:T.amber }}>{otherDue}</b> 句到期
+                  <span style={{ opacity:0.75 }}>（上方 🎯 聽力庫紅點是跨片總數，本面板只算本片）</span>
+                </div>
+              )}
 
               <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
                 <div onClick={() => setRulesOpen(v => !v)}
@@ -26010,7 +26071,9 @@ Steven 不是在收藏電影台詞。
                     <div style={{ display:'flex', flexDirection:'column', gap:6, marginTop:2 }}>
                       <div style={{ fontFamily:MONO, fontSize:10, color:'#38bdf8', fontWeight:700 }}>
                         「{libWord}」關卡 · {shown.length} 句
-                        {queuePlay && <span style={{ color:T.amber }}>　▶ 連播中 {queuePlay.idx + 1}/{queuePlay.ids.length}</span>}
+                        {queuePlay && (queuePlay.gap
+                          ? <span style={{ color:'#4ade80' }}>　🗣 換你唸 {queuePlay.idx + 1}/{queuePlay.ids.length}</span>
+                          : <span style={{ color:T.amber }}>　▶ 連播中 {queuePlay.idx + 1}/{queuePlay.ids.length}</span>)}
                       </div>
                       <div style={{ display:'flex', gap:6 }}>
                         <div onClick={() => startQueue(shown, 'plain')}
@@ -26028,6 +26091,30 @@ Steven 不是在收藏電影台詞。
                             color: queuePlay?.mode === 'three' ? '#1a1207' : T.amber,
                             border:`1px solid ${T.amber}60` }}>
                           {queuePlay?.mode === 'three' ? '⏹ 停止' : '🔁 三步驟連播'}
+                        </div>
+                      </div>
+                      {/* v6.84: 🗣 跟讀連播——播一句、留白讓你跟唸、再播下一句，不用手動點。
+                          定位：Sarah 8/23 回美國到 12 月初，這段期間拿電影原音當節拍器，
+                          至少讓「開口」不中斷。⚠ 它只給你開口的空檔，沒有人聽、沒有回饋。 */}
+                      <div style={{ display:'flex', gap:6 }}>
+                        <div onClick={() => startQueue(shown, 'shadow')}
+                          style={{ cursor:'pointer', userSelect:'none', WebkitUserSelect:'none', touchAction:'manipulation',
+                            flex:1, textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
+                            padding:'9px 0', borderRadius:8,
+                            background: queuePlay?.mode === 'shadow' ? '#4ade80' : '#0d2417',
+                            color: queuePlay?.mode === 'shadow' ? '#062012' : '#4ade80',
+                            border:'1px solid #4ade8060' }}>
+                          {queuePlay?.mode === 'shadow'
+                            ? `⏹ 停止（${queuePlay.idx + 1}/${queuePlay.ids.length}）`
+                            : `🗣 跟讀連播 ${shown.length} 句`}
+                        </div>
+                        <div onClick={cycleShadowGap}
+                          title="每句播完的留白秒數（實際留白不會短於原音長度）"
+                          style={{ cursor:'pointer', userSelect:'none', WebkitUserSelect:'none', touchAction:'manipulation',
+                            flexShrink:0, textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
+                            padding:'9px 12px', borderRadius:8,
+                            background:T.surf2, color:T.txt2, border:`1px solid ${T.bdr}` }}>
+                          留白 {shadowGap}s
                         </div>
                       </div>
                       <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
@@ -26141,8 +26228,11 @@ Steven 不是在收藏電影台詞。
                     borderRadius:10, padding:'11px 12px', display:'flex', flexDirection:'column', gap:7,
                     minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
                     {isQueueCur && (
-                      <div style={{ fontFamily:MONO, fontSize:9, color:'#38bdf8', fontWeight:700 }}>
-                        ▶ 播放中 {queuePlay.idx + 1}/{queuePlay.ids.length}
+                      <div style={{ fontFamily:MONO, fontSize:9, fontWeight:700,
+                        color: queuePlay.gap ? '#4ade80' : '#38bdf8' }}>
+                        {queuePlay.gap
+                          ? `🗣 換你唸 ${queuePlay.idx + 1}/${queuePlay.ids.length}`
+                          : `▶ 播放中 ${queuePlay.idx + 1}/${queuePlay.ids.length}`}
                         {queuePlay.mode === 'three' && threeStep?.pid === p.id &&
                           `　${threeStep.step === 1 ? '① 🎬 電影' : threeStep.step === 2 ? '② 🔊 系統' : '③ 🎬 回聽'}`}
                       </div>
