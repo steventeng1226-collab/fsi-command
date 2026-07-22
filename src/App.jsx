@@ -7481,7 +7481,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.80</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.81</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14094,7 +14094,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.80）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.81）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -14841,6 +14841,89 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   //   回報只需你判斷「聽起來怪」，不必分辨錯誤類型（分類交給後續人工分析）。
   // v6.80: 重點句 chunk 背誦盒——A 全部顯示 / B 逐塊揭開。
   //   沒解析過就只顯示一顆 🎬 連音（點了才跑那一句，避免全庫批次燒額度）。
+  // v6.81: 統一連音卡——根治「雙渲染路徑」家族。collapsible 版供知識庫/場景頁用。
+  const LinkCard = ({ p, collapsible = false, noGenBtn = false }) => {
+    if (!p) return null
+    const busy = linkBusy === p.id
+    const open = collapsible ? !!starLinkOpen[p.id] : true
+    return (
+      <div style={{ display:'flex', flexDirection:'column', gap:7, minWidth:0, maxWidth:'100%' }}>
+        {collapsible && (
+          <div onClick={() => {
+              const valid = p.link && p.link.ipa
+              if (!valid) { analyzeLinking(p); setStarLinkOpen(o => ({ ...o, [p.id]: true })) }
+              else setStarLinkOpen(o => ({ ...o, [p.id]: !o[p.id] }))
+            }}
+            style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation', alignSelf:'flex-start',
+              fontFamily:MONO, fontSize:9, fontWeight:700, padding:'4px 10px', borderRadius:6,
+              background: (busy || open) ? '#a78bfa' : 'transparent',
+              color: (busy || open) ? '#1a1030' : '#a78bfa',
+              border:'1px solid #a78bfa40' }}>
+            {busy ? (linkStage === 'verify' ? '② 校驗中…' : '① 生成中…') : open ? '🎬 收起連音' : '🎬 連音解析'}
+          </div>
+        )}
+        {open && p.link && p.link.ipa && (
+          <div style={{ background:'#1a1030', border:'1px solid #a78bfa40', borderRadius:9,
+            padding:'10px 12px', display:'flex', flexDirection:'column', gap:7,
+            minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
+            {p.link.en && <MarkedIPA text={p.link.en} size={15}/>}
+            <MarkedIPA text={p.link.ipa} size={13}/>
+            <div style={{ display:'flex', gap:8, flexWrap:'wrap', fontFamily:MONO, fontSize:8 }}>
+              <span style={{ color:'#facc15', fontWeight:700 }}>弱讀</span>
+              <span style={{ color:'#38bdf8', borderBottom:'1.5px solid #38bdf8' }}>連讀</span>
+              <span style={{ color:'#4ade80', textDecoration:'line-through' }}>不發音</span>
+              <span style={{ color:'#fb923c', borderBottom:'1.5px dotted #fb923c' }}>音變/彈舌</span>
+              <span style={{ color:'#f87171', fontWeight:700 }}>滑音</span>
+              <span style={{ color:T.txt, fontWeight:700 }}>生單詞</span>
+            </div>
+            {(p.link.rules ?? []).length > 0 && (
+              <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
+                {p.link.rules.map((r, i) => (
+                  <div key={i} style={{ fontFamily:MONO, fontSize:9, color:T.txt2, lineHeight:1.6 }}>
+                    {i + 1}. {stripMark(r)}
+                  </div>
+                ))}
+              </div>
+            )}
+            {(p.link.chunks ?? []).length > 0 && (
+              <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                {p.link.chunks.map((c, i) => (
+                  <span key={i} onClick={() => playChunkSpan(p, c.en)}
+                    style={{ cursor:'pointer', userSelect:'none', WebkitUserSelect:'none',
+                      WebkitTouchCallout:'none', touchAction:'manipulation',
+                      display:'inline-flex', alignItems:'center', gap:5,
+                      background:'#0f0a1f', border:'1px solid #a78bfa30', borderRadius:7,
+                      padding:'5px 9px' }}>
+                    <span style={{ fontSize:12 }}>🔊</span>
+                    <span style={{ fontFamily:MONO, fontSize:11, color:T.txt2 }}>{c.en}</span>
+                    <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>→</span>
+                    <MarkedIPA text={c.ipa} size={13}/>
+                  </span>
+                ))}
+              </div>
+            )}
+            <RhythmRow p={p}/>
+            {p.link.listen && (
+              <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, lineHeight:1.6, fontWeight:700 }}>
+                👉 {stripMark(p.link.listen)}
+              </div>
+            )}
+            <LinkFooter p={p}/>
+          </div>
+        )}
+        {!collapsible && !noGenBtn && !(p.link && p.link.ipa) && (
+          <div onClick={() => analyzeLinking(p)}
+            style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation', alignSelf:'flex-start',
+              fontFamily:MONO, fontSize:10, fontWeight:700, padding:'6px 11px', borderRadius:7,
+              background: busy ? '#a78bfa' : '#1a1030',
+              color: busy ? '#1a1030' : '#a78bfa',
+              border:'1px solid #a78bfa50' }}>
+            {busy ? (linkStage === 'verify' ? '② 校驗中…' : '① 生成中…') : '🎬 連音解析'}
+          </div>
+        )}
+      </div>
+    )
+  }
   const StarChunkBox = ({ p }) => {
     const rh = p.link?.rhythm ?? []
     const busy = linkBusy === p.id
@@ -22569,59 +22652,8 @@ Steven 不是在收藏電影台詞。
                   📝 {p.note}
                 </div>
               ) : null}
-              {/* v6.60: 連音解析（複用聽力庫同款）——預設收起；已有 p.link 直接展開，沒有則現場生成 */}
-              <div onClick={() => {
-                  if (!p.link) { analyzeLinking(p); setStarLinkOpen(o => ({ ...o, [p.id]: true })) }
-                  else setStarLinkOpen(o => ({ ...o, [p.id]: !o[p.id] }))
-                }}
-                style={{ cursor:'pointer', userSelect:'none', alignSelf:'flex-start',
-                  fontFamily:MONO, fontSize:9, fontWeight:700, padding:'4px 10px', borderRadius:6,
-                  background: (linkBusy === p.id || starLinkOpen[p.id]) ? '#a78bfa' : 'transparent',
-                  color: (linkBusy === p.id || starLinkOpen[p.id]) ? '#1a1030' : '#a78bfa',
-                  border:'1px solid #a78bfa40' }}>
-                {linkBusy === p.id ? (linkStage === 'verify' ? '② 校驗中…' : '① 生成中…') : starLinkOpen[p.id] ? '🎬 收起連音' : '🎬 連音解析'}
-              </div>
-              {starLinkOpen[p.id] && p.link && (
-                <div style={{ background:'#1a1030', border:'1px solid #a78bfa40', borderRadius:9,
-                  padding:'10px 12px', display:'flex', flexDirection:'column', gap:7,
-                  minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
-                  {p.link.en && <MarkedIPA text={p.link.en} size={15}/>}
-                  <MarkedIPA text={p.link.ipa} size={13}/>
-                  {(p.link.rules ?? []).length > 0 && (
-                    <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
-                      {p.link.rules.map((r, i) => (
-                        <div key={i} style={{ fontFamily:MONO, fontSize:9, color:T.txt2, lineHeight:1.6 }}>
-                          {i + 1}. {stripMark(r)}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {(p.link.chunks ?? []).length > 0 && (
-                    <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
-                      {p.link.chunks.map((c, i) => (
-                        <span key={i} onClick={e => { e.stopPropagation(); playChunkSpan(p, c.en) }}
-                          style={{ cursor:'pointer', userSelect:'none', WebkitUserSelect:'none',
-                            WebkitTouchCallout:'none', touchAction:'manipulation',
-                            display:'inline-flex', alignItems:'center', gap:5,
-                            background:'#0f0a1f', border:'1px solid #a78bfa30', borderRadius:7,
-                            padding:'5px 9px' }}>
-                          <span style={{ fontSize:12 }}>🔊</span>
-                          <span style={{ fontFamily:MONO, fontSize:11, color:T.txt2 }}>{c.en}</span>
-                          <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>→</span>
-                          <MarkedIPA text={c.ipa} size={13}/>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  <RhythmRow p={p}/>
-                  {p.link.listen && (
-                    <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, lineHeight:1.6, fontWeight:700 }}>
-                      👉 {stripMark(p.link.listen)}
-                    </div>
-                  )}
-                  <LinkFooter p={p}/>
-                </div>
-              )}
+              {/* v6.81: 統一連音卡（可收合）*/}
+              <LinkCard p={p} collapsible/>
               {/* 熟悉度標記 */}
               <div style={{ display:'flex', gap:6, marginTop:2, flexWrap:'wrap',
                 position:'relative', zIndex:2, pointerEvents:'auto' }}
@@ -25285,35 +25317,8 @@ Steven 不是在收藏電影台詞。
                           {(c.missed.length > 0 || (c.misheard?.length ?? 0) > 0) && (
                             <CauseRow pid={cur.id} rate={c.rate}/>
                           )}
-                          {/* 🎬 連音解析：剛聽寫完、記憶最熱的時候，才是看解析的最佳時機 */}
-                          {cur.link ? (
-                            <div style={{ background:'#1a1030', border:'1px solid #a78bfa40', borderRadius:9,
-                              padding:'10px 12px', display:'flex', flexDirection:'column', gap:7,
-                              minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
-                              {cur.link.en && <MarkedIPA text={cur.link.en} size={15}/>}
-                              <MarkedIPA text={cur.link.ipa} size={13}/>
-                              <div style={{ display:'flex', gap:8, flexWrap:'wrap', fontFamily:MONO, fontSize:8 }}>
-                                <span style={{ color:'#facc15', fontWeight:700 }}>弱讀</span>
-                                <span style={{ color:'#38bdf8', borderBottom:'1.5px solid #38bdf8' }}>連讀</span>
-                                <span style={{ color:'#4ade80', textDecoration:'line-through' }}>不發音</span>
-                                <span style={{ color:'#fb923c', borderBottom:'1.5px dotted #fb923c' }}>音變/彈舌</span>
-                                <span style={{ color:'#f87171', fontWeight:700 }}>滑音</span>
-                                <span style={{ color:T.txt, fontWeight:700 }}>生單詞</span>
-                              </div>
-                              {(cur.link.rules ?? []).map((r, i) => (
-                                <div key={i} style={{ fontFamily:MONO, fontSize:9, color:T.txt2, lineHeight:1.6 }}>
-                                  {i + 1}. {stripMark(r)}
-                                </div>
-                              ))}
-                              <RhythmRow p={cur}/>
-                              {cur.link.listen && (
-                                <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, lineHeight:1.6, fontWeight:700 }}>
-                                  👉 {stripMark(cur.link.listen)}
-                                </div>
-                              )}
-                              <LinkFooter p={cur}/>
-                            </div>
-                          ) : null}
+                          {/* v6.81: 統一連音卡（③卡，按鈕在下方另置）*/}
+                          <LinkCard p={cur} noGenBtn/>
 
                           {/* v6.64 按鈕重排：第一行 三步驟｜下一句（大顆主動線），
                               第二行 🎬連音解析｜🚫排除（次要）——之前解析鈕在三步驟正上方，常誤觸 */}
@@ -26187,67 +26192,8 @@ Steven 不是在收藏電影台詞。
                       {isDue && <span style={{ color:T.amber, fontWeight:700 }}> · ⏰ 今天可重測</span>}
                     </div>}
 
-                    {/* 🎬 連音解析：AI 產出帶標記的音標（失去爆破 / 音變 / 連讀）*/}
-                    {!testing && !dueMasked && !tutorMasked && (p.link ? (
-                      <div style={{ background:'#1a1030', border:'1px solid #a78bfa40', borderRadius:9,
-                        padding:'10px 12px', display:'flex', flexDirection:'column', gap:7,
-                        minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
-                        {p.link.en && <MarkedIPA text={p.link.en} size={15}/>}
-                        <MarkedIPA text={p.link.ipa} size={13}/>
-                        <div style={{ display:'flex', gap:8, flexWrap:'wrap', fontFamily:MONO, fontSize:8 }}>
-                          <span style={{ color:'#facc15', fontWeight:700 }}>弱讀</span>
-                          <span style={{ color:'#38bdf8', borderBottom:'1.5px solid #38bdf8' }}>連讀</span>
-                          <span style={{ color:'#4ade80', textDecoration:'line-through' }}>不發音</span>
-                          <span style={{ color:'#fb923c', borderBottom:'1.5px dotted #fb923c' }}>音變/彈舌</span>
-                          <span style={{ color:'#f87171', fontWeight:700 }}>滑音</span>
-                          <span style={{ color:T.txt, fontWeight:700 }}>生單詞</span>
-                        </div>
-                        {(p.link.rules ?? []).length > 0 && (
-                          <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
-                            {p.link.rules.map((r, i) => (
-                              <div key={i} style={{ fontFamily:MONO, fontSize:9, color:T.txt2, lineHeight:1.6 }}>
-                                {i + 1}. {stripMark(r)}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        {(p.link.chunks ?? []).length > 0 && (
-                          <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
-                            {p.link.chunks.map((c, i) => (
-                              <span key={i} onClick={() => playChunkSpan(p, c.en)}
-                                style={{ cursor:'pointer', userSelect:'none', WebkitUserSelect:'none',
-                                  WebkitTouchCallout:'none', touchAction:'manipulation',
-                                  display:'inline-flex', alignItems:'center', gap:5,
-                                  background:'#0f0a1f', border:'1px solid #a78bfa30', borderRadius:7,
-                                  padding:'5px 9px' }}>
-                                <span style={{ fontSize:12 }}>🔊</span>
-                                <span style={{ fontFamily:MONO, fontSize:11, color:T.txt2 }}>{c.en}</span>
-                                <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>→</span>
-                                <MarkedIPA text={c.ipa} size={13}/>
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        <RhythmRow p={p}/>
-                        {p.link.listen && (
-                          <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, lineHeight:1.6, fontWeight:700 }}>
-                            👉 {stripMark(p.link.listen)}
-                          </div>
-                        )}
-                        {/* v6.52: 重新解析——舊資料是用舊 prompt 生的（例如句尾 that 被誤標 ðə·tæ），
-                            用當前 prompt 覆蓋修正。analyzeLinking 本就覆蓋寫入 link。 */}
-                        <LinkFooter p={p}/>
-                      </div>
-                    ) : (
-                      <div onClick={() => analyzeLinking(p)}
-                        style={{ cursor:'pointer', alignSelf:'flex-start', fontFamily:MONO, fontSize:10, fontWeight:700,
-                          padding:'6px 11px', borderRadius:7,
-                          background: linkBusy === p.id ? '#a78bfa' : '#1a1030',
-                          color: linkBusy === p.id ? '#1a1030' : '#a78bfa',
-                          border:'1px solid #a78bfa50' }}>
-                        {linkBusy === p.id ? (linkStage === 'verify' ? '② 校驗中…' : '① 生成中…') : '🎬 連音解析'}
-                      </div>
-                    ))}
+                    {/* v6.81: 統一連音卡 */}
+                    {!testing && !dueMasked && !tutorMasked && <LinkCard p={p}/>}
 
                     {/* 弱點關卡模式：快速連音塊（規則版，免費即時）*/}
                     {/* v6.69: 解析錯誤上卡（聽力庫/弱點關卡卡片） */}
