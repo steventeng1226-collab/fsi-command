@@ -7481,7 +7481,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.81</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.82</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14094,7 +14094,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.81）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.82）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -14866,6 +14866,19 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
           <div style={{ background:'#1a1030', border:'1px solid #a78bfa40', borderRadius:9,
             padding:'10px 12px', display:'flex', flexDirection:'column', gap:7,
             minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
+            {/* v6.82: 原句釘在連音卡頂端——卡片很長，捲到下面會看不到在解析哪一句 */}
+            <div style={{ position:'sticky', top:0, zIndex:3,
+              background:'#1a1030', margin:'-10px -12px 0', padding:'8px 12px 6px',
+              borderBottom:'1px solid #a78bfa25', borderRadius:'9px 9px 0 0' }}>
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.txt, lineHeight:1.5, fontWeight:700 }}>
+                {p.en}
+              </div>
+              {p.zh && (
+                <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.4, marginTop:2 }}>
+                  {p.zh}
+                </div>
+              )}
+            </div>
             {p.link.en && <MarkedIPA text={p.link.en} size={15}/>}
             <MarkedIPA text={p.link.ipa} size={13}/>
             <div style={{ display:'flex', gap:8, flexWrap:'wrap', fontFamily:MONO, fontSize:8 }}>
@@ -21058,6 +21071,9 @@ Steven 不是在收藏電影台詞。
                   fontStyle:'italic', lineHeight:1.7 }}>{p.note}</span>
               </div>
             ) : null}
+
+            {/* v6.82: 場景頁星號句也有連音＋chunk（統一 LinkCard，新增場景自動適用）*/}
+            {p.starred && !blindMode && <LinkCard p={p} collapsible/>}
 
             {/* ── 畫面描述（🎬）顯示區 ── */}
             {editingSceneDescId === p.id ? (
