@@ -7506,7 +7506,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.85</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.86</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14123,7 +14123,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.85）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.86）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -16013,14 +16013,14 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     audioElRef.current?.pause()
     window.speechSynthesis?.cancel()
   }
-  function startQueue(list, mode) {
+  function startQueue(list, mode, tag) {   // v6.86: tag 供呼叫端辨識是哪個來源的連播（如 ✂️靶場 'nosplit'），只作標記用
     if (queuePlay) { stopQueue(); return }
     const items = (list ?? []).filter(p => p && (p.startSecs > 0 || p.endSecs > 0))
     if (items.length === 0) { showMovieToast('⚠ 這些句子沒有時間碼，無法連播'); return }
     if (mode === 'three' && audioMode !== 'original') { showMovieToast('⚠ 三步驟需要 🎬 電影原音'); return }
     const token = {}
     queueRef.current = token
-    setQueuePlay({ ids: items.map(p => p.id), idx: 0, mode })
+    setQueuePlay({ ids: items.map(p => p.id), idx: 0, mode, tag: tag ?? null })
     step(0)
     function step(i) {
       if (queueRef.current !== token) return
@@ -25610,6 +25610,59 @@ Steven 不是在收藏電影台詞。
                      : top[0].k === 'nosplit' ? '主因是「切不開」→ 時間配給連音解析與 chunk 邊界，轟炸效益較低。'
                      : top[0].k === 'nomean'  ? '主因是「認不出字」→ 聲音層已通，補詞彙與語境。'
                      :                          '主因是素材音質 → 考慮 🚫 排除，別把素材難度算成自己的能力。'}
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* v6.86: ✂️ 切不開靶場——把所有標「nosplit」的句子聚成一區連續盲聽。
+                  設計依據：使用者實測「背得出來卻聽不出來」，證明瓶頸是純聲學解碼，不是記憶/詞彙。
+                  nosplit = 聽到一團音但拆不開字 = 解碼失敗的精確定位。跨全片撈（切不開是能力問題，不分影片）。
+                  用途：意思你早就懂，把 100% 注意力放在「聲音本身」，反覆聽同一句、每次多切出一個原本糊掉的音。 */}
+              {(() => {
+                const nosplitIds = Object.entries(dictCause)
+                  .filter(([, v]) => v.cause === 'nosplit')
+                  .map(([id]) => id)
+                if (nosplitIds.length === 0) return null
+                const pool = uniqById((db.movies ?? []).flatMap(m => (m.scenes ?? []).flatMap(s => s.phrases ?? [])))
+                const byId = Object.fromEntries(pool.map(p => [String(p.id), p]))
+                const targets = nosplitIds.map(id => byId[id]).filter(Boolean)
+                const playable = targets.filter(p => p.startSecs > 0 || p.endSecs > 0)
+                if (targets.length === 0) return null
+                const isRunning = queuePlay?.mode === 'plain' && queuePlay?.tag === 'nosplit'
+                return (
+                  <div style={{ display:'flex', flexDirection:'column', gap:8,
+                    background:'#08222e', border:'1px solid #38bdf850', borderRadius:10, padding:'11px 12px' }}>
+                    <div style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:'#38bdf8' }}>
+                      ✂️ 切不開靶場 <span style={{ color:T.txt3, fontWeight:400 }}>· {targets.length} 句</span>
+                      {isRunning && <span style={{ color:T.amber }}>　▶ {queuePlay.idx + 1}/{queuePlay.ids.length}</span>}
+                    </div>
+                    <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.6 }}>
+                      這些是你標「聽到一團音、拆不開字」的句子。意思你懂，專心攻聲音——反覆聽，每次試著多切出一個糊掉的音。
+                    </div>
+                    <div
+                      onClick={() => { if (playable.length === 0) { showMovieToast('⚠ 這些句子沒有時間碼，無法連播'); return } startQueue(playable, 'plain', 'nosplit') }}
+                      style={{ cursor:'pointer', userSelect:'none', WebkitUserSelect:'none', touchAction:'manipulation',
+                        textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700, padding:'10px 0', borderRadius:8,
+                        background: isRunning ? '#38bdf8' : '#0d2a38', color: isRunning ? '#04141c' : '#38bdf8',
+                        border:'1px solid #38bdf860' }}>
+                      {isRunning ? `⏹ 停止（${queuePlay.idx + 1}/${queuePlay.ids.length}）` : `▶ 連續盲聽這 ${playable.length} 句`}
+                    </div>
+                    <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+                      {targets.map(p => {
+                        const cur = isRunning && queuePlay.ids[queuePlay.idx] === p.id
+                        return (
+                          <div key={p.id}
+                            onClick={() => speakPhrase(p.id, p.en, playRate, p)}
+                            style={{ cursor:'pointer', userSelect:'none', WebkitUserSelect:'none', touchAction:'manipulation',
+                              display:'flex', alignItems:'center', gap:8, padding:'8px 10px', borderRadius:8,
+                              background: cur ? '#0d2a38' : T.surf2, border:`1px solid ${cur ? '#38bdf8' : T.bdr}` }}>
+                            <span style={{ fontSize:12, flexShrink:0 }}>{cur ? '🔊' : '🔈'}</span>
+                            <span style={{ fontFamily:MONO, fontSize:10, color:T.txt2, lineHeight:1.4,
+                              overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.en}</span>
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
                 )
