@@ -7506,7 +7506,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.84</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.85</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -9726,7 +9726,8 @@ function VocabTab({ vocab, updateVocab, updateStats, awardBadge }) {
       style={{ flex:1, textAlign:'center', padding:'5px 0', borderRadius:7, cursor:'pointer', fontFamily:MONO, fontSize:9, letterSpacing:'0.06em',
         background: diffFilter===id ? (id==='all'?T.surf2 : DIFF[id]?.bg ?? T.surf2) : 'transparent',
         color: diffFilter===id ? (id==='all'?T.amber : DIFF[id]?.color ?? T.amber) : '#9aa5b0',
-        border: `1px solid ${diffFilter===id ? (id==='all'?T.amber+'50' : DIFF[id]?.color+'50' ?? T.amber) : T.bdr}`,
+        // v6.85: 下行原為 `DIFF[id]?.color+'50' ?? T.amber`——+ 早於 ??，undefined+'50'='undefined50' 永非 null，fallback 從不觸發。比照上一行 color 的寫法，把 ?? 收進括號、+50 移到最外面
+        border: `1px solid ${diffFilter===id ? (id==='all'?T.amber+'50' : (DIFF[id]?.color ?? T.amber)+'50') : T.bdr}`,
         transition:'all 0.14s' }}>
       {label}
     </div>
@@ -13525,8 +13526,11 @@ function addDaysStr(dateStr, days) {
   return toLocalDateStr(d)
 }
 function getYesterdayStr() {
+  // v6.85: 原本用 toISOString().slice(0,10)——與 v6.40 全面禁用 toISOString 的理由同病：
+  // 越南 UTC+7，早上 07:00 前這行會回傳「前兩天」。而本函式的使用者（昨日回聽挑選/回饋，
+  // L23467/23522/23531）正好在 6:30 訓練時段觸發 → 清晨練到的是前天資料、回饋也記錯天。
   const d = new Date(); d.setDate(d.getDate() - 1)
-  return d.toISOString().slice(0,10)
+  return toLocalDateStr(d)
 }
 
 // 寫入某組的練習日期，只保留最近 5 筆，避免無限累積
@@ -14119,7 +14123,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.84）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.85）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -14705,7 +14709,12 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
         try { hasPending = localStorage.getItem(PENDING_PUSH_KEY) === '1' } catch(e) {}
         if (hasPending) { await autoPush(db) }
 
-        const r    = await fetch(APPS_SCRIPT_URL)
+        // v6.85: 加 30 秒超時保護——原本此處裸 fetch 無 signal，GAS 卡住時 autoSyncStatus 會永遠停在 'syncing'（其他 5 處 GAS 呼叫都有 AbortController，只這條自動同步漏掉）
+        const asCtrl = new AbortController()
+        const asT = setTimeout(() => asCtrl.abort(), 30000)
+        let r
+        try { r = await fetch(APPS_SCRIPT_URL, { signal: asCtrl.signal }) }
+        finally { clearTimeout(asT) }
         const json = await r.json()
         if (!json.ok || !json.movieDB) { setAutoSyncStatus('idle'); return }
         const sheetsDb       = json.movieDB
@@ -25070,7 +25079,7 @@ Steven 不是在收藏電影台詞。
           const today = getTodayStr()
           const yest  = addDaysStr(today, -1)
           const all   = uniqById((movie?.scenes ?? []).flatMap(s => s.phrases ?? []))
-          const lib   = all.filter(p => p.dict?.lib && !p.dict.grad)
+          const lib   = all.filter(p => p.dict?.lib && !p.dict.grad && !p.noBlind)   // v6.85: 補 !noBlind——本行是「今日盲聽①重測佇列」，原本漏濾，被 🚫 排除的句子仍會排進重測（noBlind 家族第三條漏網，v6.59修面板/v6.84修徽章都沒掃到）
           const due   = lib.filter(p => !p.dict.next || p.dict.next <= today)
           // ② 昨天練過的句子 → 依「抓字率最低」排序，最該回聽的優先（不是場景順序）
           const yPhrases = all
