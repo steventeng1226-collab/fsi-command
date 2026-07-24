@@ -7506,7 +7506,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.86</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.87</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14123,7 +14123,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.86）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.87）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -14225,6 +14225,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   // 🌅 今日盲聽（v5.86）：一鍵跑完，零決策
   const [trainOpen,  setTrainOpen]  = useState(false)
   const [trainN,     setTrainN]     = useState(null)   // 本次要練幾句（每次自己選）
+  const [debtOverride, setDebtOverride] = useState(false)   // v6.87: 債務閘門的例外開關。刻意不存 localStorage——例外是單次的，重開 App 就恢復鎖定，不讓例外變常態
   const [trainIdx,   setTrainIdx]   = useState(0)      // 目前練到第幾句
   const [trainQueue, setTrainQueue] = useState([])     // 本次抽出的句子 id
   const [streak,     setStreak]     = useState(() => getStreak())
@@ -15998,6 +15999,8 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     const n = parseInt(localStorage.getItem('fsi:shadowGap') ?? '3', 10)
     return Number.isFinite(n) && n >= 2 && n <= 8 ? n : 3
   })
+  const shadowGapRef = useRef(shadowGap)   // v6.87: startQueue 的巢狀 timeout 捕捉的是啟動當下的 shadowGap（stale closure），連播中調整不生效。改讀 ref，當下輪立即吃到新值
+  useEffect(() => { shadowGapRef.current = shadowGap }, [shadowGap])
   function cycleShadowGap() {
     setShadowGap(v => {
       const next = v >= 8 ? 2 : v + 1
@@ -16046,7 +16049,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
           setTimeout(() => {
             if (queueRef.current !== token) return
             setQueuePlay(q => q ? { ...q, gap: true } : q)
-            const gapMs = Math.max(shadowGap * 1000, durMs + 400)
+            const gapMs = Math.max(shadowGapRef.current * 1000, durMs + 400)   // v6.87: 改讀 ref，連播中調整留白立即生效
             setTimeout(() => {
               if (queueRef.current !== token) return
               setQueuePlay(q => q ? { ...q, gap: false } : q)
@@ -25243,6 +25246,29 @@ Steven 不是在收藏電影台詞。
                 </div>
 
                 {trainN == null ? (
+                  // v6.87: 債務閘門——使用者自訂紀律「重測債積壓 5 句以上就停加新句」原本只寫在訓練守則裡，
+                  // App 沒有執法，結果債堆到 58 句（55 句上限的 11 倍）。把規則變成機制：債 > 5 鎖新句，
+                  // 給「去還債」捷徑；留 confirm 例外出口（硬鎖沒出口會逼人繞過工具，confirm 讓例外有意識）。
+                  due.length > 5 && !debtOverride ? (
+                    <>
+                      <div style={{ background:'#2a1a0d', border:'1px solid #f5a62350', borderRadius:8, padding:'10px 12px',
+                        fontFamily:MONO, fontSize:9, color:T.amber, lineHeight:1.7 }}>
+                        ⏰ 重測債 <b>{due.length} 句</b>（紀律上限 5 句）— 先還債，再開新句。<br/>
+                        <span style={{ color:T.txt3 }}>加新句的成就感 ≠ 練習。積壓的重測才是間隔複習的本體，債不還，第 14 天二測（你的方向裁判）就失準。</span>
+                      </div>
+                      <div onClick={() => scrollToTop(stepRefs[0].current)}
+                        style={{ cursor:'pointer', userSelect:'none', WebkitUserSelect:'none', touchAction:'manipulation',
+                          textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700, padding:'10px 0', borderRadius:8,
+                          background:'#0d2a3a', color:'#38bdf8', border:'1px solid #38bdf850' }}>
+                        ⏰ 去還債（跳到 ① 重測）
+                      </div>
+                      <div onClick={() => { if (window.confirm(`重測債還有 ${due.length} 句。確定今天例外、仍要開新句？\n（例外會讓債越滾越大，二測數據也會被積壓污染）`)) setDebtOverride(true) }}
+                        style={{ cursor:'pointer', userSelect:'none', WebkitUserSelect:'none', touchAction:'manipulation',
+                          textAlign:'center', fontFamily:MONO, fontSize:8, color:T.txt3, padding:'4px 0' }}>
+                        今天例外，仍要開新句
+                      </div>
+                    </>
+                  ) : (
                   <>
                     <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
                       依場景順序自動抽「從未聽寫過」的句子。今天要練幾句？
@@ -25258,6 +25284,7 @@ Steven 不是在收藏電影台詞。
                       ))}
                     </div>
                   </>
+                  )
                 ) : doneStep1 ? (
                   <div style={{ fontFamily:MONO, fontSize:9, color:T.grn, lineHeight:1.6 }}>
                     今天的診斷做完了。資料已落袋。
@@ -25626,7 +25653,7 @@ Steven 不是在收藏電影台詞。
                 if (nosplitIds.length === 0) return null
                 const pool = uniqById((db.movies ?? []).flatMap(m => (m.scenes ?? []).flatMap(s => s.phrases ?? [])))
                 const byId = Object.fromEntries(pool.map(p => [String(p.id), p]))
-                const targets = nosplitIds.map(id => byId[id]).filter(Boolean)
+                const targets = nosplitIds.map(id => byId[id]).filter(p => p && !p.noBlind)   // v6.87: 補 !noBlind——標✂️後又被🚫排除的句子（音質差/無學習價值）不該進靶場磨，noBlind 家族第四條漏網路徑
                 const playable = targets.filter(p => p.startSecs > 0 || p.endSecs > 0)
                 if (targets.length === 0) return null
                 const isRunning = queuePlay?.mode === 'plain' && queuePlay?.tag === 'nosplit'
