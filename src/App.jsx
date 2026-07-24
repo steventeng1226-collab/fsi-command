@@ -7496,6 +7496,19 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
       {n}
     </span>
   )
+  // v6.88: 量測 Header 實際高度 → CSS 變數 --hdrH。
+  // 背景：v6.82 的 sticky 原句 top:0 被 sticky Header（zIndex:10）整個蓋住＝功能形同失效
+  // （v6.72 的 scrollToTop 早就為同一件事扣 Header 高度，v6.82 沒套同一課）。
+  // 用 ResizeObserver 而非 resize 事件：徽章數字出現/消失也會改變 Header 高度。
+  useEffect(() => {
+    const el = document.getElementById('app-sticky-header')
+    if (!el) return
+    const set = () => document.documentElement.style.setProperty('--hdrH', el.getBoundingClientRect().height + 'px')
+    set()
+    const ro = new ResizeObserver(set)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
   return (
     <header id="app-sticky-header" style={{ background:T.surf, borderBottom:`1px solid ${T.bdr}`, padding:'10px 14px',
       display:'flex', alignItems:'flex-start', gap:9, position:'sticky', top:0, zIndex:10,
@@ -7506,7 +7519,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.87</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.89</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14123,7 +14136,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.87）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.89）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -14908,8 +14921,9 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
           <div style={{ background:'#1a1030', border:'1px solid #a78bfa40', borderRadius:9,
             padding:'10px 12px', display:'flex', flexDirection:'column', gap:7,
             minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
-            {/* v6.82: 原句釘在連音卡頂端——卡片很長，捲到下面會看不到在解析哪一句 */}
-            <div style={{ position:'sticky', top:0, zIndex:3,
+            {/* v6.82: 原句釘在連音卡頂端——卡片很長，捲到下面會看不到在解析哪一句
+                v6.88: top 從 0 改為 var(--hdrH)——原本被 sticky Header 蓋住看不見（Header zIndex:10 > 這裡的 3） */}
+            <div style={{ position:'sticky', top:'var(--hdrH, 0px)', zIndex:3,
               background:'#1a1030', margin:'-10px -12px 0', padding:'8px 12px 6px',
               borderBottom:'1px solid #a78bfa25', borderRadius:'9px 9px 0 0' }}>
               <div style={{ fontFamily:MONO, fontSize:11, color:T.txt, lineHeight:1.5, fontWeight:700 }}>
@@ -25811,8 +25825,12 @@ Steven 不是在收藏電影台詞。
                 <SpeedBar/>
               </div>
 
-              {/* v6.79: prompt 世代品質追蹤——回報率上升代表改壞了，該回退而不是繼續加規則 */}
+              {/* v6.79: prompt 世代品質追蹤——回報率上升代表改壞了，該回退而不是繼續加規則
+                  v6.89: 隱藏此面板。25 條規則已凍結（不再改 prompt），「世代比較→決定回退」的
+                  決策用途消失，儀表板退役。⚠ 回報按鈕與 fsi:linkErrReport 資料收集完整保留，
+                  只是不顯示統計；日後要看，把下一行的 return null 拿掉即可。 */}
               {(() => {
+                return null
                 const reps = Object.values(linkErrReport)
                 if (reps.length === 0) return null
                 const byPv = {}
