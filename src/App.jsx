@@ -7519,7 +7519,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.89</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.90</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14136,7 +14136,7 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.89）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.90）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -26560,6 +26560,17 @@ Steven 不是在收藏電影台詞。
                         })()}
                       </div>
                     ) : (
+                      <>
+                      {/* v6.90: 播放鍵上方常駐原句——痛點是「句子長，捲到底按播放時看不到英文，每次要往上滑」。
+                          sticky 原句綁在連音卡內、捲出卡片就消失，解決不了；直接把原句放在播放鍵正上方最實在。
+                          套用與連音卡相同的遮罩條件（!testing && !dueMasked && !tutorMasked），重測未揭曉時不顯示，不破壞盲測。 */}
+                      {!testing && !dueMasked && !tutorMasked && (
+                        <div style={{ fontFamily:MONO, fontSize:11, fontWeight:700, color:T.txt2, lineHeight:1.5,
+                          padding:'6px 2px', marginBottom:2, overflowWrap:'break-word' }}>
+                          {p.en}
+                          {p.zh && <span style={{ fontSize:9, fontWeight:400, color:T.txt3 }}>　{p.zh}</span>}
+                        </div>
+                      )}
                       <div style={{ display:'flex', gap:5 }}>
                         <div onClick={() => playBlindPhrase(p)}
                           style={{ cursor:'pointer', flex:1, minWidth:0, textAlign:'center', whiteSpace:'nowrap',
@@ -26611,6 +26622,7 @@ Steven 不是在收藏電影台詞。
                           🚫
                         </div>
                       </div>
+                      </>
                     )}
 
                     {/* 🗣 跟讀面板 */}
