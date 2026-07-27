@@ -7519,7 +7519,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.90</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.91</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13990,6 +13990,24 @@ function stripMark(s) {
   return String(s ?? '').replace(/<\/?(wk|lk|si|ch|gl|nw|w|l|d|f|i)>/g, '')
 }
 
+// v6.91: listen 欄位防呆——這欄的用途是「用中文告訴你聽的時候該預期什麼」，
+// 但 AI 偶爾整欄寫成純 IPA（等於把音標抄一遍，沒有提示作用）或塞 YouTube 網址。
+// 純顯示端過濾，不碰 prompt（動 prompt 會改 md5 → 觸發全量重跑＝花錢）。
+// 判定「不該顯示」的三種情形：
+//   1. 含網址
+//   2. 幾乎沒有中文（提示語本來就該是中文），且含音標字元
+//   3. 中文字數 < 4 且長度夠長 → 基本上是一串音標
+const IPA_ONLY_CHARS = /[ɑɒæəɜɪʊʌɔθðʃʒŋɾʔːˈˌ]/
+function isBadListen(s) {
+  const t = stripMark(s).trim()
+  if (!t) return true
+  if (/https?:\/\/|www\.|youtu\.?be/i.test(t)) return true
+  const zh = (t.match(/[\u4e00-\u9fff]/g) ?? []).length
+  if (zh === 0 && IPA_ONLY_CHARS.test(t)) return true
+  if (zh < 4 && t.length >= 12 && IPA_ONLY_CHARS.test(t)) return true
+  return false
+}
+
 function computeFreqLinks(dictatedPhrases, minEnc = 2) {
   const enc = {}, miss = {}
   dictatedPhrases.forEach(p => {
@@ -14136,7 +14154,43 @@ function bumpStreak() {
   return next
 }
 
-// ── 📖 連讀速查表（v6.90）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📈 每日練習量（v6.91）──────────────────────────────────
+// 刻意不新建 key：fsi:blind:log 早就逐日記錄、保留 365 天，直接聚合就有完整歷史，
+// 不必「從今天開始累積」。
+//
+// ⚠ 為什麼顯示「句數 + 播放次數」而不顯示「練習分鐘數」：
+//   log entry 只有日期 d、沒有時間戳，算不出時長；硬湊等於編造。
+//   而 plays（同一句按了幾次重聽）是真實存在的資料，且更貼近解碼努力——
+//   聽 8 次才抓到，跟聽 2 次就抓到，是不同的付出。
+// v6.91 起 entry 加 t（毫秒時間戳），未來才有辦法算時段，過去的資料沒有 t 就不顯示。
+function readBlindLog() {
+  try { return JSON.parse(localStorage.getItem('fsi:blind:log') ?? '[]') } catch(e) { return [] }
+}
+function dailyPractice(days = 14) {
+  const log = readBlindLog().filter(e => e.k === 'dict')
+  const today = getTodayStr()
+  const out = []
+  for (let i = days - 1; i >= 0; i--) {
+    const d  = addDaysStr(today, -i)
+    const es = log.filter(e => e.d === d)
+    const ts = es.map(e => e.t).filter(Boolean)
+    out.push({
+      d, n: es.length,
+      plays: es.reduce((a, e) => a + (e.plays ?? 0), 0),
+      from: ts.length ? Math.min(...ts) : null,
+      to:   ts.length ? Math.max(...ts) : null,
+    })
+  }
+  return out
+}
+// 近 7 天「有練的天數」——刻意取代「連續天數」當主指標：
+// 連續天數漏一天就歸零，那個歸零才是真正打擊人的東西，也是補救規則想補的洞。
+// 這個數字不會歸零、不需要任何補救例外，一樣回答「我最近有沒有在持續」。
+function activeDays(days = 7) {
+  return dailyPractice(days).filter(x => x.n > 0).length
+}
+
+// ── 📖 連讀速查表（v6.91）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -14237,6 +14291,16 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const [linkTableOpen, setLinkTableOpen] = useState(false)    // 📖 連讀速查表面板（漏宣告會讓聽力庫一展開就 ReferenceError → 整頁黑）
   // 🌅 今日盲聽（v5.86）：一鍵跑完，零決策
   const [trainOpen,  setTrainOpen]  = useState(false)
+  const [trendOpen,  setTrendOpen]  = useState(false)   // v6.91: 練習趨勢面板。刻意預設收起、不持久化——分數比較會有紅線，不該每天迎面撞上
+  // v6.91: 長句閘門上限（節奏切塊數）。0 = 關閉閘門。持久化，狀態好的時候可自己拉開。
+  const [chunkLimit, setChunkLimit] = useState(() => {
+    const v = parseInt(localStorage.getItem('fsi:blind:maxChunks') ?? '3', 10)
+    return Number.isFinite(v) ? v : 3
+  })
+  function saveChunkLimit(v) {
+    setChunkLimit(v)
+    try { localStorage.setItem('fsi:blind:maxChunks', String(v)) } catch(e) {}
+  }
   const [trainN,     setTrainN]     = useState(null)   // 本次要練幾句（每次自己選）
   const [debtOverride, setDebtOverride] = useState(false)   // v6.87: 債務閘門的例外開關。刻意不存 localStorage——例外是單次的，重開 App 就恢復鎖定，不讓例外變常態
   const [trainIdx,   setTrainIdx]   = useState(0)      // 目前練到第幾句
@@ -14972,7 +15036,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
               </div>
             )}
             <RhythmRow p={p}/>
-            {p.link.listen && (
+            {p.link.listen && !isBadListen(p.link.listen) && (
               <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, lineHeight:1.6, fontWeight:700 }}>
                 👉 {stripMark(p.link.listen)}
               </div>
@@ -15717,7 +15781,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
           },
           body: JSON.stringify({
             model: 'claude-haiku-4-5-20251001',
-            max_tokens: 1000,
+            max_tokens: 4000,   // v6.91: 1000→4000。這是「批次」分類，句子多時 JSON 陣列會被 1000 截斷 → JSON.parse 失敗＝「按了沒反應」（與 v6.66 連音解析同一病根）
             system: sysPrompt,
             messages: [{ role: 'user', content: prompt }]
           })
@@ -15767,7 +15831,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
           },
           body: JSON.stringify({
             model: 'claude-haiku-4-5-20251001',
-            max_tokens: 500,
+            max_tokens: 1500,   // v6.91: 500→1500。單句修改要回 corrected+tip+tag+errorTypes 四欄，中文 tip 較長時 500 會截在 JSON 中間＝解析失敗
             system: sysPrompt,
             messages: [{ role: 'user', content: prompt }]
           })
@@ -16203,6 +16267,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     })
     appendBlindLog({
       d: today, k:'dict',
+      t: Date.now(),                          // v6.91: 時間戳（過去的資料沒有，只有新紀錄算得出練習時段）
       pid: p.id, mid: movieId,
       first: isFirst, plays, mode: audioMode, spd,
       // 🩺 診斷樣本：只有「首次聽寫」且「聽 ≤3 次」才算數。
@@ -16906,6 +16971,29 @@ Return ONLY a JSON object, no markdown:
     )
   }
 
+  // ── ✂️ 長句閘門（v6.91）────────────────────────────────────
+  // 卡的是「一口氣的塊數」，不是行數或字數——行數會被字長騙：
+  // I've lived here all my life 只有六個字，但全是 l/m/n 連續音，首測 0%；
+  // They're great. I love them to pieces. 看起來長，卻切成兩塊、每塊有清楚鼓點，43% 是能磨的。
+  //
+  // ⚠ 這是訓練順序，不是永久排除：長句才是工作場景的真實樣貌（客人不會講兩塊就停）。
+  // 被擋下的句子留在庫裡標「暫緩」，短句解碼率上來就放回來。
+  // ⚠ 閘門只擋「新句」：已經有首測分數的長句照挑靶策略自然沉底，硬清會弄髒二測樣本。
+  //
+  // 新句多半還沒 AI 解析、沒有 rhythm → 用字數推估（一個節奏塊約 4~5 個字）。
+  // 這是估計不是量測，所以門檻放寬一格，寧可放進來也不要誤擋。
+  function chunkCountOf(p) {
+    const rh = p.link?.rhythm
+    if (Array.isArray(rh) && rh.length) return { n: rh.length, est: false }
+    const words = String(p.en ?? '').trim().split(/\s+/).filter(Boolean).length
+    return { n: Math.max(1, Math.ceil(words / 5)), est: true }
+  }
+  function tooLongForNow(p, limit) {
+    if (!(limit > 0)) return false          // 0 = 閘門關閉，全部放行
+    const { n, est } = chunkCountOf(p)
+    return est ? n > limit + 1 : n > limit
+  }
+
   // ── 🌅 今日盲聽：依場景順序抽「從未聽寫過」的句子（一個場景做完再換下一個）──
   function buildTrainQueue(n) {
     const scenes = [...(movie?.scenes ?? [])].sort((a, b) => {
@@ -16920,6 +17008,7 @@ Return ONLY a JSON object, no markdown:
         if (!inBlindPool(p)) continue
         if (p.dict?.first) continue          // 已經聽寫過 → 不是新句
         if (seen.has(p.id)) continue         // 場景重疊造成的重複句
+        if (tooLongForNow(p, chunkLimit)) continue   // v6.91: 超過切塊上限 → 暫緩，不是排除
         seen.add(p.id)
         out.push(p.id)
       }
@@ -25123,6 +25212,24 @@ Steven 不是在收藏電影台詞。
           tDiag.forEach(e => (e.miss ?? []).forEach(w => { tMiss[w] = (tMiss[w] ?? 0) + 1 }))
           const topMissToday = Object.entries(tMiss).sort((a,b) => b[1]-a[1]).slice(0,5)
 
+          // v6.91: 練習趨勢——行為指標（有沒有持續）與能力指標（有沒有進步）分開看。
+          // 前者天天看沒關係、只會往上；後者會有紅線，所以收在折疊區裡，要主動點才看。
+          const trend14 = dailyPractice(14)
+          const act7    = trend14.slice(-7).filter(x => x.n > 0).length
+          const maxN    = Math.max(1, ...trend14.map(x => x.n))
+          // 首測 → 最近：同一句前後兩點，控制掉「今天抽到的句子難易」這個雜訊。
+          // 只取真的重測過的句子（count > 1），否則首測=最近，畫出來是一堆平線。
+          const cmpPairs = all
+            .filter(p => !p.noBlind && p.dict?.first && p.dict?.count > 1 && p.dict?.last)
+            .map(p => ({ id:p.id, en:p.en, a:p.dict.first.rate ?? 0, b:p.dict.last.rate ?? 0 }))
+            .map(x => ({ ...x, delta: x.b - x.a }))
+            .sort((a, b) => b.delta - a.delta)
+          const upN   = cmpPairs.filter(x => x.delta > 0).length
+          const flatN = cmpPairs.filter(x => x.delta === 0).length
+          const downN = cmpPairs.filter(x => x.delta < 0).length
+          const avgDelta = cmpPairs.length
+            ? Math.round(cmpPairs.reduce((a, x) => a + x.delta, 0) / cmpPairs.length) : null
+
           const cur = trainQueue[trainIdx] ? findPhrase(trainQueue[trainIdx]) : null
           const doneStep1 = trainN != null && trainIdx >= trainQueue.length
 
@@ -25133,13 +25240,131 @@ Steven 不是在收藏電影台詞。
               {/* 標題 + streak */}
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, flexWrap:'wrap' }}>
                 <span style={{ fontFamily:MONO, fontSize:12, color:'#38bdf8', fontWeight:700 }}>🌅 今日盲聽</span>
+                {/* v6.91: 主指標改「近 7 天練了幾天」——不會歸零，漏一天不必當判決；
+                    連續天數退成小字（它仍有動力價值，只是不該當主角）。 */}
                 <span style={{ fontFamily:MONO, fontSize:10, color:T.amber, fontWeight:700 }}>
-                  🔥 連續 {streak.days ?? 0} 天
-                  {streak.best > (streak.days ?? 0) && <span style={{ color:T.txt3, fontSize:8 }}> · 最佳 {streak.best}</span>}
+                  📅 近 7 天 {act7}/7 天
+                  <span style={{ color:T.txt3, fontSize:8, fontWeight:400 }}>
+                    {' '}· 🔥 連續 {streak.days ?? 0}
+                    {streak.best > (streak.days ?? 0) && ` · 最佳 ${streak.best}`}
+                  </span>
                 </span>
               </div>
 
               <SpeedBar/>
+
+              {/* ── 📈 練習趨勢（v6.91）──────────────────────────────
+                  上半＝行為指標：有沒有持續站在打擊區。只會往上或斷掉，看了不打擊人。
+                  下半＝能力指標：同一句首測→最近。控制掉難易度雜訊，才是真的在量耳朵。
+                  整區預設收起：真正的裁判是 14 天二測，每天盯著日振幅只會把單日下滑讀成退步。 */}
+              <div>
+                <div onClick={() => setTrendOpen(v => !v)}
+                  style={{ cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between',
+                    padding:'7px 10px', borderRadius:9, background:T.surf, border:`1px solid ${T.bdr}` }}>
+                  <span style={{ fontFamily:MONO, fontSize:10, color:T.txt2, fontWeight:700 }}>
+                    📈 練習趨勢
+                    <span style={{ color:T.txt3, fontWeight:400 }}>　近 14 天</span>
+                  </span>
+                  <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>{trendOpen ? '▲' : '▼'}</span>
+                </div>
+
+                {trendOpen && (
+                  <div style={{ marginTop:8, display:'flex', flexDirection:'column', gap:12,
+                    padding:'11px 12px', borderRadius:10, background:T.surf, border:`1px solid ${T.bdr}` }}>
+
+                    {/* ① 每日練習量 */}
+                    <div>
+                      <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:7 }}>
+                        每日句數（近 14 天）· 最高 {maxN} 句
+                      </div>
+                      <div style={{ display:'flex', alignItems:'flex-end', gap:3, height:52 }}>
+                        {trend14.map((x, i) => {
+                          const isToday = i === trend14.length - 1
+                          return (
+                            <div key={x.d} style={{ flex:1, display:'flex', flexDirection:'column',
+                              alignItems:'center', gap:3, minWidth:0 }}>
+                              <div title={`${x.d}｜${x.n} 句 · 播 ${x.plays} 次`}
+                                style={{ width:'100%', height: x.n ? Math.max(4, Math.round(40 * x.n / maxN)) : 2,
+                                  borderRadius:2,
+                                  background: x.n ? (isToday ? T.amber : '#38bdf8') : T.bdr2 }}/>
+                              <span style={{ fontFamily:MONO, fontSize:7, color: isToday ? T.amber : T.txt3 }}>
+                                {x.d.slice(8)}
+                              </span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                      <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, marginTop:6, lineHeight:1.6 }}>
+                        近 7 天練了 <b style={{ color:T.amber }}>{act7}</b> 天
+                        {' · '}近 14 天共 {trend14.reduce((a,x) => a + x.n, 0)} 句
+                        {' · '}重聽 {trend14.reduce((a,x) => a + x.plays, 0)} 次
+                        {(() => {
+                          const td = trend14[trend14.length - 1]
+                          if (!td?.from || !td?.to || td.from === td.to) return null
+                          const hm = ms => new Date(ms).toTimeString().slice(0,5)
+                          return ` · 今天 ${hm(td.from)}–${hm(td.to)}`
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* ② 首測 → 最近（能力指標） */}
+                    <div style={{ borderTop:`1px solid ${T.bdr}`, paddingTop:10 }}>
+                      <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:7 }}>
+                        同一句：首測 → 最近（{cmpPairs.length} 句已重測）
+                      </div>
+                      {cmpPairs.length === 0 ? (
+                        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                          還沒有句子重測過，等 ① 到期重測做完就會出現。
+                        </div>
+                      ) : (
+                        <>
+                          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, marginBottom:8, lineHeight:1.7 }}>
+                            <span style={{ color:T.grn, fontWeight:700 }}>↑ {upN}</span> 進步
+                            {' · '}<span style={{ color:T.txt3 }}>→ {flatN}</span> 持平
+                            {' · '}<span style={{ color:'#f87171' }}>↓ {downN}</span> 退步
+                            {avgDelta != null && <>
+                              {' ｜ '}平均 <b style={{ color: avgDelta >= 0 ? T.grn : '#f87171' }}>
+                                {avgDelta >= 0 ? '+' : ''}{avgDelta}pt
+                              </b>
+                            </>}
+                          </div>
+                          {/* 每句一條：左點＝首測、右點＝最近。刻意不畫「每日平均分」——
+                              每天抽到的句子難易不同，那種線只會給情緒、沒有鑑別力。 */}
+                          <div style={{ display:'flex', flexDirection:'column', gap:5, maxHeight:190, overflowY:'auto' }}>
+                            {cmpPairs.map(x => {
+                              const col = x.delta > 0 ? T.grn : (x.delta < 0 ? '#f87171' : T.txt3)
+                              const lo = Math.min(x.a, x.b), hi = Math.max(x.a, x.b)
+                              return (
+                                <div key={x.id} style={{ display:'flex', alignItems:'center', gap:7, minWidth:0 }}>
+                                  <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3, width:78,
+                                    flexShrink:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                                    {x.en}
+                                  </span>
+                                  <div style={{ flex:1, position:'relative', height:9, minWidth:0 }}>
+                                    <div style={{ position:'absolute', top:4, left:0, right:0, height:1, background:T.bdr2 }}/>
+                                    <div style={{ position:'absolute', top:4, left:`${lo}%`, width:`${Math.max(1, hi-lo)}%`,
+                                      height:1, background:col }}/>
+                                    <div style={{ position:'absolute', top:2, left:`${x.a}%`, width:5, height:5,
+                                      borderRadius:'50%', background:T.txt3, transform:'translateX(-50%)' }}/>
+                                    <div style={{ position:'absolute', top:1, left:`${x.b}%`, width:7, height:7,
+                                      borderRadius:'50%', background:col, transform:'translateX(-50%)' }}/>
+                                  </div>
+                                  <span style={{ fontFamily:MONO, fontSize:8, color:col, width:34, flexShrink:0, textAlign:'right' }}>
+                                    {x.delta > 0 ? '+' : ''}{x.delta}pt
+                                  </span>
+                                </div>
+                              )
+                            })}
+                          </div>
+                          <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, marginTop:8, lineHeight:1.6 }}>
+                            ⚠ 單句會受當天狀態影響，別把一條紅線當判決。真正的裁判是 14 天二測的整體 +15pt。
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* v6.47: 順序重排——回測比新句重要（提取練習固化映射），到期債先清。
                   新順序：①到期重測 ②昨日回聽 ③新句聽寫 ④弱點轟炸。資料邏輯不動，純顯示順序。 */}
@@ -25287,6 +25512,33 @@ Steven 不是在收藏電影台詞。
                     <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
                       依場景順序自動抽「從未聽寫過」的句子。今天要練幾句？
                     </div>
+
+                    {/* ✂️ 長句閘門（v6.91）：卡切塊數不卡行數。被擋的句子留在庫裡，只是暫緩。 */}
+                    {(() => {
+                      const held = all.filter(p => inBlindPool(p) && !p.dict?.first && tooLongForNow(p, chunkLimit)).length
+                      return (
+                        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+                          gap:8, padding:'6px 9px', borderRadius:8, background:T.surf, border:`1px solid ${T.bdr}` }}>
+                          <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3, minWidth:0 }}>
+                            ✂️ 只抽 ≤ {chunkLimit > 0 ? `${chunkLimit} 塊` : '不限'} 的句子
+                            {chunkLimit > 0 && held > 0 && <span style={{ color:T.amber }}>　{held} 句暫緩</span>}
+                          </span>
+                          <div style={{ display:'flex', gap:4, flexShrink:0 }}>
+                            {[2, 3, 4, 0].map(v => (
+                              <div key={v} onClick={() => saveChunkLimit(v)}
+                                style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                                  fontFamily:MONO, fontSize:9, fontWeight:700, padding:'3px 7px', borderRadius:6,
+                                  background: chunkLimit === v ? T.amberD : 'transparent',
+                                  color: chunkLimit === v ? T.amber : T.txt3,
+                                  border:`1px solid ${chunkLimit === v ? T.amber : T.bdr}` }}>
+                                {v === 0 ? '不限' : v}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    })()}
+
                     <div style={{ display:'flex', gap:6 }}>
                       {[5, 8, 12].map(n => (
                         <div key={n} onClick={() => startTraining(n)}
