@@ -7519,7 +7519,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.91</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.92</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13527,6 +13527,25 @@ const DEFAULT_MOVIE_DB = {
 // ═══════════════════════════════════════════════════════════════
 const REVIEW_INTERVALS = [3, 7, 16, 35] // 天
 
+// ── 🔊 句首緩衝（v6.92）────────────────────────────────────
+// 症狀：「And, Rachel, have a great wedding.」一播就是 Rachel，句首的 And 根本沒進音檔。
+// 病根不是耳朵是切點——整句播放從 startSecs 精確起播，時間碼只要晚 0.2 秒，
+// 句首那個短促又弱讀的功能詞（And/So/But/Well）就被切掉了。
+//
+// ⚠ 這是機制問題不是單句問題：句首功能詞普遍短、弱、又剛好在音檔最前面，
+//    切點偏晚會「系統性」吃掉它們 → 功能詞漏字率裡混進一批不是耳朵造成的漏字，
+//    而那句還會因為「原本漏的字沒抓到」永遠過不了關。所以修機制，不逐句校時間碼。
+//
+// ⚠ 為什麼是 pad 不是 shift：pad 只把起點往前拉、**終點不動**（播放時長 +pad），句尾完好；
+//    shift 是整段平移，句尾跟著往前 → 反而切掉最後一個字、還會沾到上一句。
+//    playChunk 早就用這招（前後各留 0.35 秒，註解寫「寧可多聽一點也不要切掉」），
+//    只有整句播放漏了沒加。0.15 秒約半個音節：上一句可能露一點尾音，但不會多出一個完整的字。
+const HEAD_PAD_KEY = 'fsi:play:headPad'
+function getHeadPad() {
+  const v = parseFloat(localStorage.getItem(HEAD_PAD_KEY) ?? '0.15')
+  return (Number.isFinite(v) && v >= 0) ? Math.min(v, 0.5) : 0.15
+}
+
 // 本地日期（不是 UTC！）。使用者在越南 UTC+7：早上06:00 的 toISOString() 會回傳「前一天」，
 // 導致早上練的紀錄全被記成昨天 → streak 不累加、「昨天的句子」永遠0、複習排程差一天。
 function toLocalDateStr(d) {
@@ -14190,7 +14209,7 @@ function activeDays(days = 7) {
   return dailyPractice(days).filter(x => x.n > 0).length
 }
 
-// ── 📖 連讀速查表（v6.91）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.92）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -14300,6 +14319,12 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   function saveChunkLimit(v) {
     setChunkLimit(v)
     try { localStorage.setItem('fsi:blind:maxChunks', String(v)) } catch(e) {}
+  }
+  // v6.92: 句首緩衝秒數（0 = 關閉）。存 localStorage，getHeadPad() 是播放端的唯一真相來源。
+  const [headPad, setHeadPad] = useState(() => getHeadPad())
+  function saveHeadPad(v) {
+    setHeadPad(v)
+    try { localStorage.setItem(HEAD_PAD_KEY, String(v)) } catch(e) {}
   }
   const [trainN,     setTrainN]     = useState(null)   // 本次要練幾句（每次自己選）
   const [debtOverride, setDebtOverride] = useState(false)   // v6.87: 債務閘門的例外開關。刻意不存 localStorage——例外是單次的，重開 App 就恢復鎖定，不讓例外變常態
@@ -16030,7 +16055,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     // ⚠ 一定要除以語速：0.8x 播放時音檔實際花 1.25 倍時間、0.6x 花 1.67 倍。
     // 不除的話，系統音會在電影音還沒講完就插進來（語速越慢切得越早）。
     const rawMs = (p.startSecs > 0 && p.endSecs > p.startSecs)
-      ? (p.endSecs - p.startSecs) * 1000
+      ? ((p.endSecs - p.startSecs) + getHeadPad()) * 1000   // v6.92: 起播提前 pad，排程也要加，否則系統音會提早插進來
       : Math.max(2000, String(p.en ?? '').split(' ').length * 450)
     const durMs = rawMs / (playRate || 1)
     // 注意：rateOverride 一定要傳數字，否則 speakPhrase 會把「同一句再點一次」判成停止
@@ -16117,7 +16142,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
         playThreeStep(p, () => { if (queueRef.current === token) setTimeout(() => step(i + 1), 600) })
       } else {
         const rawMs = (p.startSecs > 0 && p.endSecs > p.startSecs)
-          ? (p.endSecs - p.startSecs) * 1000
+          ? ((p.endSecs - p.startSecs) + getHeadPad()) * 1000   // v6.92: 同上，連播間隔要含 pad
           : Math.max(2000, String(p.en ?? '').split(' ').length * 450)
         const durMs = rawMs / (playRate || 1)          // ⚠ 除以語速
         speakPhrase(p.id, p.en, playRate, p)
@@ -17078,7 +17103,7 @@ Return ONLY a JSON object, no markdown:
       // 連播間隔拉到 4 秒（原本1秒，打字根本追不上）
       const gapMs = isLast ? 500 : 4000
       const rawMs = (p.startSecs > 0 && p.endSecs > p.startSecs)
-        ? (p.endSecs - p.startSecs) * 1000
+        ? ((p.endSecs - p.startSecs) + getHeadPad()) * 1000   // v6.92: 同上，盲聽連播要含 pad
         : Math.max(2000, p.en.split(' ').length * 450)
       const durMs = rawMs / (playRate || 1) + gapMs   // ⚠ 除以語速（慢速播放時間會變長）
       if (!isLast) {
@@ -17256,7 +17281,9 @@ Return ONLY a JSON object, no markdown:
     if (audioMode === 'original' && audioElRef.current && hasTimestamp) {
       const el = audioElRef.current
       const targetFile = getMovieMp3At(currentMovie, phrase.startSecs)
-      const offsetSecs = phrase.startSecs - targetFile.start
+      // v6.92: 句首緩衝——起點往前拉，終點不動。pad 不可超過檔案內剩餘空間（避免 currentTime 變負）
+      const headPad = Math.min(getHeadPad(), Math.max(0, phrase.startSecs - targetFile.start))
+      const offsetSecs = phrase.startSecs - targetFile.start - headPad
       // 用 audioSrcKeyRef 判斷是否需要切換（blob URL 下 el.src 不含檔名，不能用）
       const targetKey1 = targetFile?.idbKey ?? targetFile?.url
       const needSwitch = audioSrcKeyRef.current !== targetKey1
@@ -17268,7 +17295,7 @@ Return ONLY a JSON object, no markdown:
           el.playbackRate = rate
           el.currentTime = offsetSecs
           el.play().catch(() => {})
-          const dur = Math.max(0.5, (phrase.endSecs - phrase.startSecs)) * 1000 / rate
+          const dur = (Math.max(0.5, phrase.endSecs - phrase.startSecs) + headPad) * 1000 / rate
           audioStopRef.current = setTimeout(() => {
             el.pause(); setPlayingPhraseId(null)
           }, dur + 200)
@@ -17280,7 +17307,7 @@ Return ONLY a JSON object, no markdown:
         el.playbackRate = rate
         el.currentTime = offsetSecs
         el.play().catch(() => {})
-        const dur = Math.max(0.5, (phrase.endSecs - phrase.startSecs)) * 1000 / rate
+        const dur = (Math.max(0.5, phrase.endSecs - phrase.startSecs) + headPad) * 1000 / rate
         audioStopRef.current = setTimeout(() => {
           el.pause(); setPlayingPhraseId(null)
         }, dur + 200)
@@ -17874,13 +17901,15 @@ ${numbered}`
       // 電影原音：自動切換正確檔案
       const el = audioElRef.current
       const targetFile = getMovieMp3At(movie, p.startSecs)
-      const offsetSecs = p.startSecs - targetFile.start
+      // v6.92: 句首緩衝（同 speakPhrase）
+      const headPad = Math.min(getHeadPad(), Math.max(0, p.startSecs - targetFile.start))
+      const offsetSecs = p.startSecs - targetFile.start - headPad
 
       function playOffset() {
         el.playbackRate = playRate
         el.currentTime = offsetSecs
         el.play().catch(() => { if (!cancelled) setPlaying(false) })
-        const dur = Math.max(1, (p.endSecs - p.startSecs)) * 1000 / playRate
+        const dur = (Math.max(1, p.endSecs - p.startSecs) + headPad) * 1000 / playRate
         audioStopRef.current = setTimeout(() => { el.pause(); advance() }, dur + 300)
       }
 
@@ -25252,6 +25281,28 @@ Steven 不是在收藏電影台詞。
               </div>
 
               <SpeedBar/>
+
+              {/* 🔊 句首緩衝（v6.92）：起點往前拉、終點不動，救回被切掉的句首功能詞。
+                  做成可調不寫死——句首還是趕就加大，沾到上一句就縮小。 */}
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+                gap:8, padding:'6px 9px', borderRadius:8, background:T.surf, border:`1px solid ${T.bdr}` }}>
+                <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3, minWidth:0 }}>
+                  🔊 句首緩衝 {headPad > 0 ? `${headPad}s` : '關'}
+                  <span>　救回被切掉的 And / So</span>
+                </span>
+                <div style={{ display:'flex', gap:4, flexShrink:0 }}>
+                  {[0, 0.1, 0.15, 0.25].map(v => (
+                    <div key={v} onClick={() => saveHeadPad(v)}
+                      style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                        fontFamily:MONO, fontSize:9, fontWeight:700, padding:'3px 7px', borderRadius:6,
+                        background: headPad === v ? T.amberD : 'transparent',
+                        color: headPad === v ? T.amber : T.txt3,
+                        border:`1px solid ${headPad === v ? T.amber : T.bdr}` }}>
+                      {v === 0 ? '關' : v}
+                    </div>
+                  ))}
+                </div>
+              </div>
 
               {/* ── 📈 練習趨勢（v6.91）──────────────────────────────
                   上半＝行為指標：有沒有持續站在打擊區。只會往上或斷掉，看了不打擊人。
