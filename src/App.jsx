@@ -7483,7 +7483,7 @@ function AppIcon({ size = 36 }) {
 // ═══════════════════════════════════════════════════════════════
 // HEADER
 // ═══════════════════════════════════════════════════════════════
-function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProduce, onOpenFreq, onOpenListenLib, onOpenTraining, listenDue = 0, freqCount = 0, trainToday = false }) {
+function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProduce, onOpenFreq, onOpenListenLib, onOpenTraining, onOpenTutor, listenDue = 0, freqCount = 0, tutorCount = 0, trainToday = false }) {
   const btn = (bg, bd, fg, bold = false) => ({
     display:'inline-flex', alignItems:'center', justifyContent:'center', gap:5,
     cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight: bold ? 700 : 400,
@@ -7519,7 +7519,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.92</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.94</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -7545,13 +7545,20 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
           )}
         </div>
 
-        {/* 第一列：📚 知識庫 · 🖊️ 造句庫 */}
+        {/* 第一列：📚 知識庫 · 🖊️ 造句庫 · 🎓 家教
+            家教專區放這裡而不是第二列：第二列是每天用的（盲聽/聽力庫），
+            家教是一週兩次、上課前才打開，性質不同。 */}
         <div style={{ display:'flex', gap:6 }}>
           {onOpenKnowledgeBase && (
             <div onClick={onOpenKnowledgeBase} style={btn(T.amberD, T.amber+'40', T.amber)}>📚 知識庫</div>
           )}
           {onOpenMyProduce && (
             <div onClick={onOpenMyProduce} style={btn('#1a0f2e', '#a78bfa40', '#a78bfa')}>🖊️ 造句庫</div>
+          )}
+          {onOpenTutor && (
+            <div onClick={onOpenTutor} style={btn('#0d2a1f', '#34d39940', '#34d399')}>
+              🎓 家教{mkBadge(tutorCount, '#34d399', '#0d2a1f')}
+            </div>
           )}
         </div>
 
@@ -13546,6 +13553,50 @@ function getHeadPad() {
   return (Number.isFinite(v) && v >= 0) ? Math.min(v, 0.5) : 0.15
 }
 
+// ── 🎓 家教專區（v6.93）────────────────────────────────────
+// 痛點：上課時間有限，臨場翻找「我想問哪句」是純浪費。平時撞到就標記，上課直接打開清單。
+//
+// ⚠ 設計成可長期累積，不是短期清單：老師離開後這裡會變成「待釐清」清單，
+//    下次上課、換老師、或自己回頭查都還用得上。所以 answer 欄位要留著，不是問完就刪。
+//
+// ⚠ 證據等級：老師的回答 > AI 推論。answer 欄位存的是母語者親口說的，
+//    是連音案例庫最高等級的種子——AI 的 IPA 解析被老師否定過（works, I 那次），
+//    所以這裡刻意不自動帶入任何 AI 解析，只存「原句 + 你聽成什麼 + 老師怎麼說」。
+const TUTOR_KEY = 'fsi:tutor:queue'
+function readTutorQueue() {
+  try {
+    const v = JSON.parse(localStorage.getItem(TUTOR_KEY) ?? '[]')
+    return Array.isArray(v) ? v : []
+  } catch(e) { return [] }
+}
+function writeTutorQueue(list) {
+  try { localStorage.setItem(TUTOR_KEY, JSON.stringify(list)) } catch(e) {}
+}
+// note 可留空——標記必須零摩擦，變麻煩就不會用。想問什麼上課看句子多半就想起來了。
+function addToTutorQueue({ pid, mid, en, zh, note = '', heard = '', typed = '' }) {
+  const list = readTutorQueue()
+  if (list.some(x => x.pid === pid && !x.done)) return list   // 已在待問清單就不重複加
+  const next = [...list, {
+    id: `t${Date.now()}`, pid, mid, en, zh, note,
+    heard,            // 誤聽：你聽成什麼（老師最需要這個才知道你卡在哪）
+    typed,            // 你當時打的答案
+    d: getTodayStr(), t: Date.now(),
+    done: false, answer: '', answeredAt: null,
+  }]
+  writeTutorQueue(next)
+  return next
+}
+function updateTutorItem(id, patch) {
+  const next = readTutorQueue().map(x => x.id === id ? { ...x, ...patch } : x)
+  writeTutorQueue(next)
+  return next
+}
+function removeTutorItem(id) {
+  const next = readTutorQueue().filter(x => x.id !== id)
+  writeTutorQueue(next)
+  return next
+}
+
 // 本地日期（不是 UTC！）。使用者在越南 UTC+7：早上06:00 的 toISOString() 會回傳「前一天」，
 // 導致早上練的紀錄全被記成昨天 → streak 不累加、「昨天的句子」永遠0、複習排程差一天。
 function toLocalDateStr(d) {
@@ -14202,14 +14253,8 @@ function dailyPractice(days = 14) {
   }
   return out
 }
-// 近 7 天「有練的天數」——刻意取代「連續天數」當主指標：
-// 連續天數漏一天就歸零，那個歸零才是真正打擊人的東西，也是補救規則想補的洞。
-// 這個數字不會歸零、不需要任何補救例外，一樣回答「我最近有沒有在持續」。
-function activeDays(days = 7) {
-  return dailyPractice(days).filter(x => x.n > 0).length
-}
 
-// ── 📖 連讀速查表（v6.92）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.94）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -14226,7 +14271,7 @@ const LINK_RULES = [
   { cls:'wk', t:'功能詞弱讀 → schwa',    eg:'what are you', ipa:'<wk>wɑːɾɚjə</wk>',      note:'of/to/and/your… 全塌成 ə，你的核心關卡' },
 ]
 
-function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpSignal, myProduceJumpSignal, blindJumpSignal, listenLibJumpSignal, freqJumpSignal, trainingJumpSignal, onListenDue, onFreqCount, onReturnFromKb }) {
+function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpSignal, myProduceJumpSignal, blindJumpSignal, listenLibJumpSignal, freqJumpSignal, trainingJumpSignal, tutorJumpSignal, onListenDue, onFreqCount, onTutorCount, onReturnFromKb }) {
   const [db, setDb] = useState(() => {
     try {
       const s = localStorage.getItem('fsi:movie:db')
@@ -14320,6 +14365,17 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     setChunkLimit(v)
     try { localStorage.setItem('fsi:blind:maxChunks', String(v)) } catch(e) {}
   }
+  // v6.93: 家教專區。tutorList 是清單狀態，tutorDone 控制要不要顯示已問完的。
+  const [tutorOpen, setTutorOpen] = useState(false)
+  const [tutorList, setTutorList] = useState(() => readTutorQueue())
+  const [tutorShowDone, setTutorShowDone] = useState(false)
+  const [tutorEditId, setTutorEditId] = useState(null)
+  const tutorRef = useRef(null)
+  // 清單一變就同步 Header 徽章（未問完的數量）
+  useEffect(() => {
+    onTutorCount?.(tutorList.filter(x => !x.done).length)
+  }, [tutorList]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // v6.92: 句首緩衝秒數（0 = 關閉）。存 localStorage，getHeadPad() 是播放端的唯一真相來源。
   const [headPad, setHeadPad] = useState(() => getHeadPad())
   function saveHeadPad(v) {
@@ -14539,6 +14595,17 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
       scrollToTop(listenLibRef.current)
     }, 120)
   }, [freqJumpSignal]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── 🎓 家教專區快速開啟 ──
+  useEffect(() => {
+    if (!tutorJumpSignal) return
+    setView('movie')
+    setTutorOpen(true)
+    setListenLibOpen(false)
+    setBlindStatsOpen(false)
+    setCorrectionPanelOpen(false)
+    setTimeout(() => { scrollToTop(tutorRef.current) }, 120)
+  }, [tutorJumpSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 請求瀏覽器「持久化儲存」：一般網頁的 IndexedDB 快取是「盡力而為」，
   // 系統可能在儲存壓力大或判定為不常用時自動清掉，即使手機還有很多空間。
@@ -14993,17 +15060,46 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     return (
       <div style={{ display:'flex', flexDirection:'column', gap:7, minWidth:0, maxWidth:'100%' }}>
         {collapsible && (
-          <div onClick={() => {
-              const valid = p.link && p.link.ipa
-              if (!valid) { analyzeLinking(p); setStarLinkOpen(o => ({ ...o, [p.id]: true })) }
-              else setStarLinkOpen(o => ({ ...o, [p.id]: !o[p.id] }))
-            }}
-            style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation', alignSelf:'flex-start',
-              fontFamily:MONO, fontSize:9, fontWeight:700, padding:'4px 10px', borderRadius:6,
-              background: (busy || open) ? '#a78bfa' : 'transparent',
-              color: (busy || open) ? '#1a1030' : '#a78bfa',
-              border:'1px solid #a78bfa40' }}>
-            {busy ? (linkStage === 'verify' ? '② 校驗中…' : '① 生成中…') : open ? '🎬 收起連音' : '🎬 連音解析'}
+          <div style={{ display:'flex', gap:6, alignItems:'center', flexWrap:'wrap' }}>
+            <div onClick={() => {
+                const valid = p.link && p.link.ipa
+                if (!valid) { analyzeLinking(p); setStarLinkOpen(o => ({ ...o, [p.id]: true })) }
+                else setStarLinkOpen(o => ({ ...o, [p.id]: !o[p.id] }))
+              }}
+              style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                fontFamily:MONO, fontSize:9, fontWeight:700, padding:'4px 10px', borderRadius:6,
+                background: (busy || open) ? '#a78bfa' : 'transparent',
+                color: (busy || open) ? '#1a1030' : '#a78bfa',
+                border:'1px solid #a78bfa40' }}>
+              {busy ? (linkStage === 'verify' ? '② 校驗中…' : '① 生成中…') : open ? '🎬 收起連音' : '🎬 連音解析'}
+            </div>
+            {/* v6.94: 場景頁每一句都能標記——這是「所有場景句子」的主要入口 */}
+            {(() => {
+              const inQ = tutorList.some(x => x.pid === p.id && !x.done)
+              return (
+                <div onClick={() => {
+                  if (inQ) {
+                    const it = tutorList.find(x => x.pid === p.id && !x.done)
+                    setTutorList(removeTutorItem(it.id))
+                    showMovieToast('已從家教專區移除')
+                  } else {
+                    setTutorList(addToTutorQueue({
+                      pid: p.id, mid: movie?.id, en: p.en, zh: p.zh,
+                      heard: (p.dict?.last?.pair ?? []).map(x => Array.isArray(x) ? x[0] : '').filter(Boolean).join(' '),
+                    }))
+                    showMovieToast('🎓 已加入家教專區')
+                  }
+                }}
+                  title={inQ ? '已在家教專區（再按一次移除）' : '上課想問這句'}
+                  style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                    fontFamily:MONO, fontSize:9, fontWeight:700, padding:'4px 10px', borderRadius:6,
+                    background: inQ ? '#0d2a1f' : 'transparent',
+                    color: inQ ? '#34d399' : '#34d39980',
+                    border:`1px solid ${inQ ? '#34d399' : '#34d39940'}` }}>
+                  {inQ ? '🎓 已加入' : '🎓 問老師'}
+                </div>
+              )
+            })()}
           </div>
         )}
         {open && p.link && p.link.ipa && (
@@ -15070,13 +15166,42 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
           </div>
         )}
         {!collapsible && !noGenBtn && !(p.link && p.link.ipa) && (
-          <div onClick={() => analyzeLinking(p)}
-            style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation', alignSelf:'flex-start',
-              fontFamily:MONO, fontSize:10, fontWeight:700, padding:'6px 11px', borderRadius:7,
-              background: busy ? '#a78bfa' : '#1a1030',
-              color: busy ? '#1a1030' : '#a78bfa',
-              border:'1px solid #a78bfa50' }}>
-            {busy ? (linkStage === 'verify' ? '② 校驗中…' : '① 生成中…') : '🎬 連音解析'}
+          <div style={{ display:'flex', gap:6, alignItems:'center', flexWrap:'wrap' }}>
+            <div onClick={() => analyzeLinking(p)}
+              style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                fontFamily:MONO, fontSize:10, fontWeight:700, padding:'6px 11px', borderRadius:7,
+                background: busy ? '#a78bfa' : '#1a1030',
+                color: busy ? '#1a1030' : '#a78bfa',
+                border:'1px solid #a78bfa50' }}>
+              {busy ? (linkStage === 'verify' ? '② 校驗中…' : '① 生成中…') : '🎬 連音解析'}
+            </div>
+            {/* v6.94: 沒解析過的句子也要能標——想問老師不必先花錢跑 AI 解析 */}
+            {(() => {
+              const inQ = tutorList.some(x => x.pid === p.id && !x.done)
+              return (
+                <div onClick={() => {
+                  if (inQ) {
+                    const it = tutorList.find(x => x.pid === p.id && !x.done)
+                    setTutorList(removeTutorItem(it.id))
+                    showMovieToast('已從家教專區移除')
+                  } else {
+                    setTutorList(addToTutorQueue({
+                      pid: p.id, mid: movie?.id, en: p.en, zh: p.zh,
+                      heard: (p.dict?.last?.pair ?? []).map(x => Array.isArray(x) ? x[0] : '').filter(Boolean).join(' '),
+                    }))
+                    showMovieToast('🎓 已加入家教專區')
+                  }
+                }}
+                  title={inQ ? '已在家教專區（再按一次移除）' : '上課想問這句'}
+                  style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                    fontFamily:MONO, fontSize:10, fontWeight:700, padding:'6px 11px', borderRadius:7,
+                    background: inQ ? '#0d2a1f' : 'transparent',
+                    color: inQ ? '#34d399' : '#34d39980',
+                    border:`1px solid ${inQ ? '#34d399' : '#34d39940'}` }}>
+                  {inQ ? '🎓 已加入' : '🎓 問老師'}
+                </div>
+              )
+            })()}
           </div>
         )}
       </div>
@@ -15187,6 +15312,36 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
             border:`1px solid ${rep ? '#f87171' : '#f8717130'}` }}>
           {rep ? '⚠ 已回報有錯' : '⚠ 這句怪怪的'}
         </div>
+        {/* v6.94: 🎓 收進家教專區——放在 LinkFooter 這個共用元件裡，
+            所有連音卡的渲染路徑（知識庫／場景頁／聽力庫／盲聽）一次覆蓋，
+            不是逐個畫面補鈕（「功能要一次套到所有渲染路徑」）。 */}
+        {(() => {
+          const inQ = tutorList.some(x => x.pid === p.id && !x.done)
+          return (
+            <div onClick={e => {
+              e.stopPropagation()
+              if (inQ) {
+                const it = tutorList.find(x => x.pid === p.id && !x.done)
+                setTutorList(removeTutorItem(it.id))
+                showMovieToast('已從家教專區移除')
+              } else {
+                setTutorList(addToTutorQueue({
+                  pid: p.id, mid: movie?.id, en: p.en, zh: p.zh,
+                  heard: (p.dict?.last?.pair ?? []).map(x => Array.isArray(x) ? x[0] : '').filter(Boolean).join(' '),
+                }))
+                showMovieToast('🎓 已加入家教專區')
+              }
+            }}
+              title={inQ ? '已在家教專區（再按一次移除）' : '上課想問這句'}
+              style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                fontFamily:MONO, fontSize:9, fontWeight:700, padding:'4px 9px', borderRadius:6,
+                background: inQ ? '#0d2a1f' : 'transparent',
+                color: inQ ? '#34d399' : '#34d39980',
+                border:`1px solid ${inQ ? '#34d399' : '#34d39930'}` }}>
+              {inQ ? '🎓 已加入' : '🎓 問老師'}
+            </div>
+          )
+        })()}
       </div>
     )
   }
@@ -26018,6 +26173,169 @@ Steven 不是在收藏電影台詞。
             </div>
           )
         })()}
+        <div ref={tutorRef}/>
+        {/* ── 🎓 家教專區（v6.93）：上課前打開就是清單，不必臨場翻找 ──
+            資料只存「原句 + 你聽成什麼 + 老師怎麼說」，刻意不帶 AI 解析：
+            AI 的連音判斷被老師否定過（works, I 那次），把它擺在老師面前反而會誤導討論。 */}
+        {tutorOpen && (() => {
+          // v6.94: 用 multiScenePhrases 而非單一場景——家教專區收的是「所有場景」的句子，
+          // 只查當前場景的話，別的場景標的句子會查不到 → 播放鈕消失。
+          const pool = uniqById([
+            ...(movie?.scenes ?? []).flatMap(s => s.phrases ?? []),
+            ...(multiScenePhrases ?? []),
+          ])
+          const byId = Object.fromEntries(pool.map(p => [p.id, p]))
+          const pending = tutorList.filter(x => !x.done)
+          const done    = tutorList.filter(x => x.done)
+          const shown   = tutorShowDone ? done : pending
+
+          return (
+            <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:14,
+              padding:'13px 12px', borderRadius:12, background:T.surf2, border:`1px solid #34d39940` }}>
+
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}>
+                <span style={{ fontFamily:MONO, fontSize:12, color:'#34d399', fontWeight:700 }}>
+                  🎓 家教專區
+                </span>
+                <div onClick={() => setTutorOpen(false)}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
+                    padding:'4px 9px', borderRadius:7, border:`1px solid ${T.bdr}` }}>
+                  收起
+                </div>
+              </div>
+
+              <div style={{ display:'flex', gap:5 }}>
+                {[['待問', false, pending.length], ['已問', true, done.length]].map(([label, v, n]) => (
+                  <div key={label} onClick={() => setTutorShowDone(v)}
+                    style={{ cursor:'pointer', userSelect:'none', flex:1, textAlign:'center',
+                      fontFamily:MONO, fontSize:10, fontWeight:700, padding:'6px 4px', borderRadius:8,
+                      background: tutorShowDone === v ? '#0d2a1f' : 'transparent',
+                      color: tutorShowDone === v ? '#34d399' : T.txt3,
+                      border:`1px solid ${tutorShowDone === v ? '#34d399' : T.bdr}` }}>
+                    {label} {n}
+                  </div>
+                ))}
+              </div>
+
+              {shown.length === 0 ? (
+                <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.7, padding:'8px 2px' }}>
+                  {tutorShowDone
+                    ? '還沒有問完的句子。問完後按「✓ 已問」並記下老師怎麼說。'
+                    : '還沒有標記的句子。平時盲聽撞到聽不出來的句子，按卡片上的 🎓 就會收進這裡。'}
+                </div>
+              ) : shown.map(item => {
+                const p = byId[item.pid]
+                const editing = tutorEditId === item.id
+                return (
+                  <div key={item.id} style={{ display:'flex', flexDirection:'column', gap:6,
+                    padding:'10px 11px', borderRadius:10, background:T.surf, border:`1px solid ${T.bdr}` }}>
+
+                    <div style={{ fontFamily:MONO, fontSize:11, color:T.txt, lineHeight:1.6, fontWeight:700 }}>
+                      {item.en}
+                    </div>
+                    {item.zh && (
+                      <div style={{ fontSize:10, color:T.txt3, lineHeight:1.5 }}>{item.zh}</div>
+                    )}
+
+                    {/* 誤聽是老師最需要的資訊——她要知道你卡在哪，才能對症示範 */}
+                    {item.heard && (
+                      <div style={{ fontFamily:MONO, fontSize:9, color:'#f87171', lineHeight:1.6 }}>
+                        🔴 我聽成：{item.heard}
+                      </div>
+                    )}
+                    {item.note && (
+                      <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, lineHeight:1.6 }}>
+                        ❓ {item.note}
+                      </div>
+                    )}
+
+                    {/* 一鍵播原音：上課時直接放給老師聽，她才能像對逐字稿那樣當場示範 */}
+                    <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
+                      {p && (
+                        <div onClick={() => speakPhrase(p.id, p.en, undefined, p)}
+                          style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                            fontFamily:MONO, fontSize:9, fontWeight:700, padding:'5px 10px', borderRadius:7,
+                            color:'#38bdf8', background:'#0d2a3a', border:'1px solid #38bdf840' }}>
+                          ▶ 播放
+                        </div>
+                      )}
+                      <div onClick={() => setTutorEditId(editing ? null : item.id)}
+                        style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                          fontFamily:MONO, fontSize:9, fontWeight:700, padding:'5px 10px', borderRadius:7,
+                          color:T.amber, background:T.amberD, border:`1px solid ${T.amber}40` }}>
+                        {editing ? '✕ 關閉' : '📝 記筆記'}
+                      </div>
+                      {!item.done ? (
+                        <div onClick={() => setTutorList(updateTutorItem(item.id, { done:true, answeredAt: Date.now() }))}
+                          style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                            fontFamily:MONO, fontSize:9, fontWeight:700, padding:'5px 10px', borderRadius:7,
+                            color:'#34d399', background:'#0d2a1f', border:'1px solid #34d39940' }}>
+                          ✓ 已問
+                        </div>
+                      ) : (
+                        <div onClick={() => setTutorList(updateTutorItem(item.id, { done:false }))}
+                          style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                            fontFamily:MONO, fontSize:9, padding:'5px 10px', borderRadius:7,
+                            color:T.txt3, background:'transparent', border:`1px solid ${T.bdr}` }}>
+                          ↩ 放回待問
+                        </div>
+                      )}
+                      <div onClick={() => { if (confirm('從家教專區移除這句？')) setTutorList(removeTutorItem(item.id)) }}
+                        style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                          fontFamily:MONO, fontSize:9, padding:'5px 9px', borderRadius:7,
+                          color:T.txt3, background:'transparent', border:`1px solid ${T.bdr}` }}>
+                        🗑
+                      </div>
+                    </div>
+
+                    {editing && (
+                      <div style={{ display:'flex', flexDirection:'column', gap:5, marginTop:2 }}>
+                        <input type="text" value={item.note} placeholder="想問什麼？（可留空）"
+                          onChange={e => setTutorList(updateTutorItem(item.id, { note: e.target.value }))}
+                          style={{ background:T.surf2, border:`1px solid ${T.bdr2}`, borderRadius:7,
+                            padding:'7px 9px', fontFamily:MONO, fontSize:10, color:T.txt, outline:'none' }} />
+                        <textarea value={item.answer} placeholder="老師怎麼說？（母語者的回答＝最高證據等級，之後要進案例庫）"
+                          rows={3}
+                          onChange={e => setTutorList(updateTutorItem(item.id, { answer: e.target.value }))}
+                          style={{ background:T.surf2, border:'1px solid #34d39940', borderRadius:7,
+                            padding:'7px 9px', fontFamily:MONO, fontSize:10, color:T.txt,
+                            outline:'none', resize:'vertical', lineHeight:1.6 }} />
+                      </div>
+                    )}
+
+                    {!editing && item.answer && (
+                      <div style={{ fontFamily:MONO, fontSize:9, color:'#34d399', lineHeight:1.7,
+                        padding:'7px 9px', borderRadius:7, background:'#0d2a1f', whiteSpace:'pre-wrap' }}>
+                        🎓 {item.answer}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+
+              {/* 匯出：上課用手機，老師看不到你的螢幕時可以直接貼給她 */}
+              {pending.length > 0 && !tutorShowDone && (
+                <div onClick={() => {
+                  const txt = pending.map((x, i) =>
+                    `${i+1}. ${x.en}${x.heard ? `\n   我聽成：${x.heard}` : ''}${x.note ? `\n   想問：${x.note}` : ''}`
+                  ).join('\n\n')
+                  navigator.clipboard?.writeText(txt)
+                  showMovieToast(`📋 已複製 ${pending.length} 句`)
+                }}
+                  style={{ cursor:'pointer', userSelect:'none', textAlign:'center',
+                    fontFamily:MONO, fontSize:9, fontWeight:700, padding:'8px', borderRadius:8,
+                    color:T.txt2, background:T.surf, border:`1px solid ${T.bdr}` }}>
+                  📋 複製整份清單
+                </div>
+              )}
+
+              <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.6 }}>
+                💡 老師的回答留著不刪——它是連音案例庫最高等級的種子，AI 的解析被否定過。
+              </div>
+            </div>
+          )
+        })()}
+
         <div ref={listenLibRef}/>
         {/* ── 🎯 聽力庫（v5.83）：首次全詞率 <60% 自動收錄，依「漏字」分群轟炸 ── */}
         {listenLibOpen && (() => {
@@ -26917,6 +27235,36 @@ Steven 不是在收藏電影台詞。
                             border:'1px solid #a78bfa60' }}>
                           🗣 跟讀
                         </div>
+                        {/* v6.93: 🎓 收進家教專區。放在 🚫 旁邊——兩者同類（都是對這句的處理）。
+                            已在待問清單就顯示為實心，再按一次移除，不必特地開專區。 */}
+                        {(() => {
+                          const inQ = tutorList.some(x => x.pid === p.id && !x.done)
+                          return (
+                            <div onClick={() => {
+                              if (inQ) {
+                                const it = tutorList.find(x => x.pid === p.id && !x.done)
+                                setTutorList(removeTutorItem(it.id))
+                                showMovieToast('已從家教專區移除')
+                              } else {
+                                setTutorList(addToTutorQueue({
+                                  pid: p.id, mid: movie?.id, en: p.en, zh: p.zh,
+                                  // pair 是 [你打的, 原文] 的配對——只取你打的那一半，
+                                  // 老師要知道的是「他聽成什麼」，原文她看句子就有了
+                                  heard: (p.dict?.last?.pair ?? []).map(x => Array.isArray(x) ? x[0] : '').filter(Boolean).join(' '),
+                                }))
+                                showMovieToast('🎓 已加入家教專區')
+                              }
+                            }}
+                              title={inQ ? '已在家教專區（再按一次移除）' : '上課想問這句'}
+                              style={{ cursor:'pointer', flexShrink:0, textAlign:'center',
+                                fontFamily:MONO, fontSize:12, padding:'8px 9px', borderRadius:7,
+                                background: inQ ? '#0d2a1f' : T.surf2,
+                                color: inQ ? '#34d399' : T.txt3,
+                                border:`1px solid ${inQ ? '#34d399' : T.bdr}`, opacity: inQ ? 1 : 0.6 }}>
+                              🎓
+                            </div>
+                          )
+                        })()}
                         <div onClick={() => excludeFromBlind(p)}
                           title="這句沒有學習價值，排除掉"
                           style={{ cursor:'pointer', flexShrink:0, textAlign:'center',
@@ -28521,6 +28869,8 @@ export default function App() {
   const [blindJumpSignal, setBlindJumpSignal] = useState(0)
   const [listenLibJumpSignal, setListenLibJumpSignal] = useState(0)
   const [freqJumpSignal, setFreqJumpSignal] = useState(0)
+  const [tutorJumpSignal, setTutorJumpSignal] = useState(0)
+  const [tutorCount, setTutorCount] = useState(() => readTutorQueue().filter(x => !x.done).length)
   const [trainingJumpSignal, setTrainingJumpSignal] = useState(0)
   const [listenDue, setListenDue] = useState(0)   // 今天該複習幾句（Header 紅點）
   const [freqCount, setFreqCount] = useState(0)   // 連音高頻類數（Header badge）
@@ -28549,6 +28899,11 @@ export default function App() {
     setReturnTab(tab)
     setTab('movie')
     setFreqJumpSignal(s => s + 1)
+  }
+  function openTutor() {
+    setReturnTab(tab)
+    setTab('movie')
+    setTutorJumpSignal(s => s + 1)
   }
   function openTraining() {
     setReturnTab(tab)
@@ -28702,7 +29057,7 @@ export default function App() {
   return (
     <div style={{ background:T.bg, minHeight:'100vh', maxWidth:480, margin:'0 auto', display:'flex', flexDirection:'column', position:'relative' }}>
       <style>{G}</style>
-      <Header audioMode={audioMode} toggleAudioMode={toggleAudioMode} onOpenKnowledgeBase={openKnowledgeBase} onOpenMyProduce={openMyProduce} onOpenFreq={openFreq} onOpenListenLib={openListenLib} onOpenTraining={openTraining} listenDue={listenDue} freqCount={freqCount} trainToday={getStreak().last === getTodayStr()}/>
+      <Header audioMode={audioMode} toggleAudioMode={toggleAudioMode} onOpenKnowledgeBase={openKnowledgeBase} onOpenMyProduce={openMyProduce} onOpenFreq={openFreq} onOpenListenLib={openListenLib} onOpenTraining={openTraining} onOpenTutor={openTutor} listenDue={listenDue} freqCount={freqCount} tutorCount={tutorCount} trainToday={getStreak().last === getTodayStr()}/>
       <div style={{ flex:1, overflowY:'auto', paddingBottom:'calc(110px + env(safe-area-inset-bottom, 20px))' }}>
         {tab==='phrase'   && <PhraseTab   settings={settings}/>}
         {tab==='practice' && <PracticeTab {...P}/>}
@@ -28711,7 +29066,7 @@ export default function App() {
         {tab==='email'    && <EmailTab    {...P}/>}
         <div style={{display: tab==='movie' ? 'flex' : 'none', flexDirection:'column', flex:1, minHeight:0}}>
           <MovieTab audioMode={audioMode} setAudioMode={setAudioMode} movieToast={movieToast} showMovieToast={showMovieToast}
-            kbJumpSignal={kbJumpSignal} myProduceJumpSignal={myProduceJumpSignal} blindJumpSignal={blindJumpSignal} listenLibJumpSignal={listenLibJumpSignal} freqJumpSignal={freqJumpSignal} trainingJumpSignal={trainingJumpSignal} onListenDue={setListenDue} onFreqCount={setFreqCount} onReturnFromKb={returnFromKnowledgeBase}/>
+            kbJumpSignal={kbJumpSignal} myProduceJumpSignal={myProduceJumpSignal} blindJumpSignal={blindJumpSignal} listenLibJumpSignal={listenLibJumpSignal} freqJumpSignal={freqJumpSignal} trainingJumpSignal={trainingJumpSignal} tutorJumpSignal={tutorJumpSignal} onListenDue={setListenDue} onFreqCount={setFreqCount} onTutorCount={setTutorCount} onReturnFromKb={returnFromKnowledgeBase}/>
         </div>
         {tab==='settings' && <SettingsTab {...P} movieToast={movieToast} showMovieToast={showMovieToast}/>}
       </div>
