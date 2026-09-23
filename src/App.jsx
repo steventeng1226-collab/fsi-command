@@ -7519,7 +7519,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.94</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.95</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14254,7 +14254,7 @@ function dailyPractice(days = 14) {
   return out
 }
 
-// ── 📖 連讀速查表（v6.94）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.95）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -26362,10 +26362,21 @@ Steven 不是在收藏電影台詞。
           // v6.84: 其他影片還有幾句到期——Header 徽章是跨片統計，本面板只算本片。
           // 兩個數字對不上時會以為壞了（實例：徽章 36、面板 1），這行把差額講清楚。
           // 過濾條件與徽章完全一致，否則又是一組對不起來的數字。
-          const otherDue = uniqById((db.movies ?? []).filter(m => m.id !== movieId)
-            .flatMap(m => (m.scenes ?? []).flatMap(s => s.phrases ?? [])))
-            .filter(p => p.dict?.lib && !p.dict.grad && !p.noBlind
-              && (!p.dict.next || p.dict.next <= today) && !retestedToday(p)).length
+          // v6.95: 從「只給數字」改成「分片明細 ＋ 可點切片」。
+          //   病根不是練不完，是點不到：53 句債裡有 52 句在別的片，要練得自己切片再進聽力庫。
+          //   之前誤判成「排程產出超過消化速度」而想做每日限流——那是壓產出，對錯了病。
+          const otherDueByMovie = (db.movies ?? [])
+            .filter(m => m.id !== movieId)
+            .map(m => ({
+              id: m.id,
+              title: m.title ?? '(未命名)',
+              n: uniqById((m.scenes ?? []).flatMap(s => s.phrases ?? []))
+                .filter(p => p.dict?.lib && !p.dict.grad && !p.noBlind
+                  && (!p.dict.next || p.dict.next <= today) && !retestedToday(p)).length,
+            }))
+            .filter(x => x.n > 0)
+            .sort((a, b) => b.n - a.n)
+          const otherDue = otherDueByMovie.reduce((a, x) => a + x.n, 0)
           // 依「漏掉率」分群：出現越頻繁的字一定漏越多次，用次數排會被 the/i/and 洗版
           // ⚠ 一定要濾掉 noBlind：不然排除掉的句子還是會出現在弱點關卡
           const dictated = all.filter(p => p.dict?.first && !p.noBlind)
@@ -26407,12 +26418,44 @@ Steven 不是在收藏電影台詞。
                 </span>
                 <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>本片</span>
               </div>
-              {/* v6.84: Header 徽章是跨片總數，這裡只算本片——差額寫出來，不然會以為數字壞了 */}
+              {/* v6.84: Header 徽章是跨片總數，這裡只算本片——差額寫出來，不然會以為數字壞了
+                  v6.95: 每一片都可點，直接切過去練，不必自己回片庫換片再進聽力庫 */}
               {otherDue > 0 && (
                 <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6,
-                  background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:7, padding:'6px 9px' }}>
-                  📺 其他影片還有 <b style={{ color:T.amber }}>{otherDue}</b> 句到期
-                  <span style={{ opacity:0.75 }}>（上方 🎯 聽力庫紅點是跨片總數，本面板只算本片）</span>
+                  background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:7, padding:'7px 9px',
+                  display:'flex', flexDirection:'column', gap:6 }}>
+                  <div>
+                    📺 其他影片還有 <b style={{ color:T.amber }}>{otherDue}</b> 句到期
+                    <span style={{ opacity:0.75 }}>（點一下直接切過去練）</span>
+                  </div>
+                  <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
+                    {otherDueByMovie.map(m => (
+                      <div key={m.id} onClick={() => {
+                          // 複用既有的切片動作（與片庫頁 selectMovie 一致），再自動開聽力庫。
+                          // 自動套「只看今天該複習」：不然切過去又是滿滿一頁，還得再篩一次。
+                          setMovieId(m.id)
+                          try { localStorage.setItem('fsi:movie:selected', m.id) } catch(e) {}
+                          setView('movie')
+                          setListenLibOpen(true)
+                          setLibView('sent')
+                          setLibDueOnly(true)
+                          setLibWord(null)
+                          setLibTestId(null)
+                          setBlindStatsOpen(false)
+                          setCorrectionPanelOpen(false)
+                          setTimeout(() => scrollToTop(listenLibRef.current), 160)
+                        }}
+                        style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                          fontFamily:MONO, fontSize:9, fontWeight:700, padding:'5px 9px', borderRadius:6,
+                          color:'#38bdf8', background:'#0d2a3a', border:'1px solid #38bdf840',
+                          maxWidth:'100%', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                        🎬 {m.title} <b style={{ color:T.amber }}>{m.n}</b>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ fontSize:8, opacity:0.7 }}>
+                    上方 🎯 聽力庫紅點是跨片總數，本面板只算本片
+                  </div>
                 </div>
               )}
 
