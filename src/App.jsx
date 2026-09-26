@@ -7483,7 +7483,7 @@ function AppIcon({ size = 36 }) {
 // ═══════════════════════════════════════════════════════════════
 // HEADER
 // ═══════════════════════════════════════════════════════════════
-function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProduce, onOpenFreq, onOpenListenLib, onOpenTraining, onOpenTutor, listenDue = 0, freqCount = 0, tutorCount = 0, trainToday = false }) {
+function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProduce, onOpenListenLib, onOpenTraining, onOpenTutor, onOpenMyPhrases, listenDue = 0, tutorCount = 0, myPhraseCount = 0, trainToday = false }) {
   const btn = (bg, bd, fg, bold = false) => ({
     display:'inline-flex', alignItems:'center', justifyContent:'center', gap:5,
     cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight: bold ? 700 : 400,
@@ -7519,7 +7519,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.95</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.96</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -7562,12 +7562,15 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
           )}
         </div>
 
-        {/* 第二列：🎵 連音高頻 · 🎯 聽力庫 · 🌅 今日盲聽（三個並排，字縮小）*/}
+        {/* 第二列：⭐ 我的收藏 · 🎯 聽力庫 · 🌅 今日盲聽（三個並排，字縮小）
+            v6.96: 🎵 連音高頻從 Header 撤掉——它本來就只是跳到聽力庫面板裡的 freq 分頁，
+            而那三個分頁（連音高頻／依弱點／依句子）一直都在面板內，拿掉不損失任何功能。
+            空出來的位置給「我的收藏」。 */}
         <div style={{ display:'flex', gap:4 }}>
-          {onOpenFreq && (
-            <div onClick={onOpenFreq}
+          {onOpenMyPhrases && (
+            <div onClick={onOpenMyPhrases}
               style={{ ...btn('#1a0f2e', '#a78bfa40', '#a78bfa'), fontSize:9, gap:3, padding:'5px 4px' }}>
-              🎵 連音高頻{mkBadge(freqCount, '#a78bfa', '#1a0f2e')}
+              ⭐ 我的收藏{mkBadge(myPhraseCount, '#a78bfa', '#1a0f2e')}
             </div>
           )}
           {onOpenListenLib && (
@@ -13563,6 +13566,44 @@ function getHeadPad() {
 //    是連音案例庫最高等級的種子——AI 的 IPA 解析被老師否定過（works, I 那次），
 //    所以這裡刻意不自動帶入任何 AI 解析，只存「原句 + 你聽成什麼 + 老師怎麼說」。
 const TUTOR_KEY = 'fsi:tutor:queue'
+
+// ── ⭐ 我的收藏（v6.96）──────────────────────────────────────
+// 用途：看到能「換掉一個部分就套用到別處」的句子時收起來，之後在 PHRASE 分頁操練。
+//   例：The homepage has to read in a glance → {X} has to read in a glance
+//
+// ⚠ 刻意不開第四個收藏庫：PHRASE 分頁早就有「⭐ 我的收藏」(cat:'my'、存 fsi:ph:extra)，
+//   而且句型系統本來就支援 {slot} 佔位符（LINKED_HINT_SYSTEM 把 slot 當連音的隱形牆）。
+//   缺的只是一座橋——把電影句送過去，而不是再開一個倉庫讓東西散成四處。
+//
+// ⚠ 原句照存、不自動挖 slot：AI 猜哪裡該挖會猜錯，還要花 token。
+//   使用者之後自己把要替換的部分改成 {X} 即可，一個字的工。
+const PH_EXTRA_KEY = 'fsi:ph:extra'
+function readPhExtra() {
+  try {
+    const v = JSON.parse(localStorage.getItem(PH_EXTRA_KEY) ?? '[]')
+    return Array.isArray(v) ? v : []
+  } catch(e) { return [] }
+}
+function isInMyPhrases(en) {
+  const n = normalizeEn(en)
+  return readPhExtra().some(e => normalizeEn(e.en ?? '') === n)
+}
+// 回傳 'added' | 'dup'。zh 直接沿用電影句既有的翻譯，不呼叫 AI（省 token，也不會翻出第二種版本）
+function addMoviePhraseToMy({ en, zh = '', movieId, subcat = 'other' }) {
+  const existing = readPhExtra()
+  const n = normalizeEn(en)
+  if (existing.some(e => normalizeEn(e.en ?? '') === n)) return 'dup'
+  const newPhrase = { id: 'ph_mv_' + Date.now(), cat: 'my', subcat, en, zh, movieId }
+  try { localStorage.setItem(PH_EXTRA_KEY, JSON.stringify([...existing, newPhrase])) } catch(e) {}
+  return 'added'
+}
+function removeMyPhraseByEn(en) {
+  const n = normalizeEn(en)
+  const next = readPhExtra().filter(e => normalizeEn(e.en ?? '') !== n)
+  try { localStorage.setItem(PH_EXTRA_KEY, JSON.stringify(next)) } catch(e) {}
+  return next
+}
+
 function readTutorQueue() {
   try {
     const v = JSON.parse(localStorage.getItem(TUTOR_KEY) ?? '[]')
@@ -14254,7 +14295,7 @@ function dailyPractice(days = 14) {
   return out
 }
 
-// ── 📖 連讀速查表（v6.95）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.96）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -14371,6 +14412,8 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const [tutorShowDone, setTutorShowDone] = useState(false)
   const [tutorEditId, setTutorEditId] = useState(null)
   const tutorRef = useRef(null)
+  // v6.96: 收藏狀態存在 localStorage（跨元件共用），這個 tick 只用來觸發重繪
+  const [myFavTick, setMyFavTick] = useState(0)
   // 清單一變就同步 Header 徽章（未問完的數量）
   useEffect(() => {
     onTutorCount?.(tutorList.filter(x => !x.done).length)
@@ -14576,6 +14619,10 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     setCorrectionPanelOpen(false)
     setLibWord(null)
     setLibTestId(null)
+    // v6.96: 預設落在「依句子＋只看今天該複習」——點進來就是今天要練的，
+    // 不必再點兩下（原本預設在「依弱點」）。
+    setLibView('sent')
+    setLibDueOnly(true)
     setTimeout(() => {
       scrollToTop(listenLibRef.current)
     }, 120)
@@ -15339,6 +15386,34 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
                 color: inQ ? '#34d399' : '#34d39980',
                 border:`1px solid ${inQ ? '#34d399' : '#34d39930'}` }}>
               {inQ ? '🎓 已加入' : '🎓 問老師'}
+            </div>
+          )
+        })()}
+        {/* v6.96: ⭐ 整句收藏 → PHRASE 分頁的「我的收藏」。
+            原句照存，之後自己把要替換的部分改成 {X} 就成了可套用的句型。
+            與 🎓 一樣放在 LinkFooter 這個共用元件，所有渲染路徑一次覆蓋。 */}
+        {(() => {
+          const fav = myFavTick >= 0 && isInMyPhrases(p.en)
+          return (
+            <div onClick={e => {
+              e.stopPropagation()
+              if (fav) {
+                removeMyPhraseByEn(p.en)
+                setMyFavTick(t => t + 1)
+                showMovieToast('已從我的收藏移除')
+              } else {
+                const r = addMoviePhraseToMy({ en: p.en, zh: p.zh ?? '', movieId: movie?.id })
+                setMyFavTick(t => t + 1)
+                showMovieToast(r === 'dup' ? '這句已在收藏裡' : '⭐ 已收藏，可到 PHRASE 改成句型')
+              }
+            }}
+              title={fav ? '已收藏（再按一次移除）' : '收藏成可套用的句型'}
+              style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                fontFamily:MONO, fontSize:9, fontWeight:700, padding:'4px 9px', borderRadius:6,
+                background: fav ? '#1a0f2e' : 'transparent',
+                color: fav ? '#a78bfa' : '#a78bfa80',
+                border:`1px solid ${fav ? '#a78bfa' : '#a78bfa30'}` }}>
+              {fav ? '⭐ 已收藏' : '⭐ 收藏'}
             </div>
           )
         })()}
@@ -28911,12 +28986,18 @@ export default function App() {
   const [myProduceJumpSignal, setMyProduceJumpSignal] = useState(0)
   const [blindJumpSignal, setBlindJumpSignal] = useState(0)
   const [listenLibJumpSignal, setListenLibJumpSignal] = useState(0)
+  // v6.96: Header 的 🎵 連音高頻入口已撤（面板內仍有該分頁），故此 signal 目前無人觸發、
+  // 保持休眠。管線刻意留著——日後若要恢復捷徑，接回 setFreqJumpSignal 即可。
   const [freqJumpSignal, setFreqJumpSignal] = useState(0)
   const [tutorJumpSignal, setTutorJumpSignal] = useState(0)
   const [tutorCount, setTutorCount] = useState(() => readTutorQueue().filter(x => !x.done).length)
   const [trainingJumpSignal, setTrainingJumpSignal] = useState(0)
   const [listenDue, setListenDue] = useState(0)   // 今天該複習幾句（Header 紅點）
-  const [freqCount, setFreqCount] = useState(0)   // 連音高頻類數（Header badge）
+  const [freqCount, setFreqCount] = useState(0)   // 連音高頻類數（面板內仍在用）
+  // v6.96: ⭐ 我的收藏筆數（Header badge）。切分頁時重讀——收藏動作發生在 MovieTab，
+  // 跨元件同步用 localStorage 當唯一真相，不拉一條額外的狀態鏈。
+  const [myPhraseCount, setMyPhraseCount] = useState(() => readPhExtra().length)
+  useEffect(() => { setMyPhraseCount(readPhExtra().length) }, [tab])
   const [returnTab, setReturnTab] = useState(null)
   function openKnowledgeBase() {
     setReturnTab(tab)
@@ -28938,15 +29019,15 @@ export default function App() {
     setTab('movie')
     setListenLibJumpSignal(s => s + 1)
   }
-  function openFreq() {
-    setReturnTab(tab)
-    setTab('movie')
-    setFreqJumpSignal(s => s + 1)
-  }
   function openTutor() {
     setReturnTab(tab)
     setTab('movie')
     setTutorJumpSignal(s => s + 1)
+  }
+  // v6.96: ⭐ 我的收藏 → 直接到 PHRASE 分頁（句型系統本來就在那，不另開面板）
+  function openMyPhrases() {
+    setReturnTab(tab)
+    setTab('phrase')
   }
   function openTraining() {
     setReturnTab(tab)
@@ -29100,7 +29181,7 @@ export default function App() {
   return (
     <div style={{ background:T.bg, minHeight:'100vh', maxWidth:480, margin:'0 auto', display:'flex', flexDirection:'column', position:'relative' }}>
       <style>{G}</style>
-      <Header audioMode={audioMode} toggleAudioMode={toggleAudioMode} onOpenKnowledgeBase={openKnowledgeBase} onOpenMyProduce={openMyProduce} onOpenFreq={openFreq} onOpenListenLib={openListenLib} onOpenTraining={openTraining} onOpenTutor={openTutor} listenDue={listenDue} freqCount={freqCount} tutorCount={tutorCount} trainToday={getStreak().last === getTodayStr()}/>
+      <Header audioMode={audioMode} toggleAudioMode={toggleAudioMode} onOpenKnowledgeBase={openKnowledgeBase} onOpenMyProduce={openMyProduce} onOpenListenLib={openListenLib} onOpenTraining={openTraining} onOpenTutor={openTutor} onOpenMyPhrases={openMyPhrases} listenDue={listenDue} tutorCount={tutorCount} myPhraseCount={myPhraseCount} trainToday={getStreak().last === getTodayStr()}/>
       <div style={{ flex:1, overflowY:'auto', paddingBottom:'calc(110px + env(safe-area-inset-bottom, 20px))' }}>
         {tab==='phrase'   && <PhraseTab   settings={settings}/>}
         {tab==='practice' && <PracticeTab {...P}/>}
