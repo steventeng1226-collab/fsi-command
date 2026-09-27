@@ -7519,7 +7519,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v7.02</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v7.03</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14327,7 +14327,7 @@ function dailyPractice(days = 14) {
   return out
 }
 
-// ── 📖 連讀速查表（v7.02）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v7.03）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -27428,6 +27428,21 @@ Steven 不是在收藏電影台詞。
                               <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3, alignSelf:'center' }}>
                                 已聽 {blindPlays[p.id] ?? 0} 次
                               </span>
+                              {/* v7.03: 聽力庫重測卡就地切換「每按播幾次」——原本只能繞到今日盲聽／場景頁改。
+                                  與兩處共用 blindPlayCount + fsi:blind:playCount，改一處全站同步 */}
+                              <div style={{ display:'flex', gap:4, marginLeft:'auto', alignItems:'center' }}>
+                                {[1, 2, 3].map(nn => (
+                                  <div key={nn} onClick={() => { setBlindPlayCount(nn); try { localStorage.setItem('fsi:blind:playCount', String(nn)) } catch(e) {} }}
+                                    style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                                      fontFamily:MONO, fontSize:10, fontWeight:700,
+                                      padding:'6px 10px', borderRadius:7,
+                                      color: blindPlayCount===nn ? '#0d2a3a' : T.txt2,
+                                      background: blindPlayCount===nn ? '#38bdf8' : T.surf2,
+                                      border:`1px solid ${blindPlayCount===nn ? '#38bdf8' : T.bdr}` }}>
+                                    {nn}次
+                                  </div>
+                                ))}
+                              </div>
                             </div>
                             <input
                               value={dictInput[p.id] ?? ''}
