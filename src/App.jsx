@@ -7519,7 +7519,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.97</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.98</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14327,7 +14327,7 @@ function dailyPractice(days = 14) {
   return out
 }
 
-// ── 📖 連讀速查表（v6.97）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.98）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -15147,6 +15147,32 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   //   回報只需你判斷「聽起來怪」，不必分辨錯誤類型（分類交給後續人工分析）。
   // v6.80: 重點句 chunk 背誦盒——A 全部顯示 / B 逐塊揭開。
   //   沒解析過就只顯示一顆 🎬 連音（點了才跑那一句，避免全庫批次燒額度）。
+  // v6.98: 🎬 金句鈕抽成共用元件。v6.97 只寫在 LinkFooter（解析框展開後才出現），
+  //   未解析句與場景頁收合版都沒有 → 想收藏得先花錢跑 AI（違反 v6.94「想標不必先解析」）。
+  //   現在三條路徑（LinkFooter／收合版／未解析）共用這一顆，行為一致。
+  const GoldBtn = ({ p, fs = 9, pad = '4px 9px', radius = 6 }) => {
+    const fav = goldList.some(x => x.pid === p.id)
+    return (
+      <div onClick={e => {
+        e.stopPropagation()
+        if (fav) {
+          setGoldList(removeGoldByPid(p.id))
+          showMovieToast('已從電影金句移除')
+        } else {
+          setGoldList(addGold({ pid: p.id, mid: movie?.id, en: p.en, zh: p.zh ?? '' }))
+          showMovieToast('🎬 已收進電影金句')
+        }
+      }}
+        title={fav ? '已在電影金句（再按一次移除）' : '收藏成可套用的句型'}
+        style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+          fontFamily:MONO, fontSize:fs, fontWeight:700, padding:pad, borderRadius:radius,
+          background: fav ? '#1a0f2e' : 'transparent',
+          color: fav ? '#a78bfa' : '#a78bfa80',
+          border:`1px solid ${fav ? '#a78bfa' : '#a78bfa30'}` }}>
+        {fav ? '🎬 已收藏' : '🎬 金句'}
+      </div>
+    )
+  }
   // v6.81: 統一連音卡——根治「雙渲染路徑」家族。collapsible 版供知識庫/場景頁用。
   const LinkCard = ({ p, collapsible = false, noGenBtn = false }) => {
     if (!p) return null
@@ -15195,6 +15221,8 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
                 </div>
               )
             })()}
+            {/* v6.98: 場景頁收合版也能直接收金句 */}
+            <GoldBtn p={p} fs={9} pad='4px 10px'/>
           </div>
         )}
         {open && p.link && p.link.ipa && (
@@ -15297,6 +15325,8 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
                 </div>
               )
             })()}
+            {/* v6.98: 未解析的句子也能收金句——不必先花錢跑 AI */}
+            <GoldBtn p={p} fs={10} pad='6px 11px' radius={7}/>
           </div>
         )}
       </div>
@@ -15438,30 +15468,8 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
           )
         })()}
         {/* v6.97: 🎬 收進電影金句（獨立儲存，不混進 PHRASE 的 1952 句）。
-            與 🎓 一樣放在 LinkFooter 這個共用元件，所有渲染路徑一次覆蓋。 */}
-        {(() => {
-          const fav = goldList.some(x => x.pid === p.id)
-          return (
-            <div onClick={e => {
-              e.stopPropagation()
-              if (fav) {
-                setGoldList(removeGoldByPid(p.id))
-                showMovieToast('已從電影金句移除')
-              } else {
-                setGoldList(addGold({ pid: p.id, mid: movie?.id, en: p.en, zh: p.zh ?? '' }))
-                showMovieToast('🎬 已收進電影金句')
-              }
-            }}
-              title={fav ? '已在電影金句（再按一次移除）' : '收藏成可套用的句型'}
-              style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
-                fontFamily:MONO, fontSize:9, fontWeight:700, padding:'4px 9px', borderRadius:6,
-                background: fav ? '#1a0f2e' : 'transparent',
-                color: fav ? '#a78bfa' : '#a78bfa80',
-                border:`1px solid ${fav ? '#a78bfa' : '#a78bfa30'}` }}>
-              {fav ? '🎬 已收藏' : '🎬 金句'}
-            </div>
-          )
-        })()}
+            v6.98: 改用共用 GoldBtn，與收合版／未解析版同一顆。 */}
+        <GoldBtn p={p}/>
       </div>
     )
   }
