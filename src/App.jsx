@@ -7519,7 +7519,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.99</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v7.02</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14327,7 +14327,7 @@ function dailyPractice(days = 14) {
   return out
 }
 
-// ── 📖 連讀速查表（v6.99）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v7.02）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -14542,6 +14542,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const [editingSceneNameText, setEditingSceneNameText] = useState('')
   const [playingPhraseId, setPlayingPhraseId] = useState(null)
   const [deletingPhraseId,setDeletingPhraseId]= useState(null)
+  const [starDelId, setStarDelId] = useState(null) // v7.01: 練習畫面 ✕ 刪除的兩段式確認
   const [editingZhId,     setEditingZhId]     = useState(null)
   const [editingZhText,   setEditingZhText]   = useState('')
   const [editingNoteId,   setEditingNoteId]   = useState(null)
@@ -15084,7 +15085,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const starPlayCountRef  = useRef({})          // { [phraseId]: count } 循環播放計數（自動熟悉用）
   const starPlayGenRef    = useRef(0)           // 播放代次，避免過期的非同步 callback 干擾新播放
   const [starLoopMode,    setStarLoopMode]    = useState(null)      // null | 'familiar' | 'unfamiliar'
-  const [starBikeMode,    setStarBikeMode]    = useState(false)     // 🚴 騎車模式：每句強制播3次，不自動標記熟悉
+  const [starBikeMode,    setStarBikeMode]    = useState(0)         // 🚴 騎車模式：0=關／2／3 = 每句強制播幾次（v7.02 由 bool 改數字），不自動標記熟悉
   // 🎧 盲聽模式：先聽後看，訓練即時解碼而非靠文字理解
   const [blindMode,       setBlindMode]       = useState(false)     // 盲聽模式開關
   const [blindRevealed,   setBlindRevealed]   = useState({})        // { phraseId: true } 已顯示文字的句子
@@ -17507,7 +17508,25 @@ Return ONLY a JSON object, no markdown:
     }))})
     // multiScenePhrases 是進入練習時凍結的一份清單，資料庫改了不會自動反映
     // 這裡手動同步：取消星號後，立刻把這句從目前這輪練習清單移除
+    // v7.01: 「▶ 全部」模式（清單含非星號句）不移除，只翻轉星號——
+    //   否則在全部模式按 ★ 幫句子加星，句子反而從清單消失（v6.99 漏掉的情況）
+    setMultiScenePhrases(prev => {
+      if (prev.length === 0) return prev
+      if (prev.some(p => !p.starred)) return prev.map(p => p.id === pid ? { ...p, starred: !p.starred } : p)
+      return prev.filter(p => p.id !== pid)
+    })
+  }
+  // v7.01: 練習畫面的永久刪除。句子可能來自多個場景，場景頁的 deletePhrase
+  //   只作用在目前場景會刪不到 → 比照 toggleStarGlobal 走全 db，並同步移出本輪清單。
+  function deletePhraseGlobal(pid) {
+    saveDb({ ...db, movies: db.movies.map(m => ({
+      ...m, scenes: (m.scenes ?? []).map(s => ({
+        ...s, phrases: (s.phrases ?? []).filter(p => p.id !== pid)
+      }))
+    }))})
     setMultiScenePhrases(prev => prev.length > 0 ? prev.filter(p => p.id !== pid) : prev)
+    setStarDelId(null)
+    showMovieToast('🗑 已刪除這句')
   }
   function saveZh(pid, newZh) {
     updateScenePhrases(ps => ps.map(p => p.id === pid ? { ...p, zh: newZh.trim() } : p))
@@ -21547,6 +21566,13 @@ Steven 不是在收藏電影台詞。
 
             {/* v6.82: 場景頁星號句也有連音＋chunk（統一 LinkCard，新增場景自動適用）*/}
             {p.starred && !blindMode && <LinkCard p={p} collapsible/>}
+            {/* v7.00: 沒加星的句子也能收金句（星號句已在 LinkCard 列裡有）。
+                共用 GoldBtn，收藏狀態全站同步；盲聽模式不顯示，避免提前看到句子。 */}
+            {!p.starred && !blindMode && (
+              <div style={{ display:'flex', marginTop:6 }}>
+                <GoldBtn p={p} fs={10} pad='5px 11px' radius={7}/>
+              </div>
+            )}
 
             {/* ── 畫面描述（🎬）顯示區 ── */}
             {editingSceneDescId === p.id ? (
@@ -22351,9 +22377,9 @@ Steven 不是在收藏電影台詞。
         }
       }
       // 加強 / 再加強：分別重複播放 2 / 3 次再前進，其餘（熟悉／未標記）維持播 1 次
-      // 騎車模式：不管標記為何，一律強制連續播 3 次，避免騎車時環境吵聽不清楚
+      // 騎車模式：不管標記為何，一律強制連續播 starBikeMode 次（v7.02: 可選 2／3），避免騎車時環境吵聽不清楚
       const famVal = getFam(p)
-      const repeatTarget = starBikeMode ? 3 : (famVal === 'reinforce' ? 3 : famVal === false ? 2 : 1)
+      const repeatTarget = starBikeMode ? starBikeMode : (famVal === 'reinforce' ? 3 : famVal === false ? 2 : 1)
       const repeatKey = `repeat_${p.id}`
       const advanceOrRepeat = (afterPlay) => {
         if (repeatTarget > 1) {
@@ -22851,16 +22877,23 @@ Steven 不是在收藏電影台詞。
               border:`1px solid ${starReverse ? T.blue+'60' : T.bdr}` }}>
             🔄 反向{starReverse ? ' ON' : ''}
           </div>
-          {/* 🚴 騎車模式：每句強制播3次，不自動標記熟悉 */}
-          <div onClick={() => setStarBikeMode(v => !v)}
-            title="騎車環境吵，每句連續播3次，且不自動標記熟悉度"
-            style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
-              padding:'6px 10px', borderRadius:8,
-              color: starBikeMode ? T.grn : T.txt3,
-              background: starBikeMode ? T.grnD : T.surf2,
-              border:`1px solid ${starBikeMode ? T.grn+'60' : T.bdr}` }}>
-            🚴 騎車{starBikeMode ? ' ON' : ''}
-          </div>
+          {/* 🚴 騎車模式：每句強制播 N 次，不自動標記熟悉。
+              v7.02: 分成 ×2／×3 兩顆並排（不用單顆輪切，免得跳過想要的選項）；再按已亮的那顆 = 關 */}
+          {[2, 3].map(n => {
+            const on = starBikeMode === n
+            return (
+              <div key={n} onClick={() => setStarBikeMode(v => v === n ? 0 : n)}
+                title={`騎車環境吵，每句連續播 ${n} 次，且不自動標記熟悉度（再按一次關閉）`}
+                style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                  fontFamily:MONO, fontSize:9, fontWeight:700,
+                  padding:'6px 10px', borderRadius:8,
+                  color: on ? T.grn : T.txt3,
+                  background: on ? T.grnD : T.surf2,
+                  border:`1px solid ${on ? T.grn+'60' : T.bdr}` }}>
+                🚴 ×{n}
+              </div>
+            )
+          })}
           {/* 語速選擇器 */}
           <div style={{ display:'flex', alignItems:'center', gap:6 }}>
             <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>🔊 語速：</span>
@@ -22924,7 +22957,7 @@ Steven 不是在收藏電影台詞。
               textAlign:'center', padding:'6px', background:T.surf2, borderRadius:8 }}>
               🔁 {starLoopMode==='familiar' ? '熟悉' : starLoopMode==='unfamiliar' ? '加強' : '全部'} 無限循環
               · 第 {starLoopIdx+1} / {(starLoopMode==='familiar' ? familiarList : starLoopMode==='unfamiliar' ? unfamiliarList : allPhrases).length} 句
-              {starBikeMode && <span style={{ color:T.grn, marginLeft:6 }}>🚴 每句播3次</span>}
+              {starBikeMode > 0 && <span style={{ color:T.grn, marginLeft:6 }}>🚴 每句播 {starBikeMode} 次</span>}
             </div>
           )}
         </div>{/* end fixed header */}
@@ -23029,13 +23062,36 @@ Steven 不是在收藏電影台詞。
                   </div>
                   {/* ★ Unstar 按鈕 */}
                   <div onClick={() => toggleStarGlobal(p.id)}
-                    title="取消收藏"
+                    title={p.starred === false ? '加入重點句' : '取消收藏'}
                     style={{ cursor:'pointer', fontSize:13, lineHeight:1,
                       padding:'2px 6px', borderRadius:6,
-                      background:'#2a1f00', border:`1px solid ${T.amber}40`,
-                      color:T.amber, transition:'opacity 0.15s' }}>
-                    ★
+                      background: p.starred === false ? T.surf2 : '#2a1f00',
+                      border:`1px solid ${p.starred === false ? T.bdr : T.amber + '40'}`,
+                      color: p.starred === false ? T.txt3 : T.amber, transition:'opacity 0.15s' }}>
+                    {p.starred === false ? '☆' : '★'}
                   </div>
+                  {/* v7.01: ✕ 永久刪除（語助詞、無用句）。兩段式確認，避免騎車／滑動誤觸 */}
+                  {starDelId === p.id ? (
+                    <>
+                      <div onClick={() => deletePhraseGlobal(p.id)}
+                        style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                          fontFamily:MONO, fontSize:10, fontWeight:700, color:'#fff',
+                          padding:'2px 8px', borderRadius:6, background:'#f85149',
+                          border:'1px solid #f85149' }}>確定刪除</div>
+                      <div onClick={() => setStarDelId(null)}
+                        style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                          fontFamily:MONO, fontSize:10, color:T.txt2,
+                          padding:'2px 8px', borderRadius:6, background:T.surf2,
+                          border:`1px solid ${T.bdr}` }}>取消</div>
+                    </>
+                  ) : (
+                    <div onClick={() => setStarDelId(p.id)}
+                      title="永久刪除這句"
+                      style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                        fontFamily:MONO, fontSize:11, lineHeight:1, color:'#f85149',
+                        padding:'3px 7px', borderRadius:6, background:T.surf2,
+                        border:'1px solid #f8514940' }}>✕</div>
+                  )}
                 </div>
               </div>
 
