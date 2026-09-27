@@ -7483,7 +7483,7 @@ function AppIcon({ size = 36 }) {
 // ═══════════════════════════════════════════════════════════════
 // HEADER
 // ═══════════════════════════════════════════════════════════════
-function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProduce, onOpenListenLib, onOpenTraining, onOpenTutor, onOpenMyPhrases, listenDue = 0, tutorCount = 0, myPhraseCount = 0, trainToday = false }) {
+function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProduce, onOpenListenLib, onOpenTraining, onOpenTutor, onOpenGold, listenDue = 0, tutorCount = 0, goldCount = 0, trainToday = false }) {
   const btn = (bg, bd, fg, bold = false) => ({
     display:'inline-flex', alignItems:'center', justifyContent:'center', gap:5,
     cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight: bold ? 700 : 400,
@@ -7519,7 +7519,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.96</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.97</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -7567,10 +7567,10 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
             而那三個分頁（連音高頻／依弱點／依句子）一直都在面板內，拿掉不損失任何功能。
             空出來的位置給「我的收藏」。 */}
         <div style={{ display:'flex', gap:4 }}>
-          {onOpenMyPhrases && (
-            <div onClick={onOpenMyPhrases}
+          {onOpenGold && (
+            <div onClick={onOpenGold}
               style={{ ...btn('#1a0f2e', '#a78bfa40', '#a78bfa'), fontSize:9, gap:3, padding:'5px 4px' }}>
-              ⭐ 我的收藏{mkBadge(myPhraseCount, '#a78bfa', '#1a0f2e')}
+              🎬 電影金句{mkBadge(goldCount, '#a78bfa', '#1a0f2e')}
             </div>
           )}
           {onOpenListenLib && (
@@ -13567,40 +13567,72 @@ function getHeadPad() {
 //    所以這裡刻意不自動帶入任何 AI 解析，只存「原句 + 你聽成什麼 + 老師怎麼說」。
 const TUTOR_KEY = 'fsi:tutor:queue'
 
-// ── ⭐ 我的收藏（v6.96）──────────────────────────────────────
-// 用途：看到能「換掉一個部分就套用到別處」的句子時收起來，之後在 PHRASE 分頁操練。
+// ── 🎬 電影金句（v6.97）──────────────────────────────────────
+// 用途：看到能「換掉一個部分就套用到別處」的電影句時收起來。
 //   例：The homepage has to read in a glance → {X} has to read in a glance
 //
-// ⚠ 刻意不開第四個收藏庫：PHRASE 分頁早就有「⭐ 我的收藏」(cat:'my'、存 fsi:ph:extra)，
-//   而且句型系統本來就支援 {slot} 佔位符（LINKED_HINT_SYSTEM 把 slot 當連音的隱形牆）。
-//   缺的只是一座橋——把電影句送過去，而不是再開一個倉庫讓東西散成四處。
+// ⚠ v6.96 曾把它併進 PHRASE 的「⭐ 我的收藏」(fsi:ph:extra)，那是誤判：
+//   那裡已經有 1952 句，收進去馬上被淹沒，Header 徽章顯示 1952 也失去意義。
+//   v6.97 改成獨立儲存，徽章只算電影句。
+//
+// ⚠ 代價要講清楚：獨立之後就用不到 PHRASE 分頁的造句／口說／問答等操練模式，
+//   因為那些綁在 fsi:ph:extra 上。這是使用者在「乾淨」與「可操練」之間選了前者。
 //
 // ⚠ 原句照存、不自動挖 slot：AI 猜哪裡該挖會猜錯，還要花 token。
-//   使用者之後自己把要替換的部分改成 {X} 即可，一個字的工。
+const GOLD_KEY = 'fsi:movie:gold'
 const PH_EXTRA_KEY = 'fsi:ph:extra'
-function readPhExtra() {
+function readGold() {
   try {
-    const v = JSON.parse(localStorage.getItem(PH_EXTRA_KEY) ?? '[]')
+    const v = JSON.parse(localStorage.getItem(GOLD_KEY) ?? '[]')
     return Array.isArray(v) ? v : []
   } catch(e) { return [] }
 }
-function isInMyPhrases(en) {
-  const n = normalizeEn(en)
-  return readPhExtra().some(e => normalizeEn(e.en ?? '') === n)
+function writeGold(list) {
+  try { localStorage.setItem(GOLD_KEY, JSON.stringify(list)) } catch(e) {}
 }
-// 回傳 'added' | 'dup'。zh 直接沿用電影句既有的翻譯，不呼叫 AI（省 token，也不會翻出第二種版本）
-function addMoviePhraseToMy({ en, zh = '', movieId, subcat = 'other' }) {
-  const existing = readPhExtra()
-  const n = normalizeEn(en)
-  if (existing.some(e => normalizeEn(e.en ?? '') === n)) return 'dup'
-  const newPhrase = { id: 'ph_mv_' + Date.now(), cat: 'my', subcat, en, zh, movieId }
-  try { localStorage.setItem(PH_EXTRA_KEY, JSON.stringify([...existing, newPhrase])) } catch(e) {}
-  return 'added'
+// v6.97 一次性遷移：把 v6.96 寫進 ph:extra 的電影句（id 前綴 ph_mv_）搬過來，
+// 順手從 ph:extra 移除，免得同一句同時存在兩邊。只跑一次，用旗標記錄。
+function migrateGoldOnce() {
+  if (localStorage.getItem('fsi:movie:gold:migrated') === '1') return
+  try {
+    const ex = JSON.parse(localStorage.getItem(PH_EXTRA_KEY) ?? '[]')
+    if (Array.isArray(ex)) {
+      const moved = ex.filter(x => String(x?.id ?? '').startsWith('ph_mv_'))
+      if (moved.length) {
+        const cur = readGold()
+        const add = moved
+          .filter(m => !cur.some(g => normalizeEn(g.en ?? '') === normalizeEn(m.en ?? '')))
+          .map(m => ({ id: 'gold_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+                       pid: m.pid ?? null, en: m.en, zh: m.zh ?? '', mid: m.movieId ?? null,
+                       d: getTodayStr(), t: Date.now(), note: '' }))
+        writeGold([...cur, ...add])
+        localStorage.setItem(PH_EXTRA_KEY, JSON.stringify(ex.filter(x => !String(x?.id ?? '').startsWith('ph_mv_'))))
+      }
+    }
+    localStorage.setItem('fsi:movie:gold:migrated', '1')
+  } catch(e) {}
 }
-function removeMyPhraseByEn(en) {
-  const n = normalizeEn(en)
-  const next = readPhExtra().filter(e => normalizeEn(e.en ?? '') !== n)
-  try { localStorage.setItem(PH_EXTRA_KEY, JSON.stringify(next)) } catch(e) {}
+function addGold({ pid, mid, en, zh = '' }) {
+  const list = readGold()
+  if (list.some(x => x.pid === pid || normalizeEn(x.en ?? '') === normalizeEn(en))) return list
+  const next = [...list, { id: 'gold_' + Date.now(), pid, mid, en, zh,
+                           d: getTodayStr(), t: Date.now(), note: '' }]
+  writeGold(next)
+  return next
+}
+function updateGoldItem(id, patch) {
+  const next = readGold().map(x => x.id === id ? { ...x, ...patch } : x)
+  writeGold(next)
+  return next
+}
+function removeGoldByPid(pid) {
+  const next = readGold().filter(x => x.pid !== pid)
+  writeGold(next)
+  return next
+}
+function removeGoldById(id) {
+  const next = readGold().filter(x => x.id !== id)
+  writeGold(next)
   return next
 }
 
@@ -14295,7 +14327,7 @@ function dailyPractice(days = 14) {
   return out
 }
 
-// ── 📖 連讀速查表（v6.96）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.97）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -14312,7 +14344,7 @@ const LINK_RULES = [
   { cls:'wk', t:'功能詞弱讀 → schwa',    eg:'what are you', ipa:'<wk>wɑːɾɚjə</wk>',      note:'of/to/and/your… 全塌成 ə，你的核心關卡' },
 ]
 
-function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpSignal, myProduceJumpSignal, blindJumpSignal, listenLibJumpSignal, freqJumpSignal, trainingJumpSignal, tutorJumpSignal, onListenDue, onFreqCount, onTutorCount, onReturnFromKb }) {
+function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpSignal, myProduceJumpSignal, blindJumpSignal, listenLibJumpSignal, freqJumpSignal, trainingJumpSignal, tutorJumpSignal, goldJumpSignal, onListenDue, onFreqCount, onTutorCount, onGoldCount, onReturnFromKb }) {
   const [db, setDb] = useState(() => {
     try {
       const s = localStorage.getItem('fsi:movie:db')
@@ -14412,8 +14444,12 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const [tutorShowDone, setTutorShowDone] = useState(false)
   const [tutorEditId, setTutorEditId] = useState(null)
   const tutorRef = useRef(null)
-  // v6.96: 收藏狀態存在 localStorage（跨元件共用），這個 tick 只用來觸發重繪
-  const [myFavTick, setMyFavTick] = useState(0)
+  // v6.97: 🎬 電影金句
+  const [goldList, setGoldList] = useState(() => { migrateGoldOnce(); return readGold() })
+  const [goldOpen, setGoldOpen] = useState(false)
+  const [goldEditId, setGoldEditId] = useState(null)
+  const goldRef = useRef(null)
+  useEffect(() => { onGoldCount?.(goldList.length) }, [goldList]) // eslint-disable-line react-hooks/exhaustive-deps
   // 清單一變就同步 Header 徽章（未問完的數量）
   useEffect(() => {
     onTutorCount?.(tutorList.filter(x => !x.done).length)
@@ -14642,6 +14678,18 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
       scrollToTop(listenLibRef.current)
     }, 120)
   }, [freqJumpSignal]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── 🎬 電影金句快速開啟 ──
+  useEffect(() => {
+    if (!goldJumpSignal) return
+    setView('movie')
+    setGoldOpen(true)
+    setTutorOpen(false)
+    setListenLibOpen(false)
+    setBlindStatsOpen(false)
+    setCorrectionPanelOpen(false)
+    setTimeout(() => { scrollToTop(goldRef.current) }, 120)
+  }, [goldJumpSignal]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 🎓 家教專區快速開啟 ──
   useEffect(() => {
@@ -15389,31 +15437,28 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
             </div>
           )
         })()}
-        {/* v6.96: ⭐ 整句收藏 → PHRASE 分頁的「我的收藏」。
-            原句照存，之後自己把要替換的部分改成 {X} 就成了可套用的句型。
+        {/* v6.97: 🎬 收進電影金句（獨立儲存，不混進 PHRASE 的 1952 句）。
             與 🎓 一樣放在 LinkFooter 這個共用元件，所有渲染路徑一次覆蓋。 */}
         {(() => {
-          const fav = myFavTick >= 0 && isInMyPhrases(p.en)
+          const fav = goldList.some(x => x.pid === p.id)
           return (
             <div onClick={e => {
               e.stopPropagation()
               if (fav) {
-                removeMyPhraseByEn(p.en)
-                setMyFavTick(t => t + 1)
-                showMovieToast('已從我的收藏移除')
+                setGoldList(removeGoldByPid(p.id))
+                showMovieToast('已從電影金句移除')
               } else {
-                const r = addMoviePhraseToMy({ en: p.en, zh: p.zh ?? '', movieId: movie?.id })
-                setMyFavTick(t => t + 1)
-                showMovieToast(r === 'dup' ? '這句已在收藏裡' : '⭐ 已收藏，可到 PHRASE 改成句型')
+                setGoldList(addGold({ pid: p.id, mid: movie?.id, en: p.en, zh: p.zh ?? '' }))
+                showMovieToast('🎬 已收進電影金句')
               }
             }}
-              title={fav ? '已收藏（再按一次移除）' : '收藏成可套用的句型'}
+              title={fav ? '已在電影金句（再按一次移除）' : '收藏成可套用的句型'}
               style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
                 fontFamily:MONO, fontSize:9, fontWeight:700, padding:'4px 9px', borderRadius:6,
                 background: fav ? '#1a0f2e' : 'transparent',
                 color: fav ? '#a78bfa' : '#a78bfa80',
                 border:`1px solid ${fav ? '#a78bfa' : '#a78bfa30'}` }}>
-              {fav ? '⭐ 已收藏' : '⭐ 收藏'}
+              {fav ? '🎬 已收藏' : '🎬 金句'}
             </div>
           )
         })()}
@@ -26248,6 +26293,105 @@ Steven 不是在收藏電影台詞。
             </div>
           )
         })()}
+        <div ref={goldRef}/>
+        {/* ── 🎬 電影金句（v6.97）：只收電影句，與 PHRASE 的 1952 句完全分開 ──
+            用法：收藏原句 → 把要替換的部分改成 {X} → 之後照樣造句。
+            ⚠ 這裡用不到 PHRASE 的造句／口說模式（那些綁在 fsi:ph:extra），
+              這是「乾淨」換來的代價，使用者已知並選擇了這個。 */}
+        {goldOpen && (() => {
+          const pool = uniqById([
+            ...(movie?.scenes ?? []).flatMap(s => s.phrases ?? []),
+            ...(multiScenePhrases ?? []),
+          ])
+          const byId = Object.fromEntries(pool.map(p => [p.id, p]))
+          return (
+            <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:14,
+              padding:'13px 12px', borderRadius:12, background:T.surf2, border:'1px solid #a78bfa40' }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}>
+                <span style={{ fontFamily:MONO, fontSize:12, color:'#a78bfa', fontWeight:700 }}>
+                  🎬 電影金句 {goldList.length > 0 && `（${goldList.length}）`}
+                </span>
+                <div onClick={() => setGoldOpen(false)}
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
+                    padding:'4px 9px', borderRadius:7, border:`1px solid ${T.bdr}` }}>
+                  收起
+                </div>
+              </div>
+
+              {goldList.length === 0 ? (
+                <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.7, padding:'8px 2px' }}>
+                  還沒有收藏。看到「換掉一個部分就能套用到別處」的句子，按卡片上的 🎬 金句就會收進這裡。
+                </div>
+              ) : [...goldList].reverse().map(item => {
+                const p = byId[item.pid]
+                const editing = goldEditId === item.id
+                return (
+                  <div key={item.id} style={{ display:'flex', flexDirection:'column', gap:6,
+                    padding:'10px 11px', borderRadius:10, background:T.surf, border:`1px solid ${T.bdr}` }}>
+                    <div style={{ fontFamily:MONO, fontSize:11, color:T.txt, lineHeight:1.6, fontWeight:700 }}>
+                      {item.en}
+                    </div>
+                    {item.zh && <div style={{ fontSize:10, color:T.txt3, lineHeight:1.5 }}>{item.zh}</div>}
+                    {!editing && item.note && (
+                      <div style={{ fontFamily:MONO, fontSize:10, color:'#a78bfa', lineHeight:1.7,
+                        padding:'7px 9px', borderRadius:7, background:'#1a0f2e', whiteSpace:'pre-wrap' }}>
+                        ✏️ {item.note}
+                      </div>
+                    )}
+                    <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
+                      {p && (
+                        <div onClick={() => speakPhrase(p.id, p.en, undefined, p)}
+                          style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                            fontFamily:MONO, fontSize:9, fontWeight:700, padding:'5px 10px', borderRadius:7,
+                            color:'#38bdf8', background:'#0d2a3a', border:'1px solid #38bdf840' }}>
+                          ▶ 播放
+                        </div>
+                      )}
+                      <div onClick={() => setGoldEditId(editing ? null : item.id)}
+                        style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                          fontFamily:MONO, fontSize:9, fontWeight:700, padding:'5px 10px', borderRadius:7,
+                          color:'#a78bfa', background:'#1a0f2e', border:'1px solid #a78bfa40' }}>
+                        {editing ? '✕ 關閉' : '✏️ 改成句型'}
+                      </div>
+                      <div onClick={() => {
+                          navigator.clipboard?.writeText(item.note?.trim() || item.en)
+                          showMovieToast('📋 已複製')
+                        }}
+                        style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                          fontFamily:MONO, fontSize:9, padding:'5px 9px', borderRadius:7,
+                          color:T.txt3, background:'transparent', border:`1px solid ${T.bdr}` }}>
+                        📋
+                      </div>
+                      <div onClick={() => { if (confirm('從電影金句移除？')) setGoldList(removeGoldById(item.id)) }}
+                        style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                          fontFamily:MONO, fontSize:9, padding:'5px 9px', borderRadius:7,
+                          color:T.txt3, background:'transparent', border:`1px solid ${T.bdr}` }}>
+                        🗑
+                      </div>
+                    </div>
+                    {editing && (
+                      <div style={{ display:'flex', flexDirection:'column', gap:5, marginTop:2 }}>
+                        <textarea value={item.note} rows={2}
+                          placeholder={`把要替換的部分改成 {X}，例如：{X} has to read in a glance`}
+                          onChange={e => setGoldList(updateGoldItem(item.id, { note: e.target.value }))}
+                          style={{ background:T.surf2, border:'1px solid #a78bfa40', borderRadius:7,
+                            padding:'7px 9px', fontFamily:MONO, fontSize:10, color:T.txt,
+                            outline:'none', resize:'vertical', lineHeight:1.6 }} />
+                        <div onClick={() => setGoldList(updateGoldItem(item.id, { note: item.en }))}
+                          style={{ cursor:'pointer', userSelect:'none', textAlign:'center',
+                            fontFamily:MONO, fontSize:8, color:T.txt3, padding:'5px', borderRadius:6,
+                            border:`1px solid ${T.bdr}` }}>
+                          ↩ 先帶入原句再改
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })()}
+
         <div ref={tutorRef}/>
         {/* ── 🎓 家教專區（v6.93）：上課前打開就是清單，不必臨場翻找 ──
             資料只存「原句 + 你聽成什麼 + 老師怎麼說」，刻意不帶 AI 解析：
@@ -28994,10 +29138,9 @@ export default function App() {
   const [trainingJumpSignal, setTrainingJumpSignal] = useState(0)
   const [listenDue, setListenDue] = useState(0)   // 今天該複習幾句（Header 紅點）
   const [freqCount, setFreqCount] = useState(0)   // 連音高頻類數（面板內仍在用）
-  // v6.96: ⭐ 我的收藏筆數（Header badge）。切分頁時重讀——收藏動作發生在 MovieTab，
-  // 跨元件同步用 localStorage 當唯一真相，不拉一條額外的狀態鏈。
-  const [myPhraseCount, setMyPhraseCount] = useState(() => readPhExtra().length)
-  useEffect(() => { setMyPhraseCount(readPhExtra().length) }, [tab])
+  // v6.97: 🎬 電影金句筆數（Header badge）。收藏動作發生在 MovieTab，用 onGoldCount 回拋。
+  const [goldCount, setGoldCount] = useState(() => readGold().length)
+  const [goldJumpSignal, setGoldJumpSignal] = useState(0)
   const [returnTab, setReturnTab] = useState(null)
   function openKnowledgeBase() {
     setReturnTab(tab)
@@ -29024,10 +29167,11 @@ export default function App() {
     setTab('movie')
     setTutorJumpSignal(s => s + 1)
   }
-  // v6.96: ⭐ 我的收藏 → 直接到 PHRASE 分頁（句型系統本來就在那，不另開面板）
-  function openMyPhrases() {
+  // v6.97: 🎬 電影金句 → 電影分頁內的獨立面板（與家教專區同一套跳轉機制）
+  function openGold() {
     setReturnTab(tab)
-    setTab('phrase')
+    setTab('movie')
+    setGoldJumpSignal(s => s + 1)
   }
   function openTraining() {
     setReturnTab(tab)
@@ -29181,7 +29325,7 @@ export default function App() {
   return (
     <div style={{ background:T.bg, minHeight:'100vh', maxWidth:480, margin:'0 auto', display:'flex', flexDirection:'column', position:'relative' }}>
       <style>{G}</style>
-      <Header audioMode={audioMode} toggleAudioMode={toggleAudioMode} onOpenKnowledgeBase={openKnowledgeBase} onOpenMyProduce={openMyProduce} onOpenListenLib={openListenLib} onOpenTraining={openTraining} onOpenTutor={openTutor} onOpenMyPhrases={openMyPhrases} listenDue={listenDue} tutorCount={tutorCount} myPhraseCount={myPhraseCount} trainToday={getStreak().last === getTodayStr()}/>
+      <Header audioMode={audioMode} toggleAudioMode={toggleAudioMode} onOpenKnowledgeBase={openKnowledgeBase} onOpenMyProduce={openMyProduce} onOpenListenLib={openListenLib} onOpenTraining={openTraining} onOpenTutor={openTutor} onOpenGold={openGold} listenDue={listenDue} tutorCount={tutorCount} goldCount={goldCount} trainToday={getStreak().last === getTodayStr()}/>
       <div style={{ flex:1, overflowY:'auto', paddingBottom:'calc(110px + env(safe-area-inset-bottom, 20px))' }}>
         {tab==='phrase'   && <PhraseTab   settings={settings}/>}
         {tab==='practice' && <PracticeTab {...P}/>}
@@ -29190,7 +29334,7 @@ export default function App() {
         {tab==='email'    && <EmailTab    {...P}/>}
         <div style={{display: tab==='movie' ? 'flex' : 'none', flexDirection:'column', flex:1, minHeight:0}}>
           <MovieTab audioMode={audioMode} setAudioMode={setAudioMode} movieToast={movieToast} showMovieToast={showMovieToast}
-            kbJumpSignal={kbJumpSignal} myProduceJumpSignal={myProduceJumpSignal} blindJumpSignal={blindJumpSignal} listenLibJumpSignal={listenLibJumpSignal} freqJumpSignal={freqJumpSignal} trainingJumpSignal={trainingJumpSignal} tutorJumpSignal={tutorJumpSignal} onListenDue={setListenDue} onFreqCount={setFreqCount} onTutorCount={setTutorCount} onReturnFromKb={returnFromKnowledgeBase}/>
+            kbJumpSignal={kbJumpSignal} myProduceJumpSignal={myProduceJumpSignal} blindJumpSignal={blindJumpSignal} listenLibJumpSignal={listenLibJumpSignal} freqJumpSignal={freqJumpSignal} trainingJumpSignal={trainingJumpSignal} tutorJumpSignal={tutorJumpSignal} goldJumpSignal={goldJumpSignal} onListenDue={setListenDue} onFreqCount={setFreqCount} onTutorCount={setTutorCount} onGoldCount={setGoldCount} onReturnFromKb={returnFromKnowledgeBase}/>
         </div>
         {tab==='settings' && <SettingsTab {...P} movieToast={movieToast} showMovieToast={showMovieToast}/>}
       </div>
