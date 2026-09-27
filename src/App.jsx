@@ -7519,7 +7519,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.98</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v6.99</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14327,7 +14327,7 @@ function dailyPractice(days = 14) {
   return out
 }
 
-// ── 📖 連讀速查表（v6.98）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v6.99）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -16916,7 +16916,7 @@ Return ONLY a JSON object, no markdown:
     const calls = targets.length * 2
     const estUsd = (calls * 0.02).toFixed(1)
     if (!confirm(
-      `為這一組重點句產生 chunk\n\n`
+      `為這一組句子產生 chunk\n\n`
       + `待處理：${targets.length} 句（本組共 ${multiScenePhrases.length} 句）\n`
       + `AI 呼叫：最多 ${calls} 次（生成＋校驗各一）\n`
       + `粗估費用：約 $${estUsd} USD\n\n`
@@ -22739,7 +22739,9 @@ Steven 不是在收藏電影台詞。
 
                     {/* 標題行：⭐標題 + 結束練習 + 日期 + 組別選單 + 進度 */}
                     <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
-                      <span style={{ fontFamily:MONO, fontSize:9, fontWeight:700, color:T.amber }}>⭐ 重點句子練習</span>
+                      <span style={{ fontFamily:MONO, fontSize:9, fontWeight:700, color:T.amber }}>
+                        {multiScenePhrases.some(p => !p.starred) ? `🎧 全部句子（${multiScenePhrases.length}）` : '⭐ 重點句子練習'}
+                      </span>
                       <div onClick={() => {
                           // 寫入游標和練習日期
                           const lastKey = multiScenePhrases[multiScenePhrases.length - 1]?._sortKey
@@ -24860,7 +24862,12 @@ Steven 不是在收藏電影台詞。
                   const sc = movie?.scenes?.find(s => s.id === sid)
                   return acc + (sc?.phrases?.filter(p => p.starred).length ?? 0)
                 }, 0)
-                return <span>{total} 個重點句</span>
+                // v6.99: 同時顯示全部句數（騎車聽全部用）
+                const all = [...selectedSceneIds].reduce((acc, sid) => {
+                  const sc = movie?.scenes?.find(s => s.id === sid)
+                  return acc + (sc?.phrases?.length ?? 0)
+                }, 0)
+                return <span>{total} 重點句／{all} 全部</span>
               })()}
             </div>
             <div style={{ display:'flex', gap:6, flexShrink:0 }}>
@@ -24884,6 +24891,25 @@ Steven 不是在收藏電影台詞。
                 style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
                   color:'#000', padding:'6px 12px', background:T.amber,
                   borderRadius:8 }}>▶ 播放重點句</div>
+              {/* v6.99: ▶ 全部——選中場景的每一句依時間順序送進同一個練習畫面（騎車連續聽用）。
+                  播放／循環／熟悉度沿用重點句畫面，不另做一套；不會替句子加星。 */}
+              <div onClick={() => {
+                  const allPhrases = [...selectedSceneIds].flatMap(sid => {
+                    const sc = movie?.scenes?.find(s => s.id === sid)
+                    return (sc?.phrases ?? []).map(p => ({
+                      ...p, sceneName: sc.name ?? sc.title ?? '', _sceneId: sc.id
+                    }))
+                  })
+                  if (allPhrases.length === 0) { showMovieToast('選中場景沒有句子'); return }
+                  setMultiScenePhrases(allPhrases)
+                  setSelectedSceneIds(new Set())
+                  setStarMode('list')
+                  setView('starred')
+                }}
+                style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                  fontFamily:MONO, fontSize:10, fontWeight:700,
+                  color:T.amber, padding:'6px 12px', background:'transparent',
+                  border:`1px solid ${T.amber}`, borderRadius:8 }}>▶ 全部</div>
             </div>
           </div>
         )}
