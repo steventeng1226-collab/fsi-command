@@ -7519,7 +7519,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v7.03</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v7.04</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14327,7 +14327,7 @@ function dailyPractice(days = 14) {
   return out
 }
 
-// ── 📖 連讀速查表（v7.03）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v7.04）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -15569,6 +15569,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const backBtnRef = useRef(null)  // 浮動返回鍵 DOM element
   const pauseFnRef = useRef(null)  // pause function ref
   const resumeFnRef = useRef(null) // resume function ref
+  const starSingleCancelRef = useRef(null) // v7.04: 取消單句重聽的計時器（避免 10 秒保險誤殺新循環）
   const starTimeUpdateRef = useRef(null)  // ontimeupdate handler
   const starCardRefs      = useRef({})    // { [phraseId]: DOM element } 自動滾動用
   const [starSleepMins,   setStarSleepMins]   = useState(0)      // 0=無限, 10/20/30=睡眠計時
@@ -17525,6 +17526,31 @@ Return ONLY a JSON object, no markdown:
       }))
     }))})
     setMultiScenePhrases(prev => prev.length > 0 ? prev.filter(p => p.id !== pid) : prev)
+    // v7.04: 同步修正正在跑的循環快照（否則刪掉的句子仍會被播到）
+    const L = starLoopListRef.current
+    const di = starLoopActiveRef.current && Array.isArray(L) ? L.findIndex(x => x.id === pid) : -1
+    if (di >= 0) {
+      const nl = L.filter(x => x.id !== pid)
+      const cur = starLoopIdxRef.current
+      const wasPlayingThis = di === cur && !starLoopPausedRef.current
+      if (nl.length === 0) {
+        // 清單刪空 → 結束循環
+        if (wasPlayingThis) pauseFnRef.current?.()
+        starLoopActiveRef.current = false
+        starLoopPausedRef.current = false
+        starLoopListRef.current = []
+        setStarLoopMode(null)
+        setStarLoopPaused(false)
+      } else {
+        let ni = di < cur ? cur - 1 : cur
+        if (ni >= nl.length) ni = 0
+        if (wasPlayingThis) pauseFnRef.current?.()   // 先停掉正在播的這句
+        starLoopListRef.current = nl
+        starLoopIdxRef.current = ni
+        setStarLoopIdx(ni)
+        if (wasPlayingThis) resumeFnRef.current?.()  // 直接跳到下一句
+      }
+    }
     setStarDelId(null)
     showMovieToast('🗑 已刪除這句')
   }
@@ -22527,6 +22553,7 @@ Steven 不是在收藏電影台詞。
               group === 'reinforce'  ? '還沒有標記再加強的句子' : '沒有重點句子')
         return
       }
+      starSingleCancelRef.current?.()  // v7.04: 殘留的單句重聽計時器不可再停掉這個新循環
       stopStarLoop()
       starPlayCountRef.current = {}  // 重置播放計數
       starLoopListRef.current = list
@@ -22560,6 +22587,25 @@ Steven 不是在收藏電影台詞。
         window.speechSynthesis?.speak(utt)
         return
       }
+      // v7.04: 單句重聽不再抹掉循環進度。先決定「重聽完從哪裡繼續」：
+      //   - 循環中（播放或暫停）且這句在循環清單裡 → 從這句接著播
+      //   - 循環中但這句不在清單裡 → 回原本停下的那句
+      //   - 沒在循環 → 以目前畫面的清單、從這句開始（讓 Steven 自己點選起點）
+      starSingleCancelRef.current?.()
+      let resumeList = null, resumeIdx = 0, resumeMode = null
+      if (starLoopActiveRef.current && starLoopMode != null && starLoopListRef.current.length > 0) {
+        const i = starLoopListRef.current.findIndex(x => x.id === p.id)
+        resumeList = starLoopListRef.current
+        resumeIdx  = i >= 0 ? i : starLoopIdxRef.current
+        resumeMode = starLoopMode
+      } else {
+        const i = practiceList.findIndex(x => x.id === p.id)
+        if (i >= 0) {
+          resumeList = practiceList
+          resumeIdx  = i
+          resumeMode = ['familiar', 'unfamiliar', 'reinforce'].includes(starMode) ? starMode : 'all'
+        }
+      }
       // 電影原音：直接用 playStarPhrase，但限制播放2次後自動停止
       stopStarLoop()
       window.speechSynthesis?.cancel()
@@ -22568,17 +22614,32 @@ Steven 不是在收藏電影台詞。
       const singleList = [{ ...p }]
       starLoopListRef.current = singleList
       playStarPhrase(singleList, 0)
-      // 監聽播放次數，第2次播完後停止
-      const checkStop = setInterval(() => {
-        const count = starPlayCountRef.current[p.id] ?? 0
-        if (count >= 2) {
-          clearInterval(checkStop)
-          stopStarLoop()
-          setPlayingPhraseId(null)
+      let checkStop = null, guard = null
+      const cancelTimers = () => { clearInterval(checkStop); clearTimeout(guard); starSingleCancelRef.current = null }
+      const finish = () => {
+        cancelTimers()
+        stopStarLoop()
+        setPlayingPhraseId(null)
+        // v7.04: 還原成「暫停中」→ FAB 顯示 ▶，按下從 resumeIdx 繼續
+        if (resumeList && resumeList.length > 0) {
+          starPlayCountRef.current = {}
+          starLoopListRef.current = resumeList
+          starLoopIdxRef.current = resumeIdx
+          setStarLoopIdx(resumeIdx)
+          starLoopActiveRef.current = true
+          starLoopPausedRef.current = true
+          setStarLoopMode(resumeMode)
+          setStarLoopPaused(true)
         }
+      }
+      starSingleCancelRef.current = cancelTimers
+      // 監聽播放次數，第2次播完後停止
+      checkStop = setInterval(() => {
+        const count = starPlayCountRef.current[p.id] ?? 0
+        if (count >= 2) finish()
       }, 200)
-      // 保險：最多播10秒後強制停
-      setTimeout(() => { clearInterval(checkStop); stopStarLoop(); setPlayingPhraseId(null) }, 10000)
+      // 保險：最多播10秒後強制停（v7.04: 可被取消，不再誤殺之後開始的循環）
+      guard = setTimeout(finish, 10000)
     }
 
     const copyTxt = (txt) => {
