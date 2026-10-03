@@ -7519,7 +7519,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v7.04</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v7.05</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14327,7 +14327,7 @@ function dailyPractice(days = 14) {
   return out
 }
 
-// ── 📖 連讀速查表（v7.04）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v7.05）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -15085,6 +15085,8 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const starPlayCountRef  = useRef({})          // { [phraseId]: count } 循環播放計數（自動熟悉用）
   const starPlayGenRef    = useRef(0)           // 播放代次，避免過期的非同步 callback 干擾新播放
   const [starLoopMode,    setStarLoopMode]    = useState(null)      // null | 'familiar' | 'unfamiliar'
+  // v7.05: 🔀 交叉——重複播的句子輪流用電影原音／系統音（第1遍原音→第2遍系統音→第3遍原音）。記住選擇
+  const [starCross, setStarCross] = useState(() => { try { return localStorage.getItem('fsi:star:cross') === '1' } catch(e) { return false } })
   const [starBikeMode,    setStarBikeMode]    = useState(0)         // 🚴 騎車模式：0=關／2／3 = 每句強制播幾次（v7.02 由 bool 改數字），不自動標記熟悉
   // 🎧 盲聽模式：先聽後看，訓練即時解碼而非靠文字理解
   const [blindMode,       setBlindMode]       = useState(false)     // 盲聽模式開關
@@ -22387,7 +22389,7 @@ Steven 不是在收藏電影台詞。
 
       // 如果 startSecs = 0（時間碼不準），改用 TTS
       const secs = p.startSecs ?? 0
-      const useTTS = audioMode !== 'original' || secs === 0
+      let useTTS = audioMode !== 'original' || secs === 0  // v7.05: let，交叉模式會在下方改寫
 
       // ── 自動熟悉邏輯：播完一句累計次數，連續 3 次 → 靜默升熟悉 ──
       // 騎車模式下沒空看畫面標記，完全跳過自動熟悉判定
@@ -22407,6 +22409,13 @@ Steven 不是在收藏電影台詞。
       const famVal = getFam(p)
       const repeatTarget = starBikeMode ? starBikeMode : (famVal === 'reinforce' ? 3 : famVal === false ? 2 : 1)
       const repeatKey = `repeat_${p.id}`
+      // v7.05: 🔀 交叉——只對會重複播的句子生效；依「已播完幾遍」決定音源：
+      //   第 1 遍（已播 0）原音 → 第 2 遍（已播 1）系統音 → 第 3 遍（已播 2）原音。
+      //   沒時間碼的句子本來就只能系統音（useTTS 已為 true），不受影響。
+      if (starCross && !useTTS && repeatTarget > 1) {
+        const donePasses = starPlayCountRef.current[repeatKey] ?? 0
+        if (donePasses % 2 === 1) useTTS = true
+      }
       const advanceOrRepeat = (afterPlay) => {
         if (repeatTarget > 1) {
           const cnt = (starPlayCountRef.current[repeatKey] ?? 0) + 1
@@ -22940,6 +22949,21 @@ Steven 不是在收藏電影台詞。
           </div>
           {/* 🚴 騎車模式：每句強制播 N 次，不自動標記熟悉。
               v7.02: 分成 ×2／×3 兩顆並排（不用單顆輪切，免得跳過想要的選項）；再按已亮的那顆 = 關 */}
+          {/* v7.05: 🔀 交叉開關 */}
+          <div onClick={() => setStarCross(v => {
+              const nv = !v
+              try { localStorage.setItem('fsi:star:cross', nv ? '1' : '0') } catch(e) {}
+              return nv
+            })}
+            title="重複播的句子：第1遍電影原音、第2遍系統音、第3遍原音"
+            style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+              fontFamily:MONO, fontSize:9, fontWeight:700,
+              padding:'6px 10px', borderRadius:8,
+              color: starCross ? '#38bdf8' : T.txt3,
+              background: starCross ? '#0d2a3a' : T.surf2,
+              border:`1px solid ${starCross ? '#38bdf860' : T.bdr}` }}>
+            🔀 交叉{starCross ? ' ON' : ''}
+          </div>
           {[2, 3].map(n => {
             const on = starBikeMode === n
             return (
@@ -23019,6 +23043,7 @@ Steven 不是在收藏電影台詞。
               🔁 {starLoopMode==='familiar' ? '熟悉' : starLoopMode==='unfamiliar' ? '加強' : '全部'} 無限循環
               · 第 {starLoopIdx+1} / {(starLoopMode==='familiar' ? familiarList : starLoopMode==='unfamiliar' ? unfamiliarList : allPhrases).length} 句
               {starBikeMode > 0 && <span style={{ color:T.grn, marginLeft:6 }}>🚴 每句播 {starBikeMode} 次</span>}
+              {starCross && <span style={{ color:'#38bdf8', marginLeft:6 }}>🔀 原音／系統音交叉</span>}
             </div>
           )}
         </div>{/* end fixed header */}
