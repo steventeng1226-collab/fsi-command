@@ -7519,7 +7519,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v7.05</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v7.06</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13536,6 +13536,10 @@ const DEFAULT_MOVIE_DB = {
 // 今日用句 ＋ 間隔複習 — 純 localStorage 工具函式（不依賴 component state）
 // ═══════════════════════════════════════════════════════════════
 const REVIEW_INTERVALS = [3, 7, 16, 35] // 天
+// v7.06: 🏅 過關區收錄條件——過關兩次（stage≥2）即收，已畢業一併收。
+//   col 是永久標記：第二次過關時寫入，之後重測失敗、stage 歸零也不移出。
+//   舊資料沒有 col，以目前 stage≥2 或 grad 判定。
+const isPassCollected = p => !!p?.dict && !p.noBlind && !!(p.dict.col || (p.dict.stage ?? 0) >= 2 || p.dict.grad)
 
 // ── 🔊 句首緩衝（v6.92）────────────────────────────────────
 // 症狀：「And, Rachel, have a great wedding.」一播就是 Rachel，句首的 And 根本沒進音檔。
@@ -14327,7 +14331,7 @@ function dailyPractice(days = 14) {
   return out
 }
 
-// ── 📖 連讀速查表（v7.05）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v7.06）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -14414,6 +14418,11 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const [blindStatsOpen, setBlindStatsOpen] = useState(false) // 聽力統計面板開關
   // 🎧 聽力庫（v5.83）：首次全詞率 <60% 的句子自動收錄，依「漏字」分群練習
   const [listenLibOpen, setListenLibOpen] = useState(false)
+  // v7.06: 🏅 過關區——自測只顯示比對結果，不寫入 dict（不影響 7/16/35 天排程）
+  const [colOpen,   setColOpen]   = useState(false)
+  const [colInput,  setColInput]  = useState({})   // { pid: 打的字 }
+  const [colResult, setColResult] = useState({})   // { pid: compareDictation 結果 }
+  const [colReveal, setColReveal] = useState({})   // { pid: true } 看原文
   const [libView,       setLibView]       = useState('weak')  // 'weak'=依弱點 | 'sent'=依句子
   const [libWord,       setLibWord]       = useState(null)    // 選中的弱點字
   const [linkCardsMore, setLinkCardsMore] = useState(false)   // v6.44: 連音解析卡「展開更多」（換字時重置）
@@ -16572,9 +16581,11 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
       } else if (isFirst && inLib) {
         next = addDaysStr(today, 3)            // 首次沒過關 → 進庫，3天後首次複習
       }
+      // v7.06: 過關兩次（stage 到 2）→ 永久收進 🏅 過關區；已收過的保留
+      const col = !!(prev?.col || (passed && stage >= 2) || grad)
       return { ...x, dict: {
         first, last: rec, count: (prev?.count ?? 0) + 1,
-        lib: inLib, stage, grad, next,
+        lib: inLib, stage, grad, next, col,
       }}
     })
     appendBlindLog({
@@ -26813,6 +26824,149 @@ Steven 不是在收藏電影台詞。
                 </span>
                 <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>本片</span>
               </div>
+              {/* v7.06: 🏅 過關區——過關兩次以上＋已畢業的句子，隨時回來複習。
+                  電影原音只能播目前這部片 → 列本片句子；其他片給可點的切片晶片（同 v6.95 做法）。 */}
+              {(() => {
+                const colHere = all.filter(isPassCollected)
+                  .sort((a, b) => (a.dict.grad ? 1 : 0) - (b.dict.grad ? 1 : 0))
+                const colOther = (db.movies ?? [])
+                  .filter(m => m.id !== movieId)
+                  .map(m => ({ id: m.id, title: m.title ?? '(未命名)',
+                    n: uniqById((m.scenes ?? []).flatMap(s => s.phrases ?? [])).filter(isPassCollected).length }))
+                  .filter(x => x.n > 0)
+                const otherN = colOther.reduce((a, x) => a + x.n, 0)
+                if (colHere.length === 0 && otherN === 0) return null
+                return (
+                  <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                    <div onClick={() => setColOpen(v => !v)}
+                      style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                        alignSelf:'flex-start', fontFamily:MONO, fontSize:12, fontWeight:700,
+                        padding:'8px 14px', borderRadius:8,
+                        color: colOpen ? '#0a1a0a' : T.grn,
+                        background: colOpen ? T.grn : T.grnD,
+                        border:`1px solid ${T.grn}60` }}>
+                      🏅 過關區 本片 {colHere.length}{otherN > 0 ? `・其他片 ${otherN}` : ''} {colOpen ? '▲' : '▼'}
+                    </div>
+                    {colOpen && (
+                      <div style={{ display:'flex', flexDirection:'column', gap:8,
+                        background:'#08180c', border:`1px solid ${T.grn}40`, borderRadius:9, padding:10 }}>
+                        <div style={{ fontFamily:MONO, fontSize:11, color:T.txt2, lineHeight:1.6 }}>
+                          過關兩次以上的句子收在這裡。這裡的自測<b style={{ color:T.grn }}>只看結果、不改進度</b>，
+                          還在排程中的句子照樣會在 7／16／35 天後回到聽力庫。
+                        </div>
+                        {colOther.length > 0 && (
+                          <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
+                            {colOther.map(m => (
+                              <div key={m.id} onClick={() => {
+                                  setMovieId(m.id)
+                                  try { localStorage.setItem('fsi:movie:selected', m.id) } catch(e) {}
+                                  setView('movie')
+                                  setListenLibOpen(true)
+                                  setColOpen(true)
+                                  setLibWord(null)
+                                  setLibTestId(null)
+                                  setTimeout(() => scrollToTop(listenLibRef.current), 160)
+                                }}
+                                style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                                  fontFamily:MONO, fontSize:10, fontWeight:700, padding:'5px 9px', borderRadius:6,
+                                  color:T.grn, background:T.grnD, border:`1px solid ${T.grn}40`,
+                                  maxWidth:'100%', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                                🎬 {m.title} <b style={{ color:T.amber }}>{m.n}</b>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {colHere.length === 0 && (
+                          <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>本片還沒有過關兩次的句子。</div>
+                        )}
+                        {colHere.map(p => {
+                          const res = colResult[p.id]
+                          const shown = colReveal[p.id] || !!res
+                          return (
+                            <div key={p.id} style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:8,
+                              padding:10, display:'flex', flexDirection:'column', gap:7, minWidth:0 }}>
+                              <div style={{ fontFamily:MONO, fontSize:10, color: p.dict.grad ? T.grn : T.txt3 }}>
+                                {p.dict.grad ? '🎓 已畢業' : `進度 ${p.dict.stage ?? 0}/${REVIEW_INTERVALS.length}`}
+                                {' · '}首次 全詞 {p.dict.first?.rate ?? '?'}%
+                              </div>
+                              {shown ? (
+                                <>
+                                  <div style={{ fontFamily:MONO, fontSize:14, color:T.txt, lineHeight:1.6, overflowWrap:'break-word' }}>{p.en}</div>
+                                  {p.zh?.trim() && <div style={{ fontFamily:MONO, fontSize:12, color:T.txt2 }}>{p.zh}</div>}
+                                </>
+                              ) : (
+                                <div style={{ fontFamily:MONO, fontSize:14, color:T.txt3, letterSpacing:2 }}>
+                                  🎧 {'●'.repeat(Math.min(12, tokenize(p.en).length))}
+                                </div>
+                              )}
+                              <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                                <div onClick={() => playBlindPhrase(p)}
+                                  style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                                    fontFamily:MONO, fontSize:11, fontWeight:700, padding:'7px 12px', borderRadius:7,
+                                    color:'#38bdf8', background:'#0d2a3a', border:'1px solid #38bdf840' }}>
+                                  {blindPlayingId === p.id ? '⏹' : '▶ 播放'}
+                                </div>
+                                <div onClick={() => playThreeStep(p)}
+                                  style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                                    fontFamily:MONO, fontSize:11, fontWeight:700, padding:'7px 12px', borderRadius:7,
+                                    color:T.amber, background:T.amberD, border:`1px solid ${T.amber}40` }}>
+                                  {threeStep?.pid === p.id ? '⏹ 停止' : '🔁 三步驟'}
+                                </div>
+                                {!shown && (
+                                  <div onClick={() => setColReveal(r => ({ ...r, [p.id]: true }))}
+                                    style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                                      fontFamily:MONO, fontSize:11, padding:'7px 12px', borderRadius:7,
+                                      color:T.txt2, background:T.surf2, border:`1px solid ${T.bdr}` }}>
+                                    👁 看原文
+                                  </div>
+                                )}
+                              </div>
+                              {!res ? (
+                                <div style={{ display:'flex', gap:6, minWidth:0 }}>
+                                  <input value={colInput[p.id] ?? ''}
+                                    onChange={e => { const v = e.target.value; setColInput(c => ({ ...c, [p.id]: v })) }}
+                                    placeholder="自測：打你聽到的字"
+                                    autoCapitalize="none" autoCorrect="off" spellCheck={false}
+                                    style={{ flex:1, minWidth:0, fontFamily:MONO, fontSize:13, color:T.txt,
+                                      background:T.bg, border:`1px solid ${T.bdr}`, borderRadius:7, padding:'8px 10px' }}/>
+                                  <div onClick={() => {
+                                      const heard = (colInput[p.id] ?? '').trim()
+                                      if (!heard) { showMovieToast('先打你聽到的字'); return }
+                                      setColResult(r => ({ ...r, [p.id]: compareDictation(heard, p.en) }))
+                                    }}
+                                    style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                                      fontFamily:MONO, fontSize:11, fontWeight:700, padding:'8px 12px', borderRadius:7,
+                                      color:'#0a1a0a', background:T.grn, whiteSpace:'nowrap' }}>
+                                    比對
+                                  </div>
+                                </div>
+                              ) : (
+                                <div style={{ fontFamily:MONO, fontSize:12, lineHeight:1.7,
+                                  color: res.rate >= 80 ? T.grn : T.amber }}>
+                                  {res.rate >= 80 ? '✅' : '△'} 全詞 {res.rate}% · 實詞 {res.cRate}%
+                                  {res.missed.length > 0 && (
+                                    <div style={{ color:T.amber }}>漏：{res.missed.join('、')}</div>
+                                  )}
+                                  <span onClick={() => {
+                                      setColResult(r => { const n = { ...r }; delete n[p.id]; return n })
+                                      setColInput(c => ({ ...c, [p.id]: '' }))
+                                      setColReveal(r => ({ ...r, [p.id]: false }))
+                                    }}
+                                    style={{ cursor:'pointer', userSelect:'none', marginLeft:8, fontSize:11,
+                                      color:T.txt2, textDecoration:'underline' }}>
+                                    再測一次
+                                  </span>
+                                  <div style={{ fontSize:10, color:T.txt3 }}>（自測結果不寫入進度）</div>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
               {/* v6.84: Header 徽章是跨片總數，這裡只算本片——差額寫出來，不然會以為數字壞了
                   v6.95: 每一片都可點，直接切過去練，不必自己回片庫換片再進聽力庫 */}
               {otherDue > 0 && (
