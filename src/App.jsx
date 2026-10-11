@@ -7519,7 +7519,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v7.06</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v7.07</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14331,7 +14331,7 @@ function dailyPractice(days = 14) {
   return out
 }
 
-// ── 📖 連讀速查表（v7.06）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v7.07）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -27777,6 +27777,10 @@ Steven 不是在收藏電影台詞。
                                 {threeStep?.pid === p.id
                                   ? (threeStep.step === 1 ? '① 🎬 電影原音…' : threeStep.step === 2 ? '② 🔊 系統音…' : '③ 🎬 回聽 ← 關鍵')
                                   : '🔁 三步驟對照（電影 → 系統 → 電影）'}
+                              </div>
+                              {/* v7.07: 送出比對後的結果畫面也能直接收金句（原本要先按收起才看得到） */}
+                              <div style={{ display:'flex', justifyContent:'center' }}>
+                                <GoldBtn p={p} fs={11} pad='7px 16px' radius={7}/>
                               </div>
                               <div onClick={() => { setLibTestId(null); setDictResult(r => { const n={...r}; delete n[p.id]; return n }); setDictInput(v => ({ ...v, [p.id]: '' })) }}
                                 style={{ cursor:'pointer', textAlign:'center', fontFamily:MONO, fontSize:10,
