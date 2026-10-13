@@ -7519,7 +7519,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v7.07</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v7.08</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14331,7 +14331,7 @@ function dailyPractice(days = 14) {
   return out
 }
 
-// ── 📖 連讀速查表（v7.07）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v7.08）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -17526,7 +17526,7 @@ Return ONLY a JSON object, no markdown:
     //   否則在全部模式按 ★ 幫句子加星，句子反而從清單消失（v6.99 漏掉的情況）
     setMultiScenePhrases(prev => {
       if (prev.length === 0) return prev
-      if (prev.some(p => !p.starred)) return prev.map(p => p.id === pid ? { ...p, starred: !p.starred } : p)
+      if (prev.some(p => !p.starred || p._gold)) return prev.map(p => p.id === pid ? { ...p, starred: !p.starred } : p)
       return prev.filter(p => p.id !== pid)
     })
   }
@@ -22847,7 +22847,7 @@ Steven 不是在收藏電影台詞。
                     {/* 標題行：⭐標題 + 結束練習 + 日期 + 組別選單 + 進度 */}
                     <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
                       <span style={{ fontFamily:MONO, fontSize:9, fontWeight:700, color:T.amber }}>
-                        {multiScenePhrases.some(p => !p.starred) ? `🎧 全部句子（${multiScenePhrases.length}）` : '⭐ 重點句子練習'}
+                        {multiScenePhrases.some(p => p._gold) ? `🎬 電影金句（${multiScenePhrases.length}）` : multiScenePhrases.some(p => !p.starred) ? `🎧 全部句子（${multiScenePhrases.length}）` : '⭐ 重點句子練習'}
                       </span>
                       <div onClick={() => {
                           // 寫入游標和練習日期
@@ -26498,6 +26498,32 @@ Steven 不是在收藏電影台詞。
                 <span style={{ fontFamily:MONO, fontSize:12, color:'#a78bfa', fontWeight:700 }}>
                   🎬 電影金句 {goldList.length > 0 && `（${goldList.length}）`}
                 </span>
+                {/* v7.08: ▶ 連續播放——送進既有的練習畫面（交叉／騎車×2×3／語速／睡眠計時全沿用），
+                    不在這裡另做一套播放器（避免雙路徑）。電影原音只載入本片 → 只收本片金句。
+                    每句帶 _gold 旗標：練習畫面標題改顯示「電影金句」，★ 只切換不移出清單。 */}
+                {(() => {
+                  const goldHere = goldList.map(it => {
+                    for (const sc of (movie?.scenes ?? [])) {
+                      const ph = (sc.phrases ?? []).find(x => x.id === it.pid)
+                      if (ph) return { ...ph, sceneName: sc.name ?? sc.title ?? '', _sceneId: sc.id, _gold: true }
+                    }
+                    return null
+                  }).filter(Boolean)
+                  if (goldHere.length === 0) return null
+                  return (
+                    <div onClick={() => {
+                        setMultiScenePhrases(uniqById(goldHere))
+                        setGoldOpen(false)
+                        setStarMode('list')
+                        setView('starred')
+                      }}
+                      style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                        fontFamily:MONO, fontSize:11, fontWeight:700, padding:'6px 12px', borderRadius:8,
+                        color:'#000', background:T.amber, marginLeft:'auto', whiteSpace:'nowrap' }}>
+                      ▶ 連續播放（本片 {uniqById(goldHere).length} 句）
+                    </div>
+                  )
+                })()}
                 <div onClick={() => setGoldOpen(false)}
                   style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
                     padding:'4px 9px', borderRadius:7, border:`1px solid ${T.bdr}` }}>
