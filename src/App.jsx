@@ -7519,7 +7519,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v7.08</span>
+          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v7.10</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -13559,6 +13559,13 @@ function getHeadPad() {
   const v = parseFloat(localStorage.getItem(HEAD_PAD_KEY) ?? '0.15')
   return (Number.isFinite(v) && v >= 0) ? Math.min(v, 0.5) : 0.15
 }
+// v7.10: 句尾緩衝——終點往後延，救回被切掉的句尾最後一個字（v6.92 只做了句首）。
+//   代價：可能露出下一句開頭一點點聲音，比切掉字好。所有用 getHeadPad 算時長的地方都要一起加。
+const TAIL_PAD_KEY = 'fsi:play:tailPad'
+function getTailPad() {
+  const v = parseFloat(localStorage.getItem(TAIL_PAD_KEY) ?? '0.15')
+  return (Number.isFinite(v) && v >= 0) ? Math.min(v, 0.5) : 0.15
+}
 
 // ── 🎓 家教專區（v6.93）────────────────────────────────────
 // 痛點：上課時間有限，臨場翻找「我想問哪句」是純浪費。平時撞到就標記，上課直接打開清單。
@@ -13626,6 +13633,14 @@ function addGold({ pid, mid, en, zh = '' }) {
 }
 function updateGoldItem(id, patch) {
   const next = readGold().map(x => x.id === id ? { ...x, ...patch } : x)
+  writeGold(next)
+  return next
+}
+// v7.09: 句子中文改了 → 金句那份另存的 zh 同步（以 pid 對應）
+function updateGoldZhByPid(pid, zh) {
+  const list = readGold()
+  if (!list.some(x => x.pid === pid)) return list
+  const next = list.map(x => x.pid === pid ? { ...x, zh } : x)
   writeGold(next)
   return next
 }
@@ -13863,13 +13878,37 @@ function tokenize(text) {
 // 集合比對會把你的 the 配給後面那個 the → 算你抓到。但你其實是把 At 聽成 the，
 // 那是一次「誤聽」，卻被記成命中，分數虛高，還吞掉了 At→the 這個關鍵資訊。
 // 用 DP 對齊（跟語音辨識算 WER 同一套）：命中/漏掉/誤聽 各歸各位，替換配對還能直接抓出混淆對。
+// v7.10: 撇號縮寫展開表 + 顯示用原形（結果區提示「縮寫差異，已算對」用）
+const APOS_EXPAND = {
+  im:['i','am'], youre:['you','are'], theyre:['they','are'],
+  ive:['i','have'], youve:['you','have'], weve:['we','have'], theyve:['they','have'],
+  youll:['you','will'], theyll:['they','will'],
+  isnt:['is','not'], arent:['are','not'], wasnt:['was','not'], werent:['were','not'],
+  dont:['do','not'], doesnt:['does','not'], didnt:['did','not'],
+  cant:['can','not'], cannot:['can','not'], wont:['will','not'],
+  wouldnt:['would','not'], shouldnt:['should','not'], couldnt:['could','not'],
+  havent:['have','not'], hasnt:['has','not'], hadnt:['had','not'],
+  thats:['that','is'], whats:['what','is'], theres:['there','is'],
+  hes:['he','is'], shes:['she','is'],
+}
+const APOS_SHOW = {
+  im:"I'm", youre:"you're", theyre:"they're", ive:"I've", youve:"you've", weve:"we've", theyve:"they've",
+  youll:"you'll", theyll:"they'll", isnt:"isn't", arent:"aren't", wasnt:"wasn't", werent:"weren't",
+  dont:"don't", doesnt:"doesn't", didnt:"didn't", cant:"can't", cannot:'cannot', wont:"won't",
+  wouldnt:"wouldn't", shouldnt:"shouldn't", couldnt:"couldn't", havent:"haven't", hasnt:"hasn't", hadnt:"hadn't",
+  thats:"that's", whats:"what's", theres:"there's", hes:"he's", shes:"she's",
+}
 // v6.57: 口語縮讀正規化——你聽到 wanna 打 wanna，代表已成功解碼 want to 的連音形，
 // 這正是訓練目標本身，判錯等於懲罰進步。比對前雙向展開成標準形（打縮讀/原文縮讀都通）。
 const CONTRACT_EXPAND = {
   wanna:['want','to'], gonna:['going','to'], gotta:['got','to'], lemme:['let','me'],
   kinda:['kind','of'], sorta:['sort','of'], outta:['out','of'], lotta:['lot','of'],
-  gimme:['give','me'], gotcha:['got','you'], betcha:['bet','you'], dunno:["don't",'know'],
+  gimme:['give','me'], gotcha:['got','you'], betcha:['bet','you'], dunno:['do','not','know'],
   hafta:['have','to'], cmon:['come','on'],
+  // v7.10: 撇號縮寫（去撇號後的形）——打 I'm 對原文 I am、打 I am 對原文 I'm 都通。
+  //   ⚠ 只收去撇號後不會撞到別的字的：we're→were、we'll→well、I'll→ill、it's→its、
+  //   I'd→id、he'll→hell、she'll→shell、let's→lets 一律不收，收了會把真的聽錯判成對。
+  ...APOS_EXPAND,
 }
 
 function compareDictation(heardRaw, enRaw) {
@@ -13931,8 +13970,14 @@ function compareDictation(heardRaw, enRaw) {
   const hit    = tokens.filter(t => t.hit).length
   const cTotal = tokens.filter(t => t.content).length
   const cHit   = tokens.filter(t => t.content && t.hit).length
+  // v7.10: 縮寫差異提示（I'm ≈ I am）——算對，但提醒拍數不同
+  const hW = tokenize(heardRaw).map(t => t.w), tW = tokenize(enRaw).map(t => t.w)
+  const cnotes = [...new Set([
+    ...hW.filter(w => APOS_EXPAND[w] && !tW.includes(w) && APOS_EXPAND[w].every(x => tW.includes(x))),
+    ...tW.filter(w => APOS_EXPAND[w] && !hW.includes(w) && APOS_EXPAND[w].every(x => hW.includes(x))),
+  ])].filter(w => APOS_EXPAND[w].every(x => tokens.some(t => t.w === x && t.hit)))
   return {
-    tokens, misheard, missed, pairs,
+    tokens, misheard, missed, pairs, cnotes,
     hit, total, cHit, cTotal,
     rate:  total  ? Math.round(100 * hit  / total)  : 0,   // 全詞抓字率（誠實）
     cRate: cTotal ? Math.round(100 * cHit / cTotal) : 0,   // 實詞抓字率（看進步）
@@ -14331,7 +14376,7 @@ function dailyPractice(days = 14) {
   return out
 }
 
-// ── 📖 連讀速查表（v7.08）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v7.10）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -14470,6 +14515,11 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     setHeadPad(v)
     try { localStorage.setItem(HEAD_PAD_KEY, String(v)) } catch(e) {}
   }
+  const [tailPad, setTailPad] = useState(() => getTailPad())   // v7.10
+  function saveTailPad(v) {
+    setTailPad(v)
+    try { localStorage.setItem(TAIL_PAD_KEY, String(v)) } catch(e) {}
+  }
   const [trainN,     setTrainN]     = useState(null)   // 本次要練幾句（每次自己選）
   const [debtOverride, setDebtOverride] = useState(false)   // v6.87: 債務閘門的例外開關。刻意不存 localStorage——例外是單次的，重開 App 就恢復鎖定，不讓例外變常態
   const [trainIdx,   setTrainIdx]   = useState(0)      // 目前練到第幾句
@@ -14553,6 +14603,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const [deletingPhraseId,setDeletingPhraseId]= useState(null)
   const [starDelId, setStarDelId] = useState(null) // v7.01: 練習畫面 ✕ 刪除的兩段式確認
   const [editingZhId,     setEditingZhId]     = useState(null)
+  const [libZhEdit, setLibZhEdit] = useState(null) // v7.09: 聽力庫卡片改中文 { id, text }
   const [editingZhText,   setEditingZhText]   = useState('')
   const [editingNoteId,   setEditingNoteId]   = useState(null)
   const [editingNoteText, setEditingNoteText] = useState('')
@@ -16351,7 +16402,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     // ⚠ 一定要除以語速：0.8x 播放時音檔實際花 1.25 倍時間、0.6x 花 1.67 倍。
     // 不除的話，系統音會在電影音還沒講完就插進來（語速越慢切得越早）。
     const rawMs = (p.startSecs > 0 && p.endSecs > p.startSecs)
-      ? ((p.endSecs - p.startSecs) + getHeadPad()) * 1000   // v6.92: 起播提前 pad，排程也要加，否則系統音會提早插進來
+      ? ((p.endSecs - p.startSecs) + getHeadPad() + getTailPad()) * 1000   // v6.92: 起播提前 pad，排程也要加，否則系統音會提早插進來
       : Math.max(2000, String(p.en ?? '').split(' ').length * 450)
     const durMs = rawMs / (playRate || 1)
     // 注意：rateOverride 一定要傳數字，否則 speakPhrase 會把「同一句再點一次」判成停止
@@ -16438,7 +16489,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
         playThreeStep(p, () => { if (queueRef.current === token) setTimeout(() => step(i + 1), 600) })
       } else {
         const rawMs = (p.startSecs > 0 && p.endSecs > p.startSecs)
-          ? ((p.endSecs - p.startSecs) + getHeadPad()) * 1000   // v6.92: 同上，連播間隔要含 pad
+          ? ((p.endSecs - p.startSecs) + getHeadPad() + getTailPad()) * 1000   // v6.92: 同上，連播間隔要含 pad
           : Math.max(2000, String(p.en ?? '').split(' ').length * 450)
         const durMs = rawMs / (playRate || 1)          // ⚠ 除以語速
         speakPhrase(p.id, p.en, playRate, p)
@@ -16541,6 +16592,36 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
 
   // 🖊 聽寫送出：比對逐字稿 → 存句子（首次成績單獨保留）+ 收錄聽力庫 + 排程 + 寫入日誌
   // 只有「首次聽寫」才是乾淨的診斷樣本，重聽都算練習不算診斷。
+  // v7.10: 重測結果的人工覆核——同一次 updatePhraseAnyScene 完成（分兩次寫會互蓋：saveDb 用的是同一個舊 db）。
+  //   ignoreWord：把首次漏字加進 ign（以後重測不再檢查）。pass：今天這次失敗改判過關。
+  //   ⚠ 只在「今天剛重測、全詞 ≥80%、尚未手動過關」時生效；last.manual 標記，日後可分開統計。
+  function overrideRetest(p, { ignoreWord = null, pass = false } = {}) {
+    const today = getTodayStr()
+    let didPass = false, graduated = false
+    updatePhraseAnyScene(p.id, x => {
+      const d = x.dict
+      if (!d) return x
+      const ign = ignoreWord ? [...new Set([...(d.ign ?? []), ignoreWord])] : (d.ign ?? [])
+      let nd = { ...d, ign }
+      const canPass = d.last?.d === today && (d.last?.rate ?? 0) >= 80 && !d.last?.manual && !d.grad && (d.stage ?? 0) === 0
+      // 加了 ign 後若已無「還是漏」→ 視同手動過關（使用者的判斷）
+      const nowClear = (d.first?.miss ?? []).filter(w => !ign.includes(w) && (d.last?.miss ?? []).includes(w)).length === 0
+      if (canPass && (pass || (ignoreWord && nowClear))) {
+        const stage = Math.min((d.failFrom ?? 0) + 1, REVIEW_INTERVALS.length)
+        const grad = stage >= REVIEW_INTERVALS.length
+        nd = { ...nd, stage, grad,
+          next: grad ? null : addDaysStr(today, REVIEW_INTERVALS[stage]),
+          col: !!(d.col || stage >= 2 || grad),
+          failFrom: null, manualN: (d.manualN ?? 0) + 1,
+          last: { ...d.last, manual: true } }
+        didPass = true; graduated = grad
+      }
+      return { ...x, dict: nd }
+    })
+    if (graduated) showMovieToast('🎓 這句畢業了（我判定過關）')
+    else if (didPass) showMovieToast('✋ 已判定過關，排入下次複習')
+    else if (ignoreWord) showMovieToast(`🔇 以後重測不再檢查「${ignoreWord}」`)
+  }
   function submitDictation(p) {
     const heard = dictInput[p.id] ?? ''
     const plays = blindSessionPlaysRef.current[p.id] ?? 0
@@ -16563,10 +16644,12 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
       let stage = prev?.stage ?? 0
       let grad  = prev?.grad ?? false
       let next  = prev?.next ?? null
+      let failFrom = prev?.failFrom ?? null
       if (!isFirst && inLib && !grad) {
         // 畢業條件：全詞率 ≥80%，且「原本漏掉的那幾個字」這次都抓到了
         const firstMiss = first.miss ?? []
-        const stillMiss = firstMiss.filter(w => cmp.missed.includes(w))
+        const ign = prev?.ign ?? []   // v7.10: 🔇 這個字不算（音檔裡根本沒有的字）
+        const stillMiss = firstMiss.filter(w => !ign.includes(w) && cmp.missed.includes(w))
         passed = cmp.rate >= 80 && stillMiss.length === 0
         if (passed) {
           stage = Math.min(stage + 1, REVIEW_INTERVALS.length)
@@ -16575,9 +16658,11 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
           //   過關後排「下一階」：7/16/35。舊寫法 3 重複排兩次、35 永遠用不到，提早一輪畢業。
           else next = addDaysStr(today, REVIEW_INTERVALS[stage])
         } else {
+          failFrom = stage                     // v7.10: 記下打回前的階段，✋ 我判定過關 時還原用
           stage = 0                            // 沒過關 → 打回原點，3天後再來
           next = addDaysStr(today, 3)
         }
+        if (passed) failFrom = null
       } else if (isFirst && inLib) {
         next = addDaysStr(today, 3)            // 首次沒過關 → 進庫，3天後首次複習
       }
@@ -16586,6 +16671,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
       return { ...x, dict: {
         first, last: rec, count: (prev?.count ?? 0) + 1,
         lib: inLib, stage, grad, next, col,
+        failFrom, ign: prev?.ign, manualN: prev?.manualN,
       }}
     })
     appendBlindLog({
@@ -17401,7 +17487,7 @@ Return ONLY a JSON object, no markdown:
       // 連播間隔拉到 4 秒（原本1秒，打字根本追不上）
       const gapMs = isLast ? 500 : 4000
       const rawMs = (p.startSecs > 0 && p.endSecs > p.startSecs)
-        ? ((p.endSecs - p.startSecs) + getHeadPad()) * 1000   // v6.92: 同上，盲聽連播要含 pad
+        ? ((p.endSecs - p.startSecs) + getHeadPad() + getTailPad()) * 1000   // v6.92: 同上，盲聽連播要含 pad
         : Math.max(2000, p.en.split(' ').length * 450)
       const durMs = rawMs / (playRate || 1) + gapMs   // ⚠ 除以語速（慢速播放時間會變長）
       if (!isLast) {
@@ -17636,7 +17722,7 @@ Return ONLY a JSON object, no markdown:
           el.playbackRate = rate
           el.currentTime = offsetSecs
           el.play().catch(() => {})
-          const dur = (Math.max(0.5, phrase.endSecs - phrase.startSecs) + headPad) * 1000 / rate
+          const dur = (Math.max(0.5, phrase.endSecs - phrase.startSecs) + headPad + getTailPad()) * 1000 / rate
           audioStopRef.current = setTimeout(() => {
             el.pause(); setPlayingPhraseId(null)
           }, dur + 200)
@@ -17648,7 +17734,7 @@ Return ONLY a JSON object, no markdown:
         el.playbackRate = rate
         el.currentTime = offsetSecs
         el.play().catch(() => {})
-        const dur = (Math.max(0.5, phrase.endSecs - phrase.startSecs) + headPad) * 1000 / rate
+        const dur = (Math.max(0.5, phrase.endSecs - phrase.startSecs) + headPad + getTailPad()) * 1000 / rate
         audioStopRef.current = setTimeout(() => {
           el.pause(); setPlayingPhraseId(null)
         }, dur + 200)
@@ -18250,7 +18336,7 @@ ${numbered}`
         el.playbackRate = playRate
         el.currentTime = offsetSecs
         el.play().catch(() => { if (!cancelled) setPlaying(false) })
-        const dur = (Math.max(1, p.endSecs - p.startSecs) + headPad) * 1000 / playRate
+        const dur = (Math.max(1, p.endSecs - p.startSecs) + headPad + getTailPad()) * 1000 / playRate
         audioStopRef.current = setTimeout(() => { el.pause(); advance() }, dur + 300)
       }
 
@@ -25765,6 +25851,26 @@ Steven 不是在收藏電影台詞。
                   ))}
                 </div>
               </div>
+              {/* v7.10: 🔊 句尾緩衝——終點往後延，救回被切掉的句尾最後一個字 */}
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+                gap:8, padding:'6px 9px', borderRadius:8, background:T.surf, border:`1px solid ${T.bdr}` }}>
+                <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3, minWidth:0 }}>
+                  🔊 句尾緩衝 {tailPad > 0 ? `${tailPad}s` : '關'}
+                  <span>　救回被切掉的最後一個字</span>
+                </span>
+                <div style={{ display:'flex', gap:4, flexShrink:0 }}>
+                  {[0, 0.1, 0.15, 0.25].map(v => (
+                    <div key={v} onClick={() => saveTailPad(v)}
+                      style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                        fontFamily:MONO, fontSize:9, fontWeight:700, padding:'3px 7px', borderRadius:6,
+                        background: tailPad === v ? T.amberD : 'transparent',
+                        color: tailPad === v ? T.amber : T.txt3,
+                        border:`1px solid ${tailPad === v ? T.amber : T.bdr}` }}>
+                      {v === 0 ? '關' : v}
+                    </div>
+                  ))}
+                </div>
+              </div>
 
               {/* ── 📈 練習趨勢（v6.91）──────────────────────────────
                   上半＝行為指標：有沒有持續站在打擊區。只會往上或斷掉，看了不打擊人。
@@ -27631,10 +27737,42 @@ Steven 不是在收藏電影台詞。
                       </div>
                       )
                     })()}
-                    {p.zh?.trim() && !testing && !dueMasked && !tutorMasked && (
-                      <div style={{ fontFamily:MONO, fontSize:12, color:T.txt2, lineHeight:1.6 }}>
-                        {p.zh}
-                      </div>
+                    {/* v7.09: 中文可就地修改（原本只有場景頁能改）。句子可能來自任何場景 →
+                        用 updatePhraseAnyScene 依 id 寫回；金句另存的 zh 一併同步。
+                        遮罩中（未重測／家教模式）不顯示，避免先看到答案。 */}
+                    {!testing && !dueMasked && !tutorMasked && (
+                      libZhEdit?.id === p.id ? (
+                        <div style={{ display:'flex', gap:6, alignItems:'center', minWidth:0 }}>
+                          <input value={libZhEdit.text} autoFocus
+                            onChange={e => { const v = e.target.value; setLibZhEdit(z => ({ ...z, text: v })) }}
+                            onKeyDown={e => { if (e.key === 'Escape') setLibZhEdit(null) }}
+                            placeholder="輸入中文意思"
+                            style={{ flex:1, minWidth:0, fontFamily:MONO, fontSize:13, color:T.txt,
+                              background:T.bg, border:`1px solid ${T.amber}60`, borderRadius:7, padding:'7px 9px' }}/>
+                          <div onClick={() => {
+                              const zh = libZhEdit.text.trim()
+                              updatePhraseAnyScene(p.id, x => ({ ...x, zh }))
+                              setGoldList(updateGoldZhByPid(p.id, zh))
+                              setLibZhEdit(null)
+                              showMovieToast('✓ 中文已更新')
+                            }}
+                            style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                              fontFamily:MONO, fontSize:11, fontWeight:700, padding:'7px 11px', borderRadius:7,
+                              color:'#000', background:T.amber, whiteSpace:'nowrap' }}>儲存</div>
+                          <div onClick={() => setLibZhEdit(null)}
+                            style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                              fontFamily:MONO, fontSize:11, padding:'7px 10px', borderRadius:7,
+                              color:T.txt2, background:T.surf2, border:`1px solid ${T.bdr}`, whiteSpace:'nowrap' }}>取消</div>
+                        </div>
+                      ) : (
+                        <div style={{ fontFamily:MONO, fontSize:12, color:T.txt2, lineHeight:1.6 }}>
+                          {p.zh?.trim() ? p.zh : <span style={{ color:T.txt3 }}>（沒有中文）</span>}
+                          <span onClick={() => setLibZhEdit({ id: p.id, text: p.zh ?? '' })}
+                            title="修改中文意思"
+                            style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                              marginLeft:8, fontSize:13, color:T.amber, padding:'2px 6px' }}>✎</span>
+                        </div>
+                      )
                     )}
                     {!tutorMasked && <WordCard phraseId={p.id}/>}
                     {!tutorMasked && <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
@@ -27729,8 +27867,10 @@ Steven 不是在收藏電影台詞。
                           </>
                         )}
                         {res && (() => {
-                          const stillMiss = (f.miss ?? []).filter(w => res.missed.includes(w))
-                          const pass = res.rate >= 80 && stillMiss.length === 0
+                          const ignL = p.dict.ign ?? []
+                          const stillMiss = (f.miss ?? []).filter(w => !ignL.includes(w) && res.missed.includes(w))
+                          const manualOk = !!p.dict.last?.manual && p.dict.last?.d === getTodayStr()
+                          const pass = (res.rate >= 80 && stillMiss.length === 0) || manualOk
                           return (
                             <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
                               {/* 三色逐字對比：🟢抓到 ⚪漏掉（這是聽寫最有價值的畫面，重測也要有）*/}
@@ -27760,7 +27900,7 @@ Steven 不是在收藏電影台詞。
                               )}
                               {/* v6.56: WordCard 移除——外層已常駐一個，兩個同時渲染會讓長按彈兩張單字卡 */}
                               <div style={{ fontFamily:MONO, fontSize:10, color: pass ? T.grn : T.amber, fontWeight:700 }}>
-                                {pass ? '✅ 過關（≥80% 且原本漏的字都抓到）' : '✗ 還沒過關'}
+                                {manualOk ? '✅ 過關（我判定）' : pass ? '✅ 過關（≥80% 且原本漏的字都抓到）' : '✗ 還沒過關'}
                                 <span style={{ color:T.txt2, fontWeight:400, marginLeft:6 }}>
                                   全詞 {res.rate}% · 實詞 {res.cRate}%
                                 </span>
@@ -27775,9 +27915,38 @@ Steven 不是在收藏電影台詞。
                                   </span>
                                 )}
                               </div>
-                              {stillMiss.length > 0 && (
+                              {stillMiss.length > 0 && !manualOk && (
                                 <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, lineHeight:1.6 }}>
                                   ⚠ 原本漏的字，這次<b>還是漏</b>：{stillMiss.join(' ')}
+                                </div>
+                              )}
+                              {/* v7.10: 人工覆核——只在全詞 ≥80% 時出現（門檻 B：分數夠、被某個字卡住）。
+                                  🔇 用在音檔裡根本沒有那個字（句首／句尾被切掉）。 */}
+                              {!pass && res.rate >= 80 && (
+                                <div style={{ display:'flex', flexWrap:'wrap', gap:6, alignItems:'center' }}>
+                                  {stillMiss.map(w => (
+                                    <div key={w} onClick={() => overrideRetest(p, { ignoreWord: w })}
+                                      title={`音檔裡沒有「${w}」→ 這句以後重測不再檢查它`}
+                                      style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                                        fontFamily:MONO, fontSize:11, fontWeight:700, padding:'6px 10px', borderRadius:7,
+                                        color:T.txt2, background:T.surf2, border:`1px solid ${T.bdr}` }}>
+                                      🔇 {w} 不算
+                                    </div>
+                                  ))}
+                                  <div onClick={() => overrideRetest(p, { pass: true })}
+                                    title="分數夠、只是被某個字卡住 → 由我判定過關（會標記為手動）"
+                                    style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                                      fontFamily:MONO, fontSize:11, fontWeight:700, padding:'6px 12px', borderRadius:7,
+                                      color:'#0a1a0a', background:T.grn }}>
+                                    ✋ 我判定過關
+                                  </div>
+                                </div>
+                              )}
+                              {/* v7.10: 縮寫差異（算對，但提醒拍數） */}
+                              {(res.cnotes ?? []).length > 0 && (
+                                <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, lineHeight:1.6 }}>
+                                  ℹ️ {res.cnotes.map(w => `${APOS_SHOW[w] ?? w} ≈ ${(APOS_EXPAND[w] ?? []).join(' ')}`).join('、')}
+                                  <span style={{ color:T.txt3 }}>（縮寫差異，已算對；縮寫一拍、展開兩拍）</span>
                                 </div>
                               )}
                               {res.misheard.length > 0 && (
