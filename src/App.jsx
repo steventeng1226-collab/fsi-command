@@ -54,7 +54,7 @@ const T = {
   redD:   '#f8514918',
   txt:    '#e6edf3',
   txt2:   '#aab3be',   // was #8b949e — brighter secondary text
-  txt3:   '#7a8390',   // was #484f58 — much more readable on dark bg
+  txt3:   '#9aa4b0',   // was #484f58 — much more readable on dark bg
 }
 const MONO = "'JetBrains Mono',monospace"
 const SERIF = "'Crimson Pro',Georgia,serif"
@@ -7486,12 +7486,12 @@ function AppIcon({ size = 36 }) {
 function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProduce, onOpenListenLib, onOpenTraining, onOpenTutor, onOpenGold, listenDue = 0, tutorCount = 0, goldCount = 0, trainToday = false }) {
   const btn = (bg, bd, fg, bold = false) => ({
     display:'inline-flex', alignItems:'center', justifyContent:'center', gap:5,
-    cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight: bold ? 700 : 400,
+    cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight: bold ? 700 : 400,
     color:fg, background:bg, border:`1px solid ${bd}`,
     borderRadius:7, padding:'4px 9px', flex:1, minWidth:0, whiteSpace:'nowrap',
   })
   const mkBadge = (n, bg = '#f87171', fg = '#2a0d0d') => n > 0 && (
-    <span style={{ background:bg, color:fg, fontFamily:MONO, fontSize:9, fontWeight:700,
+    <span style={{ background:bg, color:fg, fontFamily:MONO, fontSize:11, fontWeight:700,
       borderRadius:9, padding:'0 5px', minWidth:14, textAlign:'center', lineHeight:'14px', flexShrink:0 }}>
       {n}
     </span>
@@ -7519,13 +7519,13 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v7.10</span>
+          <span style={{ fontFamily:MONO, fontSize:11, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v7.11</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
             const label = p === 'openai' ? 'GPT' : p === 'gemini' ? 'Gemini' : 'Claude'
             const color = p === 'openai' ? '#10a37f' : p === 'gemini' ? '#4285f4' : T.amber
-            return <span style={{ fontFamily:MONO, fontSize:8, color, background:color+'18',
+            return <span style={{ fontFamily:MONO, fontSize:11, color, background:color+'18',
               border:`1px solid ${color}50`, borderRadius:5, padding:'1px 6px',
               letterSpacing:'0.06em', fontWeight:700, flexShrink:0 }}>{label}</span>
           })()}
@@ -7534,7 +7534,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
               title={audioMode === 'original' ? '🎬 電影原音（點擊切換為系統音）' : '🔊 系統音（點擊切換為電影原音）'}
               style={{ cursor:'pointer', marginLeft:'auto', flexShrink:0, userSelect:'none',
                 display:'inline-flex', alignItems:'center', gap:4,
-                fontFamily:MONO, fontSize:9, fontWeight:700,
+                fontFamily:MONO, fontSize:11, fontWeight:700,
                 padding:'4px 8px', borderRadius:7,
                 color: audioMode === 'original' ? T.amber : T.txt3,
                 background: audioMode === 'original' ? T.amberD : T.surf2,
@@ -7569,19 +7569,19 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', gap:4 }}>
           {onOpenGold && (
             <div onClick={onOpenGold}
-              style={{ ...btn('#1a0f2e', '#a78bfa40', '#a78bfa'), fontSize:9, gap:3, padding:'5px 4px' }}>
+              style={{ ...btn('#1a0f2e', '#a78bfa40', '#a78bfa'), fontSize:11, gap:3, padding:'5px 4px' }}>
               🎬 電影金句{mkBadge(goldCount, '#a78bfa', '#1a0f2e')}
             </div>
           )}
           {onOpenListenLib && (
             <div onClick={onOpenListenLib}
-              style={{ ...btn('#0d2a3a', '#38bdf840', '#38bdf8'), fontSize:9, gap:3, padding:'5px 4px' }}>
+              style={{ ...btn('#0d2a3a', '#38bdf840', '#38bdf8'), fontSize:11, gap:3, padding:'5px 4px' }}>
               🎯 聽力庫{mkBadge(listenDue)}
             </div>
           )}
           {onOpenTraining && (
             <div onClick={onOpenTraining}
-              style={{ ...btn('#38bdf8', '#38bdf8', '#0d2a3a', true), fontSize:9, gap:3, padding:'5px 4px' }}>
+              style={{ ...btn('#38bdf8', '#38bdf8', '#0d2a3a', true), fontSize:11, gap:3, padding:'5px 4px' }}>
               🌅 今日盲聽{mkBadge(trainToday ? 0 : 1, '#f87171', '#2a0d0d')}
             </div>
           )}
@@ -7611,7 +7611,7 @@ function BottomNav({ tab, setTab }) {
         return (
           <div key={n.id} onClick={() => setTab(n.id)} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:3, cursor:'pointer', padding:'9px 0 7px', color: on ? T.amber : '#8a95a0', transition:'color 0.14s' }}>
             {n.svg}
-            <span style={{ fontFamily:MONO, fontSize:7.5, letterSpacing:'0.06em', fontWeight: on ? 600 : 400 }}>{n.label.toUpperCase()}</span>
+            <span style={{ fontFamily:MONO, fontSize:11, letterSpacing:'0.06em', fontWeight: on ? 600 : 400 }}>{n.label.toUpperCase()}</span>
           </div>
         )
       })}
@@ -7626,7 +7626,7 @@ function SectionLabel({ children, color = '#8a95a0' }) {
   return (
     <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:2 }}>
       <div style={{ flex:1, height:1, background:T.bdr }}/>
-      <span style={{ fontFamily:MONO, fontSize:9, color, letterSpacing:'0.03em' }}>{children}</span>
+      <span style={{ fontFamily:MONO, fontSize:11, color, letterSpacing:'0.03em' }}>{children}</span>
       <div style={{ flex:1, height:1, background:T.bdr }}/>
     </div>
   )
@@ -7897,7 +7897,7 @@ function StageIndicator({ stage }) {
             border: i === ci ? `2px solid ${colors[i]}40` : 'none',
           }}/>
           {i === ci && (
-            <span style={{ fontFamily:MONO, fontSize:9, color:colors[i], letterSpacing:'0.12em', fontWeight:600 }}>
+            <span style={{ fontFamily:MONO, fontSize:11, color:colors[i], letterSpacing:'0.12em', fontWeight:600 }}>
               {labels[i]}
             </span>
           )}
@@ -8261,7 +8261,7 @@ function DrillTab({ sentences, vocab, settings }) {
     return (
       <div style={{ position:'fixed', top:0, left:0, right:0, bottom:0, background:T.bg, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:24, padding:32, zIndex:100 }}>
         {/* Status label */}
-        <div style={{ fontFamily:MONO, fontSize:10, color: isYourTurn ? T.grn : isAnswer ? T.amber : T.txt3, letterSpacing:'0.18em', animation: isYourTurn ? 'pulse 1s infinite' : 'none' }}>
+        <div style={{ fontFamily:MONO, fontSize:11, color: isYourTurn ? T.grn : isAnswer ? T.amber : T.txt3, letterSpacing:'0.18em', animation: isYourTurn ? 'pulse 1s infinite' : 'none' }}>
           {rideCurrent.label || (rideMode === 'fsi' ? 'FSI RIDE' : 'VOCAB RIDE')}
         </div>
 
@@ -8285,7 +8285,7 @@ function DrillTab({ sentences, vocab, settings }) {
             {isAnswer && rideCurrent.alts && rideCurrent.alts.length > 0 && (
               <div style={{ display:'flex', flexWrap:'wrap', gap:6, justifyContent:'center', maxWidth:300 }}>
                 {rideCurrent.alts.map((alt, ai) => (
-                  <span key={ai} style={{ fontFamily:MONO, fontSize:9, color:T.txt3, background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:5, padding:'3px 8px' }}>
+                  <span key={ai} style={{ fontFamily:MONO, fontSize:11, color:T.txt3, background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:5, padding:'3px 8px' }}>
                     {alt}
                   </span>
                 ))}
@@ -8316,7 +8316,7 @@ function DrillTab({ sentences, vocab, settings }) {
         </div>
 
         {/* Mode indicator */}
-        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, letterSpacing:'0.1em' }}>
+        <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, letterSpacing:'0.1em' }}>
           {rideMode === 'fsi' ? '🚴 FSI 騎車模式' : '🎧 單字騎車模式'}
         </div>
 
@@ -8337,7 +8337,7 @@ function DrillTab({ sentences, vocab, settings }) {
           {/* Spacer + divider to prevent accidental stop tap */}
           <div style={{ display:'flex', alignItems:'center', gap:8, padding:'0 4px' }}>
             <div style={{ flex:1, height:1, background:T.bdr }}/>
-            <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3, letterSpacing:'0.08em' }}>
+            <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3, letterSpacing:'0.08em' }}>
               {ridePaused ? '確認結束？' : '結束練習'}
             </span>
             <div style={{ flex:1, height:1, background:T.bdr }}/>
@@ -8360,13 +8360,13 @@ function DrillTab({ sentences, vocab, settings }) {
 
       {/* ── RIDE MODE BUTTONS ── */}
       <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, letterSpacing:'0.12em', marginBottom:2 }}>騎車模式 — 純口說反射</div>
+        <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, letterSpacing:'0.12em', marginBottom:2 }}>騎車模式 — 純口說反射</div>
         {/* Speed selector */}
         <div style={{ display:'flex', gap:6, marginBottom:4 }}>
-          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, alignSelf:'center' }}>語速：</div>
+          <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, alignSelf:'center' }}>語速：</div>
           {[{label:'0.82x (正常)', val:0.82},{label:'0.6x (慢)', val:0.6}].map(s => (
             <div key={s.val} onClick={() => setRideSpeed(s.val)}
-              style={{ padding:'4px 12px', borderRadius:12, fontFamily:MONO, fontSize:9, cursor:'pointer',
+              style={{ padding:'4px 12px', borderRadius:12, fontFamily:MONO, fontSize:11, cursor:'pointer',
                 background: rideSpeed === s.val ? T.amberD : T.surf2,
                 border: `1px solid ${rideSpeed === s.val ? T.amber+'60' : T.bdr}`,
                 color: rideSpeed === s.val ? T.amber : T.txt3 }}>
@@ -8395,18 +8395,18 @@ function DrillTab({ sentences, vocab, settings }) {
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
         <StageIndicator stage={stage}/>
         <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-          <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+          <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
             {cardIdx % cards.length + 1}/{cards.length}
           </span>
           <div onClick={() => setShowInfo(s=>!s)}
-            style={{ cursor:'pointer', color: showInfo ? T.amber : T.txt3, padding:'4px 8px', background:T.surf2, borderRadius:7, fontFamily:MONO, fontSize:10 }}>?</div>
+            style={{ cursor:'pointer', color: showInfo ? T.amber : T.txt3, padding:'4px 8px', background:T.surf2, borderRadius:7, fontFamily:MONO, fontSize:11 }}>?</div>
         </div>
       </div>
 
       {/* Info panel */}
       {showInfo && (
         <div style={{ background:T.surf2, border:`1px solid ${T.bdr2}`, borderRadius:11, padding:14 }} className="fadeUp">
-          <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, marginBottom:8, letterSpacing:'0.1em' }}>DRILL 三階段說明</div>
+          <div style={{ fontFamily:MONO, fontSize:11, color:T.amber, marginBottom:8, letterSpacing:'0.1em' }}>DRILL 三階段說明</div>
           <div style={{ fontFamily:SERIF, fontSize:13, color:T.txt2, lineHeight:1.75 }}>
             <b style={{color:T.blue}}>SHADOW</b> — 看完整句，跟TTS朗讀3次，熟悉句型後自動升級<br/>
             <b style={{color:T.amber}}>RESPOND</b> — 看問題，5秒內開口說完整句，按「我說完了」看答案<br/>
@@ -8420,7 +8420,7 @@ function DrillTab({ sentences, vocab, settings }) {
       {stage === 'shadow' && (
         <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
           <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:14, padding:20 }}>
-            <div style={{ fontFamily:MONO, fontSize:8.5, color:'#9aa5b0', letterSpacing:'0.03em', marginBottom:10 }}>
+            <div style={{ fontFamily:MONO, fontSize:11, color:'#9aa5b0', letterSpacing:'0.03em', marginBottom:10 }}>
               {card.context}
               {card.hint && <span style={{ color:T.txt3 }}> — {card.hint}</span>}
             </div>
@@ -8440,17 +8440,17 @@ function DrillTab({ sentences, vocab, settings }) {
               return (
                 <div style={{ marginBottom:14, padding:'11px 13px', background:T.surf2, borderRadius:10, border:`1px solid ${T.amber}22` }}>
                   <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
-                    <span style={{ fontFamily:MONO, fontSize:8, color:T.amber }}>· 連音</span>
-                    <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>[ ] 弱化</span>
-                    <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>( ) 省略</span>
-                    <span style={{ fontFamily:MONO, fontSize:8, color:T.txt, fontWeight:700 }}>大寫 重音</span>
+                    <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>· 連音</span>
+                    <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>[ ] 弱化</span>
+                    <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>( ) 省略</span>
+                    <span style={{ fontFamily:MONO, fontSize:11, color:T.txt, fontWeight:700 }}>大寫 重音</span>
                   </div>
                   <div style={{ fontFamily:SERIF, fontSize:15, lineHeight:2, letterSpacing:'0.02em', color:T.txt2, marginBottom: chunks.length ? 10 : 0 }}>
                     {renderLinkedHint(card.linked_hint)}
                   </div>
                   {chunks.length > 0 && (
                     <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
-                      <div style={{ width:'100%', fontFamily:MONO, fontSize:8, color:T.txt3, marginBottom:3 }}>
+                      <div style={{ width:'100%', fontFamily:MONO, fontSize:11, color:T.txt3, marginBottom:3 }}>
                         點擊連音片段 → {settings?.elevenKey ? '🎙 AI 高品質語音' : '先慢速，再正常速'}
                       </div>
                       {chunks.map((c, ci) => {
@@ -8480,9 +8480,9 @@ function DrillTab({ sentences, vocab, settings }) {
                               background: isActive ? T.amber+'40' : T.amberD,
                               border:`1px solid ${isActive ? T.amber : T.amber+'40'}`,
                               borderRadius:7, padding:'4px 9px', transition:'all 0.14s' }}>
-                            <span style={{ fontFamily:MONO, fontSize:10, color:T.amber }}>{c.label}</span>
+                            <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>{c.label}</span>
                             <svg width="10" height="10" viewBox="0 0 16 16" fill="none" style={{color:T.amber}}><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.4" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
-                            <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>{settings?.elevenKey ? '🎙 AI' : '慢→正常'}</span>
+                            <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>{settings?.elevenKey ? '🎙 AI' : '慢→正常'}</span>
                           </div>
                         )
                       })}
@@ -8496,12 +8496,12 @@ function DrillTab({ sentences, vocab, settings }) {
               <div onClick={() => speak(buildDrillFilled(card), 0.82)} style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', color:T.txt3, padding:'5px 10px', background:T.bdr, borderRadius:7, transition:'color 0.14s' }}
                 onMouseOver={e=>e.currentTarget.style.color=T.amber} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
                 <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M12 2.5a6 6 0 010 11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
-                <span style={{ fontFamily:MONO, fontSize:9 }}>0.82x</span>
+                <span style={{ fontFamily:MONO, fontSize:11 }}>0.82x</span>
               </div>
               <div onClick={() => speak(buildDrillFilled(card), 0.6)} style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', color:T.txt3, padding:'5px 10px', background:T.bdr, borderRadius:7, transition:'color 0.14s' }}
                 onMouseOver={e=>e.currentTarget.style.color=T.blue} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
                 <span style={{ fontFamily:MONO, fontSize:11 }}>🐢</span>
-                <span style={{ fontFamily:MONO, fontSize:9 }}>0.6x</span>
+                <span style={{ fontFamily:MONO, fontSize:11 }}>0.6x</span>
               </div>
             </div>
           </div>
@@ -8529,7 +8529,7 @@ function DrillTab({ sentences, vocab, settings }) {
 
           {/* Question card */}
           <div style={{ background:T.surf, border:`1px solid ${stage==='pressure' ? T.red+'40' : T.bdr}`, borderRadius:14, padding:20 }}>
-            <div style={{ fontFamily:MONO, fontSize:8.5, color:'#9aa5b0', letterSpacing:'0.03em', marginBottom:12 }}>
+            <div style={{ fontFamily:MONO, fontSize:11, color:'#9aa5b0', letterSpacing:'0.03em', marginBottom:12 }}>
               {card.context}
             </div>
 
@@ -8554,13 +8554,13 @@ function DrillTab({ sentences, vocab, settings }) {
             {/* Respond: Answer Pattern */}
             {stage === 'respond' && phase === 'question' && (
               <div style={{ marginTop:14, background:T.surf2, borderRadius:9, padding:12 }}>
-                <div style={{ fontFamily:MONO, fontSize:8.5, color:T.amber, letterSpacing:'0.1em', marginBottom:7 }}>ANSWER PATTERN</div>
+                <div style={{ fontFamily:MONO, fontSize:11, color:T.amber, letterSpacing:'0.1em', marginBottom:7 }}>ANSWER PATTERN</div>
                 <div style={{ fontFamily:MONO, fontSize:12, color:T.txt, lineHeight:1.7, marginBottom:6 }}>
                   {pattern?.main}
                 </div>
                 <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
                   {pattern?.keywords.map((k,i) => (
-                    <span key={i} style={{ fontFamily:MONO, fontSize:10, color:T.txt2, background:T.bdr, padding:'2px 8px', borderRadius:10 }}>{k}</span>
+                    <span key={i} style={{ fontFamily:MONO, fontSize:11, color:T.txt2, background:T.bdr, padding:'2px 8px', borderRadius:10 }}>{k}</span>
                   ))}
                 </div>
               </div>
@@ -8577,8 +8577,8 @@ function DrillTab({ sentences, vocab, settings }) {
 
             {/* Respond: hint button */}
             {stage === 'respond' && phase === 'question' && !showHint && (
-              <div onClick={() => setShowHint(true)} style={{ marginTop:12, cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt3, display:'inline-flex', alignItems:'center', gap:5 }}>
-                <span style={{ fontSize:8 }}>▶</span> HINT
+              <div onClick={() => setShowHint(true)} style={{ marginTop:12, cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.txt3, display:'inline-flex', alignItems:'center', gap:5 }}>
+                <span style={{ fontSize:11 }}>▶</span> HINT
               </div>
             )}
             {stage === 'respond' && showHint && (
@@ -8590,7 +8590,7 @@ function DrillTab({ sentences, vocab, settings }) {
 
           {/* Timed out warning (respond) */}
           {timedOut && phase === 'question' && (
-            <div style={{ fontFamily:MONO, fontSize:10, color:T.red, textAlign:'center', animation:'pulse 1.5s infinite' }}>
+            <div style={{ fontFamily:MONO, fontSize:11, color:T.red, textAlign:'center', animation:'pulse 1.5s infinite' }}>
               ⏱ 時間到！先開口說，再按「我說完了」
             </div>
           )}
@@ -8607,7 +8607,7 @@ function DrillTab({ sentences, vocab, settings }) {
           {phase === 'answered' && (
             <div style={{ display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
               <div style={{ background:T.surf, border:`1px solid ${T.grn}40`, borderRadius:12, padding:18 }}>
-                <div style={{ fontFamily:MONO, fontSize:8.5, color:T.grn, letterSpacing:'0.1em', marginBottom:8 }}>ANSWER</div>
+                <div style={{ fontFamily:MONO, fontSize:11, color:T.grn, letterSpacing:'0.1em', marginBottom:8 }}>ANSWER</div>
                 <div style={{ fontFamily:MONO, fontSize:14, color:T.txt, lineHeight:1.9 }}>
                   {card.template.replace(/\{[^}]+\}/g, w =>
                     `[${w.slice(1,-1)}]`
@@ -8618,12 +8618,12 @@ function DrillTab({ sentences, vocab, settings }) {
                   )}
                 </div>
                 <div style={{ display:'flex', gap:10, marginTop:12 }}>
-                  <div onClick={() => speak(buildDrillFilled(card))} style={{ cursor:'pointer', display:'flex', alignItems:'center', gap:5, color:T.txt3, fontFamily:MONO, fontSize:10 }}
+                  <div onClick={() => speak(buildDrillFilled(card))} style={{ cursor:'pointer', display:'flex', alignItems:'center', gap:5, color:T.txt3, fontFamily:MONO, fontSize:11 }}
                     onMouseOver={e=>e.currentTarget.style.color=T.amber} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
                     <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
                     Replay
                   </div>
-                  <div onClick={() => { speak(buildDrillFilled(card), 0.6) }} style={{ cursor:'pointer', display:'flex', alignItems:'center', gap:5, color:T.txt3, fontFamily:MONO, fontSize:10 }}
+                  <div onClick={() => { speak(buildDrillFilled(card), 0.6) }} style={{ cursor:'pointer', display:'flex', alignItems:'center', gap:5, color:T.txt3, fontFamily:MONO, fontSize:11 }}
                     onMouseOver={e=>e.currentTarget.style.color=T.blue} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
                     <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
                     Repeat Slow
@@ -8633,7 +8633,7 @@ function DrillTab({ sentences, vocab, settings }) {
 
               {/* Stage progress info */}
               {stage === 'respond' && (
-                <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, textAlign:'center' }}>
+                <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, textAlign:'center' }}>
                   RESPOND 進度：{respondOk}/3 ✓ 解鎖 PRESSURE
                 </div>
               )}
@@ -8662,7 +8662,7 @@ function DrillTab({ sentences, vocab, settings }) {
                 const cardTags = drillProgress[card.id]?.weakTags ?? []
                 return (
                   <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
-                    <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, letterSpacing:'0.08em' }}>⚑ 標記弱點（選填）</div>
+                    <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, letterSpacing:'0.08em' }}>⚑ 標記弱點（選填）</div>
                     <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
                       {WEAKNESS_TAGS.map(tag => {
                         const active = cardTags.includes(tag.id)
@@ -8677,7 +8677,7 @@ function DrillTab({ sentences, vocab, settings }) {
                             style={{
                               display:'inline-flex', alignItems:'center', gap:4,
                               padding:'3px 9px', borderRadius:12, cursor:'pointer',
-                              fontFamily:MONO, fontSize:9,
+                              fontFamily:MONO, fontSize:11,
                               background: active ? tag.color+'22' : T.surf2,
                               border:`1px solid ${active ? tag.color+'80' : T.bdr}`,
                               color: active ? tag.color : T.txt3,
@@ -8708,10 +8708,10 @@ function DrillTab({ sentences, vocab, settings }) {
                 👔
               </div>
               <div style={{ flex:1 }}>
-                <div style={{ fontFamily:MONO, fontSize:9, color:BOSS_COLOR, letterSpacing:'0.14em', marginBottom:2 }}>
+                <div style={{ fontFamily:MONO, fontSize:11, color:BOSS_COLOR, letterSpacing:'0.14em', marginBottom:2 }}>
                   BOSS FOLLOW-UP {bossLoading ? <span style={{ color:T.txt3 }}>— AI 產生中…</span> : ''}
                 </div>
-                <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>主管追問，30 秒內開口回應</div>
+                <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>主管追問，30 秒內開口回應</div>
               </div>
             </div>
 
@@ -8722,7 +8722,7 @@ function DrillTab({ sentences, vocab, settings }) {
               </div>
               <div onClick={() => speak(bossQ, 0.82)}
                 style={{ marginTop:12, display:'inline-flex', alignItems:'center', gap:5, cursor:'pointer',
-                  fontFamily:MONO, fontSize:9, color:BOSS_COLOR, background:`${BOSS_COLOR}15`,
+                  fontFamily:MONO, fontSize:11, color:BOSS_COLOR, background:`${BOSS_COLOR}15`,
                   border:`1px solid ${BOSS_COLOR}40`, padding:'4px 10px', borderRadius:8 }}>
                 🔊 再聽一次
               </div>
@@ -8731,13 +8731,13 @@ function DrillTab({ sentences, vocab, settings }) {
             {/* Reference answer (shown after spoke) */}
             {bossPhase === 'answered' && (
               <div style={{ background:T.grnD, border:`1px solid ${T.grn}40`, borderRadius:12, padding:'14px 16px' }} className="fadeUp">
-                <div style={{ fontFamily:MONO, fontSize:8, color:T.grn, letterSpacing:'0.1em', marginBottom:8 }}>參考答案</div>
+                <div style={{ fontFamily:MONO, fontSize:11, color:T.grn, letterSpacing:'0.1em', marginBottom:8 }}>參考答案</div>
                 <div style={{ fontFamily:MONO, fontSize:13, color:T.txt, lineHeight:1.8 }}>
                   {bossRef}
                 </div>
                 <div onClick={() => speak(bossRef, 0.75)}
                   style={{ marginTop:10, display:'inline-flex', alignItems:'center', gap:5, cursor:'pointer',
-                    fontFamily:MONO, fontSize:9, color:T.grn, background:T.grnD,
+                    fontFamily:MONO, fontSize:11, color:T.grn, background:T.grnD,
                     border:`1px solid ${T.grn}40`, padding:'4px 10px', borderRadius:8 }}>
                   🔊 聽範例
                 </div>
@@ -9014,7 +9014,7 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
   function ModeBtn({ id, label }) {
     return (
       <div onClick={() => { setMode(id); setIdx(0); setSels({}); setRevealed(false) }}
-        style={{ flex:1, textAlign:'center', padding:'7px 0', borderRadius:7, cursor:'pointer', fontFamily:MONO, fontSize:10, letterSpacing:'0.07em', fontWeight:500, background: mode===id ? T.amber : 'transparent', color: mode===id ? T.bg : '#c2cad4', transition:'all 0.14s' }}>
+        style={{ flex:1, textAlign:'center', padding:'7px 0', borderRadius:7, cursor:'pointer', fontFamily:MONO, fontSize:11, letterSpacing:'0.07em', fontWeight:500, background: mode===id ? T.amber : 'transparent', color: mode===id ? T.bg : '#c2cad4', transition:'all 0.14s' }}>
         {label}
       </div>
     )
@@ -9032,7 +9032,7 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
             ? <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>距離目標還差 {dailyGoal - dailyCount} 句</div>
             : <div style={{ fontFamily:MONO, fontSize:11, color:T.grn }}>🎉 今日目標達成！</div>
           }
-          <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, animation:'pulse 1.2s infinite', marginTop:8 }}>自動進入 Round {round + 1}…</div>
+          <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, animation:'pulse 1.2s infinite', marginTop:8 }}>自動進入 Round {round + 1}…</div>
         </div>
       )}
 
@@ -9044,7 +9044,7 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
             <span style={{ fontFamily:MONO, fontSize:11, color:T.txt }}>🔄 Round <b style={{color:T.blue}}>{round}</b></span>
             <span style={{ fontFamily:MONO, fontSize:11, color:T.txt }}>🔥 <b style={{color:T.red}}>{stats?.streak ?? 0}</b> 天</span>
           </div>
-          <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>目標 {dailyGoal}</span>
+          <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>目標 {dailyGoal}</span>
         </div>
         <div style={{ height:5, background:T.bdr2, borderRadius:3, overflow:'hidden' }}>
           <div style={{ width:`${Math.min(100, (dailyCount/dailyGoal)*100)}%`, height:'100%', background: dailyCount >= dailyGoal ? T.grn : T.amber, borderRadius:3, transition:'width 0.4s ease' }}/>
@@ -9067,7 +9067,7 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
 
       {showInfo && (
         <div style={{ background:T.surf2, border:`1px solid ${T.bdr2}`, borderRadius:11, padding:14 }} className="fadeUp">
-          <div style={{ fontFamily:MONO, fontSize:10, color:T.amber, marginBottom:8 }}>SIMPLE vs HARD</div>
+          <div style={{ fontFamily:MONO, fontSize:11, color:T.amber, marginBottom:8 }}>SIMPLE vs HARD</div>
           <div style={{ fontFamily:SERIF, fontSize:13, color:T.txt2, lineHeight:1.7 }}>
             <b style={{color:T.txt}}>SIMPLE</b> — 單句填空練習。選好詞組後按「Speak & Reveal」，練習說出完整句子。適合通勤、零碎時間。<br/><br/>
             <b style={{color:T.txt}}>HARD</b> — 多句對話情境（3句以上）。模擬會議、客戶電話、RCA討論的完整對話。適合有15分鐘以上的練習時間。
@@ -9079,14 +9079,14 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
       <div style={{ display:'flex', gap:6 }}>
         {[['all','ALL'],['work','💼 WORK'],['life','🏠 LIFE']].map(([id, lbl]) => (
           <div key={id} onClick={() => { setCategory(id); setIdx(0) }}
-            style={{ flex:1, textAlign:'center', padding:'6px 0', borderRadius:8, cursor:'pointer', fontFamily:MONO, fontSize:9, letterSpacing:'0.06em', border:`1px solid ${category===id ? T.amber+'80' : T.bdr}`, background: category===id ? T.amberD : 'transparent', color: category===id ? T.amber : '#c2cad4', transition:'all 0.14s' }}>
+            style={{ flex:1, textAlign:'center', padding:'6px 0', borderRadius:8, cursor:'pointer', fontFamily:MONO, fontSize:11, letterSpacing:'0.06em', border:`1px solid ${category===id ? T.amber+'80' : T.bdr}`, background: category===id ? T.amberD : 'transparent', color: category===id ? T.amber : '#c2cad4', transition:'all 0.14s' }}>
             {lbl}
           </div>
         ))}
         <div style={{ display:'flex', alignItems:'center', gap:6, paddingLeft:4 }}>
-          <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3, whiteSpace:'nowrap' }}>{queue.length} cards</span>
+          <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3, whiteSpace:'nowrap' }}>{queue.length} cards</span>
           <div onClick={() => setShowFsiList(v => !v)} title="一覽表"
-            style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color: showFsiList ? T.amber : T.txt3,
+            style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color: showFsiList ? T.amber : T.txt3,
               background: showFsiList ? T.amberD : 'transparent', border:`1px solid ${showFsiList ? T.amber+'60' : T.bdr}`,
               borderRadius:6, padding:'3px 7px', whiteSpace:'nowrap', transition:'all 0.14s' }}>
             ☰
@@ -9098,8 +9098,8 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
       {showFsiList && (
         <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:12, overflow:'hidden' }}>
           <div style={{ padding:'10px 14px', borderBottom:`1px solid ${T.bdr}`, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-            <span style={{ fontFamily:MONO, fontSize:9, color:T.amber, letterSpacing:'0.1em' }}>FSI 一覽表</span>
-            <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>{queue.length} 句</span>
+            <span style={{ fontFamily:MONO, fontSize:11, color:T.amber, letterSpacing:'0.1em' }}>FSI 一覽表</span>
+            <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>{queue.length} 句</span>
           </div>
           <div style={{ maxHeight:320, overflowY:'auto' }}>
             {queue.map((s, i) => {
@@ -9114,7 +9114,7 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
                     updateSentences(prev => prev.map(x => x.id === s.id ? {...x, context: newCtx} : x))
                   }}
                     title={isLife ? '移至 WORK' : '移至 LIFE'}
-                    style={{ flexShrink:0, fontFamily:MONO, fontSize:8, padding:'2px 7px', borderRadius:6, cursor:'pointer', userSelect:'none',
+                    style={{ flexShrink:0, fontFamily:MONO, fontSize:11, padding:'2px 7px', borderRadius:6, cursor:'pointer', userSelect:'none',
                       background: isLife ? '#3fb95018' : T.amberD,
                       border:`1px solid ${isLife ? '#3fb95050' : T.amber+'50'}`,
                       color: isLife ? '#3fb950' : T.amber }}>
@@ -9122,10 +9122,10 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
                   </div>
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontFamily:MONO, fontSize:11, color:T.txt, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{s.template}</div>
-                    <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginTop:1 }}>{s.context}</div>
+                    <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, marginTop:1 }}>{s.context}</div>
                   </div>
                   <div onClick={() => { setShowFsiList(false); setIdx(i) }}
-                    style={{ flexShrink:0, fontFamily:MONO, fontSize:8, color:T.txt3, cursor:'pointer', padding:'2px 6px',
+                    style={{ flexShrink:0, fontFamily:MONO, fontSize:11, color:T.txt3, cursor:'pointer', padding:'2px 6px',
                       border:`1px solid ${T.bdr}`, borderRadius:6 }}>
                     練習
                   </div>
@@ -9153,7 +9153,7 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
               updateSentences(prev => prev.map(x => x.id === card.id ? {...x, context: newCtx} : x))
             }}
               title="切換 WORK / LIFE"
-              style={{ flexShrink:0, fontFamily:MONO, fontSize:8, padding:'3px 9px', borderRadius:6, cursor:'pointer', userSelect:'none',
+              style={{ flexShrink:0, fontFamily:MONO, fontSize:11, padding:'3px 9px', borderRadius:6, cursor:'pointer', userSelect:'none',
                 background: LIFE_CONTEXTS.some(c=>(card.context??'').toLowerCase().includes(c.toLowerCase())) ? '#3fb95018' : T.amberD,
                 border:`1px solid ${LIFE_CONTEXTS.some(c=>(card.context??'').toLowerCase().includes(c.toLowerCase())) ? '#3fb95050' : T.amber+'50'}`,
                 color: LIFE_CONTEXTS.some(c=>(card.context??'').toLowerCase().includes(c.toLowerCase())) ? '#3fb950' : T.amber }}>
@@ -9165,7 +9165,7 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
           <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:14, padding:20, position:'relative' }}>
             {card.hint && (
               <div style={{ marginBottom:12, paddingBottom:12, borderBottom:`1px solid ${T.bdr}` }}>
-                <div style={{ fontFamily:MONO, fontSize:8.5, color:T.amber, letterSpacing:'0.1em', marginBottom:6 }}>提示詞</div>
+                <div style={{ fontFamily:MONO, fontSize:11, color:T.amber, letterSpacing:'0.1em', marginBottom:6 }}>提示詞</div>
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}>
                 <div style={{ fontFamily:SERIF, fontStyle:'italic', fontSize:15, color:T.txt2, lineHeight:1.3, flex:1 }}>
                   "{card.hint}"
@@ -9173,11 +9173,11 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
                 <div style={{ display:'flex', gap:6, alignItems:'center', flexShrink:0 }}>
                   {!card.linked_hint && (
                     <div onClick={generateLinkedHint} title="產生連音標注"
-                      style={{ cursor: generatingHint ? 'not-allowed' : 'pointer', color: generatingHint ? T.txt3 : T.amber, padding:'4px 6px', background:T.amberD, borderRadius:6, fontFamily:MONO, fontSize:10, display:'flex', alignItems:'center', gap:3, opacity: generatingHint ? 0.6 : 1, transition:'all 0.14s' }}>
+                      style={{ cursor: generatingHint ? 'not-allowed' : 'pointer', color: generatingHint ? T.txt3 : T.amber, padding:'4px 6px', background:T.amberD, borderRadius:6, fontFamily:MONO, fontSize:11, display:'flex', alignItems:'center', gap:3, opacity: generatingHint ? 0.6 : 1, transition:'all 0.14s' }}>
                       {generatingHint
                         ? <span style={{ display:'inline-block', width:8, height:8, border:'1.5px solid transparent', borderTopColor:T.amber, borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>
                         : '✨'}
-                      <span style={{ fontSize:8 }}>{generatingHint ? '產生中' : '連音'}</span>
+                      <span style={{ fontSize:11 }}>{generatingHint ? '產生中' : '連音'}</span>
                     </div>
                   )}
                   <div onClick={() => speak(buildFilled())} title="朗讀句子"
@@ -9192,11 +9192,11 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
             {!card.hint && !card.linked_hint && (
               <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:8 }}>
                 <div onClick={generateLinkedHint} title="產生連音標注"
-                  style={{ cursor: generatingHint ? 'not-allowed' : 'pointer', color: generatingHint ? T.txt3 : T.amber, padding:'4px 8px', background:T.amberD, borderRadius:6, fontFamily:MONO, fontSize:10, display:'flex', alignItems:'center', gap:3, opacity: generatingHint ? 0.6 : 1 }}>
+                  style={{ cursor: generatingHint ? 'not-allowed' : 'pointer', color: generatingHint ? T.txt3 : T.amber, padding:'4px 8px', background:T.amberD, borderRadius:6, fontFamily:MONO, fontSize:11, display:'flex', alignItems:'center', gap:3, opacity: generatingHint ? 0.6 : 1 }}>
                   {generatingHint
                     ? <span style={{ display:'inline-block', width:8, height:8, border:'1.5px solid transparent', borderTopColor:T.amber, borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>
                     : '✨'}
-                  <span style={{ fontSize:8 }}>{generatingHint ? '產生中' : '產生連音'}</span>
+                  <span style={{ fontSize:11 }}>{generatingHint ? '產生中' : '產生連音'}</span>
                 </div>
               </div>
             )}
@@ -9220,18 +9220,18 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
                 style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', color:T.txt3, padding:'5px 10px', background:T.surf2, borderRadius:7, transition:'color 0.14s' }}
                 onMouseOver={e=>e.currentTarget.style.color=T.amber} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
                 <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M12 2.5a6 6 0 010 11" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
-                <span style={{ fontFamily:MONO, fontSize:9 }}>0.82x</span>
+                <span style={{ fontFamily:MONO, fontSize:11 }}>0.82x</span>
               </div>
               <div onClick={() => speak(buildFilled(), 0.6)}
                 style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', color:T.txt3, padding:'5px 10px', background:T.surf2, borderRadius:7, transition:'color 0.14s' }}
                 onMouseOver={e=>e.currentTarget.style.color=T.blue} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
                 <span style={{ fontFamily:MONO, fontSize:11 }}>🐢</span>
-                <span style={{ fontFamily:MONO, fontSize:9 }}>0.6x</span>
+                <span style={{ fontFamily:MONO, fontSize:11 }}>0.6x</span>
               </div>
               {!revealed && (
                 <div onClick={allFilled ? handleReveal : undefined}
                   style={{ display:'flex', alignItems:'center', gap:5, cursor: allFilled ? 'pointer' : 'not-allowed',
-                    padding:'5px 13px', borderRadius:7, fontFamily:MONO, fontSize:10, letterSpacing:'0.08em',
+                    padding:'5px 13px', borderRadius:7, fontFamily:MONO, fontSize:11, letterSpacing:'0.08em',
                     background: allFilled ? T.amber : T.surf2,
                     color: allFilled ? T.bg : T.txt3,
                     border: `1px solid ${allFilled ? T.amber : T.bdr}`,
@@ -9246,7 +9246,7 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
               {!zhTranslation && (
                 <div onClick={generatingZh ? undefined : generateZhTranslation}
                   style={{ display:'inline-flex', alignItems:'center', gap:5, cursor: generatingZh ? 'default' : 'pointer',
-                    fontFamily:MONO, fontSize:9, color: generatingZh ? T.txt3 : T.blue,
+                    fontFamily:MONO, fontSize:11, color: generatingZh ? T.txt3 : T.blue,
                     padding:'4px 10px', borderRadius:6, background:T.blueD,
                     border:`1px solid ${T.blue}30`, opacity: generatingZh ? 0.6 : 1,
                     transition:'all 0.15s', userSelect:'none' }}>
@@ -9265,7 +9265,7 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
                     )
                   })}
                   <div onClick={() => setZhTranslation(null)}
-                    style={{ alignSelf:'flex-end', fontFamily:MONO, fontSize:8.5, color:T.txt3, cursor:'pointer', marginTop:2 }}>
+                    style={{ alignSelf:'flex-end', fontFamily:MONO, fontSize:11, color:T.txt3, cursor:'pointer', marginTop:2 }}>
                     ✕ 關閉
                   </div>
                 </div>
@@ -9313,7 +9313,7 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
                 {/* Edit toggle */}
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'flex-end', marginBottom:2 }}>
                   <div onClick={() => { setSlotEditMode(v => !v); setAddingSlot(null); setNewOptText('') }}
-                    style={{ fontFamily:MONO, fontSize:8.5, color: slotEditMode ? T.amber : T.txt3, cursor:'pointer', padding:'3px 8px', borderRadius:5,
+                    style={{ fontFamily:MONO, fontSize:11, color: slotEditMode ? T.amber : T.txt3, cursor:'pointer', padding:'3px 8px', borderRadius:5,
                       background: slotEditMode ? T.amberD : 'transparent', border: `1px solid ${slotEditMode ? T.amber+'50' : 'transparent'}`,
                       transition:'all 0.15s', userSelect:'none' }}>
                     {slotEditMode ? '✓ 完成編輯' : '✏ 編輯選項'}
@@ -9325,8 +9325,8 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
                   return (
                     <div key={gi}>
                       <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:6 }}>
-                        <div style={{ fontFamily:MONO, fontSize:8.5, color: isExtra ? T.amber : '#9aa5b0', letterSpacing:'0.1em' }}>SLOT {gi + 1}</div>
-                        {isExtra && <span style={{ fontFamily:MONO, fontSize:8, color:T.amber, background:T.amberD, padding:'1px 6px', borderRadius:4 }}>⚠ 多餘</span>}
+                        <div style={{ fontFamily:MONO, fontSize:11, color: isExtra ? T.amber : '#9aa5b0', letterSpacing:'0.1em' }}>SLOT {gi + 1}</div>
+                        {isExtra && <span style={{ fontFamily:MONO, fontSize:11, color:T.amber, background:T.amberD, padding:'1px 6px', borderRadius:4 }}>⚠ 多餘</span>}
                       </div>
                       <div style={{ display:'flex', flexWrap:'wrap', gap:6, opacity: isExtra ? 0.5 : 1, alignItems:'center' }}>
                         {group.map((opt, oi) => (
@@ -9365,11 +9365,11 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
                               style={{ width:130, background:T.surf2, border:`1px solid ${T.grn}60`, borderRadius:8, padding:'5px 8px', fontFamily:MONO, fontSize:11, color:T.txt, outline:'none' }}
                             />
                             <div onClick={() => confirmAddOpt(gi)}
-                              style={{ cursor:'pointer', background:T.grn, color:T.bg, borderRadius:6, padding:'4px 8px', fontFamily:MONO, fontSize:10, fontWeight:600 }}>
+                              style={{ cursor:'pointer', background:T.grn, color:T.bg, borderRadius:6, padding:'4px 8px', fontFamily:MONO, fontSize:11, fontWeight:600 }}>
                               確認
                             </div>
                             <div onClick={() => { setAddingSlot(null); setNewOptText('') }}
-                              style={{ cursor:'pointer', color:T.txt3, fontFamily:MONO, fontSize:10 }}>
+                              style={{ cursor:'pointer', color:T.txt3, fontFamily:MONO, fontSize:11 }}>
                               取消
                             </div>
                           </div>
@@ -9381,13 +9381,13 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
 
                 {extraSlots > 0 && (
                   <div style={{ background:T.amberD, border:`1px solid ${T.amber}40`, borderRadius:8, padding:'8px 12px' }}>
-                    <span style={{ fontFamily:MONO, fontSize:9, color:T.amber }}>⚠ 此卡有 {extraSlots} 個多餘 SLOT — 建議到 SETUP 修正</span>
+                    <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>⚠ 此卡有 {extraSlots} 個多餘 SLOT — 建議到 SETUP 修正</span>
                   </div>
                 )}
                 {missingSlots > 0 && Array.from({ length: missingSlots }).map((_, mi) => (
                   <div key={`missing-${mi}`} style={{ background: T.redD, border:`1px solid ${T.red}50`, borderRadius:8, padding:'8px 12px', display:'flex', alignItems:'center', gap:8 }}>
-                    <span style={{ fontFamily:MONO, fontSize:8.5, color:T.red, letterSpacing:'0.1em' }}>SLOT {subsCount + mi + 1}</span>
-                    <span style={{ fontFamily:MONO, fontSize:9, color:T.red }}>⚠ 未設定選項</span>
+                    <span style={{ fontFamily:MONO, fontSize:11, color:T.red, letterSpacing:'0.1em' }}>SLOT {subsCount + mi + 1}</span>
+                    <span style={{ fontFamily:MONO, fontSize:11, color:T.red }}>⚠ 未設定選項</span>
                   </div>
                 ))}
               </>
@@ -9421,14 +9421,14 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
                   <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                     {!isFilledMode && !editingHint && (
                       <div style={{ display:'flex', gap:10 }}>
-                        <span style={{ fontFamily:MONO, fontSize:8, color:T.amber }}>· 連音</span>
-                        <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>ə 弱化</span>
-                        <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>( ) 省略</span>
-                        <span style={{ fontFamily:MONO, fontSize:8, color:T.txt, fontWeight:700 }}>大寫 重音</span>
+                        <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>· 連音</span>
+                        <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>ə 弱化</span>
+                        <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>( ) 省略</span>
+                        <span style={{ fontFamily:MONO, fontSize:11, color:T.txt, fontWeight:700 }}>大寫 重音</span>
                       </div>
                     )}
                     {isFilledMode && (
-                      <span style={{ fontFamily:MONO, fontSize:8, color:T.grn }}>✓ 已填入選項</span>
+                      <span style={{ fontFamily:MONO, fontSize:11, color:T.grn }}>✓ 已填入選項</span>
                     )}
                   </div>
                   <div style={{ display:'flex', gap:6, alignItems:'center' }}>
@@ -9439,7 +9439,7 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
                           cursor: generatingFilledHint ? 'not-allowed' : 'pointer',
                           color: isFilledMode ? T.grn : hasAnySel ? T.amber : T.txt3,
                           padding:'3px 8px', background: isFilledMode ? T.grnD : hasAnySel ? T.amberD : T.surf2,
-                          borderRadius:6, fontFamily:MONO, fontSize:9,
+                          borderRadius:6, fontFamily:MONO, fontSize:11,
                           display:'flex', alignItems:'center', gap:4,
                           border:`1px solid ${isFilledMode ? T.grn+'50' : hasAnySel ? T.amber+'50' : T.bdr}`,
                           opacity: generatingFilledHint ? 0.6 : 1, transition:'all 0.14s'
@@ -9447,20 +9447,20 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
                         {generatingFilledHint
                           ? <span style={{ display:'inline-block', width:8, height:8, border:'1.5px solid transparent', borderTopColor: T.amber, borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>
                           : isFilledMode ? '✓' : '🔄'}
-                        <span style={{ fontSize:8 }}>
+                        <span style={{ fontSize:11 }}>
                           {generatingFilledHint ? '產生中' : isFilledMode ? '已更新' : '用選項更新'}
                         </span>
                       </div>
                     )}
                     {isFilledMode && (
                       <div onClick={() => setFilledHint(null)}
-                        style={{ cursor:'pointer', color:T.txt3, padding:'3px 7px', background:T.surf2, borderRadius:5, fontFamily:MONO, fontSize:8, border:`1px solid ${T.bdr}` }}>
+                        style={{ cursor:'pointer', color:T.txt3, padding:'3px 7px', background:T.surf2, borderRadius:5, fontFamily:MONO, fontSize:11, border:`1px solid ${T.bdr}` }}>
                         還原
                       </div>
                     )}
                     {!isFilledMode && (
                       <div onClick={() => { setEditingHint(e => !e); setHintDraft(card.linked_hint) }}
-                        style={{ cursor:'pointer', fontFamily:MONO, fontSize:8, color: editingHint ? T.amber : T.txt3, padding:'3px 7px', background:T.surf2, borderRadius:5 }}>
+                        style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color: editingHint ? T.amber : T.txt3, padding:'3px 7px', background:T.surf2, borderRadius:5 }}>
                         {editingHint ? '取消' : '✏ 編輯'}
                       </div>
                     )}
@@ -9476,7 +9476,7 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
                       updateSentences(prev => prev.map(s => s.id === card.id ? { ...s, linked_hint: hintDraft } : s))
                       setEditingHint(false)
                       showToast('✓ 連音已更新')
-                    }} style={{ background:T.amberD, border:`1px solid ${T.amber}50`, color:T.amber, fontSize:10 }}>
+                    }} style={{ background:T.amberD, border:`1px solid ${T.amber}50`, color:T.amber, fontSize:11 }}>
                       儲存
                     </button>
                   </div>
@@ -9521,10 +9521,10 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
                                 borderRadius:8, padding:'5px 10px', transition:'all 0.14s' }}>
                               <span style={{ fontFamily:MONO, fontSize:11, color: isFilledMode ? T.grn : T.amber }}>{c.label}</span>
                               <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style={{color: isFilledMode ? T.grn : T.amber}}><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.4" fill="none"/><path d="M10.5 5a3 3 0 010 6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
-                              <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>{settings?.elevenKey ? '🎙 AI' : '慢→正常'}</span>
+                              <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>{settings?.elevenKey ? '🎙 AI' : '慢→正常'}</span>
                             </div>
                             {zh && (
-                              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, letterSpacing:'0.04em' }}>{zh}</div>
+                              <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, letterSpacing:'0.04em' }}>{zh}</div>
                             )}
                           </div>
                         )
@@ -9532,7 +9532,7 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
                     </div>
                     <div onClick={() => !generatingChunkZh && generateChunkZh(chunks)}
                       style={{ display:'inline-flex', alignItems:'center', gap:5, cursor: generatingChunkZh ? 'not-allowed' : 'pointer', opacity: generatingChunkZh ? 0.5 : 1, alignSelf:'flex-start', padding:'4px 10px', borderRadius:6, background:T.surf2, border:`1px solid ${T.bdr2}` }}>
-                      <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                      <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                         {generatingChunkZh ? '產生中…' : (card.chunk_zh ? '🈶 重新產生近似音' : '🈶 產生中文近似音')}
                       </span>
                     </div>
@@ -9540,7 +9540,7 @@ Example: {"nee·dit":"你迪特","tur·ni·ton":"特你頓"}`
                 )}
 
                 {isFilledMode && (
-                  <div style={{ fontFamily:MONO, fontSize:8, color:T.grn, marginTop:8, opacity:0.8 }}>
+                  <div style={{ fontFamily:MONO, fontSize:11, color:T.grn, marginTop:8, opacity:0.8 }}>
                     ✓ 連音已根據選項「{Object.values(sels).join(' / ')}」更新 · 按「還原」回到模板版
                   </div>
                 )}
@@ -9729,7 +9729,7 @@ function VocabTab({ vocab, updateVocab, updateStats, awardBadge }) {
   }
 
   const SubBtn = ({ id, lbl }) => (
-    <div onClick={() => setSub(id)} style={{ flex:1, textAlign:'center', padding:'7px 0', borderRadius:7, cursor:'pointer', fontFamily:MONO, fontSize:9.5, letterSpacing:'0.06em', background: sub===id ? T.amber : 'transparent', color: sub===id ? T.bg : '#c2cad4', transition:'all 0.14s' }}>
+    <div onClick={() => setSub(id)} style={{ flex:1, textAlign:'center', padding:'7px 0', borderRadius:7, cursor:'pointer', fontFamily:MONO, fontSize:11, letterSpacing:'0.06em', background: sub===id ? T.amber : 'transparent', color: sub===id ? T.bg : '#c2cad4', transition:'all 0.14s' }}>
       {lbl}
     </div>
   )
@@ -9738,7 +9738,7 @@ function VocabTab({ vocab, updateVocab, updateStats, awardBadge }) {
     const d = DIFF[diff ?? 'mid'] ?? DIFF.mid
     return (
       <div onClick={onClick} title="點擊切換難度"
-        style={{ cursor:'pointer', fontFamily:MONO, fontSize:8, color:d.color, background:d.bg, border:`1px solid ${d.color}50`, padding:'2px 7px', borderRadius:8, letterSpacing:'0.08em', flexShrink:0, userSelect:'none' }}>
+        style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:d.color, background:d.bg, border:`1px solid ${d.color}50`, padding:'2px 7px', borderRadius:8, letterSpacing:'0.08em', flexShrink:0, userSelect:'none' }}>
         {d.label}
       </div>
     )
@@ -9746,7 +9746,7 @@ function VocabTab({ vocab, updateVocab, updateStats, awardBadge }) {
 
   const DiffFilterBtn = ({ id, label }) => (
     <div onClick={() => setDiffFilter(id)}
-      style={{ flex:1, textAlign:'center', padding:'5px 0', borderRadius:7, cursor:'pointer', fontFamily:MONO, fontSize:9, letterSpacing:'0.06em',
+      style={{ flex:1, textAlign:'center', padding:'5px 0', borderRadius:7, cursor:'pointer', fontFamily:MONO, fontSize:11, letterSpacing:'0.06em',
         background: diffFilter===id ? (id==='all'?T.surf2 : DIFF[id]?.bg ?? T.surf2) : 'transparent',
         color: diffFilter===id ? (id==='all'?T.amber : DIFF[id]?.color ?? T.amber) : '#9aa5b0',
         // v6.85: 下行原為 `DIFF[id]?.color+'50' ?? T.amber`——+ 早於 ??，undefined+'50'='undefined50' 永非 null，fallback 從不觸發。比照上一行 color 的寫法，把 ?? 收進括號、+50 移到最外面
@@ -9761,7 +9761,7 @@ function VocabTab({ vocab, updateVocab, updateStats, awardBadge }) {
 
       {/* ── WORD SEARCH ── */}
       <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, letterSpacing:'0.12em' }}>WORD SEARCH</div>
+        <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, letterSpacing:'0.12em' }}>WORD SEARCH</div>
         <div style={{ display:'flex', gap:8 }}>
           <input type="text" value={query} onChange={e=>setQuery(e.target.value)}
             placeholder="Type English word to look up…"
@@ -9785,7 +9785,7 @@ function VocabTab({ vocab, updateVocab, updateStats, awardBadge }) {
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
               <div>
                 <span style={{ fontFamily:DISP, fontSize:20, color:T.amber }}>{searchRes.word}</span>
-                {searchRes.ipa && <span style={{ fontFamily:MONO, fontSize:10, color:'#9aa5b0', marginLeft:10 }}>{searchRes.ipa}</span>}
+                {searchRes.ipa && <span style={{ fontFamily:MONO, fontSize:11, color:'#9aa5b0', marginLeft:10 }}>{searchRes.ipa}</span>}
               </div>
               <div onClick={()=>speak(searchRes.word)} style={{ cursor:'pointer', color:T.txt3, padding:5 }}
                 onMouseOver={e=>e.currentTarget.style.color=T.amber} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
@@ -9795,10 +9795,10 @@ function VocabTab({ vocab, updateVocab, updateStats, awardBadge }) {
 
             {/* Difficulty selector */}
             <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-              <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>難度：</span>
+              <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>難度：</span>
               {['easy','mid','hard'].map(d => (
                 <div key={d} onClick={() => setPendingDiff(d)}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color: pendingDiff===d ? DIFF[d].color : T.txt3,
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color: pendingDiff===d ? DIFF[d].color : T.txt3,
                     background: pendingDiff===d ? DIFF[d].bg : 'transparent',
                     border:`1px solid ${pendingDiff===d ? DIFF[d].color+'70' : T.bdr}`,
                     padding:'3px 10px', borderRadius:10, transition:'all 0.14s' }}>
@@ -9811,9 +9811,9 @@ function VocabTab({ vocab, updateVocab, updateStats, awardBadge }) {
             {searchRes.defs.map((def, i) => (
               <div key={i} style={{ background:T.surf2, borderRadius:9, padding:12 }}>
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:5 }}>
-                  <span style={{ fontFamily:MONO, fontSize:9, color:T.blue, letterSpacing:'0.08em' }}>{def.pos?.toUpperCase()}</span>
+                  <span style={{ fontFamily:MONO, fontSize:11, color:T.blue, letterSpacing:'0.08em' }}>{def.pos?.toUpperCase()}</span>
                   <button className="btn" onClick={() => addSearchResult(def)}
-                    style={{ background:T.amberD, border:`1px solid ${T.amber}50`, color:T.amber, padding:'4px 12px', fontSize:10 }}>
+                    style={{ background:T.amberD, border:`1px solid ${T.amber}50`, color:T.amber, padding:'4px 12px', fontSize:11 }}>
                     + 加入單字庫
                   </button>
                 </div>
@@ -9848,7 +9848,7 @@ function VocabTab({ vocab, updateVocab, updateStats, awardBadge }) {
 
       {audioPlaying && (
         <div style={{ background:`${T.amber}18`, border:`1px solid ${T.amber}40`, borderRadius:10, padding:'10px 14px', display:'flex', alignItems:'center', gap:10 }}>
-          <span style={{ fontFamily:MONO, fontSize:10, color:T.amber, animation:'pulse 1.5s infinite' }}>● AUDIO</span>
+          <span style={{ fontFamily:MONO, fontSize:11, color:T.amber, animation:'pulse 1.5s infinite' }}>● AUDIO</span>
           <span style={{ fontFamily:SERIF, fontSize:12, color:T.txt2, flex:1 }}>騎車模式播放中</span>
           <button className="btn" onClick={stopAudio} style={{ background:T.redD, border:`1px solid ${T.red}50`, color:T.red, padding:'5px 10px', fontSize:11 }}>停止</button>
         </div>
@@ -9888,7 +9888,7 @@ function VocabTab({ vocab, updateVocab, updateStats, awardBadge }) {
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:w.def ? 6 : 0 }}>
                 <div style={{ flex:1, minWidth:0, display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
                   <span style={{ fontFamily:MONO, fontSize:15, color: w.archived ? T.txt3 : T.amber, fontWeight:500 }}>{w.word}</span>
-                  {w.ipa_us && <span style={{ fontFamily:MONO, fontSize:10, color:'#9aa5b0' }}>{w.ipa_us}</span>}
+                  {w.ipa_us && <span style={{ fontFamily:MONO, fontSize:11, color:'#9aa5b0' }}>{w.ipa_us}</span>}
                   <DiffTag diff={w.diff} onClick={() => toggleDiff(w.id)}/>
                 </div>
                 <div style={{ display:'flex', gap:4, flexShrink:0 }}>
@@ -9915,7 +9915,7 @@ function VocabTab({ vocab, updateVocab, updateStats, awardBadge }) {
         <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
           {!cur ? <div style={{ textAlign:'center', color:T.txt3, fontFamily:SERIF, fontSize:13, padding:24 }}>No words yet.</div> : (
             <>
-              <div style={{ fontFamily:MONO, fontSize:9, color:'#9aa5b0', textAlign:'center', letterSpacing:'0.1em' }}>
+              <div style={{ fontFamily:MONO, fontSize:11, color:'#9aa5b0', textAlign:'center', letterSpacing:'0.1em' }}>
                 CARD {flipIdx % sorted.length + 1} / {sorted.length}
               </div>
               <div onClick={() => setFlipped(f=>!f)} style={{ background:T.surf, border:`1px solid ${flipped ? T.amber+'70' : T.bdr}`, borderRadius:16, padding:'36px 24px', minHeight:190, cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:10, transition:'border-color 0.25s' }}>
@@ -9924,7 +9924,7 @@ function VocabTab({ vocab, updateVocab, updateStats, awardBadge }) {
                     <div style={{ fontFamily:DISP, fontSize:26, color:T.amber, textAlign:'center' }}>{cur.word}</div>
                     {cur.ipa_us && <div style={{ fontFamily:MONO, fontSize:11, color:'#9aa5b0' }}>{cur.ipa_us}</div>}
                     <DiffTag diff={cur.diff}/>
-                    <div style={{ fontFamily:MONO, fontSize:9, color:'#9aa5b0', marginTop:8, letterSpacing:'0.1em' }}>TAP TO REVEAL</div>
+                    <div style={{ fontFamily:MONO, fontSize:11, color:'#9aa5b0', marginTop:8, letterSpacing:'0.1em' }}>TAP TO REVEAL</div>
                   </>
                 ) : (
                   <>
@@ -9955,7 +9955,7 @@ function VocabTab({ vocab, updateVocab, updateStats, awardBadge }) {
             <>
               <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:12, padding:20 }}>
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
-                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, letterSpacing:'0.1em' }}>FILL IN THE BLANK</div>
+                  <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, letterSpacing:'0.1em' }}>FILL IN THE BLANK</div>
                   <DiffTag diff={cur.diff}/>
                 </div>
                 <div style={{ fontFamily:SERIF, fontSize:14, color:T.txt, lineHeight:1.75, marginBottom:14 }}>
@@ -9964,7 +9964,7 @@ function VocabTab({ vocab, updateVocab, updateStats, awardBadge }) {
                     : cur.def.replace(new RegExp(`\b${cur.word.split(' ')[0]}\w*\b`, 'gi'), '＿＿＿＿＿')
                   }
                 </div>
-                {cur.ipa_us && <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, marginBottom:10 }}>Hint: {cur.ipa_us}</div>}
+                {cur.ipa_us && <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, marginBottom:10 }}>Hint: {cur.ipa_us}</div>}
                 <input type="text" value={fillAns} onChange={e=>setFillAns(e.target.value)}
                   placeholder="Type the missing word…" onKeyDown={e=>e.key==='Enter'&&checkFill()}
                   style={{ borderColor: fillRes==='ok' ? T.grn : fillRes==='no' ? T.red : T.bdr2 }}/>
@@ -10203,7 +10203,7 @@ function DiffDisplay({ tokens }) {
         if (tok.status === 'typo')
           return (
             <span key={i} style={{ display:'inline-flex', flexDirection:'column', alignItems:'center', gap:0 }}>
-              <span style={{ fontFamily:MONO, fontSize:9, color:T.amber, lineHeight:1 }}>{tok.typed}</span>
+              <span style={{ fontFamily:MONO, fontSize:11, color:T.amber, lineHeight:1 }}>{tok.typed}</span>
               <span style={{ color:T.amber, textDecoration:'underline wavy', textDecorationColor:T.amber+'80' }}>{tok.orig}</span>
             </span>
           )
@@ -10254,15 +10254,15 @@ function DictationCard({ card, cardNum, total, onNext }) {
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-      <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, textAlign:'right' }}>{cardNum} / {total}</div>
+      <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, textAlign:'right' }}>{cardNum} / {total}</div>
 
       {/* ── LISTEN ── */}
       {phase === 'listen' && (
         <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:18 }}>
           <div style={{ width:'100%', background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:16, padding:'30px 20px', textAlign:'center', display:'flex', flexDirection:'column', alignItems:'center', gap:10 }}>
-            <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, letterSpacing:'0.15em' }}>🎧 DICTATION</div>
+            <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, letterSpacing:'0.15em' }}>🎧 DICTATION</div>
             <div style={{ fontFamily:MONO, fontSize:12, color:T.txt3 }}>仔細聽，寫下你聽到的句子</div>
-            {showHint && <div style={{ fontFamily:MONO, fontSize:10, color:T.amber }}>共 {wordCount} 個字</div>}
+            {showHint && <div style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>共 {wordCount} 個字</div>}
           </div>
           <div onClick={handlePlay}
             style={{ width:72, height:72, borderRadius:'50%', background:T.amberD, border:`2px solid ${T.amber}60`, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', transition:'background 0.15s' }}
@@ -10273,7 +10273,7 @@ function DictationCard({ card, cardNum, total, onNext }) {
               <path d="M13.5 9a2.5 2.5 0 010 5" stroke={T.amber} strokeWidth="1.5" strokeLinecap="round"/>
             </svg>
           </div>
-          <div style={{ fontFamily:MONO, fontSize:9, color: playCount >= 3 ? T.red : T.txt3 }}>
+          <div style={{ fontFamily:MONO, fontSize:11, color: playCount >= 3 ? T.red : T.txt3 }}>
             已播 {playCount} 次{playCount >= 3 ? '（建議不超過 3 次）' : ''}
           </div>
           <div style={{ display:'flex', gap:8, width:'100%' }}>
@@ -10294,12 +10294,12 @@ function DictationCard({ card, cardNum, total, onNext }) {
       {/* ── TYPE ── */}
       {phase === 'type' && (
         <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, textAlign:'center' }}>
+          <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, textAlign:'center' }}>
             寫下你聽到的句子{showHint ? `（共 ${wordCount} 個字）` : ''}
           </div>
           <div style={{ display:'flex', justifyContent:'flex-end' }}>
             <div onClick={handlePlay}
-              style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3, padding:'4px 10px', borderRadius:6, background:T.surf2, border:`1px solid ${T.bdr}` }}>
+              style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.txt3, padding:'4px 10px', borderRadius:6, background:T.surf2, border:`1px solid ${T.bdr}` }}>
               <svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none"/></svg>
               再聽一次（{playCount}）
             </div>
@@ -10325,9 +10325,9 @@ function DictationCard({ card, cardNum, total, onNext }) {
           <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:16, background:T.surf, border:`1px solid ${sc}40`, borderRadius:14, padding:'16px 20px' }}>
             <div style={{ fontFamily:MONO, fontSize:42, fontWeight:700, color:sc, lineHeight:1 }}>{result.score}</div>
             <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
-              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>分</div>
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>分</div>
               <div style={{ fontFamily:MONO, fontSize:11, color:T.txt2 }}>{result.correct} / {result.total} 字正確</div>
-              <div style={{ fontFamily:MONO, fontSize:10, color:sc }}>
+              <div style={{ fontFamily:MONO, fontSize:11, color:sc }}>
                 {result.score>=90?'🎉 完美！':result.score>=70?'👍 不錯':result.score>=50?'繼續加油':'再聽一次！'}
               </div>
             </div>
@@ -10335,7 +10335,7 @@ function DictationCard({ card, cardNum, total, onNext }) {
 
           {/* Diff */}
           <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:12, padding:'14px 16px', display:'flex', flexDirection:'column', gap:8 }}>
-            <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, display:'flex', gap:12 }}>
+            <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, display:'flex', gap:12 }}>
               <span><span style={{color:T.grn}}>■</span> 正確</span>
               <span><span style={{color:T.amber}}>■</span> 拼錯（你寫的在上方）</span>
               <span><span style={{color:T.red}}>■</span> 缺字</span>
@@ -10345,7 +10345,7 @@ function DictationCard({ card, cardNum, total, onNext }) {
 
           {/* 你的輸入 */}
           <div style={{ background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:10, padding:'10px 14px' }}>
-            <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, marginBottom:4 }}>你寫的</div>
+            <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, marginBottom:4 }}>你寫的</div>
             <div style={{ fontFamily:MONO, fontSize:12, color:T.txt2, lineHeight:1.7 }}>{input}</div>
           </div>
 
@@ -10354,7 +10354,7 @@ function DictationCard({ card, cardNum, total, onNext }) {
             <div onClick={() => setShowZh(v=>!v)} style={{ cursor:'pointer', textAlign:'center' }}>
               {showZh
                 ? <span style={{ fontFamily:SERIF, fontSize:13, color:T.txt2, fontStyle:'italic' }}>{card.zh}</span>
-                : <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>▾ 顯示中文翻譯</span>}
+                : <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>▾ 顯示中文翻譯</span>}
             </div>
           )}
 
@@ -10473,26 +10473,26 @@ function SpeechCard({ card, cardNum, total, onNext }) {
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-      <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, textAlign:'right' }}>{cardNum} / {total}</div>
+      <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, textAlign:'right' }}>{cardNum} / {total}</div>
 
       {/* ── READY / LISTENING ── */}
       {(phase === 'ready' || phase === 'listening') && (
         <>
           {/* 句子卡（顯示）*/}
           <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:14, padding:'18px 18px', display:'flex', flexDirection:'column', gap:10 }}>
-            <div style={{ fontFamily:MONO, fontSize:8.5, color:T.txt3, letterSpacing:'0.1em' }}>🎙 口說比對 — 跟著說這句話</div>
+            <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, letterSpacing:'0.1em' }}>🎙 口說比對 — 跟著說這句話</div>
             <div style={{ fontFamily:MONO, fontSize:15, color:T.txt, lineHeight:1.8 }}>{card.en}</div>
             {card.zh && showZh && <div style={{ fontFamily:SERIF, fontStyle:'italic', fontSize:13, color:T.txt2 }}>{card.zh}</div>}
             <div style={{ display:'flex', gap:8 }}>
               <div onClick={() => { speak(card.en, 0.75); setPlayed(true) }}
-                style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', color:T.txt3, padding:'4px 8px', background:T.surf2, borderRadius:6, fontFamily:MONO, fontSize:9 }}
+                style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', color:T.txt3, padding:'4px 8px', background:T.surf2, borderRadius:6, fontFamily:MONO, fontSize:11 }}
                 onMouseOver={e=>e.currentTarget.style.color=T.amber} onMouseOut={e=>e.currentTarget.style.color=T.txt3}>
                 <svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M2 5.5h3l4-3v11l-4-3H2z" stroke="currentColor" strokeWidth="1.3" fill="none"/></svg>
                 聽範例
               </div>
               {card.zh && (
                 <div onClick={() => setShowZh(v=>!v)}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3, padding:'4px 8px', background:T.surf2, borderRadius:6 }}>
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.txt3, padding:'4px 8px', background:T.surf2, borderRadius:6 }}>
                   {showZh ? '隱藏翻譯' : '中文翻譯'}
                 </div>
               )}
@@ -10510,7 +10510,7 @@ function SpeechCard({ card, cardNum, total, onNext }) {
 
           {/* Error */}
           {errMsg && (
-            <div style={{ background:T.redD, border:`1px solid ${T.red}40`, borderRadius:10, padding:'10px 14px', fontFamily:MONO, fontSize:10, color:T.red }}>⚠ {errMsg}</div>
+            <div style={{ background:T.redD, border:`1px solid ${T.red}40`, borderRadius:10, padding:'10px 14px', fontFamily:MONO, fontSize:11, color:T.red }}>⚠ {errMsg}</div>
           )}
 
           {/* Mic button */}
@@ -10527,14 +10527,14 @@ function SpeechCard({ card, cardNum, total, onNext }) {
                 <line x1="12" y1="20" x2="12" y2="23" stroke={T.red} strokeWidth="1.6" strokeLinecap="round"/>
                 <line x1="9" y1="23" x2="15" y2="23" stroke={T.red} strokeWidth="1.6" strokeLinecap="round"/>
               </svg>
-              <span style={{ fontFamily:MONO, fontSize:8, color:T.red }}>{phase==='listening' ? '按下停止' : '按下說話'}</span>
+              <span style={{ fontFamily:MONO, fontSize:11, color:T.red }}>{phase==='listening' ? '按下停止' : '按下說話'}</span>
             </div>
-            <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+            <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
               {phase==='listening' ? '正在聆聽，說完後自動辨識' : '按下麥克風開始說話'}
             </div>
           </div>
           <button className="btn" onClick={onNext}
-            style={{ background:'transparent', border:`1px solid ${T.bdr}`, color:T.txt3, fontSize:10 }}>跳過 →</button>
+            style={{ background:'transparent', border:`1px solid ${T.bdr}`, color:T.txt3, fontSize:11 }}>跳過 →</button>
         </>
       )}
 
@@ -10544,15 +10544,15 @@ function SpeechCard({ card, cardNum, total, onNext }) {
           <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:16, background:T.surf, border:`1px solid ${sc}40`, borderRadius:14, padding:'16px 20px' }}>
             <div style={{ fontFamily:MONO, fontSize:42, fontWeight:700, color:sc, lineHeight:1 }}>{result.score}</div>
             <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
-              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>分</div>
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>分</div>
               <div style={{ fontFamily:MONO, fontSize:11, color:T.txt2 }}>{result.correct} / {result.total} 字正確</div>
-              <div style={{ fontFamily:MONO, fontSize:10, color:sc }}>
+              <div style={{ fontFamily:MONO, fontSize:11, color:sc }}>
                 {result.score>=90?'🎉 說得很好！':result.score>=70?'👍 不錯，繼續':result.score>=50?'多練幾次':'再聽一次再說'}
               </div>
             </div>
           </div>
           <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:12, padding:'14px 16px', display:'flex', flexDirection:'column', gap:8 }}>
-            <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, display:'flex', gap:12 }}>
+            <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, display:'flex', gap:12 }}>
               <span><span style={{color:T.grn}}>■</span> 說對</span>
               <span><span style={{color:T.amber}}>■</span> 近似</span>
               <span><span style={{color:T.red}}>■</span> 漏說</span>
@@ -10560,7 +10560,7 @@ function SpeechCard({ card, cardNum, total, onNext }) {
             <DiffDisplay tokens={result.tokens}/>
           </div>
           <div style={{ background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:10, padding:'10px 14px' }}>
-            <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, marginBottom:4 }}>機器聽到的</div>
+            <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, marginBottom:4 }}>機器聽到的</div>
             <div style={{ fontFamily:MONO, fontSize:12, color:T.txt2, lineHeight:1.7 }}>{transcript}</div>
           </div>
           <div style={{ display:'flex', gap:8 }}>
@@ -10662,24 +10662,24 @@ function ReverseCard({ card, cardNum, total, onNext, srsMap, onRate }) {
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-      <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, textAlign:'right' }}>{cardNum} / {total}</div>
+      <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, textAlign:'right' }}>{cardNum} / {total}</div>
 
       {/* ── PROMPT ── */}
       {phase === 'prompt' && (
         <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
           <div style={{ background:T.surf, border:`1px solid ${T.blue}40`, borderRadius:16,
             padding:'30px 22px', textAlign:'center', display:'flex', flexDirection:'column', gap:8 }}>
-            <div style={{ fontFamily:MONO, fontSize:9, color:T.blue, letterSpacing:'0.14em', marginBottom:4 }}>🔄 中 → 英</div>
+            <div style={{ fontFamily:MONO, fontSize:11, color:T.blue, letterSpacing:'0.14em', marginBottom:4 }}>🔄 中 → 英</div>
             <div style={{ fontFamily:SERIF, fontSize:20, color:T.txt, lineHeight:1.8, fontStyle:'italic' }}>{card.zh}</div>
             {cardSrs.state && cardSrs.state !== 'new' && (
-              <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, marginTop:4 }}>
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, marginTop:4 }}>
                 {cardSrs.state === 'done' ? '✨ 已畢業' : `lv${lv} · 已練${cardSrs.reps}次`}
               </div>
             )}
           </div>
           <div style={{ textAlign:'center' }}>
             <div onClick={() => { speak(card.en, 0.5); setHintPlayed(true) }}
-              style={{ display:'inline-flex', alignItems:'center', gap:6, cursor:'pointer', fontFamily:MONO, fontSize:9,
+              style={{ display:'inline-flex', alignItems:'center', gap:6, cursor:'pointer', fontFamily:MONO, fontSize:11,
                 padding:'5px 14px', borderRadius:8,
                 background: hintPlayed ? T.amberD : T.surf2,
                 border:`1px solid ${hintPlayed ? T.amber+'50' : T.bdr}`,
@@ -10707,24 +10707,24 @@ function ReverseCard({ card, cardNum, total, onNext, srsMap, onRate }) {
           </div>
           <SpeakRow text={card.en} color={T.amber}/>
           <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
-            <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, textAlign:'center', letterSpacing:'0.06em' }}>
+            <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, textAlign:'center', letterSpacing:'0.06em' }}>
               你說出來了嗎？　下次複習間隔
             </div>
             <div style={{ display:'flex', gap:6 }}>
               <button className="btn" onClick={() => handleRate('again')}
-                style={{ flex:1, background:T.redD, border:`1px solid ${T.red}50`, color:T.red, padding:'10px 0', fontSize:10, display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
+                style={{ flex:1, background:T.redD, border:`1px solid ${T.red}50`, color:T.red, padding:'10px 0', fontSize:11, display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
                 <span>✗ 說不出</span>
-                <span style={{ fontSize:8, opacity:0.8 }}>{nextItvLabel(lv, -1)}</span>
+                <span style={{ fontSize:11, opacity:0.8 }}>{nextItvLabel(lv, -1)}</span>
               </button>
               <button className="btn" onClick={() => handleRate('okay')}
-                style={{ flex:1, background:T.amberD, border:`1px solid ${T.amber}50`, color:T.amber, padding:'10px 0', fontSize:10, display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
+                style={{ flex:1, background:T.amberD, border:`1px solid ${T.amber}50`, color:T.amber, padding:'10px 0', fontSize:11, display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
                 <span>◎ 說一半</span>
-                <span style={{ fontSize:8, opacity:0.8 }}>{nextItvLabel(lv, 1)}</span>
+                <span style={{ fontSize:11, opacity:0.8 }}>{nextItvLabel(lv, 1)}</span>
               </button>
               <button className="btn" onClick={() => handleRate('got')}
-                style={{ flex:1, background:T.grnD, border:`1px solid ${T.grn}50`, color:T.grn, padding:'10px 0', fontSize:10, fontWeight:700, display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
+                style={{ flex:1, background:T.grnD, border:`1px solid ${T.grn}50`, color:T.grn, padding:'10px 0', fontSize:11, fontWeight:700, display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
                 <span>✓ 完整說</span>
-                <span style={{ fontSize:8, opacity:0.8 }}>{nextItvLabel(lv, 2)}</span>
+                <span style={{ fontSize:11, opacity:0.8 }}>{nextItvLabel(lv, 2)}</span>
               </button>
             </div>
           </div>
@@ -10753,11 +10753,11 @@ function ReverseCardManager({ pool, cat, rsrsMap, onRate }) {
     <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
       {/* 統計 mini-bar */}
       <div style={{ display:'flex', gap:5, alignItems:'center' }}>
-        {stats.overdueC > 0 && <div style={{ fontFamily:MONO, fontSize:8, padding:'2px 7px', borderRadius:5, background:T.redD, color:T.red, border:`1px solid ${T.red}30` }}>⏰ {stats.overdueC}</div>}
-        <div style={{ fontFamily:MONO, fontSize:8, padding:'2px 7px', borderRadius:5, background:T.blueD, color:T.blue, border:`1px solid ${T.blue}30` }}>🆕 {stats.newC}</div>
-        {stats.reviewC > 0 && <div style={{ fontFamily:MONO, fontSize:8, padding:'2px 7px', borderRadius:5, background:T.amberD, color:T.amber, border:`1px solid ${T.amber}30` }}>📅 {stats.reviewC}</div>}
-        {stats.doneC > 0 && <div style={{ fontFamily:MONO, fontSize:8, padding:'2px 7px', borderRadius:5, background:T.grnD, color:T.grn, border:`1px solid ${T.grn}30` }}>✓ {stats.doneC}</div>}
-        <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3, marginLeft:'auto' }}>{zhPool.length} 句（含譯）</span>
+        {stats.overdueC > 0 && <div style={{ fontFamily:MONO, fontSize:11, padding:'2px 7px', borderRadius:5, background:T.redD, color:T.red, border:`1px solid ${T.red}30` }}>⏰ {stats.overdueC}</div>}
+        <div style={{ fontFamily:MONO, fontSize:11, padding:'2px 7px', borderRadius:5, background:T.blueD, color:T.blue, border:`1px solid ${T.blue}30` }}>🆕 {stats.newC}</div>
+        {stats.reviewC > 0 && <div style={{ fontFamily:MONO, fontSize:11, padding:'2px 7px', borderRadius:5, background:T.amberD, color:T.amber, border:`1px solid ${T.amber}30` }}>📅 {stats.reviewC}</div>}
+        {stats.doneC > 0 && <div style={{ fontFamily:MONO, fontSize:11, padding:'2px 7px', borderRadius:5, background:T.grnD, color:T.grn, border:`1px solid ${T.grn}30` }}>✓ {stats.doneC}</div>}
+        <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3, marginLeft:'auto' }}>{zhPool.length} 句（含譯）</span>
       </div>
       <ReverseCard card={card} cardNum={idx+1} total={queue.length}
         srsMap={rsrsMap} onRate={onRate}
@@ -10788,7 +10788,7 @@ function ProduceCardManager({ pool, rsrsMap, onRate }) {
   const card = donePool[idx]
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-      <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+      <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
         🗣 造句練習（只從已熟悉的句子出題）· 共 {donePool.length} 句
       </div>
       <ReverseCard card={card} cardNum={idx+1} total={donePool.length}
@@ -10835,7 +10835,7 @@ function MySubcatPanel({ counts, selected, onSelect, onReclassify, reclassifyLoa
   ]
   const getLabel = s => RECLASSIFY_LABELS[s] || s
   const chipStyle = (active) => ({
-    padding:'5px 11px', borderRadius:10, cursor:'pointer', fontFamily:MONO, fontSize:10,
+    padding:'5px 11px', borderRadius:10, cursor:'pointer', fontFamily:MONO, fontSize:11,
     background: active ? '#f5a623' : '#161b22',
     border:'1px solid '+(active ? '#f5a623' : '#30363d'),
     color: active ? '#050810' : '#ffffff',
@@ -10865,7 +10865,7 @@ function MySubcatPanel({ counts, selected, onSelect, onReclassify, reclassifyLoa
         {/* 自動播放長方形按鈕 */}
         {onToggleAuto && (
           <div onClick={onToggleAuto}
-            style={{ padding:'4px 14px', borderRadius:8, cursor:'pointer', fontFamily:MONO, fontSize:10,
+            style={{ padding:'4px 14px', borderRadius:8, cursor:'pointer', fontFamily:MONO, fontSize:11,
               background: autoListen ? '#f5a623' : '#58a6ff20',
               border:'1px solid '+(autoListen ? '#f5a623' : '#58a6ff60'),
               color: autoListen ? '#050810' : '#58a6ff',
@@ -10878,7 +10878,7 @@ function MySubcatPanel({ counts, selected, onSelect, onReclassify, reclassifyLoa
           <div onClick={reclassifyLoading ? undefined : onReclassify}
             title="AI 自動重新分類"
             style={{ padding:'4px 10px', borderRadius:8, cursor: reclassifyLoading ? 'default' : 'pointer',
-              fontFamily:MONO, fontSize:10,
+              fontFamily:MONO, fontSize:11,
               background: reclassifyLoading ? '#21262d' : '#a371f715',
               border:'1px solid '+(reclassifyLoading ? '#30363d' : '#a371f750'),
               color: reclassifyLoading ? '#7a8390' : '#a371f7', flexShrink:0 }}>
@@ -10891,7 +10891,7 @@ function MySubcatPanel({ counts, selected, onSelect, onReclassify, reclassifyLoa
       {/* 睡眠計時器列（只在自動播放開啟時顯示）*/}
       {autoListen && onSleepPick && (
         <div style={{ display:'flex', alignItems:'center', gap:6, paddingTop:2 }}>
-          <span style={{ fontFamily:MONO, fontSize:9, color:'#7a8390', flexShrink:0 }}>🌙</span>
+          <span style={{ fontFamily:MONO, fontSize:11, color:'#7a8390', flexShrink:0 }}>🌙</span>
           {[10,15,20,25,30].map(m => {
             const active = sleepMins === m
             const fmt = sleepLeft != null && active
@@ -10899,7 +10899,7 @@ function MySubcatPanel({ counts, selected, onSelect, onReclassify, reclassifyLoa
               : m+'min'
             return (
               <div key={m} onClick={() => onSleepPick(m)}
-                style={{ padding:'3px 9px', borderRadius:8, cursor:'pointer', fontFamily:MONO, fontSize:9,
+                style={{ padding:'3px 9px', borderRadius:8, cursor:'pointer', fontFamily:MONO, fontSize:11,
                   background: active ? '#58a6ff22' : '#ffffff08',
                   border:'1px solid '+(active ? '#58a6ffaa' : '#ffffff15'),
                   color: active ? '#58a6ff' : '#7a8390',
@@ -10910,7 +10910,7 @@ function MySubcatPanel({ counts, selected, onSelect, onReclassify, reclassifyLoa
           })}
           {sleepMins && (
             <div onClick={() => onSleepPick(null)}
-              style={{ padding:'3px 8px', borderRadius:8, cursor:'pointer', fontFamily:MONO, fontSize:9,
+              style={{ padding:'3px 8px', borderRadius:8, cursor:'pointer', fontFamily:MONO, fontSize:11,
                 color:'#f85149', border:'1px solid #f8514930', background:'#f8514910' }}>
               ✕
             </div>
@@ -10950,7 +10950,7 @@ function SpeakRow({ text, color, compact = false }) {
             style={{ padding:'3px 7px', borderRadius:6, background:color+'15', border:`1px solid ${color}${a}`,
               display:'flex', alignItems:'center', gap:3, cursor:'pointer' }}>
             <span style={{ fontSize:11 }}>{ic}</span>
-            <span style={{ fontFamily:MONO, fontSize:9, color, fontWeight:600 }}>{r === 1 ? '1.0x' : `${r}x`}</span>
+            <span style={{ fontFamily:MONO, fontSize:11, color, fontWeight:600 }}>{r === 1 ? '1.0x' : `${r}x`}</span>
           </div>
         ))}
       </div>
@@ -11486,7 +11486,7 @@ function PhraseTab({ settings }) {
         <div style={{ fontFamily:"'Cinzel',serif", fontSize:16, color:'#f5a623', letterSpacing:'0.18em', fontWeight:700 }}>
           OPEN YOUR MOUTH.
         </div>
-        <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:8, color:'#7a8390', letterSpacing:'0.12em', marginTop:2 }}>
+        <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:11, color:'#7a8390', letterSpacing:'0.12em', marginTop:2 }}>
           每天開口，英文才會真正屬於你
         </div>
       </div>
@@ -11496,7 +11496,7 @@ function PhraseTab({ settings }) {
         {[{id:'sentence',label:'📋 句型'},{id:'reverse',label:'🔄 反向'},{id:'produce',label:'🗣 造句'},{id:'qa',label:'💬 問答'},{id:'dictation',label:'🎧 聽寫'},{id:'speech',label:'🎙 口說'},{id:'scenario',label:'🎭 情境'}].map(m => (
           <div key={m.id} onClick={() => { setPMode(m.id); if (m.id !== 'reverse') setReverseFilter('all') }}
             style={{ flex:1, textAlign:'center', padding:'6px 0', borderRadius:8, cursor:'pointer',
-              fontFamily:MONO, fontSize:10, letterSpacing:'0.05em', fontWeight: pMode===m.id ? 700 : 400,
+              fontFamily:MONO, fontSize:11, letterSpacing:'0.05em', fontWeight: pMode===m.id ? 700 : 400,
               background: pMode===m.id ? '#f5a623' : 'transparent',
               color:      pMode===m.id ? '#050810' : '#c9d1d9',
               transition:'all 0.15s' }}>
@@ -11523,11 +11523,11 @@ function PhraseTab({ settings }) {
                 color: active ? T.blue : T.txt, letterSpacing:'0.04em' }}>
                 練習我的中文 → 英文例句
               </span>
-              <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+              <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                 {islandCount} 句 · 點我開始反向練習
               </span>
             </div>
-            <span style={{ fontFamily:MONO, fontSize:10, color: active ? T.blue : T.txt3,
+            <span style={{ fontFamily:MONO, fontSize:11, color: active ? T.blue : T.txt3,
               marginLeft:'auto' }}>{active ? '▶ 練習中' : '→'}</span>
           </div>
         )
@@ -11540,7 +11540,7 @@ function PhraseTab({ settings }) {
           <div style={{ display:'flex', alignItems:'center', gap:4, flexWrap:'wrap' }}>
             {PHRASE_CATS.map(c => (
               <div key={c.id} onClick={() => { setCat(c.id); setIdx(0); setMySubcat('all') }}
-                style={{ padding:'3px 8px', borderRadius:12, fontFamily:MONO, fontSize:9, cursor:'pointer',
+                style={{ padding:'3px 8px', borderRadius:12, fontFamily:MONO, fontSize:11, cursor:'pointer',
                   background: cat===c.id ? '#f5a623' : '#161b22',
                   border: '1px solid '+(cat===c.id ? '#f5a623' : '#21262d'),
                   color: cat===c.id ? '#050810' : '#c9d1d9', fontWeight: cat===c.id ? 700 : 400, transition:'all 0.14s' }}>
@@ -11568,13 +11568,13 @@ function PhraseTab({ settings }) {
             </div>
             {/* 🐢 0.6x / 🔊 1.0x — 最右側 */}
             <div onClick={() => { if (!card?.en) return; window.speechSynthesis?.cancel(); const u=new SpeechSynthesisUtterance(card.en); u.lang='en-US'; u.rate=0.6; window.speechSynthesis?.speak(u) }}
-              style={{ marginLeft:'auto', padding:'4px 10px', borderRadius:8, cursor:'pointer', fontFamily:MONO, fontSize:9,
+              style={{ marginLeft:'auto', padding:'4px 10px', borderRadius:8, cursor:'pointer', fontFamily:MONO, fontSize:11,
                 background:T.amberD, border:`1px solid ${T.amber}50`, color:T.amber,
                 display:'flex', alignItems:'center', gap:4, flexShrink:0, transition:'all 0.14s' }}>
               🐢 <span>0.6x</span>
             </div>
             <div onClick={() => { if (!card?.en) return; window.speechSynthesis?.cancel(); const u=new SpeechSynthesisUtterance(card.en); u.lang='en-US'; u.rate=1; window.speechSynthesis?.speak(u) }}
-              style={{ padding:'4px 10px', borderRadius:8, cursor:'pointer', fontFamily:MONO, fontSize:9,
+              style={{ padding:'4px 10px', borderRadius:8, cursor:'pointer', fontFamily:MONO, fontSize:11,
                 background:T.amberD, border:`1px solid ${T.amber}50`, color:T.amber,
                 display:'flex', alignItems:'center', gap:4, flexShrink:0, transition:'all 0.14s' }}>
               🔊 <span>1.0x</span>
@@ -11586,14 +11586,14 @@ function PhraseTab({ settings }) {
             <div style={{ background:'#0d1117', border:'1px solid #f5a62340', borderRadius:14, padding:'14px 16px', display:'flex', flexDirection:'column', gap:10 }} className="fadeUp">
               {!addDone ? (
                 <>
-                  <div style={{ fontFamily:MONO, fontSize:9, color:'#f5a623', letterSpacing:'0.1em' }}>＋ 新增到我的收藏</div>
+                  <div style={{ fontFamily:MONO, fontSize:11, color:'#f5a623', letterSpacing:'0.1em' }}>＋ 新增到我的收藏</div>
                   <textarea value={addText} onChange={e => setAddText(e.target.value)}
                     placeholder={"輸入英文句子\nI'm snowed under.\nTake your time."}
                     style={{ minHeight:72, resize:'none', background:'#161b22', border:'1px solid #2d333b',
                       borderRadius:8, padding:'10px 12px', fontFamily:MONO, fontSize:13, color:'#e6edf3',
                       outline:'none', lineHeight:1.6 }}/>
                   <div>
-                    <div style={{ fontFamily:MONO, fontSize:8.5, color:'#7a8390', marginBottom:6 }}>分類</div>
+                    <div style={{ fontFamily:MONO, fontSize:11, color:'#7a8390', marginBottom:6 }}>分類</div>
                     <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
                       {[
                         {id:'life',     l:'🏠 生活'},
@@ -11604,7 +11604,7 @@ function PhraseTab({ settings }) {
                         {id:'capacity', l:'🏭 產能'},
                       ].map(o => (
                         <div key={o.id} onClick={() => setAddCat(o.id)}
-                          style={{ padding:'4px 10px', borderRadius:10, fontFamily:MONO, fontSize:9, cursor:'pointer',
+                          style={{ padding:'4px 10px', borderRadius:10, fontFamily:MONO, fontSize:11, cursor:'pointer',
                             background: addCat===o.id ? '#f5a62325' : '#161b22',
                             border:'1px solid '+(addCat===o.id ? '#f5a62360' : '#21262d'),
                             color: addCat===o.id ? '#f5a623' : '#7a8390' }}>
@@ -11628,13 +11628,13 @@ function PhraseTab({ settings }) {
                 </>
               ) : (
                 <div style={{ display:'flex', flexDirection:'column', gap:10 }} className="fadeUp">
-                  <div style={{ fontFamily:MONO, fontSize:9, color:'#3fb950', letterSpacing:'0.08em' }}>
+                  <div style={{ fontFamily:MONO, fontSize:11, color:'#3fb950', letterSpacing:'0.08em' }}>
                     {addDone._count > 0
                       ? `✓ 已加入收藏 ${addDone._count > 1 ? addDone._count + ' 句' : ''}`
                       : '⚠ 全部為重複句子，未新增'}
                   </div>
                   {addDone._skipped > 0 && (
-                    <div style={{ fontFamily:MONO, fontSize:9, color:'#f5a623', background:'#f5a62310', border:'1px solid #f5a62330', borderRadius:8, padding:'6px 10px' }}>
+                    <div style={{ fontFamily:MONO, fontSize:11, color:'#f5a623', background:'#f5a62310', border:'1px solid #f5a62330', borderRadius:8, padding:'6px 10px' }}>
                       🔁 跳過 {addDone._skipped} 筆重複
                     </div>
                   )}
@@ -11668,13 +11668,13 @@ function PhraseTab({ settings }) {
               {/* ── 頂部操作列：切換分類 ｜ 全部（N）｜ 🤖 ｜ ▶ ── */}
               <div style={{ display:'flex', alignItems:'center', gap:6 }}>
                 <div onClick={() => setShowSubcatFilter(v=>!v)}
-                  style={{ padding:'5px 10px', borderRadius:8, cursor:'pointer', fontFamily:MONO, fontSize:9,
+                  style={{ padding:'5px 10px', borderRadius:8, cursor:'pointer', fontFamily:MONO, fontSize:11,
                     background: showSubcatFilter ? '#f5a62320' : '#161b22',
                     border:'1px solid '+(showSubcatFilter ? '#f5a62360' : '#30363d'),
                     color: showSubcatFilter ? '#f5a623' : '#8b949e', flexShrink:0, transition:'all 0.14s' }}>
                   切換分類
                 </div>
-                <div style={{ flex:1, fontFamily:MONO, fontSize:10, color:'#8b949e', textAlign:'center' }}>
+                <div style={{ flex:1, fontFamily:MONO, fontSize:11, color:'#8b949e', textAlign:'center' }}>
                   全部（{extraPhrases.length}）
                 </div>
                 <div onClick={reclassifyLoading ? undefined : aiReclassify}
@@ -11732,7 +11732,7 @@ function PhraseTab({ settings }) {
                   <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
                     {subcatList.map(s => (
                       <div key={s} onClick={() => setMySubcat(s)}
-                        style={{ padding:'4px 10px', borderRadius:9, cursor:'pointer', fontFamily:MONO, fontSize:9,
+                        style={{ padding:'4px 10px', borderRadius:9, cursor:'pointer', fontFamily:MONO, fontSize:11,
                           background: mySubcat===s ? '#f5a623' : '#161b22',
                           border:'1px solid '+(mySubcat===s ? '#f5a623' : '#30363d'),
                           color: mySubcat===s ? '#050810' : '#7a8390',
@@ -11751,16 +11751,16 @@ function PhraseTab({ settings }) {
                   {/* ── 編輯模式 ── */}
                   {editingPhrase?.id === p.id ? (
                     <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-                      <div style={{ fontFamily:MONO, fontSize:9, color:'#58a6ff', letterSpacing:'0.08em', marginBottom:2 }}>✏ 編輯句子</div>
+                      <div style={{ fontFamily:MONO, fontSize:11, color:'#58a6ff', letterSpacing:'0.08em', marginBottom:2 }}>✏ 編輯句子</div>
                       <div>
-                        <div style={{ fontFamily:MONO, fontSize:9, color:'#7a8390', marginBottom:3 }}>英文</div>
+                        <div style={{ fontFamily:MONO, fontSize:11, color:'#7a8390', marginBottom:3 }}>英文</div>
                         <textarea rows={2} value={editingPhrase.en}
                           onChange={e => setEditingPhrase(prev => ({ ...prev, en: e.target.value }))}
                           style={{ width:'100%', fontFamily:MONO, fontSize:12, background:'#161b22', border:'1px solid #58a6ff60',
                             borderRadius:7, color:'#e6edf3', padding:'8px 10px', resize:'none', outline:'none', lineHeight:1.5 }}/>
                       </div>
                       <div>
-                        <div style={{ fontFamily:MONO, fontSize:9, color:'#7a8390', marginBottom:3 }}>中文</div>
+                        <div style={{ fontFamily:MONO, fontSize:11, color:'#7a8390', marginBottom:3 }}>中文</div>
                         <textarea rows={2} value={editingPhrase.zh ?? ''}
                           onChange={e => setEditingPhrase(prev => ({ ...prev, zh: e.target.value }))}
                           style={{ width:'100%', fontFamily:"'Crimson Pro',Georgia,serif", fontSize:13, background:'#161b22', border:'1px solid #58a6ff60',
@@ -11768,7 +11768,7 @@ function PhraseTab({ settings }) {
                       </div>
                       <div style={{ display:'flex', gap:6, justifyContent:'flex-end' }}>
                         <button className="btn" onClick={() => setEditingPhrase(null)}
-                          style={{ fontSize:10, padding:'5px 12px', background:'#21262d', border:'1px solid #30363d', color:'#aab3be' }}>
+                          style={{ fontSize:11, padding:'5px 12px', background:'#21262d', border:'1px solid #30363d', color:'#aab3be' }}>
                           取消
                         </button>
                         <button className="btn" onClick={() => {
@@ -11776,7 +11776,7 @@ function PhraseTab({ settings }) {
                           localStorage.setItem('fsi:ph:extra', JSON.stringify(updated))
                           setExtraPhrases(updated)
                           setEditingPhrase(null)
-                        }} style={{ fontSize:10, padding:'5px 12px', background:'#58a6ff25', border:'1px solid #58a6ff', color:'#58a6ff', fontWeight:700 }}>
+                        }} style={{ fontSize:11, padding:'5px 12px', background:'#58a6ff25', border:'1px solid #58a6ff', color:'#58a6ff', fontWeight:700 }}>
                           ✓ 儲存
                         </button>
                       </div>
@@ -11799,7 +11799,7 @@ function PhraseTab({ settings }) {
                               setExtraPhrases(updated)
                             } catch(e) {}
                           }}
-                            style={{ fontFamily:MONO, fontSize:9, padding:'3px 8px', marginTop:4, background:'#f5a62315',
+                            style={{ fontFamily:MONO, fontSize:11, padding:'3px 8px', marginTop:4, background:'#f5a62315',
                               border:'1px solid #f5a62340', color:'#f5a623', borderRadius:6, alignSelf:'flex-start' }}>
                             🌐 翻譯
                           </button>
@@ -11808,11 +11808,11 @@ function PhraseTab({ settings }) {
                     {deleteConfirm === p.id ? (
                       <div style={{ display:'flex', gap:5, flexShrink:0 }}>
                         <button className="btn" onClick={() => setDeleteConfirm(null)}
-                          style={{ fontSize:10, padding:'4px 8px', background:'#21262d', border:'1px solid #30363d', color:'#aab3be' }}>
+                          style={{ fontSize:11, padding:'4px 8px', background:'#21262d', border:'1px solid #30363d', color:'#aab3be' }}>
                           取消
                         </button>
                         <button className="btn" onClick={() => deletePhrase(p.id)}
-                          style={{ fontSize:10, padding:'4px 8px', background:'#f8514920', border:'1px solid #f85149', color:'#f85149', fontWeight:700 }}>
+                          style={{ fontSize:11, padding:'4px 8px', background:'#f8514920', border:'1px solid #f85149', color:'#f85149', fontWeight:700 }}>
                           確認刪除
                         </button>
                       </div>
@@ -11833,7 +11833,7 @@ function PhraseTab({ settings }) {
                     )}
                   </div>
                   {p.subcat && (
-                    <div style={{ fontFamily:MONO, fontSize:8, color:'#f5a623', background:'#f5a62315',
+                    <div style={{ fontFamily:MONO, fontSize:11, color:'#f5a623', background:'#f5a62315',
                       border:'1px solid #f5a62330', borderRadius:5, padding:'2px 7px', alignSelf:'flex-start' }}>
                       {p.subcat}
                     </div>
@@ -11841,12 +11841,12 @@ function PhraseTab({ settings }) {
                   {/* Tags */}
                   <div style={{ display:'flex', flexWrap:'wrap', gap:4, alignItems:'center' }}>
                     {(p.tags ?? []).map(tag => (
-                      <span key={tag} style={{ fontFamily:MONO, fontSize:8, color:T.blue,
+                      <span key={tag} style={{ fontFamily:MONO, fontSize:11, color:T.blue,
                         background:T.blue+'15', border:`1px solid ${T.blue}40`,
                         borderRadius:6, padding:'2px 7px', display:'inline-flex', alignItems:'center', gap:4 }}>
                         #{tag}
                         <span onClick={() => removeTagFromPhrase(p.id, tag)}
-                          style={{ cursor:'pointer', color:T.txt3, fontSize:9, lineHeight:1 }}>✕</span>
+                          style={{ cursor:'pointer', color:T.txt3, fontSize:11, lineHeight:1 }}>✕</span>
                       </span>
                     ))}
                     {showTagInput === p.id ? (
@@ -11854,16 +11854,16 @@ function PhraseTab({ settings }) {
                         <input value={tagDraft} onChange={e => setTagDraft(e.target.value)}
                           onKeyDown={e => { if(e.key==='Enter'){ addTagToPhrase(p.id, tagDraft); setTagDraft(''); setShowTagInput(null) } if(e.key==='Escape') setShowTagInput(null) }}
                           placeholder="標籤名稱…" autoFocus
-                          style={{ fontFamily:MONO, fontSize:9, padding:'2px 7px', borderRadius:6, width:90,
+                          style={{ fontFamily:MONO, fontSize:11, padding:'2px 7px', borderRadius:6, width:90,
                             background:T.surf2, border:`1px solid ${T.blue}60`, color:T.txt }}/>
                         <span onClick={() => { addTagToPhrase(p.id, tagDraft); setTagDraft(''); setShowTagInput(null) }}
-                          style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.grn }}>✓</span>
+                          style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.grn }}>✓</span>
                         <span onClick={() => setShowTagInput(null)}
-                          style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.red }}>✕</span>
+                          style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.red }}>✕</span>
                       </div>
                     ) : (
                       <span onClick={() => { setShowTagInput(p.id); setTagDraft('') }}
-                        style={{ fontFamily:MONO, fontSize:8, color:T.txt3, cursor:'pointer',
+                        style={{ fontFamily:MONO, fontSize:11, color:T.txt3, cursor:'pointer',
                           border:`1px dashed ${T.bdr2}`, borderRadius:6, padding:'2px 7px' }}>
                         + 標籤
                       </span>
@@ -11880,7 +11880,7 @@ function PhraseTab({ settings }) {
             <div style={{ textAlign:'center', padding:'40px 20px', display:'flex', flexDirection:'column', gap:12, alignItems:'center' }}>
               <div style={{ fontSize:32 }}>📭</div>
               <div style={{ fontFamily:MONO, fontSize:12, color:T.txt2 }}>此分類尚無句子</div>
-              <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                 {cat === 'my' ? '點右上角「+」新增收藏句子' : '請選擇其他分類'}
               </div>
             </div>
@@ -11899,17 +11899,17 @@ function PhraseTab({ settings }) {
                     <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
                       <div style={{ display:'flex', alignItems:'center', gap:7 }}>
                         <span style={{ fontSize:14 }}>🏷</span>
-                        <span style={{ fontFamily:MONO, fontSize:10, color:'#a371f7', fontWeight:700 }}>{tc.name}</span>
-                        <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>({count} 句)</span>
+                        <span style={{ fontFamily:MONO, fontSize:11, color:'#a371f7', fontWeight:700 }}>{tc.name}</span>
+                        <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>({count} 句)</span>
                       </div>
                       <div style={{ display:'flex', gap:5 }}>
                         <div onClick={() => setActiveTempCatId(null)}
-                          style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
+                          style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.txt3,
                             padding:'3px 8px', background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:6 }}>
                           取消
                         </div>
                         <div onClick={() => dissolveTempCat(tc.id)}
-                          style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.red,
+                          style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.red,
                             padding:'3px 8px', background:T.redD, border:`1px solid ${T.red}40`, borderRadius:6 }}>
                           解散
                         </div>
@@ -11917,7 +11917,7 @@ function PhraseTab({ settings }) {
                     </div>
                     {/* 第二列：騎車快捷控制 */}
                     <div style={{ display:'flex', gap:6, alignItems:'center' }}>
-                      <span style={{ fontFamily:MONO, fontSize:8, color:'#a371f7', opacity:0.8 }}>🚴 騎車</span>
+                      <span style={{ fontFamily:MONO, fontSize:11, color:'#a371f7', opacity:0.8 }}>🚴 騎車</span>
                       <div onClick={() => { setShuffleMode(m => !m) }}
                         style={{ cursor:'pointer', fontFamily:MONO, fontSize:12, padding:'4px 10px',
                           borderRadius:8, border:`1px solid ${shuffleMode ? T.grn+'70' : T.bdr}`,
@@ -11992,12 +11992,12 @@ function PhraseTab({ settings }) {
                     return (
                       <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
                         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                          <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                          <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                             本輪進度
                           </span>
                           {done
-                            ? <span style={{ fontFamily:MONO, fontSize:9, color:T.grn }}>🎉 完成一輪！</span>
-                            : <span style={{ fontFamily:MONO, fontSize:9, color: pct >= 70 ? T.grn : T.amber }}>
+                            ? <span style={{ fontFamily:MONO, fontSize:11, color:T.grn }}>🎉 完成一輪！</span>
+                            : <span style={{ fontFamily:MONO, fontSize:11, color: pct >= 70 ? T.grn : T.amber }}>
                                 {played} / {total} &nbsp;·&nbsp; {pct}%
                               </span>
                           }
@@ -12027,24 +12027,24 @@ function PhraseTab({ settings }) {
                     const lv = cardSrs.level ?? 0
                     return (
                       <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
-                        <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, textAlign:'center', letterSpacing:'0.06em' }}>
+                        <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, textAlign:'center', letterSpacing:'0.06em' }}>
                           下次複習間隔
                         </div>
                         <div style={{ display:'flex', gap:6 }}>
                           <button className="btn" onClick={() => srsRatePhrase('again')}
                             style={{ flex:1, background:T.redD, border:`1px solid ${T.red}50`, color:T.red, padding:'10px 0', fontSize:11, display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
                             <span>✗ 再練</span>
-                            <span style={{ fontSize:8, opacity:0.8 }}>{nextItvLabel(lv, -1)}</span>
+                            <span style={{ fontSize:11, opacity:0.8 }}>{nextItvLabel(lv, -1)}</span>
                           </button>
                           <button className="btn" onClick={() => srsRatePhrase('okay')}
                             style={{ flex:1, background:T.amberD, border:`1px solid ${T.amber}50`, color:T.amber, padding:'10px 0', fontSize:11, display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
                             <span>◎ 還行</span>
-                            <span style={{ fontSize:8, opacity:0.8 }}>{nextItvLabel(lv, 1)}</span>
+                            <span style={{ fontSize:11, opacity:0.8 }}>{nextItvLabel(lv, 1)}</span>
                           </button>
                           <button className="btn" onClick={() => srsRatePhrase('got')}
                             style={{ flex:1, background:T.grnD, border:`1px solid ${T.grn}50`, color:T.grn, padding:'10px 0', fontSize:11, fontWeight:700, display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
                             <span>✓ 會了</span>
-                            <span style={{ fontSize:8, opacity:0.8 }}>{nextItvLabel(lv, 2)}</span>
+                            <span style={{ fontSize:11, opacity:0.8 }}>{nextItvLabel(lv, 2)}</span>
                           </button>
                         </div>
                       </div>
@@ -12082,14 +12082,14 @@ function PhraseTab({ settings }) {
               {/* ── 臨時 Tag 篩選列 ── */}
               {cat === 'my' && Object.keys(myTagCounts).length > 1 && (
                 <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-                  <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, letterSpacing:'0.08em' }}>🏷 臨時標籤篩選</div>
+                  <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, letterSpacing:'0.08em' }}>🏷 臨時標籤篩選</div>
                   <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
                     {Object.entries(myTagCounts).map(([tag, cnt]) => {
                       const active = myTag === tag
                       return (
                         <div key={tag} onClick={() => { setMyTag(tag); setIdx(0) }}
                           style={{ padding:'4px 10px', borderRadius:10, cursor:'pointer',
-                            fontFamily:MONO, fontSize:9,
+                            fontFamily:MONO, fontSize:11,
                             background: active ? T.blue+'25' : T.surf2,
                             border:`1px solid ${active ? T.blue+'80' : T.bdr}`,
                             color: active ? T.blue : T.txt3,
@@ -12107,9 +12107,9 @@ function PhraseTab({ settings }) {
           {cat === 'my' && (
             <div style={{ display:'flex', flexDirection:'column', gap:8, paddingTop:4 }}>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3, letterSpacing:'0.1em' }}>🏷 臨時分類</span>
+                <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3, letterSpacing:'0.1em' }}>🏷 臨時分類</span>
                 <div onClick={() => { setShowTempCatInput(v => !v); setNewTempTopic('') }}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, padding:'3px 9px', borderRadius:7,
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, padding:'3px 9px', borderRadius:7,
                     background: showTempCatInput ? '#a371f725' : T.surf2,
                     border:`1px solid ${showTempCatInput ? '#a371f760' : T.bdr}`,
                     color: showTempCatInput ? '#a371f7' : T.txt3, transition:'all 0.14s' }}>
@@ -12121,7 +12121,7 @@ function PhraseTab({ settings }) {
               {showTempCatInput && (
                 <div style={{ display:'flex', flexDirection:'column', gap:7, background:T.surf2,
                   border:`1px solid #a371f740`, borderRadius:10, padding:'11px 12px' }} className="fadeUp">
-                  <div style={{ fontFamily:MONO, fontSize:8, color:'#a371f7', letterSpacing:'0.08em' }}>
+                  <div style={{ fontFamily:MONO, fontSize:11, color:'#a371f7', letterSpacing:'0.08em' }}>
                     AI 從我的收藏中找出相關句子
                   </div>
                   <input value={newTempTopic} onChange={e => setNewTempTopic(e.target.value)}
@@ -12158,7 +12158,7 @@ function PhraseTab({ settings }) {
                         fontWeight: isActive ? 700 : 400, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                         {tc.name}
                       </span>
-                      <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3, flexShrink:0 }}>({count} 句)</span>
+                      <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3, flexShrink:0 }}>({count} 句)</span>
                     </div>
                     <div style={{ display:'flex', gap:5, flexShrink:0 }}>
                       {/* 🚴 一鍵騎車：啟動 + 隨機 + 自動播 */}
@@ -12177,7 +12177,7 @@ function PhraseTab({ settings }) {
                           if (isActive) { setActiveTempCatId(null) }
                           else { setActiveTempCatId(tc.id); setMySubcat('all'); setMyTag('all'); setIdx(0); setAutoPlayed(false) }
                         }}
-                        style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, padding:'3px 9px', borderRadius:7,
+                        style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, padding:'3px 9px', borderRadius:7,
                           background: isActive ? '#a371f7' : '#a371f720',
                           border:`1px solid ${isActive ? '#a371f7' : '#a371f750'}`,
                           color: isActive ? '#050810' : '#a371f7', fontWeight: isActive ? 700 : 400,
@@ -12185,7 +12185,7 @@ function PhraseTab({ settings }) {
                         {isActive ? '✓ 練習中' : '練習'}
                       </div>
                       <div onClick={() => dissolveTempCat(tc.id)}
-                        style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, padding:'3px 9px', borderRadius:7,
+                        style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, padding:'3px 9px', borderRadius:7,
                           background:T.redD, border:`1px solid ${T.red}40`, color:T.red }}>
                         解散
                       </div>
@@ -12195,7 +12195,7 @@ function PhraseTab({ settings }) {
               })}
 
               {tempCats.length === 0 && !showTempCatInput && (
-                <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, textAlign:'center', padding:'6px 0' }}>
+                <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, textAlign:'center', padding:'6px 0' }}>
                   尚無臨時分類，點「+ 建立」讓 AI 幫你找句子
                 </div>
               )}
@@ -12225,17 +12225,17 @@ function PhraseTab({ settings }) {
                 return (
                   <div key={f.id} onClick={() => setReverseFilter(f.id)}
                     style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'5px 12px',
-                      borderRadius:16, cursor:'pointer', fontFamily:MONO, fontSize:10,
+                      borderRadius:16, cursor:'pointer', fontFamily:MONO, fontSize:11,
                       background: active ? T.amber : T.surf2,
                       border:`1px solid ${active ? T.amber : T.bdr}`,
                       color: active ? T.bg : T.txt2, transition:'all 0.13s', userSelect:'none' }}>
                     {f.label}
-                    <span style={{ fontSize:9, opacity:0.75 }}>({f.count})</span>
+                    <span style={{ fontSize:11, opacity:0.75 }}>({f.count})</span>
                   </div>
                 )
               })}
               {reverseFilter === 'island' && islandPhrases.length === 0 && (
-                <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                   → 先到 AI tab 用「🗣 中文→英文」存入句子
                 </span>
               )}
@@ -12276,14 +12276,14 @@ function PhraseTab({ settings }) {
             <div style={{ flex:1, height:4, background:'#161b22', borderRadius:4, overflow:'hidden' }}>
               <div style={{ height:'100%', width:(qaDoneCount/QA_DATA.length*100)+'%', background:'#3fb950', borderRadius:4, transition:'width 0.4s' }}/>
             </div>
-            <span style={{ fontFamily:MONO, fontSize:9, color:'#7a8390' }}>{qaDoneCount}/{QA_DATA.length}</span>
+            <span style={{ fontFamily:MONO, fontSize:11, color:'#7a8390' }}>{qaDoneCount}/{QA_DATA.length}</span>
           </div>
-          <div style={{ fontFamily:MONO, fontSize:8.5, color:'#7a8390', textAlign:'center' }}>{qaIdx+1} / {QA_DATA.length}</div>
+          <div style={{ fontFamily:MONO, fontSize:11, color:'#7a8390', textAlign:'center' }}>{qaIdx+1} / {QA_DATA.length}</div>
 
           {qaPhase === 'question' && (
             <div style={{ display:'flex', flexDirection:'column', gap:18 }} className="fadeUp">
               <div style={{ background:'#0d1117', border:'1px solid #58a6ff50', borderRadius:14, padding:'20px 16px' }}>
-                <div style={{ fontFamily:MONO, fontSize:9, color:'#58a6ff', letterSpacing:'0.1em', marginBottom:10 }}>Q</div>
+                <div style={{ fontFamily:MONO, fontSize:11, color:'#58a6ff', letterSpacing:'0.1em', marginBottom:10 }}>Q</div>
                 <div style={{ fontFamily:MONO, fontSize:17, color:'#e6edf3', lineHeight:1.6 }}>{qa.q}</div>
               </div>
               <SpeakRow text={qa.q} color="#58a6ff"/>
@@ -12298,12 +12298,12 @@ function PhraseTab({ settings }) {
             <div style={{ display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
               <div style={{ fontFamily:MONO, fontSize:11, color:'#7a8390', background:'#161b22', borderRadius:8, padding:'8px 12px' }}>Q: {qa.q}</div>
               <div style={{ background:'#0d1117', border:'1px solid #f5a62350', borderRadius:14, padding:'16px' }}>
-                <div style={{ fontFamily:MONO, fontSize:9, color:'#f5a623', letterSpacing:'0.1em', marginBottom:8 }}>A</div>
+                <div style={{ fontFamily:MONO, fontSize:11, color:'#f5a623', letterSpacing:'0.1em', marginBottom:8 }}>A</div>
                 <div style={{ fontFamily:MONO, fontSize:16, color:'#e6edf3', lineHeight:1.7, marginBottom:14 }}>{qa.a}</div>
                 <div style={{ marginBottom:10 }}>
                   <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:5 }}>
-                    <span style={{ fontFamily:MONO, fontSize:8, color:'#f5a623', background:'#f5a62318', padding:'2px 8px', borderRadius:6, letterSpacing:'0.08em' }}>LINKED</span>
-                    <span style={{ fontFamily:MONO, fontSize:8, color:'#7a8390' }}>連音方式</span>
+                    <span style={{ fontFamily:MONO, fontSize:11, color:'#f5a623', background:'#f5a62318', padding:'2px 8px', borderRadius:6, letterSpacing:'0.08em' }}>LINKED</span>
+                    <span style={{ fontFamily:MONO, fontSize:11, color:'#7a8390' }}>連音方式</span>
                   </div>
                   <div style={{ background:'#f5a62318', border:'1px solid #f5a62330', borderRadius:8, padding:'8px 12px' }}>
                     <LinkedText text={qa.linked} type="linked"/>
@@ -12311,8 +12311,8 @@ function PhraseTab({ settings }) {
                 </div>
                 <div>
                   <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:5 }}>
-                    <span style={{ fontFamily:MONO, fontSize:8, color:'#3fb950', background:'#3fb95018', padding:'2px 8px', borderRadius:6, letterSpacing:'0.08em' }}>RHYTHM</span>
-                    <span style={{ fontFamily:MONO, fontSize:8, color:'#7a8390' }}>大寫=重音</span>
+                    <span style={{ fontFamily:MONO, fontSize:11, color:'#3fb950', background:'#3fb95018', padding:'2px 8px', borderRadius:6, letterSpacing:'0.08em' }}>RHYTHM</span>
+                    <span style={{ fontFamily:MONO, fontSize:11, color:'#7a8390' }}>大寫=重音</span>
                   </div>
                   <div style={{ background:'#3fb95018', border:'1px solid #3fb95030', borderRadius:8, padding:'8px 12px' }}>
                     <LinkedText text={qa.rhythm} type="rhythm"/>
@@ -12345,7 +12345,7 @@ function PhraseTab({ settings }) {
               <div style={{ display:'flex', gap:6 }}>
                 {[{id:'all',l:'全部'},{id:'life',l:'🏠 生活'},{id:'work',l:'💼 工作'},{id:'my',l:'⭐ 我的'}].map(f => (
                   <div key={f.id} onClick={() => setSceneFilter(f.id)}
-                    style={{ padding:'5px 12px', borderRadius:10, fontFamily:MONO, fontSize:9, cursor:'pointer',
+                    style={{ padding:'5px 12px', borderRadius:10, fontFamily:MONO, fontSize:11, cursor:'pointer',
                       background: sceneFilter===f.id ? '#f5a623' : '#161b22',
                       border: '1px solid '+(sceneFilter===f.id ? '#f5a623' : '#21262d'),
                       color: sceneFilter===f.id ? '#050810' : '#7a8390', fontWeight: sceneFilter===f.id ? 700 : 400 }}>
@@ -12354,7 +12354,7 @@ function PhraseTab({ settings }) {
                 ))}
               </div>
 
-              <div style={{ fontFamily:MONO, fontSize:9, color:'#7a8390', lineHeight:1.6,
+              <div style={{ fontFamily:MONO, fontSize:11, color:'#7a8390', lineHeight:1.6,
                 background:'#161b22', border:'1px solid #21262d', borderRadius:8, padding:'10px 12px' }}>
                 AI 會用你的收藏句子模擬真實對話。選場景 → AI 扮演對方 → 你開口回應。
               </div>
@@ -12380,14 +12380,14 @@ function PhraseTab({ settings }) {
                       <div style={{ fontFamily:MONO, fontSize:11, color: isMystyle ? '#f5a623' : '#e6edf3', fontWeight: isMystyle ? 700 : 500 }}>{sc.label}</div>
                       <div style={{ display:'flex', alignItems:'center', gap:4, marginTop:2 }}>
                         {!isMystyle && (
-                          <div style={{ fontFamily:MONO, fontSize:8, color: sc.cat==='work' ? '#f5a623' : '#58a6ff',
+                          <div style={{ fontFamily:MONO, fontSize:11, color: sc.cat==='work' ? '#f5a623' : '#58a6ff',
                             background: sc.cat==='work' ? '#f5a62315' : '#58a6ff15',
                             border:'1px solid '+(sc.cat==='work' ? '#f5a62340' : '#58a6ff40'),
                             padding:'1px 5px', borderRadius:5 }}>
                             {sc.cat==='work' ? '💼' : '🏠'}
                           </div>
                         )}
-                        <span style={{ fontFamily:MONO, fontSize:8, color: isMystyle ? '#f5a623' : '#7a8390' }}>{relatedCount} 句</span>
+                        <span style={{ fontFamily:MONO, fontSize:11, color: isMystyle ? '#f5a623' : '#7a8390' }}>{relatedCount} 句</span>
                       </div>
                     </div>
                   )
@@ -12403,10 +12403,10 @@ function PhraseTab({ settings }) {
           {convLoading && (
             <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:16, padding:'60px 0' }}>
               <span style={{ display:'inline-block', width:36, height:36, border:'3px solid transparent', borderTopColor:'#f5a623', borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>
-              <div style={{ fontFamily:MONO, fontSize:10, color:'#f5a623', letterSpacing:'0.1em', textAlign:'center' }}>
+              <div style={{ fontFamily:MONO, fontSize:11, color:'#f5a623', letterSpacing:'0.1em', textAlign:'center' }}>
                 AI 正在產生<br/>{chosenScene?.label} 情境對話…
               </div>
-              <div style={{ fontFamily:MONO, fontSize:9, color:'#7a8390', textAlign:'center', lineHeight:1.6 }}>
+              <div style={{ fontFamily:MONO, fontSize:11, color:'#7a8390', textAlign:'center', lineHeight:1.6 }}>
                 從你的收藏中找合適的句子
               </div>
             </div>
@@ -12422,7 +12422,7 @@ function PhraseTab({ settings }) {
                   <span style={{ fontFamily:MONO, fontSize:11, color:'#e6edf3', fontWeight:500 }}>{chosenScene.label}</span>
                 </div>
                 <div onClick={() => { setChosenScene(null); setConv([]) }}
-                  style={{ fontFamily:MONO, fontSize:9, color:'#7a8390', cursor:'pointer', padding:'4px 8px',
+                  style={{ fontFamily:MONO, fontSize:11, color:'#7a8390', cursor:'pointer', padding:'4px 8px',
                     background:'#161b22', borderRadius:6, border:'1px solid #21262d' }}>
                   換場景
                 </div>
@@ -12450,7 +12450,7 @@ function PhraseTab({ settings }) {
                         color: isUser ? '#f5c875' : '#e6edf3',
                         fontFamily:"'Crimson Pro',Georgia,serif"
                       }}>
-                        <div style={{ fontFamily:MONO, fontSize:8, color: isUser ? '#f5a623' : '#7a8390', marginBottom:4 }}>
+                        <div style={{ fontFamily:MONO, fontSize:11, color: isUser ? '#f5a623' : '#7a8390', marginBottom:4 }}>
                           {isUser ? '你' : chosenScene.label}
                         </div>
                         {isUser
@@ -12476,7 +12476,7 @@ function PhraseTab({ settings }) {
                         color:'#e6edf3',
                         fontFamily:"'Crimson Pro',Georgia,serif"
                       }}>
-                        <div style={{ fontFamily:MONO, fontSize:8, color: isUser ? '#3fb950' : '#f5a623', marginBottom:4 }}>
+                        <div style={{ fontFamily:MONO, fontSize:11, color: isUser ? '#3fb950' : '#f5a623', marginBottom:4 }}>
                           {isUser ? '💬 你的回合' : chosenScene.label}
                         </div>
                         {isUser ? (
@@ -12487,7 +12487,7 @@ function PhraseTab({ settings }) {
                             <div style={{ marginTop:8 }}>
                               <div onClick={() => speakEn(msg.text, 0.85)}
                                 style={{ display:'inline-flex', alignItems:'center', gap:4, cursor:'pointer',
-                                  fontFamily:MONO, fontSize:8.5, color:'#f5a623', background:'#f5a62315',
+                                  fontFamily:MONO, fontSize:11, color:'#f5a623', background:'#f5a62315',
                                   border:'1px solid #f5a62340', padding:'3px 8px', borderRadius:6 }}>
                                 🔊 聽發音
                               </div>
@@ -12504,9 +12504,9 @@ function PhraseTab({ settings }) {
               {conv[convStep]?.who === 'user' && (
                 <div>
                   <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
-                    <span style={{ fontFamily:MONO, fontSize:8.5, color:'#f5a623', letterSpacing:'0.06em' }}>⭐ 你的收藏可以用</span>
+                    <span style={{ fontFamily:MONO, fontSize:11, color:'#f5a623', letterSpacing:'0.06em' }}>⭐ 你的收藏可以用</span>
                     <div onClick={() => setRevealHints(v => !v)}
-                      style={{ fontFamily:MONO, fontSize:8.5, color:'#7a8390', cursor:'pointer',
+                      style={{ fontFamily:MONO, fontSize:11, color:'#7a8390', cursor:'pointer',
                         background:'#161b22', border:'1px solid #21262d', padding:'3px 8px', borderRadius:6 }}>
                       {revealHints ? '收起' : '顯示提示'}
                     </div>
@@ -12522,7 +12522,7 @@ function PhraseTab({ settings }) {
                           </div>
                         ))}
                       </div>
-                      <div style={{ fontFamily:MONO, fontSize:8.5, color:'#7a8390', marginTop:8 }}>
+                      <div style={{ fontFamily:MONO, fontSize:11, color:'#7a8390', marginTop:8 }}>
                         點句子可以聽發音 · 在紙上或心裡說出來再繼續
                       </div>
                     </div>
@@ -12560,7 +12560,7 @@ function PhraseTab({ settings }) {
               <div style={{ fontFamily:MONO, fontSize:13, color:'#e6edf3', fontWeight:600, letterSpacing:'0.06em' }}>
                 {chosenScene.label} 對話完成！
               </div>
-              <div style={{ fontFamily:MONO, fontSize:10, color:'#7a8390', textAlign:'center', lineHeight:1.8 }}>
+              <div style={{ fontFamily:MONO, fontSize:11, color:'#7a8390', textAlign:'center', lineHeight:1.8 }}>
                 每次練習都在強化大腦的情境連結<br/>
                 重複練習同一場景，說話會越來越自然
               </div>
@@ -12817,9 +12817,9 @@ STRICT RULES:
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:4 }}>
         <div style={{ display:'flex', alignItems:'center', gap:8 }}>
           <div style={{ width:3, height:14, background:color, borderRadius:2 }}/>
-          <span style={{ fontFamily:MONO, fontSize:9, color, letterSpacing:'0.1em' }}>{label}</span>
+          <span style={{ fontFamily:MONO, fontSize:11, color, letterSpacing:'0.1em' }}>{label}</span>
         </div>
-        <span style={{ fontFamily:MONO, fontSize:8.5, color:T.grn }}>{added}/{count} 已加入</span>
+        <span style={{ fontFamily:MONO, fontSize:11, color:T.grn }}>{added}/{count} 已加入</span>
       </div>
     )
   }
@@ -12838,7 +12838,7 @@ STRICT RULES:
       <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
         {opts.map(o => (
           <div key={o.id} onClick={() => !done && setPhraseCats(p => ({ ...p, [idx]: o.id }))}
-            style={{ padding:'2px 8px', borderRadius:8, fontFamily:MONO, fontSize:8, cursor: done ? 'default' : 'pointer',
+            style={{ padding:'2px 8px', borderRadius:8, fontFamily:MONO, fontSize:11, cursor: done ? 'default' : 'pointer',
               background: cur===o.id ? T.blue+'20' : T.surf2,
               border: '1px solid ' + (cur===o.id ? T.blue+'60' : T.bdr),
               color: cur===o.id ? T.blue : T.txt3, opacity: done ? 0.5 : 1 }}>
@@ -12856,7 +12856,7 @@ STRICT RULES:
       <div style={{ display:'flex', gap:5 }}>
         {['work','life'].map(c => (
           <div key={c} onClick={() => !done && setFsiCats(p => ({ ...p, [idx]: c }))}
-            style={{ padding:'3px 10px', borderRadius:10, fontFamily:MONO, fontSize:8.5, cursor: done ? 'default' : 'pointer',
+            style={{ padding:'3px 10px', borderRadius:10, fontFamily:MONO, fontSize:11, cursor: done ? 'default' : 'pointer',
               background: cur===c ? (c==='work' ? T.amberD : T.blueD) : T.surf2,
               border: '1px solid ' + (cur===c ? (c==='work' ? T.amber+'60' : T.blue+'60') : T.bdr),
               color: cur===c ? (c==='work' ? T.amber : T.blue) : T.txt3,
@@ -12888,7 +12888,7 @@ STRICT RULES:
           style={{ background: (isDup||dupExists) ? '#f5a62315' : done ? T.grnD : T.blueD,
             border:'1px solid '+((isDup||dupExists) ? '#f5a62350' : done ? T.grn+'50' : T.blue+'50'),
             color: (isDup||dupExists) ? '#f5a623' : done ? T.grn : T.blue,
-            fontSize:9, padding:'5px 0', marginTop:2 }}>
+            fontSize:11, padding:'5px 0', marginTop:2 }}>
           {(isDup||dupExists) ? '⚠ 已存在（重複）' : done ? '✓ 已加入 PHRASE' : '+ 加入 PHRASE 練習'}
         </button>
       </div>
@@ -12909,10 +12909,10 @@ STRICT RULES:
       <div style={{ background:T.surf, border:'1px solid '+((isDup||dupExists) ? '#f5a62350' : done ? T.grn+'50' : T.bdr), borderRadius:10, padding:12, display:'flex', flexDirection:'column', gap:7, transition:'border-color 0.3s' }}>
         <div style={{ fontFamily:MONO, fontSize: desktop?11:12, color:T.txt, lineHeight:1.6 }}>{s.template}</div>
         <div style={{ fontFamily:SERIF, fontStyle:'italic', fontSize:11, color:T.txt3 }}>{s.context} — {s.hint}</div>
-        {s.linked_hint && <div style={{ fontFamily:MONO, fontSize:10, color:T.amber, background:T.amberD, borderRadius:6, padding:'4px 8px' }}>{s.linked_hint}</div>}
+        {s.linked_hint && <div style={{ fontFamily:MONO, fontSize:11, color:T.amber, background:T.amberD, borderRadius:6, padding:'4px 8px' }}>{s.linked_hint}</div>}
         {(s.subs??[]).map((g,gi) => (
           <div key={gi} style={{ display:'flex', flexWrap:'wrap', gap:4 }}>
-            {g.map((o,oi) => <span key={oi} style={{ fontFamily:MONO, fontSize:9, background:T.surf2, border:'1px solid '+T.bdr, borderRadius:10, padding:'2px 7px', color:T.txt3 }}>{o}</span>)}
+            {g.map((o,oi) => <span key={oi} style={{ fontFamily:MONO, fontSize:11, background:T.surf2, border:'1px solid '+T.bdr, borderRadius:10, padding:'2px 7px', color:T.txt3 }}>{o}</span>)}
           </div>
         ))}
         <WLSelect idx={i} done={done}/>
@@ -12920,7 +12920,7 @@ STRICT RULES:
           style={{ background: (isDup||dupExists) ? '#f5a62315' : done ? T.grnD : T.amberD,
             border:'1px solid '+((isDup||dupExists) ? '#f5a62350' : done ? T.grn+'50' : T.amber+'50'),
             color: (isDup||dupExists) ? '#f5a623' : done ? T.grn : T.amber,
-            fontSize:9, padding:'5px 0', marginTop:2 }}>
+            fontSize:11, padding:'5px 0', marginTop:2 }}>
           {(isDup||dupExists) ? '⚠ 已存在（重複）' : done ? '✓ 已加入 FSI' : '+ 加入 FSI 練習'}
         </button>
       </div>
@@ -12952,7 +12952,7 @@ STRICT RULES:
           style={{ background: (isDup||dupExists) ? '#f5a62315' : done ? T.grnD : T.blueD,
             border:'1px solid '+((isDup||dupExists) ? '#f5a62350' : done ? T.grn+'50' : T.blue+'50'),
             color: (isDup||dupExists) ? '#f5a623' : done ? T.grn : T.blue,
-            fontSize:9, padding:'5px 0', marginTop:2 }}>
+            fontSize:11, padding:'5px 0', marginTop:2 }}>
           {(isDup||dupExists) ? '⚠ 已存在（重複）' : done ? '✓ 已加入 VOCAB' : '+ 加入 VOCAB'}
         </button>
       </div>
@@ -12991,7 +12991,7 @@ STRICT RULES:
       {[{id:'analyze',label:'⚡ AI 三分類'},{id:'island',label:'🗣 中文→英文'},{id:'translate',label:'🔁 即時翻譯'}].map(m => (
         <div key={m.id} onClick={() => setSiMode(m.id)}
           style={{ flex:1, textAlign:'center', padding:'7px 12px', borderRadius:8, cursor:'pointer',
-            fontFamily:MONO, fontSize:10, fontWeight: siMode===m.id?700:400, whiteSpace:'nowrap',
+            fontFamily:MONO, fontSize:11, fontWeight: siMode===m.id?700:400, whiteSpace:'nowrap',
             background: siMode===m.id ? T.amber : 'transparent',
             color: siMode===m.id ? T.bg : T.txt2, transition:'all 0.15s' }}>
           {m.label}
@@ -13005,7 +13005,7 @@ STRICT RULES:
       <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:14 }} className="fadeUp">
         <ModeToggle/>
 
-        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.8, background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:8, padding:'10px 12px' }}>
+        <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.8, background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:8, padding:'10px 12px' }}>
           輸入你今天真實想說的中文 → AI 翻成道地口語英文 → 存入收藏 → 用「🔄 反向」模式練習
         </div>
 
@@ -13014,7 +13014,7 @@ STRICT RULES:
           {[{id:'life',l:'🏠 生活日常'},{id:'work',l:'💼 工作職場'}].map(c => (
             <div key={c.id} onClick={() => setIslandCat(c.id)}
               style={{ flex:1, textAlign:'center', padding:'9px 0', borderRadius:9, cursor:'pointer',
-                fontFamily:MONO, fontSize:10, fontWeight: islandCat===c.id?700:400,
+                fontFamily:MONO, fontSize:11, fontWeight: islandCat===c.id?700:400,
                 background: islandCat===c.id ? (c.id==='work' ? T.amberD : T.blueD) : T.surf2,
                 border: `1px solid ${islandCat===c.id ? (c.id==='work' ? T.amber+'60' : T.blue+'60') : T.bdr}`,
                 color: islandCat===c.id ? (c.id==='work' ? T.amber : T.blue) : T.txt2,
@@ -13026,7 +13026,7 @@ STRICT RULES:
 
         {/* 說話對象選擇 */}
         <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
-          <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, letterSpacing:'0.08em' }}>說給誰聽</div>
+          <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, letterSpacing:'0.08em' }}>說給誰聽</div>
           <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
             {[
               {id:'colleague', l:'👥 同事閒聊'},
@@ -13038,7 +13038,7 @@ STRICT RULES:
               return (
                 <div key={a.id} onClick={() => setIslandAudience(a.id)}
                   style={{ padding:'5px 12px', borderRadius:10, cursor:'pointer',
-                    fontFamily:MONO, fontSize:9, fontWeight: active?700:400,
+                    fontFamily:MONO, fontSize:11, fontWeight: active?700:400,
                     background: active ? T.amber+'25' : T.surf2,
                     border: `1px solid ${active ? T.amber+'80' : T.bdr}`,
                     color: active ? T.amber : T.txt2, transition:'all 0.14s',
@@ -13080,12 +13080,12 @@ STRICT RULES:
         {islandResults.length > 0 && (
           <div style={{ display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-              <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+              <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                 {islandResults.length} 句 · {islandResults.filter(r=>r.added).length} 已加入
               </span>
               <button className="btn" onClick={addAllIsland}
                 disabled={islandResults.every(r => r.added)}
-                style={{ background:T.grnD, border:`1px solid ${T.grn}50`, color:T.grn, fontSize:9, padding:'4px 12px' }}>
+                style={{ background:T.grnD, border:`1px solid ${T.grn}50`, color:T.grn, fontSize:11, padding:'4px 12px' }}>
                 全部加入收藏
               </button>
             </div>
@@ -13105,11 +13105,11 @@ STRICT RULES:
                 {/* 操作按鈕 */}
                 <div style={{ display:'flex', gap:6, alignItems:'center' }}>
                   <div onClick={() => { window.speechSynthesis?.cancel(); const u=new SpeechSynthesisUtterance(p.en); u.lang='en-US'; u.rate=0.85; window.speechSynthesis?.speak(u) }}
-                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3, padding:'3px 8px', background:T.surf2, borderRadius:6, border:`1px solid ${T.bdr}` }}>
+                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.txt3, padding:'3px 8px', background:T.surf2, borderRadius:6, border:`1px solid ${T.bdr}` }}>
                     🔊 聽
                   </div>
                   <div onClick={() => { window.speechSynthesis?.cancel(); const u=new SpeechSynthesisUtterance(p.en); u.lang='en-US'; u.rate=0.6; window.speechSynthesis?.speak(u) }}
-                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3, padding:'3px 8px', background:T.surf2, borderRadius:6, border:`1px solid ${T.bdr}` }}>
+                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.txt3, padding:'3px 8px', background:T.surf2, borderRadius:6, border:`1px solid ${T.bdr}` }}>
                     🐢 慢
                   </div>
                   <button className="btn" onClick={() => addIslandPhrase(i)} disabled={p.added}
@@ -13117,7 +13117,7 @@ STRICT RULES:
                       background: p.added ? (p.dup ? '#f5a62315' : T.grnD) : T.blueD,
                       border: `1px solid ${p.added ? (p.dup ? T.amber+'50' : T.grn+'50') : T.blue+'50'}`,
                       color: p.added ? (p.dup ? T.amber : T.grn) : T.blue,
-                      fontSize:9, padding:'4px 12px' }}>
+                      fontSize:11, padding:'4px 12px' }}>
                     {p.added ? (p.dup ? '⚠ 已存在' : '✓ 已加入') : '+ 加入收藏'}
                   </button>
                 </div>
@@ -13199,7 +13199,7 @@ STRICT RULES:
                 <div key={l.id} onClick={() => !transListening && setTransLang(l.id)}
                   style={{ padding:'5px 14px', borderRadius:10,
                     cursor: transListening ? 'default' : 'pointer',
-                    fontFamily:MONO, fontSize:10, fontWeight: transLang===l.id ? 700 : 400,
+                    fontFamily:MONO, fontSize:11, fontWeight: transLang===l.id ? 700 : 400,
                     background: transLang===l.id ? (l.id==='zh-TW' ? T.amberD : T.blueD) : 'transparent',
                     border:`1px solid ${transLang===l.id ? (l.id==='zh-TW' ? T.amber+'60' : T.blue+'60') : T.bdr}`,
                     color: transLang===l.id ? (l.id==='zh-TW' ? T.amber : T.blue) : T.txt3,
@@ -13232,7 +13232,7 @@ STRICT RULES:
             </div>
 
             {/* 狀態文字 / 即時辨識預覽 */}
-            <div style={{ fontFamily:MONO, fontSize:10, textAlign:'center', minHeight:18,
+            <div style={{ fontFamily:MONO, fontSize:11, textAlign:'center', minHeight:18,
               color: transListening ? T.red : T.txt3, fontStyle: transListening && transInterim ? 'italic' : 'normal' }}>
               {transListening
                 ? (transInterim || '🎙 聆聽中，說完後自動辨識…')
@@ -13245,21 +13245,21 @@ STRICT RULES:
         <div style={{ display:'flex', alignItems:'center', gap:8, minHeight:20 }}>
           {dir ? (
             <>
-              <span style={{ fontFamily:MONO, fontSize:10,
+              <span style={{ fontFamily:MONO, fontSize:11,
                 color: dir==='zh→en' ? T.amber : T.blue,
                 background: dir==='zh→en' ? T.amberD : T.blueD,
                 border:`1px solid ${dir==='zh→en' ? T.amber+'60' : T.blue+'60'}`,
                 padding:'2px 10px', borderRadius:10, letterSpacing:'0.08em' }}>
                 {dir === 'zh→en' ? '中文 → 英文' : '英文 → 中文'}
               </span>
-              <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>自動偵測</span>
+              <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>自動偵測</span>
             </>
           ) : (
-            <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>語音或打字輸入，自動偵測語言</span>
+            <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>語音或打字輸入，自動偵測語言</span>
           )}
           {transBusy && (
             <span style={{ marginLeft:'auto', display:'inline-flex', alignItems:'center', gap:5,
-              fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+              fontFamily:MONO, fontSize:11, color:T.txt3 }}>
               <span style={{ display:'inline-block', width:8, height:8,
                 border:'1.5px solid transparent', borderTopColor:T.txt3,
                 borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>
@@ -13286,7 +13286,7 @@ STRICT RULES:
           {transInput && !transListening && (
             <div onClick={() => { setTransInput(''); setTransResult(''); setTransErr('') }}
               style={{ position:'absolute', top:10, right:10, cursor:'pointer',
-                fontFamily:MONO, fontSize:10, color:T.txt3, padding:'2px 6px',
+                fontFamily:MONO, fontSize:11, color:T.txt3, padding:'2px 6px',
                 background:T.surf, borderRadius:6, border:`1px solid ${T.bdr}` }}>✕</div>
           )}
         </div>
@@ -13309,18 +13309,18 @@ STRICT RULES:
             </div>
             <div style={{ display:'flex', gap:7 }}>
               <div onClick={speakResult}
-                style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt2,
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.txt2,
                   padding:'6px 14px', background:T.surf2, borderRadius:8, border:`1px solid ${T.bdr}` }}>
                 🔊 朗讀
               </div>
               <div onClick={copyResult}
-                style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt2,
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.txt2,
                   padding:'6px 14px', background:T.surf2, borderRadius:8, border:`1px solid ${T.bdr}` }}>
                 📋 複製
               </div>
               {canSave && (
                 <div onClick={saveToCollection}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.blue,
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.blue,
                     padding:'6px 14px', background:T.blueD, borderRadius:8,
                     border:`1px solid ${T.blue}50`, marginLeft:'auto' }}>
                   + 加入收藏
@@ -13347,14 +13347,14 @@ STRICT RULES:
           <div style={{ display:'flex', alignItems:'center', gap:10 }}>
             {res && (
               <button className="btn" onClick={addAll} disabled={pendingNew===0}
-                style={{ background: pendingNew===0 ? T.surf2 : T.grnD, border:'1px solid '+(pendingNew===0 ? T.bdr : T.grn+'50'), color: pendingNew===0 ? T.txt3 : T.grn, fontSize:10, padding:'5px 14px' }}>
+                style={{ background: pendingNew===0 ? T.surf2 : T.grnD, border:'1px solid '+(pendingNew===0 ? T.bdr : T.grn+'50'), color: pendingNew===0 ? T.txt3 : T.grn, fontSize:11, padding:'5px 14px' }}>
                 {pendingNew > 0
                   ? `全部加入 ✦ ${pendingNew} 筆新${addedDup>0?' / 跳過'+addedDup+'筆重複':''}`
                   : `✓ 已全部加入${addedDup>0?' （跳過'+addedDup+'筆重複）':''}`}
               </button>
             )}
             <button className="btn" onClick={() => { setText(''); setRes(null); setErr('') }}
-              style={{ background:T.surf2, border:'1px solid '+T.bdr, color:T.txt3, fontSize:10, padding:'5px 12px' }}>
+              style={{ background:T.surf2, border:'1px solid '+T.bdr, color:T.txt3, fontSize:11, padding:'5px 12px' }}>
               清除
             </button>
           </div>
@@ -13364,9 +13364,9 @@ STRICT RULES:
         <div style={{ display:'flex', flex:1, overflow:'hidden' }}>
           {/* LEFT */}
           <div style={{ width:'38%', minWidth:300, display:'flex', flexDirection:'column', borderRight:'1px solid '+T.bdr, padding:'20px 24px', gap:12, flexShrink:0 }}>
-            <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, letterSpacing:'0.1em' }}>貼上英文文字</div>
+            <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, letterSpacing:'0.1em' }}>貼上英文文字</div>
             <InputArea/>
-            <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.8, textAlign:'center' }}>
+            <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.8, textAlign:'center' }}>
               {'📌 PHRASE → PHRASE 頁練習\n🔄 FSI → BUILD/DRILL\n📖 VOCAB → 單字庫'}
             </div>
           </div>
@@ -13375,7 +13375,7 @@ STRICT RULES:
           <div style={{ flex:1, overflowY:'auto', padding:'20px 24px', display:'flex', flexDirection:'column', gap:16 }}>
             {!res && !busy && (
               <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:16, opacity:0.35 }}>
-                <div style={{ display:'flex', flexDirection:'column', gap:10, fontFamily:MONO, fontSize:10, color:T.txt3, lineHeight:2 }}>
+                <div style={{ display:'flex', flexDirection:'column', gap:10, fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:2 }}>
                   <div>📌 PHRASE — 固定常用句 → PHRASE 頁</div>
                   <div>🔄 FSI &nbsp;&nbsp;&nbsp;— 替換句型 &nbsp;&nbsp;→ BUILD/DRILL</div>
                   <div>📖 VOCAB — 關鍵單字 &nbsp;&nbsp;→ VOCAB</div>
@@ -13385,7 +13385,7 @@ STRICT RULES:
             {busy && (
               <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:12 }}>
                 <span style={{ display:'inline-block', width:32, height:32, border:'3px solid transparent', borderTopColor:T.amber, borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>
-                <span style={{ fontFamily:MONO, fontSize:10, color:T.amber, letterSpacing:'0.1em' }}>AI 分析中，自動分三類…</span>
+                <span style={{ fontFamily:MONO, fontSize:11, color:T.amber, letterSpacing:'0.1em' }}>AI 分析中，自動分三類…</span>
               </div>
             )}
             {res && (
@@ -13432,7 +13432,7 @@ STRICT RULES:
   return (
     <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:14 }} className="fadeUp">
       <ModeToggle/>
-      <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, letterSpacing:'0.1em' }}>AI 三分類分析</div>
+      <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, letterSpacing:'0.1em' }}>AI 三分類分析</div>
       <InputArea/>
 
       {res && (
@@ -13441,12 +13441,12 @@ STRICT RULES:
           {/* Summary bar */}
           <div style={{ background:T.surf2, border:'1px solid '+T.bdr, borderRadius:10, padding:'10px 14px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
             <div style={{ display:'flex', gap:12 }}>
-              <span style={{ fontFamily:MONO, fontSize:9, color:T.blue }}>📌 {res.phrases?.length??0}</span>
-              <span style={{ fontFamily:MONO, fontSize:9, color:T.amber }}>🔄 {res.fsi?.length??0}</span>
-              <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2 }}>📖 {res.vocab?.length??0}</span>
+              <span style={{ fontFamily:MONO, fontSize:11, color:T.blue }}>📌 {res.phrases?.length??0}</span>
+              <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>🔄 {res.fsi?.length??0}</span>
+              <span style={{ fontFamily:MONO, fontSize:11, color:T.txt2 }}>📖 {res.vocab?.length??0}</span>
             </div>
             <button className="btn" onClick={addAll} disabled={pendingNew===0}
-              style={{ background: pendingNew===0 ? T.surf2 : T.grnD, border:'1px solid '+(pendingNew===0 ? T.bdr : T.grn+'50'), color: pendingNew===0 ? T.txt3 : T.grn, fontSize:9, padding:'4px 12px', maxWidth:200, textAlign:'center', lineHeight:1.4 }}>
+              style={{ background: pendingNew===0 ? T.surf2 : T.grnD, border:'1px solid '+(pendingNew===0 ? T.bdr : T.grn+'50'), color: pendingNew===0 ? T.txt3 : T.grn, fontSize:11, padding:'4px 12px', maxWidth:200, textAlign:'center', lineHeight:1.4 }}>
               {pendingNew > 0
                 ? `全部加入 ✦ ${pendingNew}筆新${addedDup>0?' /跳過'+addedDup+'重複':''}`
                 : `✓ 已全部加入${addedDup>0?' (跳過'+addedDup+')':''}`}
@@ -14376,7 +14376,7 @@ function dailyPractice(days = 14) {
   return out
 }
 
-// ── 📖 連讀速查表（v7.10）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v7.11）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -14601,6 +14601,10 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const [editingSceneNameText, setEditingSceneNameText] = useState('')
   const [playingPhraseId, setPlayingPhraseId] = useState(null)
   const [deletingPhraseId,setDeletingPhraseId]= useState(null)
+  const [starCfgOpen, setStarCfgOpen] = useState(false)   // v7.11: 練習畫面「播放設定」展開
+  const [starMenuId, setStarMenuId] = useState(null)      // v7.11: 練習卡片 ⋯ 選單
+  const [libMenuId, setLibMenuId] = useState(null)        // v7.11: 聽力庫卡片 ⋯ 選單
+  const [libToolsOpen, setLibToolsOpen] = useState(false) // v7.11: 聽力庫「設定與工具」展開
   const [starDelId, setStarDelId] = useState(null) // v7.01: 練習畫面 ✕ 刪除的兩段式確認
   const [editingZhId,     setEditingZhId]     = useState(null)
   const [libZhEdit, setLibZhEdit] = useState(null) // v7.09: 聽力庫卡片改中文 { id, text }
@@ -15237,13 +15241,13 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     )
   }
   // v6.81: 統一連音卡——根治「雙渲染路徑」家族。collapsible 版供知識庫/場景頁用。
-  const LinkCard = ({ p, collapsible = false, noGenBtn = false }) => {
+  const LinkCard = ({ p, collapsible = false, noGenBtn = false, rowHidden = false }) => {
     if (!p) return null
     const busy = linkBusy === p.id
     const open = collapsible ? !!starLinkOpen[p.id] : true
     return (
       <div style={{ display:'flex', flexDirection:'column', gap:7, minWidth:0, maxWidth:'100%' }}>
-        {collapsible && (
+        {collapsible && !rowHidden && (
           <div style={{ display:'flex', gap:6, alignItems:'center', flexWrap:'wrap' }}>
             <div onClick={() => {
                 const valid = p.link && p.link.ipa
@@ -15251,7 +15255,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
                 else setStarLinkOpen(o => ({ ...o, [p.id]: !o[p.id] }))
               }}
               style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
-                fontFamily:MONO, fontSize:9, fontWeight:700, padding:'4px 10px', borderRadius:6,
+                fontFamily:MONO, fontSize:11, fontWeight:700, padding:'4px 10px', borderRadius:6,
                 background: (busy || open) ? '#a78bfa' : 'transparent',
                 color: (busy || open) ? '#1a1030' : '#a78bfa',
                 border:'1px solid #a78bfa40' }}>
@@ -15276,7 +15280,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
                 }}
                   title={inQ ? '已在家教專區（再按一次移除）' : '上課想問這句'}
                   style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
-                    fontFamily:MONO, fontSize:9, fontWeight:700, padding:'4px 10px', borderRadius:6,
+                    fontFamily:MONO, fontSize:11, fontWeight:700, padding:'4px 10px', borderRadius:6,
                     background: inQ ? '#0d2a1f' : 'transparent',
                     color: inQ ? '#34d399' : '#34d39980',
                     border:`1px solid ${inQ ? '#34d399' : '#34d39940'}` }}>
@@ -15301,14 +15305,14 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
                 {p.en}
               </div>
               {p.zh && (
-                <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.4, marginTop:2 }}>
+                <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.4, marginTop:2 }}>
                   {p.zh}
                 </div>
               )}
             </div>
             {p.link.en && <MarkedIPA text={p.link.en} size={15}/>}
             <MarkedIPA text={p.link.ipa} size={13}/>
-            <div style={{ display:'flex', gap:8, flexWrap:'wrap', fontFamily:MONO, fontSize:8 }}>
+            <div style={{ display:'flex', gap:8, flexWrap:'wrap', fontFamily:MONO, fontSize:11 }}>
               <span style={{ color:'#facc15', fontWeight:700 }}>弱讀</span>
               <span style={{ color:'#38bdf8', borderBottom:'1.5px solid #38bdf8' }}>連讀</span>
               <span style={{ color:'#4ade80', textDecoration:'line-through' }}>不發音</span>
@@ -15319,7 +15323,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
             {(p.link.rules ?? []).length > 0 && (
               <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
                 {p.link.rules.map((r, i) => (
-                  <div key={i} style={{ fontFamily:MONO, fontSize:9, color:T.txt2, lineHeight:1.6 }}>
+                  <div key={i} style={{ fontFamily:MONO, fontSize:11, color:T.txt2, lineHeight:1.6 }}>
                     {i + 1}. {stripMark(r)}
                   </div>
                 ))}
@@ -15336,7 +15340,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
                       padding:'5px 9px' }}>
                     <span style={{ fontSize:12 }}>🔊</span>
                     <span style={{ fontFamily:MONO, fontSize:11, color:T.txt2 }}>{c.en}</span>
-                    <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>→</span>
+                    <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>→</span>
                     <MarkedIPA text={c.ipa} size={13}/>
                   </span>
                 ))}
@@ -15344,18 +15348,18 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
             )}
             <RhythmRow p={p}/>
             {p.link.listen && !isBadListen(p.link.listen) && (
-              <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, lineHeight:1.6, fontWeight:700 }}>
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.amber, lineHeight:1.6, fontWeight:700 }}>
                 👉 {stripMark(p.link.listen)}
               </div>
             )}
             <LinkFooter p={p}/>
           </div>
         )}
-        {!collapsible && !noGenBtn && !(p.link && p.link.ipa) && (
+        {!collapsible && !noGenBtn && !rowHidden && !(p.link && p.link.ipa) && (
           <div style={{ display:'flex', gap:6, alignItems:'center', flexWrap:'wrap' }}>
             <div onClick={() => analyzeLinking(p)}
               style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
-                fontFamily:MONO, fontSize:10, fontWeight:700, padding:'6px 11px', borderRadius:7,
+                fontFamily:MONO, fontSize:11, fontWeight:700, padding:'6px 11px', borderRadius:7,
                 background: busy ? '#a78bfa' : '#1a1030',
                 color: busy ? '#1a1030' : '#a78bfa',
                 border:'1px solid #a78bfa50' }}>
@@ -15380,7 +15384,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
                 }}
                   title={inQ ? '已在家教專區（再按一次移除）' : '上課想問這句'}
                   style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
-                    fontFamily:MONO, fontSize:10, fontWeight:700, padding:'6px 11px', borderRadius:7,
+                    fontFamily:MONO, fontSize:11, fontWeight:700, padding:'6px 11px', borderRadius:7,
                     background: inQ ? '#0d2a1f' : 'transparent',
                     color: inQ ? '#34d399' : '#34d39980',
                     border:`1px solid ${inQ ? '#34d399' : '#34d39940'}` }}>
@@ -15403,7 +15407,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
         <div onClick={e => { e.stopPropagation(); analyzeLinking(p) }}
           style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
             alignSelf:'flex-start', marginTop:7,
-            fontFamily:MONO, fontSize:9, fontWeight:700, padding:'5px 10px', borderRadius:7,
+            fontFamily:MONO, fontSize:11, fontWeight:700, padding:'5px 10px', borderRadius:7,
             background: busy ? '#4ade80' : 'transparent',
             color: busy ? '#0a1a14' : '#4ade8090',
             border:'1px solid #4ade8040' }}>
@@ -15416,7 +15420,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
       <div style={{ display:'flex', flexDirection:'column', gap:5, marginTop:8,
         background:'#0a1a14', border:'1px solid #4ade8030', borderRadius:8, padding:'8px 10px' }}>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:6, flexWrap:'wrap' }}>
-          <span style={{ fontFamily:MONO, fontSize:8, color:'#4ade80', fontWeight:700 }}>
+          <span style={{ fontFamily:MONO, fontSize:11, color:'#4ade80', fontWeight:700 }}>
             🎵 chunk 背誦 · {rh.length} 塊
           </span>
           <div style={{ display:'flex', gap:4 }}>
@@ -15424,7 +15428,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
               <span key={k} onClick={e => { e.stopPropagation(); setChunkMode(k)
                   if (k === 'B') setChunkReveal(x => ({ ...x, [p.id]: 0 })) }}
                 style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
-                  fontFamily:MONO, fontSize:8, fontWeight:700, padding:'3px 8px', borderRadius:6,
+                  fontFamily:MONO, fontSize:11, fontWeight:700, padding:'3px 8px', borderRadius:6,
                   background: starChunkMode === k ? '#4ade8025' : 'transparent',
                   color: starChunkMode === k ? '#4ade80' : T.txt3,
                   border:`1px solid ${starChunkMode === k ? '#4ade80' : T.bdr}` }}>
@@ -15449,7 +15453,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
                   borderRadius:7, padding:'5px 9px' }}>
                 {open ? (
                   <>
-                    <span style={{ fontFamily:MONO, fontSize:10, color:T.txt2, whiteSpace:'nowrap' }}>{c.en}</span>
+                    <span style={{ fontFamily:MONO, fontSize:11, color:T.txt2, whiteSpace:'nowrap' }}>{c.en}</span>
                     <span style={{ fontFamily:MONO, fontSize:12, color:'#4ade80', fontWeight:700, whiteSpace:'nowrap' }}>
                       {stripMark(c.ipa ?? '')}
                     </span>
@@ -15464,14 +15468,14 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
           })}
         </div>
         {starChunkMode === 'B' && shownN < rh.length && (
-          <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
+          <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
             先自己回想，卡住再點方塊揭開（已揭 {shownN}/{rh.length}）
           </div>
         )}
         {starChunkMode === 'B' && shownN >= rh.length && (
           <div onClick={e => { e.stopPropagation(); setChunkReveal(x => ({ ...x, [p.id]: 0 })) }}
             style={{ cursor:'pointer', userSelect:'none', alignSelf:'flex-start',
-              fontFamily:MONO, fontSize:8, fontWeight:700, padding:'3px 8px', borderRadius:6,
+              fontFamily:MONO, fontSize:11, fontWeight:700, padding:'3px 8px', borderRadius:6,
               color:'#4ade80', border:'1px solid #4ade8040' }}>
             ↺ 再蓋起來
           </div>
@@ -15485,7 +15489,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
       <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
         <div onClick={e => { e.stopPropagation(); analyzeLinking(p) }}
           style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
-            fontFamily:MONO, fontSize:9, fontWeight:700, padding:'4px 9px', borderRadius:6,
+            fontFamily:MONO, fontSize:11, fontWeight:700, padding:'4px 9px', borderRadius:6,
             background: linkBusy === p.id ? '#a78bfa' : 'transparent',
             color: linkBusy === p.id ? '#1a1030' : '#a78bfa80',
             border:'1px solid #a78bfa30' }}>
@@ -15494,7 +15498,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
         <div onClick={e => { e.stopPropagation(); reportLinkErr(p) }}
           title="覺得這句解析怪怪的就按一下——不用分辨是哪種錯，累積起來用來判斷 prompt 改得好不好"
           style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
-            fontFamily:MONO, fontSize:9, fontWeight:700, padding:'4px 9px', borderRadius:6,
+            fontFamily:MONO, fontSize:11, fontWeight:700, padding:'4px 9px', borderRadius:6,
             background: rep ? '#f8717125' : 'transparent',
             color: rep ? '#f87171' : '#f8717170',
             border:`1px solid ${rep ? '#f87171' : '#f8717130'}` }}>
@@ -15522,7 +15526,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
             }}
               title={inQ ? '已在家教專區（再按一次移除）' : '上課想問這句'}
               style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
-                fontFamily:MONO, fontSize:9, fontWeight:700, padding:'4px 9px', borderRadius:6,
+                fontFamily:MONO, fontSize:11, fontWeight:700, padding:'4px 9px', borderRadius:6,
                 background: inQ ? '#0d2a1f' : 'transparent',
                 color: inQ ? '#34d399' : '#34d39980',
                 border:`1px solid ${inQ ? '#34d399' : '#34d39930'}` }}>
@@ -15553,13 +15557,13 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
       <div style={{ display:'flex', flexDirection:'column', gap:5,
         background:'#0a1a14', border:'1px solid #4ade8030', borderRadius:8, padding:'8px 10px' }}>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:6, flexWrap:'wrap' }}>
-          <span style={{ fontFamily:MONO, fontSize:8, color:'#4ade80', fontWeight:700 }}>
+          <span style={{ fontFamily:MONO, fontSize:11, color:'#4ade80', fontWeight:700 }}>
             🎵 節奏切塊 · 一塊＝一口氣（點播放該塊）
           </span>
           <span onClick={copyForTutor}
             title="複製原句＋節奏切塊純文字，貼給老師驗證"
             style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
-              fontFamily:MONO, fontSize:8, fontWeight:700, flexShrink:0,
+              fontFamily:MONO, fontSize:11, fontWeight:700, flexShrink:0,
               padding:'3px 8px', borderRadius:6,
               background:'#0f2a1f', color:'#4ade80', border:'1px solid #4ade8040' }}>
             📋 複製給老師
@@ -15586,7 +15590,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const CauseRow = ({ pid, rate, compact = false }) => (
     <div style={{ display:'flex', flexDirection:'column', gap:4, marginTop:2,
       borderTop:`1px dashed ${T.bdr}`, paddingTop:7 }}>
-      <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
+      <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
         這句錯在哪？（自問：如果當時知道意思，我能切對嗎？）
       </div>
       <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
@@ -15607,7 +15611,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
         })}
       </div>
       {dictCause[pid] && (
-        <div style={{ fontFamily:MONO, fontSize:8, lineHeight:1.5,
+        <div style={{ fontFamily:MONO, fontSize:11, lineHeight:1.5,
           color: CAUSE_DEF.find(x => x.k === dictCause[pid].cause)?.color ?? T.txt3 }}>
           {CAUSE_DEF.find(x => x.k === dictCause[pid].cause)?.tip}
         </div>
@@ -15631,6 +15635,8 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const backBtnRef = useRef(null)  // 浮動返回鍵 DOM element
   const pauseFnRef = useRef(null)  // pause function ref
   const resumeFnRef = useRef(null) // resume function ref
+  const stepFnRef = useRef(null)   // v7.11: 底部播放列 上一句／下一句
+  const stopFnRef = useRef(null)   // v7.11: 底部播放列 停止
   const starSingleCancelRef = useRef(null) // v7.04: 取消單句重聽的計時器（避免 10 秒保險誤殺新循環）
   const starTimeUpdateRef = useRef(null)  // ontimeupdate handler
   const starCardRefs      = useRef({})    // { [phraseId]: DOM element } 自動滾動用
@@ -17134,10 +17140,10 @@ Return ONLY a JSON object, no markdown:
         <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
           <span style={{ fontFamily:MONO, fontSize:15, color:T.amber, fontWeight:700 }}>{inlineLookup.word}</span>
           {inlineLookup.info && (
-            <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>{inlineLookup.info.phonetic}</span>
+            <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>{inlineLookup.info.phonetic}</span>
           )}
           {inlineLookup.info?.pos && (
-            <span style={{ fontFamily:MONO, fontSize:9, color:T.blue, background:T.blueD,
+            <span style={{ fontFamily:MONO, fontSize:11, color:T.blue, background:T.blueD,
               border:`1px solid ${T.blue}40`, borderRadius:6, padding:'2px 7px' }}>{inlineLookup.info.pos}</span>
           )}
           <span onClick={() => speak(inlineLookup.word, 0.8)} title="播放發音"
@@ -17148,7 +17154,7 @@ Return ONLY a JSON object, no markdown:
               borderTopColor:T.amber, borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>
           )}
           <span onClick={() => setInlineLookup(null)}
-            style={{ marginLeft:'auto', cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
+            style={{ marginLeft:'auto', cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.txt3,
               padding:'1px 6px', background:T.surf, borderRadius:5, border:`1px solid ${T.bdr}` }}>✕</span>
         </div>
         {inlineLookup.info && (
@@ -17161,13 +17167,13 @@ Return ONLY a JSON object, no markdown:
                 setInlineLookup(null)
               }}
               style={{ cursor:'pointer', background:T.blue, borderRadius:8, padding:'9px',
-                textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700, color:'#fff' }}>
+                textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700, color:'#fff' }}>
               ＋ 加入單字庫
             </div>
           </>
         )}
         {inlineLookup.busy && (
-          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, textAlign:'center' }}>AI 查詢中…</div>
+          <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, textAlign:'center' }}>AI 查詢中…</div>
         )}
       </div>
     )
@@ -17209,11 +17215,11 @@ Return ONLY a JSON object, no markdown:
   function SpeedBar({ label = '語速' }) {
     return (
       <div style={{ display:'flex', alignItems:'center', gap:5, flexWrap:'wrap' }}>
-        <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3, flexShrink:0 }}>{label}</span>
+        <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3, flexShrink:0 }}>{label}</span>
         {[[0.6,'🐢'], [0.8,'🚶'], [1.0,'🏃']].map(([r, ic]) => (
           <div key={r} onClick={() => { setPlayRate(r); try { localStorage.setItem('fsi:movie:playRate', String(r)) } catch(e) {}
                                         showMovieToast(`${ic} 語速 ${r}x`) }}
-            style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+            style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
               padding:'4px 10px', borderRadius:7,
               color: playRate===r ? '#0d2a3a' : T.txt3,
               background: playRate===r ? '#38bdf8' : T.surf2,
@@ -17249,7 +17255,7 @@ Return ONLY a JSON object, no markdown:
     return (
       <div style={{ background:T.surf, border:`1px solid ${info.c}50`, borderRadius:10, padding:'11px 12px',
         display:'flex', flexDirection:'column', gap:7, minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
-        <div style={{ fontFamily:MONO, fontSize:10, color:info.c, fontWeight:700 }}>
+        <div style={{ fontFamily:MONO, fontSize:11, color:info.c, fontWeight:700 }}>
           🔬 診斷結論 · 你目前的最大關卡
         </div>
 
@@ -17260,14 +17266,14 @@ Return ONLY a JSON object, no markdown:
             const isTop = r.k === top.k
             return (
               <div key={r.k} style={{ display:'flex', alignItems:'center', gap:8 }}>
-                <span style={{ fontFamily:MONO, fontSize:10, fontWeight: isTop ? 700 : 400,
+                <span style={{ fontFamily:MONO, fontSize:11, fontWeight: isTop ? 700 : 400,
                   color: isTop ? ci.c : T.txt3, minWidth:96, flexShrink:0 }}>
                   {isTop ? '▶ ' : '　'}{ci.name}
                 </span>
-                <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3, minWidth:40, flexShrink:0 }}>
+                <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3, minWidth:40, flexShrink:0 }}>
                   {r.miss}/{r.enc}
                 </span>
-                <span style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color: isTop ? ci.c : T.txt3,
+                <span style={{ fontFamily:MONO, fontSize:11, fontWeight:700, color: isTop ? ci.c : T.txt3,
                   minWidth:36, flexShrink:0, textAlign:'right' }}>{r.rate}%</span>
                 <span style={{ flex:1, height:6, background:T.surf2, borderRadius:3, overflow:'hidden', minWidth:0 }}>
                   <span style={{ display:'block', width:`${r.rate}%`, height:'100%',
@@ -17281,11 +17287,11 @@ Return ONLY a JSON object, no markdown:
         {/* 核心轉念 */}
         <div style={{ background:info.c+'12', border:`1px solid ${info.c}30`, borderRadius:8,
           padding:'9px 10px', display:'flex', flexDirection:'column', gap:5 }}>
-          <div style={{ fontFamily:MONO, fontSize:10, color:info.c, fontWeight:700 }}>
+          <div style={{ fontFamily:MONO, fontSize:11, color:info.c, fontWeight:700 }}>
             💡 {info.name} · 漏掉率 {top.rate}%
           </div>
-          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, lineHeight:1.7 }}>{info.tip}</div>
-          <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, lineHeight:1.7, fontWeight:700 }}>
+          <div style={{ fontFamily:MONO, fontSize:11, color:T.txt2, lineHeight:1.7 }}>{info.tip}</div>
+          <div style={{ fontFamily:MONO, fontSize:11, color:T.amber, lineHeight:1.7, fontWeight:700 }}>
             👉 {info.how}
           </div>
         </div>
@@ -17298,13 +17304,13 @@ Return ONLY a JSON object, no markdown:
             return (
               <div key={w} style={{ display:'flex', flexDirection:'column', gap:2 }}>
                 <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
-                  <span style={{ fontFamily:MONO, fontSize:10, color:T.txt2 }}>
+                  <span style={{ fontFamily:MONO, fontSize:11, color:T.txt2 }}>
                     <b style={{ color:info.c }}>{w}</b>
                     <span style={{ color:T.txt3 }}> {miss}/{enc} · {rate}%</span>
                   </span>
                   {isContent && (
                     <span onClick={() => quickAddVocab(w, src?.en ?? '')}
-                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                         color:T.amber, background:T.amberD, border:`1px solid ${T.amber}50`,
                         padding:'2px 8px', borderRadius:6 }}>
                       ＋ 單字庫
@@ -17312,7 +17318,7 @@ Return ONLY a JSON object, no markdown:
                   )}
                 </div>
                 {LINK_HINT[w] && (
-                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6, paddingLeft:8,
+                  <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.6, paddingLeft:8,
                     borderLeft:`2px solid ${info.c}40` }}>
                     {LINK_HINT[w]}
                   </div>
@@ -17328,7 +17334,7 @@ Return ONLY a JSON object, no markdown:
           if (!a) return null
           if (a.need) return (
             <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
-              <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.5 }}>
                 🏃 目前 {playRate}x。再做 <b style={{ color:T.txt2 }}>{a.need}</b> 句診斷（已有 {a.have}/10），
                 系統才有足夠樣本判斷你能不能升速。
               </div>
@@ -17339,7 +17345,7 @@ Return ONLY a JSON object, no markdown:
             <div onClick={() => { setPlayRate(a.up); try { localStorage.setItem('fsi:movie:playRate', String(a.up)) } catch(e) {}
                                   showMovieToast(`🏃 已切到 ${a.up}x`) }}
               style={{ cursor:'pointer', background:T.grn+'15', border:`1px solid ${T.grn}50`, borderRadius:8,
-                padding:'9px 10px', fontFamily:MONO, fontSize:9, color:T.grn, lineHeight:1.7, fontWeight:700 }}>
+                padding:'9px 10px', fontFamily:MONO, fontSize:11, color:T.grn, lineHeight:1.7, fontWeight:700 }}>
               🏃 你在 {playRate}x 的抓字率已達 {a.rate}%（{a.samples} 句樣本）——<b>可以上 {a.up}x 了</b>，點這裡切換。<br/>
               <span style={{ color:T.txt3, fontWeight:400 }}>
                 慢速會把連音拉開、把弱讀還原成清楚的音，那正是你要練的東西，卻被速度幫你解決掉了。
@@ -17350,13 +17356,13 @@ Return ONLY a JSON object, no markdown:
             <div onClick={() => { setPlayRate(a.down); try { localStorage.setItem('fsi:movie:playRate', String(a.down)) } catch(e) {}
                                   showMovieToast(`🐢 已切到 ${a.down}x`) }}
               style={{ cursor:'pointer', background:T.amberD, border:`1px solid ${T.amber}50`, borderRadius:8,
-                padding:'9px 10px', fontFamily:MONO, fontSize:9, color:T.amber, lineHeight:1.7, fontWeight:700 }}>
+                padding:'9px 10px', fontFamily:MONO, fontSize:11, color:T.amber, lineHeight:1.7, fontWeight:700 }}>
               🐢 你在 {playRate}x 的抓字率只有 {a.rate}%（{a.samples} 句）——建議先降到 {a.down}x，
               把連音塊聽熟再上速度。點這裡切換。
             </div>
           )
           return (
-            <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
+            <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.5 }}>
               🏃 目前 {playRate}x · 抓字率 {a.rate}%（{a.samples} 句）。
               到 <b style={{ color:T.txt2 }}>50%</b> 就可以升速——現在還在建立基礎，不用急。
             </div>
@@ -17367,13 +17373,13 @@ Return ONLY a JSON object, no markdown:
         {hero && (
           <div onClick={() => { setListenLibOpen(true); setLibView('weak'); setLibWord(hero.w)
                                 setTimeout(() => scrollToTop(listenLibRef.current), 120) }}
-            style={{ cursor:'pointer', textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
+            style={{ cursor:'pointer', textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
               padding:'9px 0', borderRadius:8,
               background:info.c+'20', color:info.c, border:`1px solid ${info.c}60` }}>
             🎯 今天就打「{hero.w}」關卡（漏掉率 {hero.rate}%）
           </div>
         )}
-        <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
+        <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.5 }}>
           這個轉念比再多練 100 句都有用——你不是聽不到，是<b>在等一個根本不會出現的聲音</b>。
         </div>
       </div>
@@ -19609,7 +19615,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
     const btn = backBtnRef.current
     if (!btn) return
     if (view === 'starred') {
-      btn.style.display = 'flex'
+      btn.style.display = 'none'   // v7.11: 不再浮在 Header 上（會蓋住知識庫／電影金句），改用練習畫面內的返回鍵
       const handler = () => { setView('list'); setPlaying(false); window.speechSynthesis?.cancel(); setMultiScenePhrases([]) }
       btn.addEventListener('click', handler)
       return () => btn.removeEventListener('click', handler)
@@ -19618,61 +19624,63 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
     }
   }, [view])
 
-  // ── FAB 浮動按鈕：直接掛到 document.body，繞過 overflow 截斷問題 ──
+  // ── v7.11: 底部播放列（取代圓形 FAB——FAB 會蓋住卡片上的「熟悉」「播放」）──
+  //   仍掛到 document.body（繞過 overflow 截斷），貼在底部導覽列正上方。
+  //   ⏯ 暫停／繼續、第 N/M 句、⏮ ⏭、停止。handler 走 ref，避免 stale closure。
   useEffect(() => {
-    // 建立 FAB element
-    const fab = document.createElement('div')
-    fab.id = 'star-loop-fab'
-    Object.assign(fab.style, {
-      position: 'fixed',
-      bottom: '88px',
-      left: '20px',
-      zIndex: '9999',
-      width: '56px',
-      height: '56px',
-      borderRadius: '50%',
-      display: 'none',
-      alignItems: 'center',
-      justifyContent: 'center',
-      cursor: 'pointer',
-      fontSize: '22px',
-      userSelect: 'none',
-      fontFamily: 'monospace',
-      transition: 'background 0.2s, box-shadow 0.2s',
-      border: '2px solid',
+    const bar = document.createElement('div')
+    bar.id = 'star-loop-bar'
+    Object.assign(bar.style, {
+      position: 'fixed', bottom: '56px', left: '50%', transform: 'translateX(-50%)',
+      width: '100%', maxWidth: '480px', boxSizing: 'border-box',
+      zIndex: '30', height: '60px', padding: '0 12px',
+      display: 'none', alignItems: 'center', gap: '8px',
+      background: '#0d1117', borderTop: '1px solid #f5a623',
     })
-    document.body.appendChild(fab)
-    fabRef.current = fab
-    return () => { fab.remove() }
-  }, [])
-
-  // ── FAB 狀態同步 ──
-  useEffect(() => {
-    const fab = fabRef.current
-    if (!fab) return
-    if (starLoopMode != null) {
-      const color = starLoopPaused ? '#22c55e' : '#f59e0b'
-      fab.style.display = 'flex'
-      fab.style.background = color
-      fab.style.boxShadow = '0 4px 16px ' + color + '60'
-      fab.style.borderColor = color + '80'
-      fab.textContent = starLoopPaused ? '▶' : '⏸'
-    } else {
-      fab.style.display = 'none'
+    const mk = (txt, css) => {
+      const b = document.createElement('div')
+      b.textContent = txt
+      Object.assign(b.style, { display:'flex', alignItems:'center', justifyContent:'center',
+        cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+        fontFamily:'monospace', fontWeight:'700', flexShrink:'0' }, css)
+      bar.appendChild(b)
+      return b
     }
-  }, [starLoopMode, starLoopPaused])
-
-  // ── FAB 點擊事件（用 ref 避免 stale closure）──
-  useEffect(() => {
-    const fab = fabRef.current
-    if (!fab) return
-    const handler = () => {
+    const sq = { width:'44px', height:'44px', borderRadius:'9px', fontSize:'18px',
+      color:'#aab3be', background:'#161b22', border:'1px solid #30363d' }
+    const play  = mk('⏸', { width:'46px', height:'46px', borderRadius:'50%', fontSize:'20px', color:'#1a1200', background:'#f59e0b' })
+    const label = mk('', { flex:'1', flexShrink:'1', minWidth:'0', justifyContent:'flex-start', cursor:'default', fontSize:'14px', color:'#e6edf3', whiteSpace:'nowrap', overflow:'hidden' })
+    const prev  = mk('⏮', sq)
+    const next  = mk('⏭', sq)
+    const stop  = mk('停止', { height:'44px', padding:'0 12px', borderRadius:'9px', fontSize:'13px', color:'#ff7b72', background:'#2a0f0d', border:'1px solid #8a2a25' })
+    play.addEventListener('click', () => {
       if (starLoopPausedRef.current) { if (resumeFnRef.current) resumeFnRef.current() }
       else { if (pauseFnRef.current) pauseFnRef.current() }
-    }
-    fab.addEventListener('click', handler)
-    return () => fab.removeEventListener('click', handler)
+    })
+    prev.addEventListener('click', () => { if (stepFnRef.current) stepFnRef.current(-1) })
+    next.addEventListener('click', () => { if (stepFnRef.current) stepFnRef.current(1) })
+    stop.addEventListener('click', () => { if (stopFnRef.current) stopFnRef.current() })
+    document.body.appendChild(bar)
+    fabRef.current = { bar, play, label }
+    return () => { bar.remove() }
   }, [])
+
+  // ── 底部播放列 狀態同步 ──
+  useEffect(() => {
+    const f = fabRef.current
+    if (!f) return
+    if (starLoopMode != null) {
+      const navH = document.querySelector('nav')?.getBoundingClientRect().height
+      if (navH) f.bar.style.bottom = Math.round(navH) + 'px'
+      f.bar.style.display = 'flex'
+      f.play.style.background = starLoopPaused ? '#22c55e' : '#f59e0b'
+      f.play.textContent = starLoopPaused ? '▶' : '⏸'
+      const total = starLoopListRef.current?.length ?? 0
+      f.label.textContent = `第 ${starLoopIdx + 1} / ${total} 句` + (starLoopPaused ? '（暫停）' : '')
+    } else {
+      f.bar.style.display = 'none'
+    }
+  }, [starLoopMode, starLoopPaused, starLoopIdx])
 
   // ── 場景「播放整段」浮動播放/暫停鍵：掛到 document.body，捲動也能控制 ──
   useEffect(() => {
@@ -19735,7 +19743,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
   )
 
   const Chip = ({ on, onClick, children }) => (
-    <div onClick={onClick} style={{ cursor:'pointer', fontFamily:MONO, fontSize:9,
+    <div onClick={onClick} style={{ cursor:'pointer', fontFamily:MONO, fontSize:11,
       padding:'4px 12px', borderRadius:10, transition:'all 0.13s',
       background: on ? T.amberD : T.surf2, border:`1px solid ${on ? T.amber+'60' : T.bdr}`,
       color: on ? T.amber : T.txt3 }}>
@@ -19754,7 +19762,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
         <div style={{ display:'flex', alignItems:'center', gap:8 }}>
           <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>📖 單字庫 · {db.vocab.length} 個</span>
           <div onClick={() => { setManualOpen(o=>!o); setManualInput(''); setManualResult(null); setManualExample('') }}
-            style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+            style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
               padding:'4px 12px', borderRadius:8, transition:'all 0.15s',
               background: manualOpen ? T.amber : T.surf2,
               border:`1px solid ${manualOpen ? T.amber : T.bdr}`,
@@ -19768,7 +19776,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
       {manualOpen && (
         <div style={{ background:T.surf, border:`1px solid ${T.bdr2}`, borderRadius:14,
           padding:'16px', display:'flex', flexDirection:'column', gap:12 }} className="fadeUp">
-          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+          <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
             可輸入單字、片語、動詞片語
           </div>
           {/* 輸入 + 查詢 */}
@@ -19784,7 +19792,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               style={{ cursor:'pointer', padding:'9px 14px', borderRadius:8,
                 background: manualBusy ? T.surf2 : T.blueD,
                 border:`1px solid ${manualBusy ? T.bdr : T.blue+'50'}`,
-                fontFamily:MONO, fontSize:10, color: manualBusy ? T.txt3 : T.blue,
+                fontFamily:MONO, fontSize:11, color: manualBusy ? T.txt3 : T.blue,
                 display:'flex', alignItems:'center', gap:5, whiteSpace:'nowrap' }}>
               {manualBusy
                 ? <span style={{ display:'inline-block', width:8, height:8,
@@ -19805,7 +19813,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                   {manualResult.phonetic}
                 </span>
                 {manualResult.pos && (
-                  <span style={{ fontFamily:MONO, fontSize:9, color:T.blue,
+                  <span style={{ fontFamily:MONO, fontSize:11, color:T.blue,
                     background:T.blueD, border:`1px solid ${T.blue}40`,
                     borderRadius:6, padding:'2px 7px' }}>
                     {manualResult.pos}
@@ -19815,7 +19823,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               <div style={{ fontFamily:MONO, fontSize:13, color:T.txt2 }}>{manualResult.zh}</div>
               {/* 例句（可編輯） */}
               <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
-                <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>例句（可修改）</span>
+                <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>例句（可修改）</span>
                 <input value={manualExample}
                   onChange={e => setManualExample(e.target.value)}
                   style={{ fontFamily:MONO, fontSize:11, background:T.surf2,
@@ -19851,9 +19859,9 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
         <div key={v.id} style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:12, padding:'14px 16px' }}>
           <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:5 }}>
             <span style={{ fontFamily:MONO, fontSize:15, color:T.amber, fontWeight:700 }}>{v.word}</span>
-            <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>{v.phonetic}</span>
+            <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>{v.phonetic}</span>
             {v.pos && (
-              <span style={{ fontFamily:MONO, fontSize:9, color:T.blue,
+              <span style={{ fontFamily:MONO, fontSize:11, color:T.blue,
                 background:T.blueD, border:`1px solid ${T.blue}40`,
                 borderRadius:6, padding:'2px 7px' }}>
                 {v.pos}
@@ -19868,11 +19876,11 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               <span style={{ fontSize:12 }}>{playingPhraseId==='vocab_'+v.id ? '⏹' : '🔊'}</span>
             </div>
             <span onClick={() => deleteVocab(v.id)}
-              style={{ marginLeft:'auto', cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
+              style={{ marginLeft:'auto', cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.txt3,
                 padding:'1px 6px', background:T.surf2, borderRadius:5, border:`1px solid ${T.bdr}` }}>✕</span>
           </div>
           <div style={{ fontFamily:MONO, fontSize:12, color:T.txt2, marginBottom:5 }}>{v.zh}</div>
-          <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, fontStyle:'italic', lineHeight:1.7 }}>{v.example}</div>
+          <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, fontStyle:'italic', lineHeight:1.7 }}>{v.example}</div>
         </div>
       ))}
     </div>
@@ -19899,7 +19907,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
 
         {/* 標題列 */}
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-          <span style={{ fontFamily:MONO, fontSize:10, color:T.txt2, fontWeight:700 }}>
+          <span style={{ fontFamily:MONO, fontSize:11, color:T.txt2, fontWeight:700 }}>
             📄 逐字稿
             {hasSaved && <span style={{ color:T.grn, marginLeft:6 }}>✓ {movie.transcript.length.toLocaleString()} 字元</span>}
           </span>
@@ -19909,7 +19917,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                   const n = deduplicateTranscript()
                   alert(n > 0 ? `✅ 已清除 ${n} 個重複段落` : '✓ 無重複，已排序')
                 }}
-                style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.blue,
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.blue,
                   padding:'3px 9px', background:T.blueD, borderRadius:6,
                   border:`1px solid ${T.blue}50` }}>
                 🧹 去除重複
@@ -19917,7 +19925,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
             )}
             {hasSaved && (
               <div onClick={() => { setTranscriptEditMode(!transcriptEditMode); setTranscriptDraft('') }}
-                style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                   color: transcriptEditMode ? T.txt3 : T.amber,
                   padding:'3px 9px', background: transcriptEditMode ? T.surf2 : T.amberD,
                   borderRadius:6, border:`1px solid ${transcriptEditMode ? T.bdr : T.amber+'50'}` }}>
@@ -19926,7 +19934,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
             )}
             {transcriptEditMode && transcriptDraft.trim() && (
               <span onClick={() => setTranscriptDraft('')}
-                style={{ fontFamily:MONO, fontSize:9, color:T.red, cursor:'pointer', padding:'3px 6px' }}>清除</span>
+                style={{ fontFamily:MONO, fontSize:11, color:T.red, cursor:'pointer', padding:'3px 6px' }}>清除</span>
             )}
           </div>
         </div>
@@ -19939,14 +19947,14 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                 readOnly
                 value={movie.transcript}
                 rows={12}
-                style={{ fontFamily:MONO, fontSize:10, background:T.surf2,
+                style={{ fontFamily:MONO, fontSize:11, background:T.surf2,
                   border:`1px solid ${T.bdr}`, borderRadius:10, padding:'12px',
                   color:T.txt2, resize:'none', outline:'none', lineHeight:1.7,
                   boxSizing:'border-box', width:'100%', cursor:'default',
                   opacity:0.85 }}
               />
             ) : (
-              <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, padding:'12px',
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, padding:'12px',
                 background:T.surf2, borderRadius:10, border:`1px solid ${T.bdr}` }}>
                 尚未存入逐字稿，請點「✏️ 貼上新逐字稿」
               </div>
@@ -19955,7 +19963,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               <div style={{ display:'flex', gap:8 }}>
                 <label style={{ flex:2, cursor:'pointer', display:'flex', alignItems:'center',
                   justifyContent:'center', gap:6,
-                  fontFamily:MONO, fontSize:10, fontWeight:700, color:T.blue,
+                  fontFamily:MONO, fontSize:11, fontWeight:700, color:T.blue,
                   padding:'10px', background:T.blueD,
                   borderRadius:9, border:`1px solid ${T.blue}50`, textAlign:'center' }}>
                   📁 選擇 .srt 檔案
@@ -19977,7 +19985,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                   />
                 </label>
                 <div onClick={() => setTranscriptEditMode(true)}
-                  style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                  style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                     color:T.amber, padding:'10px', background:T.amberD,
                     borderRadius:9, border:`1px solid ${T.amber}50`, textAlign:'center' }}>
                   ✏️ 手動貼上
@@ -19991,7 +19999,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
         {transcriptEditMode && (
           <>
             {hasSaved && (
-              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                 已存 {(movie.transcript?.length ?? 0).toLocaleString()} 字元
                 {transcriptDraft.trim() ? `　本頁 ${transcriptDraft.length.toLocaleString()} 字元` : ''}
               </div>
@@ -19999,7 +20007,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
             {/* 📁 選擇 .srt 檔案 */}
             <div style={{ display:'flex', alignItems:'center', gap:8 }}>
               <label style={{ cursor:'pointer', display:'inline-flex', alignItems:'center', gap:6,
-                fontFamily:MONO, fontSize:10, fontWeight:700, color:T.blue,
+                fontFamily:MONO, fontSize:11, fontWeight:700, color:T.blue,
                 background:T.blueD, border:`1px solid ${T.blue}50`,
                 borderRadius:8, padding:'8px 14px' }}>
                 📁 選擇 .srt 檔案
@@ -20020,8 +20028,8 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                 />
               </label>
               {transcriptDraft.trim()
-                ? <span style={{ fontFamily:MONO, fontSize:9, color:T.grn }}>✓ 已讀取 {transcriptDraft.length.toLocaleString()} 字元</span>
-                : <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>或直接貼上文字</span>
+                ? <span style={{ fontFamily:MONO, fontSize:11, color:T.grn }}>✓ 已讀取 {transcriptDraft.length.toLocaleString()} 字元</span>
+                : <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>或直接貼上文字</span>
               }
             </div>
             <textarea
@@ -20029,7 +20037,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               onChange={e => setTranscriptDraft(e.target.value)}
               rows={10}
               placeholder={'貼上新的 SRT 逐字稿內容...\n\n00:05:34,303 --> 00:05:55,885\nDo you know your name?'}
-              style={{ fontFamily:MONO, fontSize:10, background:T.surf2,
+              style={{ fontFamily:MONO, fontSize:11, background:T.surf2,
                 border:`1px solid ${transcriptDraft.trim() ? T.grn+'60' : T.bdr}`,
                 borderRadius:10, padding:'12px', color:T.txt, resize:'none',
                 outline:'none', lineHeight:1.7, boxSizing:'border-box', width:'100%' }}
@@ -20038,14 +20046,14 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               <div style={{ display:'flex', gap:8 }}>
                 {hasSaved && (
                   <div onClick={() => { appendTranscript(transcriptDraft); setTranscriptDraft(''); setTranscriptEditMode(false) }}
-                    style={{ flex:2, cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                    style={{ flex:2, cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                       color:T.grn, padding:'9px', background:T.grnD,
                       borderRadius:8, border:`1px solid ${T.grn}50`, textAlign:'center' }}>
                     ＋ 附加（合計 {((movie.transcript?.length ?? 0) + transcriptDraft.length).toLocaleString()} 字）
                   </div>
                 )}
                 <div onClick={() => { saveTranscript(transcriptDraft); setTranscriptDraft(''); setTranscriptEditMode(false) }}
-                  style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                  style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                     color: hasSaved ? T.red : T.bg, padding:'9px',
                     background: hasSaved ? T.redD : T.amber,
                     borderRadius:8, border:`1px solid ${hasSaved ? T.red+'40' : 'transparent'}`,
@@ -20062,7 +20070,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               if (!window.confirm('確定刪除已儲存的逐字稿？')) return
               saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : { ...m, transcript: '' }) })
             }}
-            style={{ textAlign:'center', fontFamily:MONO, fontSize:9, color:T.red, cursor:'pointer' }}>
+            style={{ textAlign:'center', fontFamily:MONO, fontSize:11, color:T.red, cursor:'pointer' }}>
             刪除已儲存的逐字稿
           </div>
         )}
@@ -20072,13 +20080,13 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
       <div style={{ background:T.surf, border:`1px solid ${canParse ? T.amber+'40' : T.bdr}`,
         borderRadius:13, padding:'14px 16px', display:'flex', flexDirection:'column', gap:10,
         transition:'border-color 0.2s' }}>
-        <span style={{ fontFamily:MONO, fontSize:10, color:T.amber, fontWeight:700 }}>
+        <span style={{ fontFamily:MONO, fontSize:11, color:T.amber, fontWeight:700 }}>
           ⚡ 選取時間範圍 → AI 解析新場景
         </span>
         <div style={{ display:'flex', gap:8, alignItems:'flex-end' }}>
           {[['開始','05:57',startTime,setStartTime],['結束','07:59',endTime,setEndTime]].map(([lbl,ph,val,set]) => (
             <div key={lbl} style={{ display:'flex', flexDirection:'column', gap:3 }}>
-              <span style={{ fontFamily:MONO, fontSize:9, color: val ? T.grn : T.txt3 }}>
+              <span style={{ fontFamily:MONO, fontSize:11, color: val ? T.grn : T.txt3 }}>
                 {lbl}{val ? ' ✓' : ''}
               </span>
               <input value={val} onChange={e => { set(e.target.value); setAddErr('') }}
@@ -20098,7 +20106,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           {/* 預覽此段逐字稿 */}
           {startTime && endTime && hasSaved && (
             <div onClick={previewSceneTranscript}
-              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                 color:T.blue, padding:'8px 10px', background:T.blueD,
                 borderRadius:8, border:`1px solid ${T.blue}50`,
                 display:'flex', alignItems:'center', gap:4, whiteSpace:'nowrap',
@@ -20108,7 +20116,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           )}
         </div>
         {startTime && endTime && hasSaved && (
-          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+          <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
             🔍 預覽後可選擇複製方式，再貼至 ChatGPT
           </div>
         )}
@@ -20118,18 +20126,18 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           <div style={{ display:'flex', flexDirection:'column', gap:8, background:T.surf2,
             border:`1px solid ${T.blue}40`, borderRadius:12, padding:12 }} className="fadeUp">
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <span style={{ fontFamily:MONO, fontSize:10, color:T.blue, fontWeight:700 }}>
+              <span style={{ fontFamily:MONO, fontSize:11, color:T.blue, fontWeight:700 }}>
                 📄 {exportPreview.lines.length} 行 · {startTime} ~ {endTime}
               </span>
               <span onClick={() => setExportPreview(null)}
-                style={{ fontFamily:MONO, fontSize:10, color:T.txt3, cursor:'pointer', padding:'2px 6px' }}>✕</span>
+                style={{ fontFamily:MONO, fontSize:11, color:T.txt3, cursor:'pointer', padding:'2px 6px' }}>✕</span>
             </div>
             {/* 文字預覽 */}
             <div style={{ maxHeight:180, overflowY:'auto', background:T.bg,
               borderRadius:8, padding:'8px 10px', border:`1px solid ${T.bdr}` }}>
               {exportPreview.lines.map((l, i) => (
                 <div key={i} style={{ display:'flex', gap:8, marginBottom:4 }}>
-                  <span style={{ fontFamily:MONO, fontSize:9, color:T.amber, flexShrink:0, marginTop:1 }}>
+                  <span style={{ fontFamily:MONO, fontSize:11, color:T.amber, flexShrink:0, marginTop:1 }}>
                     {secsToTimeStr(l.startSecs)}
                   </span>
                   <span style={{ fontFamily:MONO, fontSize:11, color:T.txt, lineHeight:1.5 }}>
@@ -20141,28 +20149,28 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
             {/* 複製按鈕 */}
             <div style={{ display:'flex', gap:8 }}>
               <div onClick={copyTranscriptOnly}
-                style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                   color:T.grn, padding:'9px 10px', background:T.grnD,
                   borderRadius:8, border:`1px solid ${T.grn}50`,
                   display:'flex', alignItems:'center', justifyContent:'center', gap:4 }}>
                 📋 純文字
               </div>
               <div onClick={copyTranscriptWithPrompt}
-                style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                   color:T.amber, padding:'9px 10px', background:T.amberD,
                   borderRadius:8, border:`1px solid ${T.amber}50`,
                   display:'flex', alignItems:'center', justifyContent:'center', gap:4 }}>
                 ✨ 含分析指令
               </div>
             </div>
-            <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+            <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
               純文字：只有台詞，自己下指令｜含分析指令：自動附上 Jerry Maguire 英文分析 prompt
             </div>
           </div>
         )}
 
         {addErr && (
-          <div style={{ fontFamily:MONO, fontSize:10, color:T.red, background:T.redD,
+          <div style={{ fontFamily:MONO, fontSize:11, color:T.red, background:T.redD,
             borderRadius:8, padding:'7px 10px' }}>{addErr}</div>
         )}
 
@@ -20186,7 +20194,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                     {p.starred && <span style={{ fontSize:11, color:T.amber }}>⭐</span>}
                     <div style={{ fontFamily:MONO, fontSize:11, color:T.txt }}>{p.en}</div>
                   </div>
-                  <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>{p.zh}</div>
+                  <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>{p.zh}</div>
                 </div>
               ))}
             </div>
@@ -20196,7 +20204,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               ✓ 確認加入場景
             </div>
             <div onClick={() => setAddPreview(null)}
-              style={{ textAlign:'center', fontFamily:MONO, fontSize:10, color:T.txt3, cursor:'pointer' }}>
+              style={{ textAlign:'center', fontFamily:MONO, fontSize:11, color:T.txt3, cursor:'pointer' }}>
               重新解析
             </div>
           </div>
@@ -20231,8 +20239,8 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <BackBtn label="← 返回句子" to="scene"/>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-            {starFilter && <span style={{ fontFamily:MONO, fontSize:9, color:T.amber, background:T.amberD, padding:'2px 8px', borderRadius:8 }}>⭐ 重點模式</span>}
-            <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>{playIdx+1} / {activePhrases.length}</span>
+            {starFilter && <span style={{ fontFamily:MONO, fontSize:11, color:T.amber, background:T.amberD, padding:'2px 8px', borderRadius:8 }}>⭐ 重點模式</span>}
+            <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>{playIdx+1} / {activePhrases.length}</span>
           </div>
         </div>
         {/* Progress bar */}
@@ -20240,7 +20248,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           <div style={{ flex:1, background:T.bdr, borderRadius:4, height:6, overflow:'hidden' }}>
             <div style={{ width:`${pct}%`, height:'100%', background:T.amber, transition:'width 0.4s' }}/>
           </div>
-          <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>{playedCount}/{activePhrases.length}</span>
+          <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>{playedCount}/{activePhrases.length}</span>
         </div>
         {/* Card */}
         {cur && (
@@ -20269,12 +20277,12 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
         {/* Prev / Next */}
         <div style={{ display:'flex', gap:8 }}>
           <div onClick={() => { setPlayIdx(i => Math.max(0,i-1)); setPlaying(false) }}
-            style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt2,
+            style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.txt2,
               padding:'10px', background:T.surf2, borderRadius:10, border:`1px solid ${T.bdr}`, textAlign:'center' }}>
             ◀ 上一句
           </div>
           <div onClick={() => { setPlayIdx(i => Math.min(activePhrases.length-1,i+1)); setPlaying(false) }}
-            style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt2,
+            style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.txt2,
               padding:'10px', background:T.surf2, borderRadius:10, border:`1px solid ${T.bdr}`, textAlign:'center' }}>
             下一句 ▶
           </div>
@@ -20290,7 +20298,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           borderRadius:12, padding:'12px 16px', display:'flex', flexDirection:'column', gap:10,
           transition:'border-color 0.2s' }}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-            <span style={{ fontFamily:MONO, fontSize:10, color: sleepMins ? T.blue : T.txt3 }}>
+            <span style={{ fontFamily:MONO, fontSize:11, color: sleepMins ? T.blue : T.txt3 }}>
               😴 睡眠計時
             </span>
             {sleepSecs !== null && (
@@ -20299,7 +20307,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                   {fmtSleep(sleepSecs)}
                 </span>
                 <span onClick={cancelSleep}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.txt3,
                     padding:'2px 8px', background:T.surf2, borderRadius:6,
                     border:`1px solid ${T.bdr}` }}>取消</span>
               </div>
@@ -20318,7 +20326,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                     color: active ? T.blue : T.txt3 }}>
                   {m}分
                   {active && sleepSecs !== null && (
-                    <div style={{ fontSize:8, fontWeight:400, color:T.blue, marginTop:2 }}>
+                    <div style={{ fontSize:11, fontWeight:400, color:T.blue, marginTop:2 }}>
                       {fmtSleep(sleepSecs)}
                     </div>
                   )}
@@ -20327,7 +20335,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
             })}
           </div>
           {sleepMins && (
-            <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, textAlign:'center' }}>
+            <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, textAlign:'center' }}>
               {fmtSleep(sleepSecs)} 後自動停止播放
             </div>
           )}
@@ -20384,8 +20392,8 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <BackBtn label="← 返回句子" to="scene"/>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-            {starFilter && <span style={{ fontFamily:MONO, fontSize:9, color:T.amber, background:T.amberD, padding:'2px 8px', borderRadius:8 }}>⭐ 重點</span>}
-            <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>{revIdx+1} / {activePhrases.length}</span>
+            {starFilter && <span style={{ fontFamily:MONO, fontSize:11, color:T.amber, background:T.amberD, padding:'2px 8px', borderRadius:8 }}>⭐ 重點</span>}
+            <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>{revIdx+1} / {activePhrases.length}</span>
           </div>
         </div>
 
@@ -20394,7 +20402,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           {[{id:'zh',label:'🈵 中文'},{id:'scene',label:'🎬 畫面'}].map(m => (
             <div key={m.id} onClick={() => setRevMode(m.id)}
               style={{ flex:1, cursor:'pointer', textAlign:'center', padding:'7px 8px',
-                borderRadius:9, fontFamily:MONO, fontSize:10, fontWeight: revMode===m.id ? 700 : 400,
+                borderRadius:9, fontFamily:MONO, fontSize:11, fontWeight: revMode===m.id ? 700 : 400,
                 transition:'all 0.15s',
                 background: revMode===m.id ? (m.id==='scene' ? T.amberD : T.surf) : T.surf2,
                 border:`1px solid ${revMode===m.id ? (m.id==='scene' ? T.amber+'60' : T.bdr2) : T.bdr}`,
@@ -20410,10 +20418,10 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           <div onClick={toggleHint}
             style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
               padding:'10px 14px', cursor:'pointer' }}>
-            <span style={{ fontFamily:MONO, fontSize:10, color:T.txt2, fontWeight:700 }}>
+            <span style={{ fontFamily:MONO, fontSize:11, color:T.txt2, fontWeight:700 }}>
               🧠 聯想 + 動作提示
             </span>
-            <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>
+            <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
               {hintOpen ? '▲ 收起' : '▼ 展開'}
             </span>
           </div>
@@ -20432,14 +20440,14 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                 <div key={i} style={{ display:'flex', gap:10, alignItems:'flex-start', paddingTop: i===0?10:0 }}>
                   <span style={{ fontSize:14, flexShrink:0, marginTop:1 }}>{s.icon}</span>
                   <div>
-                    <span style={{ fontFamily:MONO, fontSize:10, color:T.txt, fontWeight:700 }}>{s.bold}</span>
-                    <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginLeft:6 }}>{s.sub}</span>
+                    <span style={{ fontFamily:MONO, fontSize:11, color:T.txt, fontWeight:700 }}>{s.bold}</span>
+                    <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3, marginLeft:6 }}>{s.sub}</span>
                   </div>
                 </div>
               ))}
               {/* 神經連結說明 */}
               <div style={{ marginTop:4, padding:'8px 10px', background:T.surf2,
-                borderRadius:8, fontFamily:MONO, fontSize:9, color:T.txt3, fontStyle:'italic', lineHeight:1.7 }}>
+                borderRadius:8, fontFamily:MONO, fontSize:11, color:T.txt3, fontStyle:'italic', lineHeight:1.7 }}>
                 語言 × 視覺 × 身體 × 情緒 同時啟動<br/>
                 → 大腦建立更深的神經連結，不是死背，是真正記住
               </div>
@@ -20461,7 +20469,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                 {displayText}
               </div>
               {revMode === 'scene' && cur.sceneDesc && cur.zh && (
-                <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, marginTop:4 }}>
+                <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, marginTop:4 }}>
                   {cur.zh}
                 </div>
               )}
@@ -20475,7 +20483,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                   <div style={{ fontFamily:DISP, fontSize:28, color:T.amber, fontWeight:700 }}>
                     {flipCountdown}
                   </div>
-                  <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>
+                  <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                     閉眼…想畫面…
                   </div>
                 </div>
@@ -20501,7 +20509,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                   <div style={{ display:'flex', gap:8, marginTop:12 }}>
                     {[{rate:0.6,label:'🔊 0.6x'},{rate:0.8,label:'🔊 0.8x'},{rate:1.0,label:'🔊 1.0x'}].map(({rate,label}) => (
                       <div key={rate} onClick={() => speakPhrase(cur.id, cur.en, rate)}
-                        style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.amber,
+                        style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.amber,
                           padding:'7px', background:T.surf, borderRadius:8,
                           border:`1px solid ${T.amber}40`, textAlign:'center' }}>
                         {label}
@@ -20513,7 +20521,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                 {/* 熟悉度標記 + 下一句 */}
                 <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:12,
                   padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }}>
-                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, textAlign:'center' }}>
+                  <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, textAlign:'center' }}>
                     說出來了嗎？標記熟悉度 → 自動下一句
                   </div>
                   {/* 三態熟悉度按鈕 */}
@@ -20553,7 +20561,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                               setRevIdx(i => i + 1)
                             }
                           }}
-                          style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                          style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                             padding:'11px 4px', borderRadius:10, textAlign:'center',
                             background: isActive ? activeBg : T.surf2,
                             border:`1px solid ${isActive ? borderColor+'60' : T.bdr}`,
@@ -20567,7 +20575,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                   <div onClick={retryPhrase}
                     style={{ cursor:'pointer', background:T.surf2,
                       border:`1px solid ${T.bdr}`, borderRadius:10, padding:'9px',
-                      textAlign:'center', fontFamily:MONO, fontSize:10, color:T.txt3 }}>
+                      textAlign:'center', fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                     ↺ 再來（重新翻牌）
                   </div>
                 </div>
@@ -20577,7 +20585,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
             {/* 上一句（只在未翻牌時顯示）*/}
             {!revFlip && flipCountdown === 0 && (
               <div onClick={() => setRevIdx(i => Math.max(0,i-1))}
-                style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt3,
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.txt3,
                   padding:'8px', background:T.surf2, borderRadius:10,
                   border:`1px solid ${T.bdr}`, textAlign:'center' }}>
                 ◀ 上一句
@@ -20607,7 +20615,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                   localStorage.setItem('fsi:movie:playRate', String(r))
                   if (scenePlaying && audioElRef.current) audioElRef.current.playbackRate = r
                 }}
-                style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                   padding:'5px 9px', borderRadius:8,
                   background: playRate===r ? T.amberD : T.surf2,
                   border:`1px solid ${playRate===r ? T.amber+'60' : T.bdr}`,
@@ -20617,7 +20625,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
             ))}
             <div onClick={aiStarBusy ? undefined : aiRateScene}
               style={{ cursor: aiStarBusy ? 'default' : 'pointer',
-                fontFamily:MONO, fontSize:10, padding:'5px 9px', borderRadius:8,
+                fontFamily:MONO, fontSize:11, padding:'5px 9px', borderRadius:8,
                 background: T.surf2, border:`1px solid ${T.bdr}`,
                 color: aiStarBusy ? T.txt3 : T.txt2,
                 display:'flex', alignItems:'center', gap:3 }}>
@@ -20636,7 +20644,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
           <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6 }}>
             <div style={{ fontFamily:MONO, fontSize:13, color:T.amber, fontWeight:700, flex:1 }}>{scene.name}</div>
             <div onClick={() => setView('vocab')}
-              style={{ cursor:'pointer', fontFamily:MONO, fontSize:10,
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:11,
                 color: db.vocab.length ? T.blue : T.txt3,
                 background: db.vocab.length ? T.blueD : T.surf2,
                 border:`1px solid ${db.vocab.length ? T.blue+'50' : T.bdr}`,
@@ -20645,8 +20653,8 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
             </div>
           </div>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
-            <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>{scene.timeRange}</span>
-            <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>已練習 {playedCount}/{activePhrases.length} · {pct}%</span>
+            <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>{scene.timeRange}</span>
+            <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>已練習 {playedCount}/{activePhrases.length} · {pct}%</span>
           </div>
           <div style={{ background:T.bdr, borderRadius:4, height:4, overflow:'hidden' }}>
             <div style={{ width:`${pct}%`, height:'100%', background:T.amber, transition:'width 0.3s' }}/>
@@ -20656,7 +20664,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
         {/* 第二行：全部 + ⭐重點 + 🔄反向 */}
         <div style={{ display:'flex', gap:6 }}>
           <div onClick={() => setStarFilter(false)}
-            style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, textAlign:'center',
+            style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:11, textAlign:'center',
               padding:'8px', borderRadius:10, transition:'all 0.13s',
               background: !starFilter ? T.surf : T.surf2,
               border:`1px solid ${!starFilter ? T.bdr2 : T.bdr}`,
@@ -20664,7 +20672,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
             全部 ({phrases.length})
           </div>
           <div onClick={() => setStarFilter(true)}
-            style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, textAlign:'center',
+            style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:11, textAlign:'center',
               padding:'8px', borderRadius:10, transition:'all 0.13s',
               background: starFilter ? T.amberD : T.surf2,
               border:`1px solid ${starFilter ? T.amber+'60' : T.bdr}`,
@@ -20672,7 +20680,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
             ⭐ 重點 ({starredCount})
           </div>
           <div onClick={() => { setRevIdx(0); setRevFlip(false); setView('reverse') }}
-            style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, textAlign:'center',
+            style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:11, textAlign:'center',
               padding:'8px', borderRadius:10, transition:'all 0.13s',
               background: T.surf2, border:`1px solid ${T.bdr2}`, color:T.txt2 }}>
             🔄 反向
@@ -20688,7 +20696,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
             }}
             style={{ background:T.blueD, border:`1px solid ${T.blue}50`, borderRadius:11,
               padding:'10px', textAlign:'center', cursor:'pointer',
-              fontFamily:MONO, fontSize:10, color:T.blue, fontWeight:700 }}>
+              fontFamily:MONO, fontSize:11, color:T.blue, fontWeight:700 }}>
             🎵 補充時間碼（啟用電影原音）
           </div>
         )}
@@ -20703,7 +20711,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               <div onClick={() => { if (!scenePlaying) { }; scenePlaying ? stopSceneAudio() : playSceneAudio() }}
                 style={{ flex:2, cursor:'pointer', background: scenePlaying ? T.surf2 : T.amberD,
                   border:`1px solid ${T.amber}60`, borderRadius:9, padding:'9px',
-                  textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700, color:T.amber }}>
+                  textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700, color:T.amber }}>
                 {scenePlaying ? '⏹ 停止' : '🎬 播放整段'}
               </div>
               {[['single','▶ 單次'],['loop','🔁 循環']].map(([mode, label]) => (
@@ -20712,7 +20720,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                     setSceneLoop(isLoop)
                     if (audioElRef.current) audioElRef.current._sceneLoop = isLoop
                   }}
-                  style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                  style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                     padding:'9px 4px', borderRadius:9, textAlign:'center',
                     background: (sceneLoop ? 'loop' : 'single') === mode ? T.blueD : T.surf2,
                     border:`1px solid ${(sceneLoop ? 'loop' : 'single') === mode ? T.blue+'60' : T.bdr}`,
@@ -20721,7 +20729,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                 </div>
               ))}
               <div onClick={() => { setPlayIdx(0); setPlaying(false); setView('play') }}
-                style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                   padding:'9px 4px', borderRadius:9, textAlign:'center',
                   background: T.amberD, border:`1px solid ${T.amber}50`, color:T.amber }}>
                 ▶ 逐句
@@ -20738,7 +20746,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
 
             {/* 第四行：睡眠計時 */}
             <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-              <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>⏰</span>
+              <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>⏰</span>
               {[10,20,30].map(m => {
                 const active = sleepMins === m
                 return (
@@ -20746,7 +20754,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
                       if (active) { setSleepMins(null); setSleepSecs(null) }
                       else startSleep(m)
                     }}
-                    style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                    style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                       padding:'5px', borderRadius:7, textAlign:'center',
                       background: active ? T.blueD : T.surf2,
                       border:`1px solid ${active ? T.blue+'60' : T.bdr}`,
@@ -20757,7 +20765,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
               })}
             </div>
             {sleepMins && sleepSecs !== null && (
-              <div style={{ fontFamily:MONO, fontSize:9, color:T.blue, textAlign:'center' }}>
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.blue, textAlign:'center' }}>
                 {fmtSleep(sleepSecs)} 後自動停止
               </div>
             )}
@@ -20765,7 +20773,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
         )}
         {/* ── 批次匯入 ChatGPT 備註+重點 ── */}
         <div onClick={() => { setBatchImportOpen(o => !o); setBatchImportText(''); setBatchImportResult(null) }}
-          style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+          style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
             color:'#a78bfa', padding:'10px', background:'#1e1040',
             borderRadius:10, border:'1px solid #a78bfa50', textAlign:'center' }}>
           {batchImportOpen ? '✕ 關閉批次匯入' : '📝 貼上 ChatGPT 分析 → 批次匯入備註+重點'}
@@ -20773,7 +20781,7 @@ Please evaluate and respond in JSON only. Be specific — reference the learner'
         {batchImportOpen && (
           <div style={{ background:'#1a1030', border:'1px solid #a78bfa50',
             borderRadius:10, padding:14, display:'flex', flexDirection:'column', gap:10 }}>
-            <div style={{ fontFamily:MONO, fontSize:9, color:'#a78bfa' }}>
+            <div style={{ fontFamily:MONO, fontSize:11, color:'#a78bfa' }}>
               貼上 ChatGPT 完整分析文字，自動匹配備註到句子，並標記推薦重點句（⭐⭐⭐⭐⭐）
             </div>
             <div onClick={() => {
@@ -21091,7 +21099,7 @@ Steven 不是在收藏電影台詞。
 如果答案是否定的，就不要推薦。`
                 doCopy(SCENE_PROMPT, 'Steven Movie English System v3.0 指令')
               }}
-              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                 color:'#c4b5fd', padding:'8px 12px', background:'#2a1a50',
                 borderRadius:8, border:'1px solid #a78bfa60', textAlign:'center' }}>
               💬 複製分析指令（System v3.0）→ 貼給 ChatGPT
@@ -21111,13 +21119,13 @@ Steven 不是在收藏電影台詞。
                 setBatchImportResult(result)
                 if (result.matched > 0) setBatchImportText('')
               }}
-              style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                 color:'#000', padding:'9px', background:'#a78bfa',
                 borderRadius:8, textAlign:'center' }}>
               ✓ 執行批次匯入
             </div>
             {batchImportResult && (
-              <div style={{ fontFamily:MONO, fontSize:10, lineHeight:1.6,
+              <div style={{ fontFamily:MONO, fontSize:11, lineHeight:1.6,
                 display:'flex', flexDirection:'column', gap:8 }}>
                 <div style={{ color:'#4ade80' }}>✅ 匹配 {batchImportResult.matched} 句・自動加星 {batchImportResult.starred} 句</div>
                 {/* 場景標題建議 */}
@@ -21125,7 +21133,7 @@ Steven 不是在收藏電影台詞。
                   <div style={{ background:'#1a1030', border:'1px solid #a78bfa50',
                     borderRadius:8, padding:'10px 12px',
                     display:'flex', flexDirection:'column', gap:6 }}>
-                    <div style={{ color:'#a78bfa', fontSize:9 }}>🎬 ChatGPT 建議場景標題（點擊套用）：</div>
+                    <div style={{ color:'#a78bfa', fontSize:11 }}>🎬 ChatGPT 建議場景標題（點擊套用）：</div>
                     {batchImportResult.titles.map((title, i) => (
                       <div key={i}
                         onClick={() => {
@@ -21149,9 +21157,9 @@ Steven 不是在收藏電影台詞。
                 {batchImportResult.supplements?.length > 0 && (
                   <div style={{ background:'#0d1a2a', border:'1px solid #3b82f650',
                     borderRadius:8, padding:'10px 12px' }}>
-                    <div style={{ fontFamily:MONO, fontSize:9, color:'#60a5fa', marginBottom:6 }}>📚 補充片語（未匹配到電影原句）</div>
+                    <div style={{ fontFamily:MONO, fontSize:11, color:'#60a5fa', marginBottom:6 }}>📚 補充片語（未匹配到電影原句）</div>
                     {batchImportResult.supplements.map((s,i) => (
-                      <div key={i} style={{ fontFamily:MONO, fontSize:10, color:'#93c5fd',
+                      <div key={i} style={{ fontFamily:MONO, fontSize:11, color:'#93c5fd',
                         padding:'3px 0', borderBottom:'1px solid #1e3a5f' }}>
                         • <span style={{ color:'#fff' }}>{s.en}</span>
                         {s.note ? <span style={{ color:'#94a3b8', marginLeft:6 }}>{s.note}</span> : null}
@@ -21160,7 +21168,7 @@ Steven 不是在收藏電影台詞。
                   </div>
                 )}
                 {batchImportResult.unmatched.length > 0 && (
-                  <div style={{ color:'#f59e0b', fontSize:9, fontFamily:MONO }}>
+                  <div style={{ color:'#f59e0b', fontSize:11, fontFamily:MONO }}>
                     ⚠️ 推薦句未匹配：
                     {batchImportResult.unmatched.map((s,i) => (
                       <div key={i} style={{ color:'#fbbf24', paddingLeft:8 }}>• {s}</div>
@@ -21175,7 +21183,7 @@ Steven 不是在收藏電影台詞。
         {/* 🎧 盲聽模式切換：先聽後看訓練 */}
         <div style={{ display:'flex', alignItems:'center', gap:8 }}>
           <div onClick={() => { setBlindMode(v => !v); setBlindRevealed({}) }}
-            style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+            style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
               padding:'7px 14px', borderRadius:8,
               color: blindMode ? '#0d2a3a' : '#38bdf8',
               background: blindMode ? '#38bdf8' : '#0d2a3a',
@@ -21184,10 +21192,10 @@ Steven 不是在收藏電影台詞。
           </div>
           {blindMode && (
             <>
-              <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>每按一次播</span>
+              <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>每按一次播</span>
               {[1, 2, 3].map(n => (
                 <div key={n} onClick={() => { setBlindPlayCount(n); try { localStorage.setItem('fsi:blind:playCount', String(n)) } catch(e) {} }}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                     padding:'5px 10px', borderRadius:7,
                     color: blindPlayCount===n ? '#0d2a3a' : T.txt3,
                     background: blindPlayCount===n ? '#38bdf8' : T.surf2,
@@ -21198,7 +21206,7 @@ Steven 不是在收藏電影台詞。
             </>
           )}
           <div onClick={() => setRulesOpen(v => !v)}
-            style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700, marginLeft:'auto',
+            style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700, marginLeft:'auto',
               padding:'7px 12px', borderRadius:8,
               color: rulesOpen ? '#1a1207' : T.amber,
               background: rulesOpen ? T.amber : T.amberD,
@@ -21209,10 +21217,10 @@ Steven 不是在收藏電影台詞。
         {/* 語速：診斷數字要標明是在哪個速度拿到的，0.8x 和 1.0x 的成績不能混算 */}
         {blindMode && (
           <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
-            <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>語速</span>
+            <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>語速</span>
             {[[0.6,'🐢'], [0.8,'🚶'], [1.0,'🏃']].map(([r, ic]) => (
               <div key={r} onClick={() => { setPlayRate(r); try { localStorage.setItem('fsi:movie:playRate', String(r)) } catch(e) {} }}
-                style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                   padding:'5px 10px', borderRadius:7,
                   color: playRate===r ? '#0d2a3a' : T.txt3,
                   background: playRate===r ? '#38bdf8' : T.surf2,
@@ -21221,7 +21229,7 @@ Steven 不是在收藏電影台詞。
               </div>
             ))}
             {playRate < 1.0 && (
-              <span style={{ fontFamily:MONO, fontSize:8, color:T.amber, lineHeight:1.5 }}>
+              <span style={{ fontFamily:MONO, fontSize:11, color:T.amber, lineHeight:1.5 }}>
                 慢速的成績是「樂觀版」，真實語速會更低。目標是慢慢往 1.0x 移。
               </span>
             )}
@@ -21231,7 +21239,7 @@ Steven 不是在收藏電影台詞。
         {rulesOpen && (
           <div style={{ background:'#0a1520', border:'1px solid #38bdf830', borderRadius:10,
             padding:12, display:'flex', flexDirection:'column', gap:11 }}>
-            <div style={{ fontFamily:MONO, fontSize:10, color:T.amber, fontWeight:700 }}>
+            <div style={{ fontFamily:MONO, fontSize:11, color:T.amber, fontWeight:700 }}>
               📋 聽力訓練守則 · 每一條都違反直覺
             </div>
             {LISTEN_RULES.map((r, i) => (
@@ -21240,15 +21248,15 @@ Steven 不是在收藏電影台詞。
                 <div style={{ fontFamily:MONO, fontSize:11, color:T.txt, fontWeight:700 }}>
                   {r.icon} {r.t}
                 </div>
-                <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, lineHeight:1.65 }}>
+                <div style={{ fontFamily:MONO, fontSize:11, color:T.txt2, lineHeight:1.65 }}>
                   {r.d}
                 </div>
-                <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.6 }}>
+                <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.6 }}>
                   ↳ {r.why}
                 </div>
               </div>
             ))}
-            <div style={{ fontFamily:MONO, fontSize:9, color:'#38bdf8', lineHeight:1.7,
+            <div style={{ fontFamily:MONO, fontSize:11, color:'#38bdf8', lineHeight:1.7,
               background:'#0d2a3a', border:'1px solid #38bdf840', borderRadius:8, padding:'9px 10px' }}>
               💡 最低限度版本：今天只做得到一件事的話，就做早上那 8 句聽寫。
               其他都是加分題。連續 30 天，你會有第一批可信的漏字資料——那比完美執行三天有價值一百倍。
@@ -21260,26 +21268,26 @@ Steven 不是在收藏電影台詞。
           const anyRated = phrases.some(p => p.rating != null)
           return (
             <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
-              <div style={{ fontFamily:MONO, fontSize:9, color:'#38bdf8', lineHeight:1.6 }}>
+              <div style={{ fontFamily:MONO, fontSize:11, color:'#38bdf8', lineHeight:1.6 }}>
                 按 ▶ 播{blindPlayCount}次 → 慢慢打你聽到的字 → 想再聽就再按 ▶ → 送出比對。
                 <b style={{ color:T.amber }}>不用把字扛在腦子裡</b>，抓到就馬上打進去，腦子留著解碼。
               </div>
               {!anyRated ? (
-                <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, background:T.amberD,
+                <div style={{ fontFamily:MONO, fontSize:11, color:T.amber, background:T.amberD,
                   border:`1px solid ${T.amber}40`, borderRadius:8, padding:'8px 10px', lineHeight:1.6 }}>
                   ⚠ 這個場景還沒跑過 AI 評分，盲聽池是空的。
                   請先執行「AI 評分」，系統才能挑出 ★3 以上、值得聽寫的句子。
                 </div>
               ) : (
-                <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
+                <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.6 }}>
                   🎧 盲聽池 <b style={{ color:'#38bdf8' }}>{pool.length}</b> 句
-                  <span style={{ fontSize:8 }}>（全 {phrases.length} 句 − 重點句 − ★2以下 − 少於{BLIND_MIN_WORDS}字）</span>
+                  <span style={{ fontSize:11 }}>（全 {phrases.length} 句 − 重點句 − ★2以下 − 少於{BLIND_MIN_WORDS}字）</span>
                 </div>
               )}
             </div>
           )
         })()}
-        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>⭐ 收藏重點句 · 👆 點單字加入單字庫 · ✎ 長按英文編輯 · ✕ 刪除句子</div>
+        <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>⭐ 收藏重點句 · 👆 點單字加入單字庫 · ✎ 長按英文編輯 · ✕ 刪除句子</div>
         {/* Sentence list：盲聽模式只出「盲聽池」的句子（非重點句 + ★3以上 + ≥4字）*/}
         {(blindMode ? phrases.filter(inBlindPool)
                     : starFilter ? phrases.filter(p=>p.starred) : phrases).map(p => (
@@ -21300,7 +21308,7 @@ Steven 不是在收藏電影台詞。
                     border:'1px solid #38bdf850' }}>
                   {blindPlayingId === p.id ? '⏹' : '▶'}
                 </div>
-                <div style={{ flex:1, fontFamily:MONO, fontSize:10, color:T.txt3, letterSpacing:'0.05em', lineHeight:1.6 }}>
+                <div style={{ flex:1, fontFamily:MONO, fontSize:11, color:T.txt3, letterSpacing:'0.05em', lineHeight:1.6 }}>
                   {blindRevealed[p.id] === 'en' ? (
                     /* 已送出聽寫 → 逐字三色標示；🟢抓到 ⚪漏掉 */
                     dictResult[p.id] ? (
@@ -21335,7 +21343,7 @@ Steven 不是在收藏電影台詞。
                 </div>
                 {blindRevealed[p.id] === 'en' && (
                   <div onClick={() => { setBlindRevealed(r => ({ ...r, [p.id]: 'full' })); markBlindReveal(p.id, 'zh') }}
-                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700, flexShrink:0,
+                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700, flexShrink:0,
                       padding:'9px 14px', borderRadius:8,
                       background:T.surf2, border:'1px solid #38bdf850', color:'#38bdf8' }}>
                     顯示中文
@@ -21360,7 +21368,7 @@ Steven 不是在收藏電影台詞。
                         border:'1px solid #38bdf850', borderRadius:8, padding:'11px 12px',
                         color:T.txt, fontFamily:MONO, fontSize:14, outline:'none' }} />
                     {/* 播放次數不設上限，但誠實標示這筆算不算診斷 */}
-                    <div style={{ fontFamily:MONO, fontSize:8, lineHeight:1.5,
+                    <div style={{ fontFamily:MONO, fontSize:11, lineHeight:1.5,
                       color: nPlays === 0 ? T.txt3 : isDiag ? T.grn : T.amber }}>
                       {nPlays === 0
                         ? '先按 ▶ 聽，愛聽幾次都可以（但先送出一次，再繼續聽）'
@@ -21378,7 +21386,7 @@ Steven 不是在收藏電影台詞。
                         送出比對{nPlays > 3 ? '（練習）' : ''}
                       </div>
                       <div onClick={() => { setBlindRevealed(r => ({ ...r, [p.id]: 'en' })); markBlindReveal(p.id, 'en') }}
-                        style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
+                        style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.txt3,
                           padding:'9px 10px', borderRadius:8, border:`1px solid ${T.bdr}`, flexShrink:0 }}>
                         跳過聽寫
                       </div>
@@ -21396,45 +21404,45 @@ Steven 不是在收藏電影台詞。
                   <div style={{ display:'flex', flexDirection:'column', gap:5,
                     background:'#0a1520', border:'1px solid #38bdf825', borderRadius:9, padding:'9px 11px' }}>
                     <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
-                      <span style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:lv.c,
+                      <span style={{ fontFamily:MONO, fontSize:11, fontWeight:700, color:lv.c,
                         background:lv.c+'20', border:`1px solid ${lv.c}50`, padding:'2px 8px', borderRadius:6 }}>
                         {lv.label}
                       </span>
-                      <span style={{ fontFamily:MONO, fontSize:10, color:T.txt2 }}>
+                      <span style={{ fontFamily:MONO, fontSize:11, color:T.txt2 }}>
                         全詞 <b style={{ color:T.txt }}>{c.rate}%</b>
-                        <span style={{ color:T.txt3, fontSize:8 }}> ({c.hit}/{c.total})</span>
+                        <span style={{ color:T.txt3, fontSize:11 }}> ({c.hit}/{c.total})</span>
                       </span>
-                      <span style={{ fontFamily:MONO, fontSize:10, color:T.txt2 }}>
+                      <span style={{ fontFamily:MONO, fontSize:11, color:T.txt2 }}>
                         實詞 <b style={{ color:T.grn }}>{c.cRate}%</b>
-                        <span style={{ color:T.txt3, fontSize:8 }}> ({c.cHit}/{c.cTotal})</span>
+                        <span style={{ color:T.txt3, fontSize:11 }}> ({c.cHit}/{c.cTotal})</span>
                       </span>
                     </div>
                     {gap > 0 && (
-                      <div style={{ fontFamily:MONO, fontSize:8, color:T.amber }}>
+                      <div style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>
                         弱讀缺口 {gap}pt — 實詞聽得到，虛詞聽不到（as/was/the 這類被弱讀吃掉）
                       </div>
                     )}
                     {c.missed.length > 0 && (
-                      <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.7 }}>
+                      <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.7 }}>
                         ⚪ 漏掉：{c.missed.map((w,i) => (
                           <span key={i} style={{ color: FUNC_WORDS.has(w) ? T.amber : '#f87171', marginRight:6 }}>{w}</span>
                         ))}
                       </div>
                     )}
                     {c.misheard.length > 0 && (
-                      <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.7 }}>
+                      <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.7 }}>
                         🔴 誤聽：{c.misheard.map((w,i) => (
                           <span key={i} style={{ color:'#f87171', marginRight:6 }}>{w}</span>
                         ))}
                         {c.pairs.length > 0 && (
-                          <span style={{ color:T.txt3, fontSize:8 }}>
+                          <span style={{ color:T.txt3, fontSize:11 }}>
                             （{c.pairs.map(([a,b]) => `${a}→${b}`).join('、')}）
                           </span>
                         )}
                       </div>
                     )}
                     {p.dict?.first && p.dict.count > 1 && (
-                      <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
+                      <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                         首次成績（診斷基準）：全詞 {p.dict.first.rate}% · 實詞 {p.dict.first.cRate}% · 已聽寫 {p.dict.count} 次
                       </div>
                     )}
@@ -21445,7 +21453,7 @@ Steven 不是在收藏電影台詞。
                     {/* 🔁 三步驟對照：知道答案後回聽電影原音，才是真正在建立連音解碼迴路 */}
                     <div onClick={() => playThreeStep(p)}
                       style={{ cursor:'pointer', marginTop:3, textAlign:'center',
-                        fontFamily:MONO, fontSize:10, fontWeight:700, padding:'8px 0', borderRadius:8,
+                        fontFamily:MONO, fontSize:11, fontWeight:700, padding:'8px 0', borderRadius:8,
                         background: threeStep?.pid === p.id ? '#38bdf8' : T.surf2,
                         color: threeStep?.pid === p.id ? '#0d2a3a' : '#38bdf8',
                         border:'1px solid #38bdf850' }}>
@@ -21455,7 +21463,7 @@ Steven 不是在收藏電影台詞。
                                                   '③ 🎬 回聽電影原音 ← 關鍵在這步')
                         : '🔁 三步驟對照（電影 → 系統 → 電影）'}
                     </div>
-                    <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
+                    <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.5 }}>
                       第③步強迫耳朵把「已知答案」對上那團模糊的聲音——只做①②只是在對答案，耳朵不會改變。
                     </div>
                   </div>
@@ -21463,7 +21471,7 @@ Steven 不是在收藏電影台詞。
               })()}
               {/* 累積結果：盲聽過幾次、各級各幾次 */}
               {(p.blindStats?.plays > 0 || p.blindResult) && (
-                <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
+                <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                   累積：聽{p.blindStats?.plays ?? 0}次
                   {p.blindStats?.good > 0 && <span style={{ color:T.grn, marginLeft:6 }}>✓完全聽懂×{p.blindStats.good}</span>}
                   {p.blindStats?.partial > 0 && <span style={{ color:T.amber, marginLeft:6 }}>◎大意×{p.blindStats.partial}</span>}
@@ -21472,7 +21480,7 @@ Steven 不是在收藏電影台詞。
               )}
               {/* 抓字率 <60% 時不問「意思懂不懂」：字都抓不到，問理解沒有訊息量 */}
               {blindRevealed[p.id] === 'en' && dictResult[p.id] && dictResult[p.id].rate < 60 && (
-                <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.6 }}>
+                <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.6 }}>
                   抓字率未達 60%，先過「聲音→文字」這關；意思理解暫不追問。
                 </div>
               )}
@@ -21485,7 +21493,7 @@ Steven 不是在收藏電影台詞。
                     { key:'bad',     label:'✗ 幾乎沒聽懂', c:T.red, bg:'#3a1a1a' },
                   ].map(o => (
                     <div key={o.key} onClick={() => markBlindResult(p.id, o.key)}
-                      style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:9, fontWeight:700,
+                      style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
                         padding:'7px 0', borderRadius:7,
                         background: p.blindResult===o.key ? o.bg : T.surf2,
                         color: p.blindResult===o.key ? o.c : T.txt3,
@@ -21505,14 +21513,14 @@ Steven 不是在收藏電影台詞。
             {/* 🎧 盲聽模式（已完整顯示）：仍可標記聽力結果 */}
             {blindMode && blindRevealed[p.id] === 'full' && (
               <div style={{ display:'flex', gap:6, marginBottom:10, alignItems:'center' }}>
-                <span style={{ fontFamily:MONO, fontSize:9, color:'#38bdf8', flexShrink:0 }}>🎧</span>
+                <span style={{ fontFamily:MONO, fontSize:11, color:'#38bdf8', flexShrink:0 }}>🎧</span>
                 {[
                   { key:'good',    label:'✓ 完全聽懂', c:T.grn,   bg:'#0a3a1a' },
                   { key:'partial', label:'◎ 聽懂大意', c:T.amber, bg:'#3a2a0a' },
                   { key:'bad',     label:'✗ 幾乎沒聽懂', c:T.red, bg:'#3a1a1a' },
                 ].map(o => (
                   <div key={o.key} onClick={() => markBlindResult(p.id, o.key)}
-                    style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:9, fontWeight:700,
+                    style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
                       padding:'7px 0', borderRadius:7,
                       background: p.blindResult===o.key ? o.bg : T.surf2,
                       color: p.blindResult===o.key ? o.c : T.txt3,
@@ -21553,10 +21561,10 @@ Steven 不是在收藏電影台詞。
                       updateScenePhrases(ps => ps.map(ph => ph.id===p.id ? {...ph, en: editingEnText.trim()} : ph))
                       setEditingEnId(null)
                     }}
-                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, color:'#000',
+                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:'#000',
                       padding:'4px 9px', background:T.amber, borderRadius:6, fontWeight:700 }}>✓</div>
                   <div onClick={() => setEditingEnId(null)}
-                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
+                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.txt3,
                       padding:'4px 7px', background:T.surf2, borderRadius:6,
                       border:`1px solid ${T.bdr}` }}>✕</div>
                 </div>
@@ -21616,11 +21624,11 @@ Steven 不是在收藏電影台詞。
                     background:T.surf2, border:`1px solid ${T.amber}80`,
                     borderRadius:7, padding:'5px 9px', outline:'none' }}/>
                 <div onClick={() => saveZh(p.id, editingZhText)}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.bg,
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.bg,
                     padding:'4px 10px', background:T.amber, borderRadius:6,
                     fontWeight:700, whiteSpace:'nowrap' }}>✓</div>
                 <div onClick={() => setEditingZhId(null)}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt3,
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.txt3,
                     padding:'4px 8px', background:T.surf2, borderRadius:6,
                     border:`1px solid ${T.bdr}` }}>✕</div>
               </div>
@@ -21635,7 +21643,7 @@ Steven 不是在收藏電影台詞。
                 onMouseEnter={e => e.currentTarget.style.borderBottomColor = T.bdr2}
                 onMouseLeave={e => e.currentTarget.style.borderBottomColor = 'transparent'}>
                 {p.zh}
-                <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3,
+                <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3,
                   opacity:0.5, marginLeft:5 }}>✎</span>
               </div>
             )}
@@ -21646,7 +21654,7 @@ Steven 不是在收藏電影台詞。
                   {'⭐'.repeat(Number(p.rating))}
                 </span>
                 {p.reason && (
-                  <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>{p.reason}</span>
+                  <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>{p.reason}</span>
                 )}
               </div>
             )}
@@ -21668,14 +21676,14 @@ Steven 不是在收藏電影台詞。
                     if (e.key === 'Escape') setEditingNoteId(null)
                   }}
                   placeholder="例：They-v-all-gone-out / said it 連音"
-                  style={{ flex:1, fontFamily:MONO, fontSize:10, color:T.txt,
+                  style={{ flex:1, fontFamily:MONO, fontSize:11, color:T.txt,
                     background:T.surf2, border:`1px solid ${T.blue}80`,
                     borderRadius:7, padding:'5px 9px', outline:'none' }}/>
                 <div onClick={() => saveNote(p.id, editingNoteText)}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, color:'#fff',
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:'#fff',
                     padding:'4px 9px', background:T.blue, borderRadius:6, fontWeight:700 }}>✓</div>
                 <div onClick={() => setEditingNoteId(null)}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.txt3,
                     padding:'4px 7px', background:T.surf2, borderRadius:6,
                     border:`1px solid ${T.bdr}` }}>✕</div>
               </div>
@@ -21683,8 +21691,8 @@ Steven 不是在收藏電影台詞。
               <div onClick={() => { setEditingNoteId(p.id); setEditingNoteText(p.note) }}
                 style={{ display:'flex', alignItems:'flex-start', gap:5, paddingRight:70,
                   marginTop:4, cursor:'pointer' }}>
-                <span style={{ fontSize:10, flexShrink:0, marginTop:1 }}>📝</span>
-                <span style={{ fontFamily:MONO, fontSize:10, color:T.blue,
+                <span style={{ fontSize:11, flexShrink:0, marginTop:1 }}>📝</span>
+                <span style={{ fontFamily:MONO, fontSize:11, color:T.blue,
                   fontStyle:'italic', lineHeight:1.7 }}>{p.note}</span>
               </div>
             ) : null}
@@ -21708,16 +21716,16 @@ Steven 不是在收藏電影台詞。
                   onChange={e => setEditingSceneDescText(e.target.value)}
                   rows={2}
                   placeholder="描述這句話的電影畫面情境…"
-                  style={{ fontFamily:MONO, fontSize:10, color:T.txt, background:T.surf2,
+                  style={{ fontFamily:MONO, fontSize:11, color:T.txt, background:T.surf2,
                     border:`1px solid ${T.amber}80`, borderRadius:7, padding:'6px 9px',
                     outline:'none', resize:'none', lineHeight:1.6 }}/>
                 <div style={{ display:'flex', gap:6 }}>
                   <div onClick={() => saveSceneDesc(p.id, editingSceneDescText)}
-                    style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:9,
+                    style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:11,
                       color:T.bg, padding:'5px', background:T.amber,
                       borderRadius:6, textAlign:'center', fontWeight:700 }}>✓ 儲存</div>
                   <div onClick={() => autoGenSceneDesc(p.id, p.en)}
-                    style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:9,
+                    style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:11,
                       color:T.amber, padding:'5px', background:T.amberD,
                       borderRadius:6, textAlign:'center',
                       border:`1px solid ${T.amber}50`,
@@ -21725,7 +21733,7 @@ Steven 不是在收藏電影台詞。
                     {autoGenSceneBusy === p.id ? 'AI中…' : '✨ AI生成'}
                   </div>
                   <div onClick={() => setEditingSceneDescId(null)}
-                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
+                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.txt3,
                       padding:'5px 8px', background:T.surf2, borderRadius:6,
                       border:`1px solid ${T.bdr}` }}>✕</div>
                 </div>
@@ -21734,8 +21742,8 @@ Steven 不是在收藏電影台詞。
               <div onClick={() => { setEditingSceneDescId(p.id); setEditingSceneDescText(p.sceneDesc) }}
                 style={{ display:'flex', alignItems:'flex-start', gap:5, paddingRight:70,
                   marginTop:4, cursor:'pointer' }}>
-                <span style={{ fontSize:10, flexShrink:0, marginTop:1 }}>🎬</span>
-                <span style={{ fontFamily:MONO, fontSize:10, color:T.amber,
+                <span style={{ fontSize:11, flexShrink:0, marginTop:1 }}>🎬</span>
+                <span style={{ fontFamily:MONO, fontSize:11, color:T.amber,
                   lineHeight:1.7 }}>{p.sceneDesc}</span>
               </div>
             ) : null}
@@ -21751,12 +21759,12 @@ Steven 不是在收藏電影台詞。
                     {inlineLookup.word}
                   </span>
                   {inlineLookup.info && (
-                    <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>
+                    <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                       {inlineLookup.info.phonetic}
                     </span>
                   )}
                   {inlineLookup.info?.pos && (
-                    <span style={{ fontFamily:MONO, fontSize:9, color:T.blue,
+                    <span style={{ fontFamily:MONO, fontSize:11, color:T.blue,
                       background:T.blueD, border:`1px solid ${T.blue}40`,
                       borderRadius:6, padding:'2px 7px' }}>
                       {inlineLookup.info.pos}
@@ -21777,7 +21785,7 @@ Steven 不是在收藏電影台詞。
                   )}
                   <span onClick={() => setInlineLookup(null)}
                     style={{ marginLeft:'auto', cursor:'pointer', fontFamily:MONO,
-                      fontSize:9, color:T.txt3, padding:'1px 6px',
+                      fontSize:11, color:T.txt3, padding:'1px 6px',
                       background:T.surf, borderRadius:5, border:`1px solid ${T.bdr}` }}>✕</span>
                 </div>
                 {inlineLookup.info && (
@@ -21792,13 +21800,13 @@ Steven 不是在收藏電影台詞。
                       }}
                       style={{ cursor:'pointer', background:T.blue, borderRadius:8,
                         padding:'9px', textAlign:'center',
-                        fontFamily:MONO, fontSize:10, fontWeight:700, color:'#fff' }}>
+                        fontFamily:MONO, fontSize:11, fontWeight:700, color:'#fff' }}>
                       + 加入單字庫
                     </div>
                   </>
                 )}
                 {inlineLookup.busy && (
-                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, textAlign:'center' }}>
+                  <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, textAlign:'center' }}>
                     AI 查詢中…
                   </div>
                 )}
@@ -21810,13 +21818,13 @@ Steven 不是在收藏電影台詞。
               display:'flex', flexDirection:'column', alignItems:'flex-end', gap:5 }}>
               {deletingPhraseId === p.id ? (
                 <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:5 }}>
-                  <span style={{ fontFamily:MONO, fontSize:9, color:T.red }}>確定刪除？</span>
+                  <span style={{ fontFamily:MONO, fontSize:11, color:T.red }}>確定刪除？</span>
                   <div style={{ display:'flex', gap:4 }}>
                     <div onClick={() => { deletePhrase(p.id); setDeletingPhraseId(null) }}
-                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#fff',
+                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:'#fff',
                         padding:'3px 8px', background:T.red, borderRadius:5 }}>刪除</div>
                     <div onClick={() => setDeletingPhraseId(null)}
-                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt2,
+                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.txt2,
                         padding:'3px 8px', background:T.surf2, borderRadius:5,
                         border:`1px solid ${T.bdr}` }}>取消</div>
                   </div>
@@ -21841,7 +21849,7 @@ Steven 不是在收藏電影台詞。
                       }
                       copy(txt)
                     }}
-                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.blue,
+                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.blue,
                       padding:'2px 5px', background:T.blueD, borderRadius:5,
                       border:`1px solid ${T.blue}50` }}>📋</div>
                   <div onClick={() => toggleStar(p.id)}
@@ -21850,7 +21858,7 @@ Steven 不是在收藏電影台詞。
                       transition:'opacity 0.15s, transform 0.15s',
                       transform: p.starred ? 'scale(1.15)' : 'scale(1)' }}>⭐</div>
                   <div onClick={() => setDeletingPhraseId(p.id)}
-                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
+                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.txt3,
                       padding:'2px 5px', background:T.surf2, borderRadius:5,
                       border:`1px solid ${T.bdr}` }}>✕</div>
                 </div>
@@ -21951,7 +21959,7 @@ Steven 不是在收藏電影台詞。
             {mySentenceEditId === p.id && (
               <div style={{ marginTop:10, background:'#0d0820', border:'1px solid #a78bfa40',
                 borderRadius:10, padding:12, display:'flex', flexDirection:'column', gap:8 }}>
-                <div style={{ fontFamily:MONO, fontSize:9, color:'#a78bfa' }}>
+                <div style={{ fontFamily:MONO, fontSize:11, color:'#a78bfa' }}>
                   🖊️ 把這句改編成你自己工作/生活會用的句子：
                 </div>
                 <textarea value={mySentenceDraft} onChange={e => setMySentenceDraft(e.target.value)}
@@ -21959,13 +21967,13 @@ Steven 不是在收藏電影台詞。
                   style={{ width:'100%', minHeight:60, fontFamily:MONO, fontSize:12,
                     background:'#060412', border:'1px solid #a78bfa30', borderRadius:8,
                     padding:8, color:'#fff', outline:'none', resize:'vertical' }}/>
-                <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
+                <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                   分類（AI修改後會自動判斷，也可手動調整）：
                 </div>
                 <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
                   {MY_PRODUCE_TAGS.map(t => (
                     <div key={t.id} onClick={() => setMySentenceTag(t.id)}
-                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:8,
+                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:11,
                         padding:'4px 8px', borderRadius:6,
                         background: mySentenceTag===t.id ? '#a78bfa' : '#060412',
                         color: mySentenceTag===t.id ? '#0d0820' : T.txt3,
@@ -21984,7 +21992,7 @@ Steven 不是在收藏電影台詞。
                       setMySentenceBusy(false)
                     }}
                     style={{ cursor: mySentenceBusy ? 'default' : 'pointer', flex:1, textAlign:'center',
-                      fontFamily:MONO, fontSize:10, fontWeight:700, padding:'9px 0', borderRadius:8,
+                      fontFamily:MONO, fontSize:11, fontWeight:700, padding:'9px 0', borderRadius:8,
                       background: mySentenceBusy ? T.surf2 : '#a78bfa', color: mySentenceBusy ? T.txt3 : '#0d0820' }}>
                     {mySentenceBusy ? '⏳ AI修改中…' : '🤖 AI修改'}
                   </div>
@@ -21993,7 +22001,7 @@ Steven 不是在收藏電影台詞。
                       navigator.clipboard?.writeText(promptText).then(() => showMovieToast('✅ 已複製，可貼給ChatGPT'))
                     }}
                     style={{ cursor:'pointer', flex:1, textAlign:'center',
-                      fontFamily:MONO, fontSize:10, fontWeight:700, padding:'9px 0', borderRadius:8,
+                      fontFamily:MONO, fontSize:11, fontWeight:700, padding:'9px 0', borderRadius:8,
                       background:T.surf2, border:'1px solid #a78bfa40', color:'#a78bfa' }}>
                     📋 複製給ChatGPT
                   </div>
@@ -22010,7 +22018,7 @@ Steven 不是在收藏電影台詞。
                       setMySentenceResult({ corrected: mySentencePasted.trim(), tip: '（來自ChatGPT等外部AI）' })
                       setMySentencePasted('')
                     }}
-                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                       padding:'8px 12px', borderRadius:8, background:'#a78bfa', color:'#0d0820', flexShrink:0 }}>
                     帶入
                   </div>
@@ -22030,7 +22038,7 @@ Steven 不是在收藏電影台詞。
                         setMySentenceEditId(null); setMySentenceDraft(''); setMySentenceResult(null); setMySentenceTag('other')
                       }}
                       style={{ cursor:'pointer', flex:1, textAlign:'center',
-                        fontFamily:MONO, fontSize:10, fontWeight:700, padding:'9px 0', borderRadius:8,
+                        fontFamily:MONO, fontSize:11, fontWeight:700, padding:'9px 0', borderRadius:8,
                         background:T.grn, color:'#06210f' }}>
                       💾 加入造句庫
                     </div>
@@ -22042,14 +22050,14 @@ Steven 不是在收藏電影台詞。
                     <div style={{ fontFamily:MONO, fontSize:12, color:'#a78bfa', lineHeight:1.6 }}>
                       {mySentenceResult.corrected}
                     </div>
-                    <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.5 }}>
+                    <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.5 }}>
                       💡 {mySentenceResult.tip}
                     </div>
                   </div>
                 )}
               </div>
             )}
-            {p.played && <span style={{ position:'absolute', bottom:8, right:10, fontSize:9, color:T.txt3 }}>✅</span>}
+            {p.played && <span style={{ position:'absolute', bottom:8, right:10, fontSize:11, color:T.txt3 }}>✅</span>}
           </div>
           )
         ))}
@@ -22070,7 +22078,7 @@ Steven 不是在收藏電影台詞。
             }}
             style={{ background:'#1a0f2e', border:'1px solid #a78bfa50', borderRadius:11,
               padding:'10px', textAlign:'center', cursor:'pointer',
-              fontFamily:MONO, fontSize:10, color:'#a78bfa', fontWeight:700 }}>
+              fontFamily:MONO, fontSize:11, color:'#a78bfa', fontWeight:700 }}>
             🔁 強制用逐字稿重新比對（覆蓋現有時間碼）
           </div>
         )}
@@ -22079,14 +22087,14 @@ Steven 不是在收藏電影台詞。
         <div style={{ background:T.surf, border:`1px solid ${tcOpen ? T.amber+'50' : T.bdr}`, borderRadius:11, overflow:'hidden' }}>
           <div onClick={() => { setTcOpen(v => !v); setTcMsg('') }}
             style={{ cursor:'pointer', padding:'10px 14px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-            <span style={{ fontFamily:MONO, fontSize:10, color:T.amber, fontWeight:700 }}>⏱ 時間碼整批校正</span>
-            <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>{tcOpen ? '▲' : '▼'}</span>
+            <span style={{ fontFamily:MONO, fontSize:11, color:T.amber, fontWeight:700 }}>⏱ 時間碼整批校正</span>
+            <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>{tcOpen ? '▲' : '▼'}</span>
           </div>
           {tcOpen && (
             <div style={{ padding:'0 14px 14px', display:'flex', flexDirection:'column', gap:10 }} className="fadeUp">
               {/* 上次校正紀錄：存在場景資料本身，重開頁面也看得到 */}
               {scene?.lastCorrection && (
-                <div style={{ fontFamily:MONO, fontSize:9, color:T.grn,
+                <div style={{ fontFamily:MONO, fontSize:11, color:T.grn,
                   background:T.surf2, borderRadius:8, padding:'6px 10px' }}>
                   📌 上次校正：{scene.lastCorrection.offset > 0 ? '+' : ''}{scene.lastCorrection.offset.toFixed(3)} 秒
                   （{scene.lastCorrection.appliedAt}）
@@ -22097,7 +22105,7 @@ Steven 不是在收藏電影台詞。
                 {[{id:'manual', l:'手動輸入秒差'}, {id:'anchor', l:'用某句校正'}].map(o => (
                   <div key={o.id} onClick={() => { setTcMode(o.id); setTcMsg('') }}
                     style={{ flex:1, cursor:'pointer', textAlign:'center', padding:'7px 4px', borderRadius:8,
-                      fontFamily:MONO, fontSize:9, fontWeight: tcMode===o.id ? 700 : 400,
+                      fontFamily:MONO, fontSize:11, fontWeight: tcMode===o.id ? 700 : 400,
                       background: tcMode===o.id ? T.amber : T.surf2,
                       border:`1px solid ${tcMode===o.id ? T.amber : T.bdr}`,
                       color: tcMode===o.id ? T.bg : T.txt3 }}>
@@ -22108,7 +22116,7 @@ Steven 不是在收藏電影台詞。
 
               {tcMode === 'manual' ? (
                 <>
-                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
+                  <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.6 }}>
                     播放時，你聽到的聲音內容，跟畫面顯示的句子相比：
                   </div>
                   <div style={{ display:'flex', gap:6 }}>
@@ -22118,25 +22126,25 @@ Steven 不是在收藏電影台詞。
                     ].map(o => (
                       <div key={o.id} onClick={() => setTcDir(o.id)}
                         style={{ flex:1, cursor:'pointer', textAlign:'center', padding:'8px 4px', borderRadius:8,
-                          fontFamily:MONO, fontSize:9,
+                          fontFamily:MONO, fontSize:11,
                           background: tcDir===o.id ? T.amberD : T.surf2,
                           border:`1px solid ${tcDir===o.id ? T.amber+'60' : T.bdr}`,
                           color: tcDir===o.id ? T.amber : T.txt3 }}>
                         <div>{o.l}</div>
-                        <div style={{ fontSize:8, opacity:0.75, marginTop:3 }}>{o.sub}</div>
+                        <div style={{ fontSize:11, opacity:0.75, marginTop:3 }}>{o.sub}</div>
                       </div>
                     ))}
                   </div>
                   <div style={{ display:'flex', gap:8 }}>
                     <div style={{ flex:1 }}>
-                      <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:3 }}>秒</div>
+                      <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, marginBottom:3 }}>秒</div>
                       <input type="number" min="0" value={tcSecs}
                         onChange={e => setTcSecs(e.target.value)}
                         placeholder="0"
                         style={{ width:'100%', boxSizing:'border-box' }}/>
                     </div>
                     <div style={{ flex:1 }}>
-                      <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:3 }}>毫秒</div>
+                      <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, marginBottom:3 }}>毫秒</div>
                       <input type="number" min="0" max="999" value={tcMs}
                         onChange={e => setTcMs(e.target.value)}
                         placeholder="0"
@@ -22155,11 +22163,11 @@ Steven 不是在收藏電影台詞。
                     return (
                       <div style={{ background:T.surf2, borderRadius:8, padding:'8px 10px',
                         display:'flex', flexDirection:'column', gap:3 }}>
-                        <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>套用後預覽（尚未套用）</div>
-                        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                        <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>套用後預覽（尚未套用）</div>
+                        <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                           目前：{scene.timeRange}
                         </div>
-                        <div style={{ fontFamily:MONO, fontSize:9, color:T.amber }}>
+                        <div style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>
                           套用後：{secsToFullTimeStr(start + offset)} ~ {secsToFullTimeStr(end + offset)}
                         </div>
                       </div>
@@ -22168,13 +22176,13 @@ Steven 不是在收藏電影台詞。
                   <div style={{ display:'flex', gap:8 }}>
                     <div onClick={applySceneTimeCorrection}
                       style={{ flex:2, cursor:'pointer', background:T.amber, borderRadius:9, padding:'10px',
-                        textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700, color:T.bg }}>
+                        textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700, color:T.bg }}>
                       ✓ 套用校正
                     </div>
                     <div onClick={undoSceneTimeCorrection}
                       style={{ flex:1, cursor: (tcUndoData?.sceneId === sceneId) ? 'pointer' : 'default',
                         background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:9, padding:'10px',
-                        textAlign:'center', fontFamily:MONO, fontSize:10,
+                        textAlign:'center', fontFamily:MONO, fontSize:11,
                         color: (tcUndoData?.sceneId === sceneId) ? T.txt2 : T.txt3,
                         opacity: (tcUndoData?.sceneId === sceneId) ? 1 : 0.5 }}>
                       ↺ 復原上次
@@ -22183,13 +22191,13 @@ Steven 不是在收藏電影台詞。
                 </>
               ) : (
                 <>
-                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
+                  <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.6 }}>
                     選一句已經有時間碼的句子，貼上這句在逐字稿上真正的時間，程式自動算出要校正多少
                   </div>
                   <div>
-                    <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:3 }}>選擇句子</div>
+                    <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, marginBottom:3 }}>選擇句子</div>
                     <select value={tcAnchorId} onChange={e => setTcAnchorId(e.target.value)}
-                      style={{ width:'100%', fontFamily:MONO, fontSize:10, color:T.txt, background:T.surf2,
+                      style={{ width:'100%', fontFamily:MONO, fontSize:11, color:T.txt, background:T.surf2,
                         border:`1px solid ${T.bdr2}`, borderRadius:8, padding:'8px', boxSizing:'border-box' }}>
                       <option value="">— 請選擇 —</option>
                       {(scene.phrases ?? []).filter(p => p.startSecs > 0).map(p => (
@@ -22200,7 +22208,7 @@ Steven 不是在收藏電影台詞。
                     </select>
                   </div>
                   <div>
-                    <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:3 }}>
+                    <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, marginBottom:3 }}>
                       這句在逐字稿上真正的時間（可直接貼 00:01:17,680）
                     </div>
                     <input type="text" value={tcAnchorTime}
@@ -22211,13 +22219,13 @@ Steven 不是在收藏電影台詞。
                   <div style={{ display:'flex', gap:8 }}>
                     <div onClick={applySceneTimeCorrectionByAnchor}
                       style={{ flex:2, cursor:'pointer', background:T.amber, borderRadius:9, padding:'10px',
-                        textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700, color:T.bg }}>
+                        textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700, color:T.bg }}>
                       ✓ 套用校正
                     </div>
                     <div onClick={undoSceneTimeCorrection}
                       style={{ flex:1, cursor: (tcUndoData?.sceneId === sceneId) ? 'pointer' : 'default',
                         background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:9, padding:'10px',
-                        textAlign:'center', fontFamily:MONO, fontSize:10,
+                        textAlign:'center', fontFamily:MONO, fontSize:11,
                         color: (tcUndoData?.sceneId === sceneId) ? T.txt2 : T.txt3,
                         opacity: (tcUndoData?.sceneId === sceneId) ? 1 : 0.5 }}>
                       ↺ 復原上次
@@ -22226,11 +22234,11 @@ Steven 不是在收藏電影台詞。
                 </>
               )}
 
-              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.6 }}>
                 會同時校正這個場景的起訖時間，以及場景內所有句子的時間碼
               </div>
               {tcMsg && (
-                <div style={{ fontFamily:MONO, fontSize:9, textAlign:'center',
+                <div style={{ fontFamily:MONO, fontSize:11, textAlign:'center',
                   color: (tcMsg.startsWith('✓') || tcMsg.startsWith('↺')) ? T.grn : T.red }}>
                   {tcMsg}
                 </div>
@@ -22243,7 +22251,7 @@ Steven 不是在收藏電影台詞。
             if (scene?.speakEasy) { setSpeakOpen(o => !o) }
             else { generateSpeakCourses() }
           }}
-          style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+          style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
             color:'#c084fc', padding:'10px', background:'#2d1a4a',
             borderRadius:10, border:'1px solid #c084fc50',
             display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
@@ -22255,19 +22263,19 @@ Steven 不是在收藏電影台詞。
           <div style={{ display:'flex', flexDirection:'column', gap:10, background:'#1a1025',
             border:'1px solid #c084fc40', borderRadius:14, padding:14 }} className="fadeUp">
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <span style={{ fontFamily:MONO, fontSize:10, color:'#c084fc', fontWeight:700 }}>
+              <span style={{ fontFamily:MONO, fontSize:11, color:'#c084fc', fontWeight:700 }}>
                 📤 Speak / ChatGPT 課程
               </span>
               <span onClick={() => setSpeakOpen(false)}
-                style={{ fontFamily:MONO, fontSize:10, color:'#888', cursor:'pointer', padding:'2px 8px' }}>✕</span>
+                style={{ fontFamily:MONO, fontSize:11, color:'#888', cursor:'pointer', padding:'2px 8px' }}>✕</span>
             </div>
             {speakBusy ? (
-              <div style={{ fontFamily:MONO, fontSize:10, color:'#888', textAlign:'center', padding:8 }}>
+              <div style={{ fontFamily:MONO, fontSize:11, color:'#888', textAlign:'center', padding:8 }}>
                 ⏳ 產生中…
               </div>
             ) : (
               <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-                <div style={{ fontFamily:MONO, fontSize:9, color:'#888', lineHeight:1.6 }}>
+                <div style={{ fontFamily:MONO, fontSize:11, color:'#888', lineHeight:1.6 }}>
                   複製後貼到對應 App 練習
                 </div>
 
@@ -22276,15 +22284,15 @@ Steven 不是在收藏電影台詞。
                   borderRadius:10, padding:'10px 12px', border:'2px solid #60a5fa60' }}>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                     <div>
-                      <span style={{ fontFamily:MONO, fontSize:10, color:'#60a5fa', fontWeight:700 }}>
+                      <span style={{ fontFamily:MONO, fontSize:11, color:'#60a5fa', fontWeight:700 }}>
                         🤖 ChatGPT 陪練（含逐字稿）
                       </span>
-                      <span style={{ fontFamily:MONO, fontSize:8, color:'#888', marginLeft:6 }}>
+                      <span style={{ fontFamily:MONO, fontSize:11, color:'#888', marginLeft:6 }}>
                         最完整・場景原文＋追問＋糾正
                       </span>
                     </div>
                     <div onClick={copyChatGPTWithTranscript}
-                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                         color: speakCopied==='cgpt_transcript' ? '#60a5fa' : '#888',
                         padding:'4px 10px', background: speakCopied==='cgpt_transcript' ? '#1a2a3a' : '#222',
                         borderRadius:7, border:'1px solid ' + (speakCopied==='cgpt_transcript' ? '#60a5fa60' : '#333'),
@@ -22292,7 +22300,7 @@ Steven 不是在收藏電影台詞。
                       {speakCopied==='cgpt_transcript' ? '✅ 已複製' : '📋 複製'}
                     </div>
                   </div>
-                  <div style={{ fontFamily:MONO, fontSize:9, color:'#60a5fa80', lineHeight:1.6 }}>
+                  <div style={{ fontFamily:MONO, fontSize:11, color:'#60a5fa80', lineHeight:1.6 }}>
                     {movie?.transcript ? '✓ 逐字稿已存入，可直接複製' : '⚠ 請先儲存逐字稿'}
                   </div>
                 </div>
@@ -22310,8 +22318,8 @@ Steven 不是在收藏電影台詞。
                       borderRadius:10, padding:'10px 12px', border:`1px solid ${color}30` }}>
                       {/* 標題 */}
                       <div>
-                        <span style={{ fontFamily:MONO, fontSize:10, color, fontWeight:700 }}>{label}</span>
-                        <span style={{ fontFamily:MONO, fontSize:8, color:'#888', marginLeft:8 }}>{sub}</span>
+                        <span style={{ fontFamily:MONO, fontSize:11, color, fontWeight:700 }}>{label}</span>
+                        <span style={{ fontFamily:MONO, fontSize:11, color:'#888', marginLeft:8 }}>{sub}</span>
                       </div>
                       {/* 三個複製按鈕 */}
                       <div style={{ display:'flex', gap:6 }}>
@@ -22327,7 +22335,7 @@ Steven 不是在收藏電影台詞。
                                 if (navigator.clipboard?.writeText) { navigator.clipboard.writeText(val).catch(fallback) } else { fallback() }
                                 setSpeakCopied(copyKey); setTimeout(() => setSpeakCopied(null), 2000)
                               }}
-                              style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                              style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                                 color: speakCopied===copyKey ? color : '#888',
                                 padding:'6px 4px', background: speakCopied===copyKey ? bg : '#222',
                                 borderRadius:7, border:`1px solid ${speakCopied===copyKey ? color+'60' : '#333'}`,
@@ -22338,7 +22346,7 @@ Steven 不是在收藏電影台詞。
                         })}
                       </div>
                       {/* 情境預覽 */}
-                      <div style={{ fontFamily:MONO, fontSize:9, color:'#666', lineHeight:1.7,
+                      <div style={{ fontFamily:MONO, fontSize:11, color:'#666', lineHeight:1.7,
                         maxHeight:80, overflowY:'auto', whiteSpace:'pre-wrap',
                         WebkitOverflowScrolling:'touch' }}>
                         {txt.split('\n').slice(0, 4).join('\n')}…
@@ -22352,18 +22360,18 @@ Steven 不是在收藏電影台詞。
                   <div style={{ display:'flex', flexDirection:'column', gap:6, background:'#111',
                     borderRadius:10, padding:'10px 12px', border:'1px solid #60a5fa30' }}>
                     <div>
-                      <span style={{ fontFamily:MONO, fontSize:10, color:'#60a5fa', fontWeight:700 }}>🤖 ChatGPT 陪練指令</span>
-                      <span style={{ fontFamily:MONO, fontSize:8, color:'#888', marginLeft:8 }}>場景導入，自由追問，糾正文法</span>
+                      <span style={{ fontFamily:MONO, fontSize:11, color:'#60a5fa', fontWeight:700 }}>🤖 ChatGPT 陪練指令</span>
+                      <span style={{ fontFamily:MONO, fontSize:11, color:'#888', marginLeft:8 }}>場景導入，自由追問，糾正文法</span>
                     </div>
                     <div onClick={() => copySpeak('cgpt_easy')}
-                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                         color: speakCopied==='cgpt_easy' ? '#60a5fa' : '#888',
                         padding:'7px', background: speakCopied==='cgpt_easy' ? '#1a2a3a' : '#222',
                         borderRadius:7, border:`1px solid ${speakCopied==='cgpt_easy' ? '#60a5fa60' : '#333'}`,
                         textAlign:'center' }}>
                       {speakCopied==='cgpt_easy' ? '✅ 已複製' : '📋 複製'}
                     </div>
-                    <div style={{ fontFamily:MONO, fontSize:9, color:'#666', lineHeight:1.7,
+                    <div style={{ fontFamily:MONO, fontSize:11, color:'#666', lineHeight:1.7,
                       maxHeight:80, overflowY:'auto', whiteSpace:'pre-wrap',
                       WebkitOverflowScrolling:'touch' }}>
                       {scene?.chatgptEasy?.split('\n').slice(0, 4).join('\n')}…
@@ -22372,7 +22380,7 @@ Steven 不是在收藏電影台詞。
                 )}
 
                 <div onClick={() => generateSpeakCourses()}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#888',
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:'#888',
                     textAlign:'center', padding:'6px', borderRadius:8,
                     background:'#222', border:'1px solid #333' }}>
                   🔄 重新產生（隨機換句子）
@@ -22467,6 +22475,26 @@ Steven 不是在收藏電影台詞。
     // 每次 render 更新 FAB 的 fn refs（讓 FAB click handler 永遠拿到最新 function）
     pauseFnRef.current = pauseStarLoop
     resumeFnRef.current = resumeStarLoop
+    // v7.11: 底部播放列的 停止／上一句／下一句
+    stopFnRef.current = stopStarLoop
+    stepFnRef.current = (d) => {
+      if (!starLoopActiveRef.current) return
+      const L = starLoopListRef.current
+      if (!L || L.length === 0) return
+      const cur = starLoopIdxRef.current
+      // 先標成暫停再停音：cancel() 會觸發舊句的 onend → goNext，暫停旗標讓它直接 return，不會多跳一句
+      starLoopPausedRef.current = true
+      clearTimeout(starLoopRef.current)
+      if (audioElRef.current) audioElRef.current.pause()
+      window.speechSynthesis?.cancel()
+      delete starPlayCountRef.current['repeat_' + L[cur]?.id]
+      const ni = (cur + d + L.length) % L.length
+      starLoopRef.current = setTimeout(() => {
+        starLoopPausedRef.current = false
+        setStarLoopPaused(false)
+        playStarPhrase(L, ni)
+      }, 150)
+    }
 
     const playStarPhrase = (list, idx) => {
       try {
@@ -22767,7 +22795,14 @@ Steven 不是在收藏電影台詞。
         )}
         {/* ── 固定 Header 區（不 scroll）── */}
         <div style={{ flexShrink:0, background:T.bg, borderBottom:`1px solid ${T.bdr}`,
-          padding:'46px 16px 12px', display:'flex', flexDirection:'column', gap:10 }}>
+          padding:'10px 16px 12px', display:'flex', flexDirection:'column', gap:10 }}>
+          {/* v7.11: 返回鍵收進畫面內（原本浮在 Header 上，會蓋住按鈕）。行為與原浮動鍵相同 */}
+          <div onClick={() => { setView('list'); setPlaying(false); window.speechSynthesis?.cancel(); setMultiScenePhrases([]) }}
+            style={{ alignSelf:'flex-start', cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+              fontFamily:MONO, fontSize:13, fontWeight:700, color:T.amber, background:'#2a1f00',
+              border:`1.5px solid ${T.amber}60`, borderRadius:10, padding:'9px 16px' }}>
+            ← 返回
+          </div>
           {/* 🌅 今日練習進度橫幅 */}
           {multiScenePhrases.length > 0 && (() => {
             const total = multiScenePhrases.length
@@ -22795,7 +22830,7 @@ Steven 不是在收藏電影台詞。
                     <div style={{ fontFamily:DISP, fontSize:13, color:T.amber, textAlign:'center' }}>
                       🎯 挑 2-3 句「今天要用」
                     </div>
-                    <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, textAlign:'center', lineHeight:1.6 }}>
+                    <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, textAlign:'center', lineHeight:1.6 }}>
                       明天打開 App 會提醒你昨天挑的句子有沒有用出來
                     </div>
                     <div style={{ display:'flex', flexDirection:'column', gap:7, maxHeight:260, overflowY:'auto' }}>
@@ -22820,11 +22855,11 @@ Steven 不是在收藏電影台詞。
                             </span>
                             <div style={{ flex:1, minWidth:0 }}>
                               <div style={{ fontFamily:MONO, fontSize:11, color:T.txt, lineHeight:1.5 }}>{p.en}</div>
-                              {p.zh && <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginTop:2 }}>{p.zh}</div>}
+                              {p.zh && <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, marginTop:2 }}>{p.zh}</div>}
                               {myRecordings[p.id] && (
                                 <div onClick={e => { e.stopPropagation(); playMyRecording(p.id) }}
                                   style={{ display:'inline-flex', alignItems:'center', gap:5, marginTop:5,
-                                    cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.blue,
+                                    cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.blue,
                                     padding:'2px 8px', background:T.blueD, borderRadius:7, border:`1px solid ${T.blue}40` }}>
                                   ▶ 我的錄音
                                   {myRecordingResults[p.id]?.diff && (() => {
@@ -22848,7 +22883,7 @@ Steven 不是在收藏電影台詞。
                               }}
                               title="錄一次今天的跟讀，留個印象"
                               style={{ flexShrink:0, cursor: (recordingPhraseId && recordingPhraseId !== p.id) ? 'default' : 'pointer',
-                                fontFamily:MONO, fontSize:10,
+                                fontFamily:MONO, fontSize:11,
                                 color: recordingPhraseId === p.id ? '#fff' : T.txt3,
                                 padding:'3px 7px', borderRadius:6,
                                 background: recordingPhraseId === p.id ? '#f85149' : T.surf,
@@ -22864,7 +22899,7 @@ Steven 不是在收藏電影台詞。
                     <div style={{ display:'flex', gap:8 }}>
                       <div onClick={finishBatchAndReturn}
                         style={{ flex:1, cursor:'pointer', background:T.surf2, border:`1px solid ${T.bdr}`,
-                          borderRadius:9, padding:'9px', textAlign:'center', fontFamily:MONO, fontSize:10, color:T.txt3 }}>
+                          borderRadius:9, padding:'9px', textAlign:'center', fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                         略過
                       </div>
                       <div onClick={() => {
@@ -22876,7 +22911,7 @@ Steven 不是在收藏電影台詞。
                         style={{ flex:2, cursor: reviewPicks.size === 0 ? 'default' : 'pointer',
                           background: reviewPicks.size === 0 ? T.surf2 : T.amber,
                           border:`1px solid ${reviewPicks.size === 0 ? T.bdr : T.amber}`,
-                          borderRadius:9, padding:'9px', textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
+                          borderRadius:9, padding:'9px', textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
                           color: reviewPicks.size === 0 ? T.txt3 : T.bg }}>
                         確認（{reviewPicks.size}/3）
                       </div>
@@ -22892,17 +22927,17 @@ Steven 不是在收藏電影台詞。
                           setMultiScenePhrases(prev => prev.map(p => ({ ...p, familiar: false })))
                         }}
                         style={{ flex:1, cursor:'pointer', background:T.surf2, border:`1px solid ${T.bdr}`,
-                          borderRadius:9, padding:'9px', textAlign:'center', fontFamily:MONO, fontSize:10, color:T.txt3 }}>
+                          borderRadius:9, padding:'9px', textAlign:'center', fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                         ↺ 重新開始
                       </div>
                       <div onClick={() => setReviewPickMode(true)}
                         style={{ flex:1, cursor:'pointer', background:T.amberD, border:`1px solid ${T.amber}50`,
-                          borderRadius:9, padding:'9px', textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700, color:T.amber }}>
+                          borderRadius:9, padding:'9px', textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700, color:T.amber }}>
                         🎯 挑今日用句 →
                       </div>
                     </div>
                     <div onClick={finishBatchAndReturn}
-                      style={{ textAlign:'center', cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3, textDecoration:'underline', textUnderlineOffset:2 }}>
+                      style={{ textAlign:'center', cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.txt3, textDecoration:'underline', textUnderlineOffset:2 }}>
                       略過，直接返回片庫
                     </div>
                   </>
@@ -22918,12 +22953,12 @@ Steven 不是在收藏電影台詞。
                             display:'flex', alignItems:'center', justifyContent:'space-between', gap:6,
                             background: batchLink ? '#4ade8020' : '#0a1a14',
                             border:'1px solid #4ade8040', borderRadius:9, padding:'7px 11px' }}>
-                          <span style={{ fontFamily:MONO, fontSize:9, fontWeight:700, color:'#4ade80' }}>
+                          <span style={{ fontFamily:MONO, fontSize:11, fontWeight:700, color:'#4ade80' }}>
                             {batchLink ? `🎵 產生中… ${batchLink.i}/${batchLink.n}`
                               : need === 0 ? '🎵 本組 chunk 已完成'
                               : `🎵 產生本組 chunk（${need} 句待處理）💸`}
                           </span>
-                          <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
+                          <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                             {has}/{multiScenePhrases.length} 已有
                           </span>
                         </div>
@@ -22932,7 +22967,7 @@ Steven 不是在收藏電影台詞。
 
                     {/* 標題行：⭐標題 + 結束練習 + 日期 + 組別選單 + 進度 */}
                     <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
-                      <span style={{ fontFamily:MONO, fontSize:9, fontWeight:700, color:T.amber }}>
+                      <span style={{ fontFamily:MONO, fontSize:11, fontWeight:700, color:T.amber }}>
                         {multiScenePhrases.some(p => p._gold) ? `🎬 電影金句（${multiScenePhrases.length}）` : multiScenePhrases.some(p => !p.starred) ? `🎧 全部句子（${multiScenePhrases.length}）` : '⭐ 重點句子練習'}
                       </span>
                       <div onClick={() => {
@@ -22948,7 +22983,7 @@ Steven 不是在收藏電影台詞。
                           setView('library')
                         }}
                         style={{ cursor:'pointer', background:'#3a1a1a', border:'1px solid #f8717150',
-                          borderRadius:7, padding:'3px 8px', fontFamily:MONO, fontSize:8, color:'#f87171' }}>
+                          borderRadius:7, padding:'3px 8px', fontFamily:MONO, fontSize:11, color:'#f87171' }}>
                         ⏹ 結束
                       </div>
                       <select
@@ -22967,7 +23002,7 @@ Steven 不是在收藏電影台詞。
                           setDailyPage(targetPage)
                           setMultiScenePhrases(batch)
                         }}
-                        style={{ fontFamily:MONO, fontSize:8, color:T.amber, background:T.surf2,
+                        style={{ fontFamily:MONO, fontSize:11, color:T.amber, background:T.surf2,
                           border:`1px solid ${T.amber}60`, borderRadius:6, padding:'2px 4px', cursor:'pointer' }}>
                         {Array.from({ length: totalPages }, (_, i) => {
                           const d = localStorage.getItem(`fsi:daily:date:${movieId}:${i}`)
@@ -22984,7 +23019,7 @@ Steven 不是在收藏電影台詞。
                         const flippedCount = multiScenePhrases.filter(p => starFlip[p.id]).length
                         const practiceCount = isReverse ? flippedCount : doneCount
                         return practiceCount > 0
-                          ? <span style={{ fontFamily:MONO, fontSize:10, color:T.grn, marginLeft:'auto' }}>{practiceCount}/{total}</span>
+                          ? <span style={{ fontFamily:MONO, fontSize:11, color:T.grn, marginLeft:'auto' }}>{practiceCount}/{total}</span>
                           : null
                       })()}
                     </div>
@@ -22993,7 +23028,7 @@ Steven 不是在收藏電影台詞。
                       const dateKey = `fsi:daily:date:${movieId}:${dailyPage}`
                       const d = localStorage.getItem(dateKey)
                       return d ? (
-                        <div style={{ fontFamily:MONO, fontSize:7, color:T.grn, lineHeight:1.5, whiteSpace:'normal' }}>
+                        <div style={{ fontFamily:MONO, fontSize:11, color:T.grn, lineHeight:1.5, whiteSpace:'normal' }}>
                           {formatDateHistory(d)}
                         </div>
                       ) : null
@@ -23023,7 +23058,7 @@ Steven 不是在收藏電影台詞。
                   try { localStorage.setItem('fsi:star:reverse', '1') } catch(e) {}
                 }
               }}
-              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                 padding:'6px 10px', borderRadius:8,
                 color: starMode===mode ? T.amber : T.txt3,
                 background: starMode===mode ? T.amberD : T.surf2,
@@ -23031,13 +23066,55 @@ Steven 不是在收藏電影台詞。
               {label}
             </div>
           ))}
+          {/* v7.11: 設定摘要＋播放鍵常駐一排；反向／交叉／騎車／語速／睡眠 點「⚙ 設定」才展開 */}
+          <div style={{ display:'flex', gap:6, alignItems:'stretch', flexBasis:'100%' }}>
+            <div onClick={() => setStarCfgOpen(v => !v)}
+              style={{ flex:1, minWidth:0, cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                fontFamily:MONO, fontSize:12, color:T.txt2, padding:'10px 12px', borderRadius:9,
+                background:T.surf, border:`1px solid ${starCfgOpen ? T.amber+'60' : T.bdr}`,
+                display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
+              {starReverse && <span style={{ color:T.blue, fontWeight:700 }}>反向</span>}
+              {starCross && <span style={{ color:'#38bdf8', fontWeight:700 }}>交叉</span>}
+              {starBikeMode > 0 && <span style={{ color:T.grn, fontWeight:700 }}>騎車 ×{starBikeMode}</span>}
+              <span>{playRate}x</span>
+              <span>{starSleepMins === 0 ? '不定時' : `${starSleepMins} 分後停`}</span>
+              {starSleepRemain != null && starLoopMode != null && (
+                <span style={{ color:T.amber, fontWeight:700 }}>
+                  ⏱ {Math.floor(starSleepRemain/60)}:{String(starSleepRemain%60).padStart(2,'0')}
+                </span>
+              )}
+              <span style={{ marginLeft:'auto', color:T.amber, fontWeight:700, whiteSpace:'nowrap' }}>⚙ 設定 {starCfgOpen ? '▲' : '▼'}</span>
+            </div>
+            {starLoopMode != null ? (
+              <div onClick={stopStarLoop}
+                style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                  display:'flex', alignItems:'center', fontFamily:MONO, fontSize:13, fontWeight:700,
+                  color:'#f87171', padding:'0 16px', background:'#3a1a1a',
+                  borderRadius:9, border:'1px solid #f8717150', whiteSpace:'nowrap' }}>
+                ⏹ 停止
+              </div>
+            ) : (
+              <div onClick={() => {
+                const group = starMode === 'familiar' ? 'familiar'
+                            : starMode === 'unfamiliar' ? 'unfamiliar' : 'all'
+                startStarLoop(group)
+              }}
+                style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                  display:'flex', alignItems:'center', fontFamily:MONO, fontSize:13, fontWeight:700,
+                  color:'#1a1200', padding:'0 18px', background:T.amber,
+                  borderRadius:9, whiteSpace:'nowrap' }}>
+                ▶ 播放
+              </div>
+            )}
+          </div>
+          {starCfgOpen && (<>
           {/* 反向開關 */}
           <div onClick={() => {
               const next = !starReverse
               setStarReverse(next); setStarFlip({})
               try { localStorage.setItem('fsi:star:reverse', next ? '1' : '0') } catch(e) {}
             }}
-            style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+            style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
               padding:'6px 10px', borderRadius:8,
               color: starReverse ? T.blue : T.txt3,
               background: starReverse ? T.blueD : T.surf2,
@@ -23054,7 +23131,7 @@ Steven 不是在收藏電影台詞。
             })}
             title="重複播的句子：第1遍電影原音、第2遍系統音、第3遍原音"
             style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
-              fontFamily:MONO, fontSize:9, fontWeight:700,
+              fontFamily:MONO, fontSize:11, fontWeight:700,
               padding:'6px 10px', borderRadius:8,
               color: starCross ? '#38bdf8' : T.txt3,
               background: starCross ? '#0d2a3a' : T.surf2,
@@ -23067,7 +23144,7 @@ Steven 不是在收藏電影台詞。
               <div key={n} onClick={() => setStarBikeMode(v => v === n ? 0 : n)}
                 title={`騎車環境吵，每句連續播 ${n} 次，且不自動標記熟悉度（再按一次關閉）`}
                 style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
-                  fontFamily:MONO, fontSize:9, fontWeight:700,
+                  fontFamily:MONO, fontSize:11, fontWeight:700,
                   padding:'6px 10px', borderRadius:8,
                   color: on ? T.grn : T.txt3,
                   background: on ? T.grnD : T.surf2,
@@ -23078,13 +23155,13 @@ Steven 不是在收藏電影台詞。
           })}
           {/* 語速選擇器 */}
           <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-            <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>🔊 語速：</span>
+            <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>🔊 語速：</span>
             {[0.6, 0.8, 1.0].map(r => (
               <div key={r} onClick={() => {
                 setPlayRate(r)
                 localStorage.setItem('fsi:movie:playRate', String(r))
               }}
-                style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                   padding:'4px 8px', borderRadius:7,
                   color: playRate===r ? T.amber : T.txt3,
                   background: playRate===r ? T.amberD : T.surf2,
@@ -23095,10 +23172,10 @@ Steven 不是在收藏電影台詞。
           </div>
           {/* 睡眠計時器 + 播放按鈕 */}
           <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
-          <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>😴 睡眠計時：</span>
+          <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>😴 睡眠計時：</span>
           {[0, 10, 20, 30].map(m => (
             <div key={m} onClick={() => setStarSleepMins(m)}
-              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                 padding:'4px 8px', borderRadius:7,
                 color: starSleepMins===m ? T.blue : T.txt3,
                 background: starSleepMins===m ? T.blueD : T.surf2,
@@ -23107,46 +23184,16 @@ Steven 不是在收藏電影台詞。
             </div>
           ))}
           {starSleepRemain != null && starLoopMode != null && (
-            <span style={{ fontFamily:MONO, fontSize:9, color:T.amber, fontWeight:700 }}>
+            <span style={{ fontFamily:MONO, fontSize:11, color:T.amber, fontWeight:700 }}>
               ⏱ {Math.floor(starSleepRemain/60)}:{String(starSleepRemain%60).padStart(2,'0')}
             </span>
           )}
-          {/* 播放/停止按鈕 — 移到睡眠計時後面 */}
-          {starLoopMode != null ? (
-            <div onClick={stopStarLoop}
-              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
-                color:'#f87171', padding:'4px 10px', background:'#3a1a1a',
-                borderRadius:8, border:'1px solid #f8717150', animation:'micPulse 1s infinite' }}>
-              ⏹ 停止
-            </div>
-          ) : (
-            <div onClick={() => {
-              const group = starMode === 'familiar' ? 'familiar'
-                          : starMode === 'unfamiliar' ? 'unfamiliar' : 'all'
-              startStarLoop(group)
-            }}
-              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
-                color:T.amber, padding:'4px 10px', background:T.amberD,
-                borderRadius:8, border:`1px solid ${T.amber}50` }}>
-              🔁 播放
-            </div>
-          )}
           </div>
-          {/* 循環播放進度 */}
-          {starLoopMode != null && (
-            <div style={{ fontFamily:MONO, fontSize:9,
-              color: starLoopMode==='familiar' ? T.grn : starLoopMode==='unfamiliar' ? '#f87171' : T.amber,
-              textAlign:'center', padding:'6px', background:T.surf2, borderRadius:8 }}>
-              🔁 {starLoopMode==='familiar' ? '熟悉' : starLoopMode==='unfamiliar' ? '加強' : '全部'} 無限循環
-              · 第 {starLoopIdx+1} / {(starLoopMode==='familiar' ? familiarList : starLoopMode==='unfamiliar' ? unfamiliarList : allPhrases).length} 句
-              {starBikeMode > 0 && <span style={{ color:T.grn, marginLeft:6 }}>🚴 每句播 {starBikeMode} 次</span>}
-              {starCross && <span style={{ color:'#38bdf8', marginLeft:6 }}>🔀 原音／系統音交叉</span>}
-            </div>
-          )}
+          </>)}
         </div>{/* end fixed header */}
 
         {/* ── Scroll 卡片區 ── */}
-        <div style={{ flex:1, overflowY:'auto', padding:'12px 16px 80px', display:'flex', flexDirection:'column', gap:12 }}>
+        <div style={{ flex:1, overflowY:'auto', padding:'12px 16px 160px', display:'flex', flexDirection:'column', gap:12 }}>
         {allPhrases.length === 0 ? (
           <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, textAlign:'center', padding:32 }}>
             還沒有收藏重點句，進入場景點 ⭐ 收藏
@@ -23162,6 +23209,7 @@ Steven 不是在收藏電影台詞。
           const isReinforce= famVal === 'reinforce'
           const loopList   = starLoopMode==='familiar' ? familiarList : starLoopMode==='unfamiliar' ? unfamiliarList : allPhrases
           const isPlaying  = starLoopMode != null && starLoopIdx === loopList.findIndex(x => x.id === p.id)
+          const starMenuOpen = starMenuId === p.id   // v7.11
           return (
             <div key={p.id ?? idx}
               ref={el => { if (el) starCardRefs.current[p.id] = el }}
@@ -23169,12 +23217,16 @@ Steven 不是在收藏電影台詞。
               border:`2px solid ${isPlaying ? T.amber : isFamiliar ? T.grn+'50' : isReinforce ? '#f97316' : T.amber+'30'}`,
               display:'flex', flexDirection:'column', gap:6,
               boxShadow: isPlaying ? `0 0 12px ${T.amber}40` : 'none' }}>
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                <span style={{ fontFamily:MONO, fontSize:9, color:T.amber, opacity:0.7 }}>{p.sceneName}</span>
-                <div style={{ display:'flex', gap:5 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:8 }}>
+                <span style={{ fontFamily:MONO, fontSize:11, color:T.amber, opacity:0.85, paddingTop:12, minWidth:0 }}>{p.sceneName}</span>
+                {/* v7.11: 常駐只留 🔊 ★ ⋯（各 44 寬）；錄音／備註／複製／刪除 用 CSS order 排到第二列，⋯ 展開才顯示。
+                    刪除不再緊貼星號。 */}
+                <div style={{ display:'flex', gap:6, flexWrap:'wrap', justifyContent:'flex-end', flex:1, minWidth:0 }}>
                   <div onClick={() => playSingle(p)}
-                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt2,
-                      padding:'2px 7px', background:T.surf2, borderRadius:6, border:`1px solid ${T.bdr}` }}>
+                    style={{ order:1, cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                      display:'flex', alignItems:'center', justifyContent:'center', minWidth:44, height:40,
+                      fontFamily:MONO, fontSize:17, color:T.txt2,
+                      background:'#0d2a3a', borderRadius:9, border:'1px solid #38bdf850' }}>
                     🔊
                   </div>
                   <div onClick={() => {
@@ -23182,27 +23234,29 @@ Steven 不是在收藏電影台詞。
                       else if (!recordingPhraseId) startRecording(p.id, p.en)
                     }}
                     title={recordingPhraseId === p.id ? '停止錄音' : '跟讀錄音（最長 6 秒）'}
-                    style={{ cursor: (recordingPhraseId && recordingPhraseId !== p.id) ? 'default' : 'pointer',
-                      fontFamily:MONO, fontSize:10,
+                    style={{ order:5, display: (starMenuOpen || recordingPhraseId === p.id) ? 'block' : 'none',
+                      cursor: (recordingPhraseId && recordingPhraseId !== p.id) ? 'default' : 'pointer',
+                      fontFamily:MONO, fontSize:12,
                       color: recordingPhraseId === p.id ? '#fff' : T.txt2,
-                      padding:'2px 7px', borderRadius:6,
+                      padding:'10px 12px', borderRadius:8,
                       background: recordingPhraseId === p.id ? '#f85149' : T.surf2,
                       border:`1px solid ${recordingPhraseId === p.id ? '#f85149' : T.bdr}`,
                       animation: recordingPhraseId === p.id ? 'micPulse 0.8s infinite' : 'none',
                       opacity: (recordingPhraseId && recordingPhraseId !== p.id) ? 0.4 : 1 }}>
-                    {recordingPhraseId === p.id ? '⏺' : '🎤'}
+                    {recordingPhraseId === p.id ? '⏺ 停止錄音' : '🎤 跟讀錄音'}
                   </div>
                   <div onClick={() => {
                       setStarNoteId(p.id)
                       setStarNoteText(p.note ?? '')
                     }}
                     title="備註"
-                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:9,
+                    style={{ order:5, display: starMenuOpen ? 'block' : 'none',
+                      cursor:'pointer', fontFamily:MONO, fontSize:12,
                       color: p.note ? T.amber : T.blue,
-                      padding:'2px 7px',
+                      padding:'10px 12px',
                       background: p.note ? T.amberD : T.blueD,
                       borderRadius:6, border:`1px solid ${p.note ? T.amber+'40' : T.blue+'40'}` }}>
-                    {p.note ? '📝' : '📋'}
+                    {p.note ? '📝 改備註' : '📋 加備註'}
                   </div>
                   <div onClick={() => {
                       const cgpt =
@@ -23239,41 +23293,56 @@ Steven 不是在收藏電影台詞。
                         'Start immediately. Do not explain. Do not analyze. Only drill.'
                       copyTxt(cgpt)
                     }}
-                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#c084fc',
-                      padding:'2px 7px', background:'#2d1a4a', borderRadius:6, border:'1px solid #c084fc40' }}>
-                    📤
+                    style={{ order:5, display: starMenuOpen ? 'block' : 'none',
+                      cursor:'pointer', fontFamily:MONO, fontSize:12, color:'#c084fc',
+                      padding:'10px 12px', background:'#2d1a4a', borderRadius:8, border:'1px solid #c084fc40' }}>
+                    📤 複製給 ChatGPT
                   </div>
                   {/* ★ Unstar 按鈕 */}
                   <div onClick={() => toggleStarGlobal(p.id)}
                     title={p.starred === false ? '加入重點句' : '取消收藏'}
-                    style={{ cursor:'pointer', fontSize:13, lineHeight:1,
-                      padding:'2px 6px', borderRadius:6,
+                    style={{ order:2, cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                      display:'flex', alignItems:'center', justifyContent:'center', minWidth:44, height:40,
+                      fontSize:19, lineHeight:1, borderRadius:9,
                       background: p.starred === false ? T.surf2 : '#2a1f00',
                       border:`1px solid ${p.starred === false ? T.bdr : T.amber + '40'}`,
-                      color: p.starred === false ? T.txt3 : T.amber, transition:'opacity 0.15s' }}>
+                      color: p.starred === false ? T.txt2 : T.amber, transition:'opacity 0.15s' }}>
                     {p.starred === false ? '☆' : '★'}
                   </div>
+                  {/* v7.11: ⋯ 展開／收起這張卡的其他動作（連音解析／金句／錄音／備註／複製／刪除）*/}
+                  <div onClick={() => { setStarMenuId(starMenuOpen ? null : p.id); setStarDelId(null) }}
+                    title="更多"
+                    style={{ order:3, cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                      display:'flex', alignItems:'center', justifyContent:'center', minWidth:44, height:40,
+                      fontFamily:MONO, fontSize:19, fontWeight:700, lineHeight:1, borderRadius:9,
+                      background: starMenuOpen ? '#2a1f00' : T.surf2,
+                      border:`1px solid ${starMenuOpen ? T.amber : T.bdr}`,
+                      color: starMenuOpen ? T.amber : T.txt2 }}>
+                    ⋯
+                  </div>
+                  {starMenuOpen && <div style={{ order:4, flexBasis:'100%', height:0 }}/>}
                   {/* v7.01: ✕ 永久刪除（語助詞、無用句）。兩段式確認，避免騎車／滑動誤觸 */}
                   {starDelId === p.id ? (
                     <>
                       <div onClick={() => deletePhraseGlobal(p.id)}
-                        style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
-                          fontFamily:MONO, fontSize:10, fontWeight:700, color:'#fff',
-                          padding:'2px 8px', borderRadius:6, background:'#f85149',
+                        style={{ order:9, cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                          fontFamily:MONO, fontSize:12, fontWeight:700, color:'#fff',
+                          padding:'10px 12px', borderRadius:8, background:'#f85149',
                           border:'1px solid #f85149' }}>確定刪除</div>
                       <div onClick={() => setStarDelId(null)}
-                        style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
-                          fontFamily:MONO, fontSize:10, color:T.txt2,
-                          padding:'2px 8px', borderRadius:6, background:T.surf2,
+                        style={{ order:9, cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                          fontFamily:MONO, fontSize:12, color:T.txt2,
+                          padding:'10px 12px', borderRadius:8, background:T.surf2,
                           border:`1px solid ${T.bdr}` }}>取消</div>
                     </>
                   ) : (
                     <div onClick={() => setStarDelId(p.id)}
                       title="永久刪除這句"
-                      style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
-                        fontFamily:MONO, fontSize:11, lineHeight:1, color:'#f85149',
-                        padding:'3px 7px', borderRadius:6, background:T.surf2,
-                        border:'1px solid #f8514940' }}>✕</div>
+                      style={{ order:9, display: starMenuOpen ? 'block' : 'none',
+                        cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                        fontFamily:MONO, fontSize:12, color:'#ff7b72',
+                        padding:'10px 12px', borderRadius:8, background:T.surf2,
+                        border:'1px solid #f8514940' }}>✕ 刪除這句</div>
                   )}
                 </div>
               </div>
@@ -23282,7 +23351,7 @@ Steven 不是在收藏電影台詞。
               {myRecordings[p.id] && (
                 <div onClick={() => playMyRecording(p.id)}
                   style={{ alignSelf:'flex-start', display:'inline-flex', alignItems:'center', gap:5,
-                    cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.blue,
+                    cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.blue,
                     padding:'3px 10px', background:T.blueD, borderRadius:8, border:`1px solid ${T.blue}40` }}>
                   ▶ 我的錄音
                   {myRecordingResults[p.id]?.diff && (() => {
@@ -23311,7 +23380,7 @@ Steven 不是在收藏電影台詞。
                     </div>
                   ) : (
                     <div onClick={() => setStarFlip(prev => ({ ...prev, [p.id]: true }))}
-                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt3,
+                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.txt3,
                         textAlign:'center', padding:'10px', background:T.surf2, borderRadius:8,
                         border:`1px solid ${T.bdr}` }}>
                       👆 點擊看英文
@@ -23321,12 +23390,12 @@ Steven 不是在收藏電影台詞。
               ) : (
                 <>
                   <div style={{ fontFamily:MONO, fontSize:13, color:T.txt, lineHeight:1.6 }}>{p.en}</div>
-                  {p.zh && <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, lineHeight:1.5 }}>{p.zh}</div>}
+                  {p.zh && <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.5 }}>{p.zh}</div>}
                 </>
               )}
 
               {p.reason && (
-                <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, opacity:0.8 }}>
+                <div style={{ fontFamily:MONO, fontSize:11, color:T.amber, opacity:0.8 }}>
                   {'★'.repeat(p.rating ?? 3)} {p.reason}
                 </div>
               )}
@@ -23372,18 +23441,19 @@ Steven 不是在收藏電影台詞。
                         setMultiScenePhrases(prev => prev.map(ph => ph.id === p.id ? { ...ph, note: newNote } : ph))
                       setStarNoteId(null)
                     }}
-                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#000',
+                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:'#000',
                       padding:'5px 10px', background:T.amber, borderRadius:7 }}>存</div>
                 </div>
               ) : p.note ? (
-                <div style={{ fontFamily:MONO, fontSize:10, color:T.amber,
+                <div style={{ fontFamily:MONO, fontSize:11, color:T.amber,
                   background:T.amberD, borderRadius:7, padding:'4px 8px',
                   border:`1px solid ${T.amber}30` }}>
                   📝 {p.note}
                 </div>
               ) : null}
-              {/* v6.81: 統一連音卡（可收合）*/}
-              <LinkCard p={p} collapsible/>
+              {/* v6.81: 統一連音卡（可收合）
+                  v7.11: 「連音解析／問老師／金句」那一列收進 ⋯；已展開的解析內容不受影響 */}
+              <LinkCard p={p} collapsible rowHidden={!starMenuOpen}/>
               {/* 熟悉度標記 */}
               <div style={{ display:'flex', gap:6, marginTop:2, flexWrap:'wrap',
                 position:'relative', zIndex:2, pointerEvents:'auto' }}
@@ -23414,9 +23484,10 @@ Steven 不是在收藏電影台詞。
                         ))
                       }
                     }}
-                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
-                      color: isActive ? activeColor : T.txt3,
-                      padding:'4px 10px',
+                    style={{ flex:1, textAlign:'center', cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                      fontFamily:MONO, fontSize:13, fontWeight:700,
+                      color: isActive ? activeColor : T.txt2,
+                      padding:'11px 0',
                       background: isActive ? activeBg : T.surf2,
                       borderRadius:6,
                       border:`1px solid ${isActive ? activeColor+'50' : T.bdr}` }}>
@@ -23440,28 +23511,28 @@ Steven 不是在收藏電影台詞。
           <BackBtn label="← 返回" to="list"/>
           <span style={{ fontFamily:MONO, fontSize:11, color:'#a78bfa' }}>🖊️ 我的造句庫</span>
         </div>
-        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+        <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
           把電影句子改編成自己工作/生活用的句子，AI協助修改，累積收藏 · 共 {myProduceList.length} 句
         </div>
         {quickProduce && (
           <div style={{ background:'#0d0820', border:'1px solid #a78bfa60', borderRadius:10, padding:12,
             display:'flex', flexDirection:'column', gap:8 }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <span style={{ fontFamily:MONO, fontSize:9, color:'#a78bfa' }}>🎲 來自今天練一句：{quickProduce.sourceEn}</span>
-              <span onClick={() => setQuickProduce(null)} style={{ cursor:'pointer', color:T.txt3, fontFamily:MONO, fontSize:10 }}>✕</span>
+              <span style={{ fontFamily:MONO, fontSize:11, color:'#a78bfa' }}>🎲 來自今天練一句：{quickProduce.sourceEn}</span>
+              <span onClick={() => setQuickProduce(null)} style={{ cursor:'pointer', color:T.txt3, fontFamily:MONO, fontSize:11 }}>✕</span>
             </div>
             <textarea value={mySentenceDraft} onChange={e => setMySentenceDraft(e.target.value)}
               placeholder="把這句改編成你自己工作/生活會用的句子…"
               style={{ width:'100%', minHeight:60, fontFamily:MONO, fontSize:12,
                 background:'#060412', border:'1px solid #a78bfa30', borderRadius:8,
                 padding:8, color:'#fff', outline:'none', resize:'vertical' }}/>
-            <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
+            <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
               分類（AI修改後會自動判斷，也可手動調整）：
             </div>
             <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
               {MY_PRODUCE_TAGS.map(t => (
                 <div key={t.id} onClick={() => setMySentenceTag(t.id)}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:8,
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:11,
                     padding:'4px 8px', borderRadius:6,
                     background: mySentenceTag===t.id ? '#a78bfa' : '#060412',
                     color: mySentenceTag===t.id ? '#0d0820' : T.txt3,
@@ -23480,7 +23551,7 @@ Steven 不是在收藏電影台詞。
                   setMySentenceBusy(false)
                 }}
                 style={{ cursor: mySentenceBusy ? 'default' : 'pointer', flex:1, textAlign:'center',
-                  fontFamily:MONO, fontSize:10, fontWeight:700, padding:'9px 0', borderRadius:8,
+                  fontFamily:MONO, fontSize:11, fontWeight:700, padding:'9px 0', borderRadius:8,
                   background: mySentenceBusy ? T.surf2 : '#a78bfa', color: mySentenceBusy ? T.txt3 : '#0d0820' }}>
                 {mySentenceBusy ? '⏳ AI修改中…' : '🤖 AI修改'}
               </div>
@@ -23489,7 +23560,7 @@ Steven 不是在收藏電影台詞。
                   navigator.clipboard?.writeText(promptText).then(() => showMovieToast('✅ 已複製，可貼給ChatGPT'))
                 }}
                 style={{ cursor:'pointer', flex:1, textAlign:'center',
-                  fontFamily:MONO, fontSize:10, fontWeight:700, padding:'9px 0', borderRadius:8,
+                  fontFamily:MONO, fontSize:11, fontWeight:700, padding:'9px 0', borderRadius:8,
                   background:T.surf2, border:'1px solid #a78bfa40', color:'#a78bfa' }}>
                 📋 複製給ChatGPT
               </div>
@@ -23505,7 +23576,7 @@ Steven 不是在收藏電影台詞。
                   setMySentenceResult({ corrected: mySentencePasted.trim(), tip: '（來自ChatGPT等外部AI）' })
                   setMySentencePasted('')
                 }}
-                style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                   padding:'8px 12px', borderRadius:8, background:'#a78bfa', color:'#0d0820', flexShrink:0 }}>
                 帶入
               </div>
@@ -23517,7 +23588,7 @@ Steven 不是在收藏電影台詞。
                   <div style={{ fontFamily:MONO, fontSize:12, color:'#a78bfa', lineHeight:1.6 }}>
                     {mySentenceResult.corrected}
                   </div>
-                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.5 }}>
+                  <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.5 }}>
                     💡 {mySentenceResult.tip}
                   </div>
                 </div>
@@ -23534,7 +23605,7 @@ Steven 不是在收藏電影台詞。
                     setQuickProduce(null); setMySentenceDraft(''); setMySentenceResult(null); setMySentenceTag('other')
                   }}
                   style={{ cursor:'pointer', textAlign:'center',
-                    fontFamily:MONO, fontSize:10, fontWeight:700, padding:'9px 0', borderRadius:8,
+                    fontFamily:MONO, fontSize:11, fontWeight:700, padding:'9px 0', borderRadius:8,
                     background:T.grn, color:'#06210f' }}>
                   💾 加入造句庫
                 </div>
@@ -23550,7 +23621,7 @@ Steven 不是在收藏電影台詞。
               setMyProduceClassifyBusy(false)
               showMovieToast(`✅ 已分類 ${result.classified}/${result.total} 句`)
             }}
-            style={{ cursor: myProduceClassifyBusy ? 'default' : 'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+            style={{ cursor: myProduceClassifyBusy ? 'default' : 'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
               padding:'8px 0', borderRadius:8, textAlign:'center',
               background: myProduceClassifyBusy ? T.surf2 : '#a78bfa',
               color: myProduceClassifyBusy ? T.txt3 : '#0d0820' }}>
@@ -23562,8 +23633,8 @@ Steven 不是在收藏電影台詞。
           <div onClick={() => setErrorStatsOpen(v => !v)}
             style={{ cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between',
               background:T.surf, border:`1px solid ${T.red}40`, borderRadius:10, padding:'10px 14px' }}>
-            <span style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:'#f87171' }}>📉 錯誤統計</span>
-            <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>{errorStatsOpen ? '▲' : '▼'}</span>
+            <span style={{ fontFamily:MONO, fontSize:11, fontWeight:700, color:'#f87171' }}>📉 錯誤統計</span>
+            <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>{errorStatsOpen ? '▲' : '▼'}</span>
           </div>
         )}
         {errorStatsOpen && (() => {
@@ -23599,10 +23670,10 @@ Steven 不是在收藏電影台詞。
                   padding:'7px 10px', borderRadius:7, marginBottom:4,
                   background: myProduceErrorFilter === t ? '#3a1a1a' : T.surf2,
                   border:`1px solid ${myProduceErrorFilter === t ? '#f8717160' : T.bdr}` }}>
-                <span style={{ fontFamily:MONO, fontSize:10, color: myProduceErrorFilter === t ? '#f87171' : T.txt2 }}>
+                <span style={{ fontFamily:MONO, fontSize:11, color: myProduceErrorFilter === t ? '#f87171' : T.txt2 }}>
                   {labelOf(t)} × {c}
                 </span>
-                <span style={{ fontFamily:MONO, fontSize:8, color: trend.includes('↓') ? T.grn : trend.includes('↑') ? '#f87171' : T.txt3 }}>
+                <span style={{ fontFamily:MONO, fontSize:11, color: trend.includes('↓') ? T.grn : trend.includes('↑') ? '#f87171' : T.txt3 }}>
                   {trend}
                 </span>
               </div>
@@ -23612,20 +23683,20 @@ Steven 不是在收藏電影台詞。
             <div style={{ background:'#150a0a', border:'1px solid #f8717130', borderRadius:10, padding:12,
               display:'flex', flexDirection:'column', gap:8 }}>
               {withErr.length < 15 && (
-                <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, lineHeight:1.5 }}>
+                <div style={{ fontFamily:MONO, fontSize:11, color:T.amber, lineHeight:1.5 }}>
                   ⚠ 目前僅 {withErr.length} 句有錯誤紀錄，累積中，滿15句後統計較可靠
                 </div>
               )}
-              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>本週最常犯錯 Top 5（本週共造 {weekList.length} 句）</div>
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>本週最常犯錯 Top 5（本週共造 {weekList.length} 句）</div>
               {weekTop.length === 0
-                ? <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, opacity:0.6 }}>本週尚無錯誤紀錄</div>
+                ? <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, opacity:0.6 }}>本週尚無錯誤紀錄</div>
                 : weekTop.map(renderRow)}
-              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginTop:4 }}>本月最常犯錯 Top 5（本月共造 {monthList.length} 句 · 括號為錯誤率趨勢：本月vs上月）</div>
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, marginTop:4 }}>本月最常犯錯 Top 5（本月共造 {monthList.length} 句 · 括號為錯誤率趨勢：本月vs上月）</div>
               {monthTop.length === 0
-                ? <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, opacity:0.6 }}>本月尚無錯誤紀錄</div>
+                ? <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, opacity:0.6 }}>本月尚無錯誤紀錄</div>
                 : monthTop.map(renderRow)}
               {myProduceErrorFilter && (
-                <div style={{ fontFamily:MONO, fontSize:9, color:'#f87171' }}>
+                <div style={{ fontFamily:MONO, fontSize:11, color:'#f87171' }}>
                   🔍 已篩選「{labelOf(myProduceErrorFilter)}」的相關句子（下方清單）· 再點一次取消篩選
                 </div>
               )}
@@ -23641,10 +23712,10 @@ Steven 不是在收藏電影台詞。
               style={{ cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between',
                 background:'linear-gradient(135deg, #2a1a3a, #1a0f2e)', border:'1px solid #a78bfa60',
                 borderRadius:10, padding:'10px 14px' }}>
-              <span style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:'#a78bfa' }}>
+              <span style={{ fontFamily:MONO, fontSize:11, fontWeight:700, color:'#a78bfa' }}>
                 🗣 {dueList.length > 0 ? `該複習了 · ${dueList.length}句` : '開始造句練習'}
               </span>
-              <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>→</span>
+              <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>→</span>
             </div>
           )
         })()}
@@ -23660,11 +23731,11 @@ Steven 不是在收藏電影台詞。
           return (
             <div style={{ background:'#0d0820', border:'1px solid #a78bfa50', borderRadius:13, padding:16,
               display:'flex', flexDirection:'column', gap:10 }}>
-              <div style={{ display:'flex', justifyContent:'space-between', fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                 <span>🗣 造句練習 · {(myProducePracticeIdx % queue.length) + 1}/{queue.length}</span>
                 <span onClick={() => setMyProducePracticeOn(false)} style={{ cursor:'pointer', color:T.txt3 }}>✕ 結束</span>
               </div>
-              <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                 {item.movieTitle} · {item.sceneName}
               </div>
               <div style={{ fontFamily:MONO, fontSize:11, color:T.txt2, opacity:0.8, lineHeight:1.6 }}>
@@ -23679,17 +23750,17 @@ Steven 不是在收藏電影台詞。
                   <SpeakRow text={item.corrected} color={'#a78bfa'}/>
                   <div style={{ display:'flex', gap:6 }}>
                     <div onClick={() => { rateMyProduceSentence(item.id, 'bad'); goNext() }}
-                      style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
+                      style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
                         padding:'9px 0', borderRadius:8, background:'#3a1a1a', color:'#f87171', border:'1px solid #f8717150' }}>
                       ✗ 說不出
                     </div>
                     <div onClick={() => { rateMyProduceSentence(item.id, 'half'); goNext() }}
-                      style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
+                      style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
                         padding:'9px 0', borderRadius:8, background:'#3a2a0a', color:T.amber, border:`1px solid ${T.amber}50` }}>
                       ◎ 說一半
                     </div>
                     <div onClick={() => { rateMyProduceSentence(item.id, 'good'); goNext() }}
-                      style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
+                      style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
                         padding:'9px 0', borderRadius:8, background:'#0a3a1a', color:T.grn, border:`1px solid ${T.grn}50` }}>
                       ✓ 完整說
                     </div>
@@ -23697,7 +23768,7 @@ Steven 不是在收藏電影台詞。
                 </>
               ) : (
                 <div onClick={() => setMyProducePracticeFlip(true)}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt3, textAlign:'center',
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.txt3, textAlign:'center',
                     padding:'14px', background:T.surf2, borderRadius:8, border:`1px solid ${T.bdr}` }}>
                   先自己講一次這句改編後的句子，再點這裡看答案 👆
                 </div>
@@ -23715,7 +23786,7 @@ Steven 不是在收藏電影台詞。
                 color:'#fff', outline:'none' }}/>
             <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
               <div onClick={() => setMyProduceTagFilter('all')}
-                style={{ cursor:'pointer', fontFamily:MONO, fontSize:8, padding:'4px 8px', borderRadius:6,
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, padding:'4px 8px', borderRadius:6,
                   background: myProduceTagFilter==='all' ? '#a78bfa' : '#1a0f2e',
                   color: myProduceTagFilter==='all' ? '#0d0820' : T.txt3,
                   border:`1px solid ${myProduceTagFilter==='all' ? '#a78bfa' : '#a78bfa30'}` }}>
@@ -23726,7 +23797,7 @@ Steven 不是在收藏電影台詞。
                 if (c === 0) return null
                 return (
                   <div key={t.id} onClick={() => setMyProduceTagFilter(t.id)}
-                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:8, padding:'4px 8px', borderRadius:6,
+                    style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, padding:'4px 8px', borderRadius:6,
                       background: myProduceTagFilter===t.id ? '#a78bfa' : '#1a0f2e',
                       color: myProduceTagFilter===t.id ? '#0d0820' : T.txt3,
                       border:`1px solid ${myProduceTagFilter===t.id ? '#a78bfa' : '#a78bfa30'}` }}>
@@ -23741,7 +23812,7 @@ Steven 不是在收藏電影台詞。
           <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, textAlign:'center',
             padding:'40px 20px', background:T.surf, borderRadius:13 }}>
             尚無造句紀錄<br/>
-            <span style={{ fontSize:9 }}>在句子卡片點 🖊️ 開始造句</span>
+            <span style={{ fontSize:11 }}>在句子卡片點 🖊️ 開始造句</span>
           </div>
         ) : (() => {
           const q = myProduceSearch.trim().toLowerCase()
@@ -23752,7 +23823,7 @@ Steven 不是在收藏電影台詞。
             (i.myDraft ?? '').toLowerCase().includes(q) || (i.corrected ?? '').toLowerCase().includes(q)
           )
           if (filtered.length === 0) return (
-            <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, textAlign:'center', padding:'20px 0' }}>
+            <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, textAlign:'center', padding:'20px 0' }}>
               🔍 找不到符合的造句
             </div>
           )
@@ -23766,7 +23837,7 @@ Steven 不是在收藏電影台詞。
           })
           return groups.map(g => (
             <div key={g.title} style={{ display:'flex', flexDirection:'column', gap:8 }}>
-              <div style={{ fontFamily:MONO, fontSize:10, color:'#a78bfa', fontWeight:700 }}>
+              <div style={{ fontFamily:MONO, fontSize:11, color:'#a78bfa', fontWeight:700 }}>
                 🎬 {g.title}（{g.items.length}句）
               </div>
               {g.items.map(item => {
@@ -23775,32 +23846,32 @@ Steven 不是在收藏電影台詞。
                   <div key={item.id} style={{ background:T.surf, border:'1px solid #a78bfa30', borderRadius:12, padding:14,
                     display:'flex', flexDirection:'column', gap:8 }}>
                     <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
-                      <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
+                      <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                         {item.sceneName}{tagInfo ? ` · ${tagInfo.label}` : ''}
                       </div>
                       <div onClick={() => { if (window.confirm('刪除這句造句？')) deleteMyProduceSentence(item.id) }}
-                        style={{ cursor:'pointer', color:T.red, fontFamily:MONO, fontSize:10 }}>✕</div>
+                        style={{ cursor:'pointer', color:T.red, fontFamily:MONO, fontSize:11 }}>✕</div>
                     </div>
                     {item.familiar ? (
-                      <div style={{ fontFamily:MONO, fontSize:8, color:T.grn }}>✨ 已熟悉</div>
+                      <div style={{ fontFamily:MONO, fontSize:11, color:T.grn }}>✨ 已熟悉</div>
                     ) : item.nextReviewDate ? (
-                      <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>🔁 下次複習：{item.nextReviewDate}</div>
+                      <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>🔁 下次複習：{item.nextReviewDate}</div>
                     ) : null}
-                    <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, opacity:0.7, lineHeight:1.5 }}>
+                    <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, opacity:0.7, lineHeight:1.5 }}>
                       電影原句：{item.sourceEn}
                     </div>
                     <div style={{ height:1, background:T.bdr }}/>
-                    <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>我的草稿：</div>
+                    <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>我的草稿：</div>
                     <div style={{ fontFamily:MONO, fontSize:11, color:T.txt2, lineHeight:1.6 }}>{item.myDraft}</div>
-                    <div style={{ fontFamily:MONO, fontSize:9, color:'#a78bfa' }}>AI修改後：</div>
+                    <div style={{ fontFamily:MONO, fontSize:11, color:'#a78bfa' }}>AI修改後：</div>
                     <div style={{ fontFamily:MONO, fontSize:13, color:'#a78bfa', lineHeight:1.6, fontWeight:700 }}>{item.corrected}</div>
                     {item.tip && (
-                      <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.5 }}>💡 {item.tip}</div>
+                      <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.5 }}>💡 {item.tip}</div>
                     )}
                     {(item.errorTypes ?? []).length > 0 && (
                       <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
                         {item.errorTypes.map(t => (
-                          <span key={t} style={{ fontFamily:MONO, fontSize:8, color:'#f87171',
+                          <span key={t} style={{ fontFamily:MONO, fontSize:11, color:'#f87171',
                             background:'#3a1a1a', border:'1px solid #f8717140', borderRadius:5, padding:'2px 6px' }}>
                             {ERROR_TYPES.find(e => e.id === t)?.label ?? t}
                           </span>
@@ -23813,13 +23884,13 @@ Steven 不是在收藏電影台詞。
                         setMySentenceDraft(''); setMySentenceResult(null); setMySentenceTag(item.tag ?? 'other'); setMySentencePasted('')
                         window.scrollTo({ top: 0, behavior: 'smooth' })
                       }}
-                      style={{ cursor:'pointer', textAlign:'center', fontFamily:MONO, fontSize:9, fontWeight:700,
+                      style={{ cursor:'pointer', textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
                         padding:'8px 0', borderRadius:8, background:T.surf2,
                         border:'1px solid #a78bfa40', color:'#a78bfa' }}>
                       🔁 重新造句（看這次還會不會犯同樣的錯）
                     </div>
                     <div style={{ height:1, background:T.bdr }}/>
-                    <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>我真的說過嗎？</div>
+                    <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>我真的說過嗎？</div>
                     <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
                       {[
                         { key:'practiced', label:'練習過' },
@@ -23834,7 +23905,7 @@ Steven 不是在收藏電影台詞。
                             <span style={{ fontSize:13, color: checked ? T.grn : T.txt3 }}>
                               {checked ? '☑' : '□'}
                             </span>
-                            <span style={{ fontFamily:MONO, fontSize:10, color: checked ? T.txt : T.txt3 }}>
+                            <span style={{ fontFamily:MONO, fontSize:11, color: checked ? T.txt : T.txt3 }}>
                               {o.label}
                             </span>
                           </div>
@@ -23871,7 +23942,7 @@ Steven 不是在收藏電影台詞。
         <div style={{ display:'flex', gap:6 }}>
           {[['5','★5 必背'],['4','★4 推薦'],['all','全部 4+5']].map(([val, label]) => (
             <div key={val} onClick={() => setMemoryFilter(val)}
-              style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+              style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                 textAlign:'center', padding:'8px 4px', borderRadius:9,
                 background: memoryFilter===val ? T.amberD : T.surf2,
                 border:`1px solid ${memoryFilter===val ? T.amber+'60' : T.bdr}`,
@@ -23880,14 +23951,14 @@ Steven 不是在收藏電影台詞。
             </div>
           ))}
         </div>
-        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+        <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
           共 {memPhrases.length} 句
         </div>
         {memPhrases.length === 0 ? (
           <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, textAlign:'center',
             padding:'40px 20px', background:T.surf, borderRadius:13 }}>
             尚無符合條件的句子<br/>
-            <span style={{ fontSize:9 }}>請先用「🌟 AI 評分」為場景評分</span>
+            <span style={{ fontSize:11 }}>請先用「🌟 AI 評分」為場景評分</span>
           </div>
         ) : (
           <>
@@ -23906,7 +23977,7 @@ Steven 不是在收藏電影台詞。
             {memPhrases.map((p, i) => (
               <div key={p.id ?? i} style={{ background:T.surf, borderRadius:12,
                 padding:'12px 14px', border:`1px solid ${p.rating===5 ? T.amber+'40' : T.bdr}` }}>
-                <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:4 }}>
+                <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, marginBottom:4 }}>
                   {p.sceneName}
                 </div>
                 <div style={{ fontFamily:MONO, fontSize:12, color:T.txt, lineHeight:1.7, marginBottom:4 }}>
@@ -23920,7 +23991,7 @@ Steven 不是在收藏電影台詞。
                     {'⭐'.repeat(Number(p.rating) || 4)}
                   </span>
                   {p.reason && (
-                    <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>{p.reason}</span>
+                    <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>{p.reason}</span>
                   )}
                 </div>
               </div>
@@ -23963,15 +24034,15 @@ Steven 不是在收藏電影台詞。
           <div style={{ fontFamily:DISP, fontSize:18, color:T.txt, paddingTop:4, flex:1 }}>🎬 我的電影片庫</div>
           {!libraryAdding && (
             <div onClick={() => setLibraryAdding(true)}
-              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.txt3,
                 background:T.surf2, border:`1px dashed ${T.bdr2}`, borderRadius:8, padding:'4px 8px' }}>
               ＋ 新增
             </div>
           )}
-          <span style={{ fontFamily:MONO, fontSize:9, color:T.blue }}>
+          <span style={{ fontFamily:MONO, fontSize:11, color:T.blue }}>
             📖 單字庫 {db.vocab?.length ?? 0}
           </span>
-          <span style={{ fontFamily:MONO, fontSize:9, color:T.amber }}>
+          <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>
             📚 背誦庫 {(db.movies ?? []).flatMap(mv => (mv.scenes ?? []).flatMap(s => s.phrases ?? [])).filter(p => Number(p.rating) === 4 || Number(p.rating) === 5).length}
           </span>
         </div>
@@ -24050,24 +24121,24 @@ Steven 不是在收藏電影台詞。
             <div style={{ background:'linear-gradient(135deg, #1a1400, #0d0d00)', border:`1px solid ${T.amber}60`,
               borderRadius:13, padding:'14px', display:'flex', flexDirection:'column', gap:8 }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:8, flexWrap:'wrap' }}>
-                <span style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:T.amber, flexShrink:0 }}>
+                <span style={{ fontFamily:MONO, fontSize:11, fontWeight:700, color:T.amber, flexShrink:0 }}>
                   {isPattern ? '🎲 今天練一個句型' : '🎲 今天練一句'}
                   <span style={{ color:T.txt3, fontWeight:400, marginLeft:6 }}>池 {eligible.length}/{kbListToday.length}</span>
                 </span>
                 <SpeakRow text={sentence} color={T.amber} compact/>
               </div>
-              <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>{todayItem.title}</div>
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>{todayItem.title}</div>
               <div style={{ fontFamily:MONO, fontSize:13, color:T.txt, lineHeight:1.6, fontWeight:600 }}>
                 {sentence}
               </div>
               {isPattern && (
-                <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, lineHeight:1.6 }}>
+                <div style={{ fontFamily:MONO, fontSize:11, color:T.txt2, lineHeight:1.6 }}>
                   ✍ 用這個句型造一句你工作/生活會說的話
                 </div>
               )}
               <div style={{ display:'flex', gap:6 }}>
                 <div onClick={() => openKbItemDirect(todayItem.id)}
-                  style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:9, fontWeight:700,
+                  style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
                     padding:'8px 0', borderRadius:8, background:T.surf2, border:`1px solid ${T.amber}40`, color:T.amber }}>
                   📖 看完整筆記
                 </div>
@@ -24076,7 +24147,7 @@ Steven 不是在收藏電影台詞。
                     setMySentenceDraft(''); setMySentenceResult(null); setMySentenceTag('other'); setMySentencePasted('')
                     setView('myProduce')
                   }}
-                  style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:9, fontWeight:700,
+                  style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
                     padding:'8px 0', borderRadius:8, background:'#1a0f2e', border:'1px solid #a78bfa60', color:'#a78bfa' }}>
                   🖊️ 造句
                 </div>
@@ -24090,7 +24161,7 @@ Steven 不是在收藏電影台詞。
                     const s = extractPracticeSentence(pick)
                     setExtraPracticeItems(prev => [...prev, { ...pick, sentence: s }])
                   }}
-                  style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:9, fontWeight:700,
+                  style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
                     padding:'8px 0', borderRadius:8, background:'#0a3a1a', border:`1px solid ${T.grn}60`, color:T.grn }}>
                   ➕ 加練
                 </div>
@@ -24104,8 +24175,8 @@ Steven 不是在收藏電影台詞。
           <div key={item.id} style={{ background:'linear-gradient(135deg, #1a1400, #0d0d00)', border:`1px solid ${T.amber}40`,
             borderRadius:13, padding:'14px', display:'flex', flexDirection:'column', gap:8 }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <span style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:T.amber }}>➕ 加練第{idx+1}句</span>
-              <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>{item.title}</span>
+              <span style={{ fontFamily:MONO, fontSize:11, fontWeight:700, color:T.amber }}>➕ 加練第{idx+1}句</span>
+              <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>{item.title}</span>
             </div>
             <div style={{ fontFamily:MONO, fontSize:13, color:T.txt, lineHeight:1.6, fontWeight:600 }}>
               {item.sentence}
@@ -24113,7 +24184,7 @@ Steven 不是在收藏電影台詞。
             <SpeakRow text={item.sentence} color={T.amber}/>
             <div style={{ display:'flex', gap:6 }}>
               <div onClick={() => openKbItemDirect(item.id)}
-                style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:9, fontWeight:700,
+                style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
                   padding:'8px 0', borderRadius:8, background:T.surf2, border:`1px solid ${T.amber}40`, color:T.amber }}>
                 📖 看完整筆記
               </div>
@@ -24122,7 +24193,7 @@ Steven 不是在收藏電影台詞。
                   setMySentenceDraft(''); setMySentenceResult(null); setMySentenceTag('other'); setMySentencePasted('')
                   setView('myProduce')
                 }}
-                style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:9, fontWeight:700,
+                style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
                   padding:'8px 0', borderRadius:8, background:'#1a0f2e', border:'1px solid #a78bfa60', color:'#a78bfa' }}>
                 🖊️ 造句
               </div>
@@ -24140,7 +24211,7 @@ Steven 不是在收藏電影台詞。
           return (
             <div style={{ background:T.surf, border:`1px solid ${T.blue}40`, borderRadius:13,
               padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }}>
-              <div style={{ fontFamily:MONO, fontSize:10, color:T.blue, fontWeight:700 }}>
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.blue, fontWeight:700 }}>
                 💭 昨天你選了這幾句，用出來了嗎？
               </div>
               {yPhrases.map(p => {
@@ -24150,11 +24221,11 @@ Steven 不是在收藏電影台詞。
                     background:T.surf2, borderRadius:9, padding:'8px 10px' }}>
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ fontFamily:MONO, fontSize:11, color:T.txt, lineHeight:1.5 }}>{p.en}</div>
-                      {p.zh && <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginTop:2 }}>{p.zh}</div>}
+                      {p.zh && <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, marginTop:2 }}>{p.zh}</div>}
                       {myRecordings[p.id] && (
                         <div onClick={() => playMyRecording(p.id)}
                           style={{ display:'inline-flex', alignItems:'center', gap:5, marginTop:5,
-                            cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.blue,
+                            cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.blue,
                             padding:'2px 8px', background:T.blueD, borderRadius:7, border:`1px solid ${T.blue}40` }}>
                           ▶ 我的錄音
                           {myRecordingResults[p.id]?.diff && (() => {
@@ -24177,7 +24248,7 @@ Steven 不是在收藏電影台詞。
                         }}
                         title="再錄一次今天說的，跟印象比一下"
                         style={{ cursor: (recordingPhraseId && recordingPhraseId !== p.id) ? 'default' : 'pointer',
-                          fontFamily:MONO, fontSize:10,
+                          fontFamily:MONO, fontSize:11,
                           color: recordingPhraseId === p.id ? '#fff' : T.txt3,
                           padding:'4px 7px', borderRadius:7,
                           background: recordingPhraseId === p.id ? '#f85149' : T.surf,
@@ -24219,7 +24290,7 @@ Steven 不是在收藏電影台詞。
           return (
             <div style={{ background:T.surf, border:`1px solid ${T.amber}40`, borderRadius:13,
               padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }}>
-              <div style={{ fontFamily:MONO, fontSize:10, color:T.amber, fontWeight:700 }}>
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.amber, fontWeight:700 }}>
                 🔁 該複習了
               </div>
               {dueList.map(r => {
@@ -24246,10 +24317,10 @@ Steven 不是在收藏電影台詞。
                     }}
                     style={{ cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between',
                       background:T.amberD, borderRadius:9, padding:'9px 12px', border:`1px solid ${T.amber}30` }}>
-                    <span style={{ fontFamily:MONO, fontSize:10, color:T.amber }}>
+                    <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>
                       {r.movieTitle} · 第{r.batchIdx+1}組{daysSince !== null ? `（上次練習 ${daysSince} 天前）` : ''}
                     </span>
-                    <span style={{ fontFamily:MONO, fontSize:9, color:T.amber, flexShrink:0 }}>複習 →</span>
+                    <span style={{ fontFamily:MONO, fontSize:11, color:T.amber, flexShrink:0 }}>複習 →</span>
                   </div>
                 )
               })}
@@ -24279,22 +24350,22 @@ Steven 不是在收藏電影台詞。
                   <div style={{ flex:1 }}>
                     <div style={{ fontFamily:DISP, fontSize:14, color:T.txt }}>
                       {m.title}
-                      <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginLeft:6 }}>
+                      <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3, marginLeft:6 }}>
                         {m.titleEn}{m.year ? ` · ${m.year}` : ''}
                       </span>
                     </div>
                     <div style={{ display:'flex', gap:8, marginTop:3, flexWrap:'wrap', alignItems:'center' }}>
-                      <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2 }}>{sceneCount} 場景</span>
-                      {hasTranscript && <span style={{ fontFamily:MONO, fontSize:9, color:T.grn }}>✓ 逐字稿</span>}
-                      <span style={{ fontFamily:MONO, fontSize:9, color:T.grn }}>
+                      <span style={{ fontFamily:MONO, fontSize:11, color:T.txt2 }}>{sceneCount} 場景</span>
+                      {hasTranscript && <span style={{ fontFamily:MONO, fontSize:11, color:T.grn }}>✓ 逐字稿</span>}
+                      <span style={{ fontFamily:MONO, fontSize:11, color:T.grn }}>
                         ✓ 已熟悉 {allPhrases.filter(p => p.starred && p.familiar === true).length}
                       </span>
                       <span onClick={e => { e.stopPropagation(); selectMovie(m.id); setTimeout(() => setView('starred'), 50) }}
-                        style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#f87171' }}>
+                        style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:'#f87171' }}>
                         ⭐ {starredCount}
                       </span>
                       <span onClick={e => { e.stopPropagation(); selectMovie(m.id); setStarMode('reinforce'); setMultiScenePhrases([]); setTimeout(() => setView('starred'), 50) }}
-                        style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#f97316' }}>
+                        style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:'#f97316' }}>
                         🔥 {reinforceCount}
                       </span>
                     </div>
@@ -24322,7 +24393,7 @@ Steven 不是在收藏電影台詞。
                     background: mp3SettingId === m.id ? T.amberD : T.surf2,
                     border:`1px solid ${mp3SettingId === m.id ? T.amber+'50' : T.bdr}`,
                     borderRadius:8, padding:'5px 8px',
-                    fontFamily:MONO, fontSize:8, color: mp3SettingId === m.id ? T.amber : T.txt3 }}>
+                    fontFamily:MONO, fontSize:11, color: mp3SettingId === m.id ? T.amber : T.txt3 }}>
                   ⚙️ {m.mp3Parts?.length ? `${m.mp3Parts.length}段` : 'MP3'}
                 </div>
               </div>
@@ -24363,10 +24434,10 @@ Steven 不是在收藏電影台詞。
                   style={{ cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between',
                     background:'linear-gradient(135deg, #2a1a00, #1a0f00)',
                     border:`1px solid ${T.amber}60`, borderRadius:10, padding:'10px 14px' }}>
-                  <span style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:T.amber }}>
+                  <span style={{ fontFamily:MONO, fontSize:11, fontWeight:700, color:T.amber }}>
                     ⭐ 重點句子練習
                   </span>
-                  <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                  <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                     →
                   </span>
                 </div>
@@ -24375,38 +24446,38 @@ Steven 不是在收藏電影台詞。
               {mp3SettingId === m.id && (
                   <div style={{ marginTop:8, display:'flex', flexDirection:'column', gap:8,
                     background:T.surf2, borderRadius:10, padding:'12px', border:`1px solid ${T.bdr}` }}>
-                    <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                    <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                       設定每段 MP3 時間範圍（秒）；空白結束秒 = 到結尾
                     </div>
                     {mp3SettingParts.map((p, i) => (
                       <div key={i} style={{ display:'flex', gap:5, alignItems:'center' }}>
-                        <span style={{ fontFamily:MONO, fontSize:9, color:T.amber, minWidth:18 }}>P{i+1}</span>
+                        <span style={{ fontFamily:MONO, fontSize:11, color:T.amber, minWidth:18 }}>P{i+1}</span>
                         <input type="text" value={p.label}
                           onChange={e => setMp3SettingParts(prev => prev.map((x,j) => j===i ? {...x, label:e.target.value} : x))}
                           style={{ flex:2, background:T.surf, border:`1px solid ${T.bdr2}`, borderRadius:6,
-                            padding:'5px 7px', fontFamily:MONO, fontSize:9, color:T.txt, outline:'none' }} />
+                            padding:'5px 7px', fontFamily:MONO, fontSize:11, color:T.txt, outline:'none' }} />
                         <input type="number" value={p.start}
                           onChange={e => setMp3SettingParts(prev => prev.map((x,j) => j===i ? {...x, start:Number(e.target.value)} : x))}
                           placeholder="開始"
                           style={{ flex:1, background:T.surf, border:`1px solid ${T.bdr2}`, borderRadius:6,
-                            padding:'5px 7px', fontFamily:MONO, fontSize:9, color:T.txt, outline:'none' }} />
-                        <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>~</span>
+                            padding:'5px 7px', fontFamily:MONO, fontSize:11, color:T.txt, outline:'none' }} />
+                        <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>~</span>
                         <input type="number" value={p.end === 99999 ? '' : p.end}
                           onChange={e => setMp3SettingParts(prev => prev.map((x,j) => j===i ? {...x, end: e.target.value==='' ? 99999 : Number(e.target.value)} : x))}
                           placeholder="結束"
                           style={{ flex:1, background:T.surf, border:`1px solid ${T.bdr2}`, borderRadius:6,
-                            padding:'5px 7px', fontFamily:MONO, fontSize:9, color:T.txt, outline:'none' }} />
+                            padding:'5px 7px', fontFamily:MONO, fontSize:11, color:T.txt, outline:'none' }} />
                       </div>
                     ))}
                     <div style={{ display:'flex', gap:6 }}>
                       <div onClick={() => setMp3SettingParts(prev => [...prev, { label:`Part_0${prev.length+1}`, start: prev[prev.length-1]?.end ?? 0, end:99999 }])}
-                        style={{ cursor:'pointer', flex:1, fontFamily:MONO, fontSize:9, color:T.grn,
+                        style={{ cursor:'pointer', flex:1, fontFamily:MONO, fontSize:11, color:T.grn,
                           background:T.grnD, border:`1px solid ${T.grn}50`, borderRadius:7, padding:'6px', textAlign:'center' }}>
                         ＋ 新增段
                       </div>
                       {mp3SettingParts.length > 1 && (
                         <div onClick={() => setMp3SettingParts(prev => prev.slice(0,-1))}
-                          style={{ cursor:'pointer', flex:1, fontFamily:MONO, fontSize:9, color:'#f87171',
+                          style={{ cursor:'pointer', flex:1, fontFamily:MONO, fontSize:11, color:'#f87171',
                             background:'#3a1a1a', border:'1px solid #f8717150', borderRadius:7, padding:'6px', textAlign:'center' }}>
                           － 移除最後
                         </div>
@@ -24419,7 +24490,7 @@ Steven 不是在收藏電影台詞。
                         setMp3SettingId(null)
                         setPartStatus(['idle','idle','idle','idle'])
                       }}
-                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                         color:T.bg, background:T.amber, borderRadius:8, padding:'9px', textAlign:'center' }}>
                       💾 儲存 MP3 設定
                     </div>
@@ -24432,7 +24503,7 @@ Steven 不是在收藏電影台詞。
         {libraryAdding && (
           <div style={{ background:T.surf, border:`1px solid ${T.bdr2}`, borderRadius:14, padding:'16px',
             display:'flex', flexDirection:'column', gap:10 }}>
-            <div style={{ fontFamily:MONO, fontSize:10, color:T.txt2, fontWeight:700 }}>新增電影</div>
+            <div style={{ fontFamily:MONO, fontSize:11, color:T.txt2, fontWeight:700 }}>新增電影</div>
             <input
               autoFocus
               type="text"
@@ -24448,13 +24519,13 @@ Steven 不是在收藏電影台詞。
               <div onClick={addNewMovie}
                 style={{ flex:2, cursor:'pointer', background:T.amberD,
                   border:`1px solid ${T.amber}60`, borderRadius:9, padding:'10px',
-                  textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700, color:T.amber }}>
+                  textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700, color:T.amber }}>
                 ＋ 建立
               </div>
               <div onClick={() => { setLibraryAdding(false); setNewMovieTitle('') }}
                 style={{ flex:1, cursor:'pointer', background:T.surf2,
                   border:`1px solid ${T.bdr}`, borderRadius:9, padding:'10px',
-                  textAlign:'center', fontFamily:MONO, fontSize:10, color:T.txt3 }}>
+                  textAlign:'center', fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                 取消
               </div>
             </div>
@@ -24492,12 +24563,12 @@ Steven 不是在收藏電影台詞。
             <span style={{ fontFamily:MONO, fontSize:11, color:T.amber, fontWeight:700 }}>📚 知識庫</span>
             <div style={{ display:'flex', gap:6 }}>
               <div onClick={() => setKbOpen(kbOpen === '__prompt__' ? null : '__prompt__')}
-                style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#a78bfa',
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:'#a78bfa',
                   padding:'4px 10px', background:'#1e1040', borderRadius:7, border:'1px solid #a78bfa50' }}>
                 💬 ChatGPT 指令
               </div>
               <div onClick={() => { setKbEditId(null); setKbTitle(''); setKbContent(''); setKbCat('other'); setKbNewMode(true) }}
-                style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.amber,
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.amber,
                   padding:'4px 10px', background:T.amberD, borderRadius:7, border:`1px solid ${T.amber}50` }}>
                 ＋ 新增
               </div>
@@ -24512,7 +24583,7 @@ Steven 不是在收藏電影台詞。
                     })
                     saveKb(deduped)
                   }}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:8, color:'#f87171',
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:'#f87171',
                     padding:'4px 8px', background:'#3a1a1a', borderRadius:7,
                     border:'1px solid #f8717150' }}>
                   🗑 去重複
@@ -24524,7 +24595,7 @@ Steven 不是在收藏電影台詞。
                     const changed = reclassifyOtherKbItems()
                     showMovieToast(changed > 0 ? `✅ 已重新分類 ${changed} 筆` : '沒有需要調整的項目')
                   }}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:8, color:'#38bdf8',
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:'#38bdf8',
                     padding:'4px 8px', background:'#0d2a3a', borderRadius:7,
                     border:'1px solid #38bdf850' }}>
                   🔄 重新分類
@@ -24541,14 +24612,14 @@ Steven 不是在收藏電影台詞。
                 color:'#fff', outline:'none' }}/>
             {kbSearch && (
               <div onClick={() => setKbSearch('')}
-                style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.txt3,
                   padding:'6px 10px', background:T.surf2, borderRadius:7, border:`1px solid ${T.bdr}` }}>
                 ✕
               </div>
             )}
             <div onClick={() => setKbSortAZ(v => !v)}
               title="切換排序方式"
-              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, whiteSpace:'nowrap',
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, whiteSpace:'nowrap',
                 color: kbSortAZ ? T.amber : T.txt3,
                 background: kbSortAZ ? T.amberD : T.surf2,
                 padding:'6px 10px', borderRadius:7, border:`1px solid ${kbSortAZ ? T.amber+'50' : T.bdr}` }}>
@@ -24556,7 +24627,7 @@ Steven 不是在收藏電影台詞。
             </div>
             <div onClick={exportKbToText}
               title="匯出成文字檔備份"
-              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, whiteSpace:'nowrap',
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, whiteSpace:'nowrap',
                 color:T.grn, background:T.grnD, padding:'6px 10px', borderRadius:7,
                 border:`1px solid ${T.grn}50` }}>
               💾 匯出
@@ -24567,8 +24638,8 @@ Steven 不是在收藏電影台詞。
           {kbOpen === '__prompt__' && (
             <div style={{ background:'#0d0820', border:'1px solid #a78bfa40',
               borderRadius:10, padding:14, display:'flex', flexDirection:'column', gap:8 }}>
-              <div style={{ fontFamily:MONO, fontSize:9, color:'#a78bfa', fontWeight:700 }}>複製以下指令給 ChatGPT：</div>
-              <div style={{ fontFamily:'monospace', fontSize:10, color:'#cbd5e1',
+              <div style={{ fontFamily:MONO, fontSize:11, color:'#a78bfa', fontWeight:700 }}>複製以下指令給 ChatGPT：</div>
+              <div style={{ fontFamily:'monospace', fontSize:11, color:'#cbd5e1',
                 background:'#060412', borderRadius:8, padding:12, lineHeight:1.8,
                 whiteSpace:'pre-wrap', userSelect:'all' }}>{`從現在開始，每當我說「加入知識庫」，請不要輸出聊天內容，只輸出可直接貼入 APP 的知識。
 請遵守以下原則：
@@ -24659,7 +24730,7 @@ Steven 不是在收藏電影台詞。
                     .then(() => showMovieToast('✅ 已複製！貼到 ChatGPT 設定一次即可'))
                     .catch(() => showMovieToast('請長按上方文字複製'))
                 }}
-                style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                   color:'#000', padding:'8px', background:'#a78bfa',
                   borderRadius:8, textAlign:'center' }}>
                 📋 複製指令
@@ -24682,7 +24753,7 @@ Steven 不是在收藏電影台詞。
                   return (
                     <div key={cat.id}
                       onClick={() => setKbCat(cat.id)}
-                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:8,
+                      style={{ cursor:'pointer', fontFamily:MONO, fontSize:11,
                         color: isSelected ? '#000' : cat.color,
                         padding:'4px 10px', borderRadius:6,
                         background: isSelected ? cat.color : cat.color+'15',
@@ -24751,12 +24822,12 @@ Steven 不是在收藏電影台詞。
                     setKbCat('other')
                     autoReturnFromKbIfNeeded()
                   }}
-                  style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                  style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                     color:'#000', padding:'8px', background:T.amber, borderRadius:8, textAlign:'center' }}>
                   ✓ 儲存
                 </div>
                 <div onClick={() => { setKbNewMode(false); setKbEditId(null); setKbTitle(''); setKbContent('') }}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt3,
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.txt3,
                     padding:'8px 14px', background:T.surf2, borderRadius:8,
                     border:`1px solid ${T.bdr}`, textAlign:'center' }}>
                   取消
@@ -24769,10 +24840,10 @@ Steven 不是在收藏電影台詞。
           {kbDupConfirm && (
             <div style={{ display:'flex', flexDirection:'column', gap:8,
               background:'#2a1f00', border:`1px solid ${T.amber}60`, borderRadius:10, padding:12 }} className="fadeUp">
-              <div style={{ fontFamily:MONO, fontSize:10, color:T.amber, fontWeight:700 }}>
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.amber, fontWeight:700 }}>
                 ⚠ 已存在相同標題「{kbDupConfirm.title}」，是否補充到原項目？
               </div>
-              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.6 }}>
                 補充會把新內容加到原有內容下方並標記日期；覆蓋會直接取代原本內容。
               </div>
               <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
@@ -24785,7 +24856,7 @@ Steven 不是在收藏電影台詞。
                     setKbContent('')
                     setKbCat('other')
                   }}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                     color:T.bg, background:T.grn, borderRadius:8, padding:'9px', textAlign:'center' }}>
                   ➕ 補充到原項目
                 </div>
@@ -24798,13 +24869,13 @@ Steven 不是在收藏電影台詞。
                     setKbContent('')
                     setKbCat('other')
                   }}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                     color:T.red, background:T.redD, border:`1px solid ${T.red}50`,
                     borderRadius:8, padding:'9px', textAlign:'center' }}>
                   ♻ 覆蓋原項目
                 </div>
                 <div onClick={() => setKbDupConfirm(null)}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, color:T.txt3,
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.txt3,
                     background:T.surf2, border:`1px solid ${T.bdr}`,
                     borderRadius:8, padding:'9px', textAlign:'center' }}>
                   取消
@@ -24814,7 +24885,7 @@ Steven 不是在收藏電影台詞。
           )}
           {/* 分類顯示 */}
           {kbList.length === 0 && !kbNewMode && (
-            <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, textAlign:'center', padding:'8px 0' }}>
+            <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, textAlign:'center', padding:'8px 0' }}>
               尚無筆記，點「＋ 新增」加入動詞家族等學習整理
             </div>
           )}
@@ -24822,7 +24893,7 @@ Steven 不是在收藏電影台詞。
             const q = kbSearch.trim().toLowerCase()
             return !((k.title ?? '').toLowerCase().includes(q) || (k.content ?? '').toLowerCase().includes(q))
           }) && (
-            <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, textAlign:'center', padding:'8px 0' }}>
+            <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, textAlign:'center', padding:'8px 0' }}>
               🔍 找不到符合「{kbSearch}」的筆記
             </div>
           )}
@@ -24836,7 +24907,7 @@ Steven 不是在收藏電影台詞。
             if (catItems.length === 0) return null
             return (
               <div key={cat.id}>
-                <div style={{ fontFamily:MONO, fontSize:9, color:cat.color,
+                <div style={{ fontFamily:MONO, fontSize:11, color:cat.color,
                   fontWeight:700, marginBottom:4, paddingLeft:2 }}>{cat.label}</div>
                 {catItems.map((k) => { const globalIdx = kbList.indexOf(k); return (
                   <div key={k.id} id={'kb-item-' + k.id} style={{ borderRadius:10, overflow:'hidden', marginBottom:6,
@@ -24845,19 +24916,19 @@ Steven 不是在收藏電影台詞。
                       padding:'10px 12px', background: kbOpen===k.id ? cat.color+'15' : T.surf2,
                       cursor:'pointer' }}
                       onClick={() => setKbOpen(kbOpen===k.id ? null : k.id)}>
-                      <span style={{ fontFamily:MONO, fontSize:10, color:cat.color, flexShrink:0 }}>
+                      <span style={{ fontFamily:MONO, fontSize:11, color:cat.color, flexShrink:0 }}>
                         {kbOpen===k.id ? '▼' : '▶'}
                       </span>
                       <span style={{ fontFamily:MONO, fontSize:11, color:'#fff', flex:1 }}>{k.title}</span>
                       <div onClick={e => { e.stopPropagation();
                           setKbNewMode(false); setKbEditId(k.id); setKbTitle(k.title); setKbContent(k.content); setKbCat(k.cat ?? 'other')
                         }}
-                        style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:cat.color,
+                        style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:cat.color,
                           padding:'2px 7px', background:cat.color+'20', borderRadius:5 }}>✏</div>
                       <div onClick={e => { e.stopPropagation();
                           if (window.confirm(`刪除「${k.title}」？`)) deleteKbItem(k.id, kbList.indexOf(k))
                         }}
-                        style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#f87171',
+                        style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:'#f87171',
                           padding:'2px 7px', background:'#3a1a1a', borderRadius:5 }}>✕</div>
                     </div>
                     {kbOpen===k.id && (() => {
@@ -24883,7 +24954,7 @@ Steven 不是在收藏電影台詞。
                           display:'flex', flexDirection:'column', gap:10 }}>
                           {Object.entries(sections).map(([sec, lines]) => (
                             <div key={sec}>
-                              <div style={{ fontFamily:MONO, fontSize:8, color:SectionColors[sec] ?? '#94a3b8',
+                              <div style={{ fontFamily:MONO, fontSize:11, color:SectionColors[sec] ?? '#94a3b8',
                                 fontWeight:700, marginBottom:4, letterSpacing:'0.05em' }}>【{sec}】</div>
                               {lines.map((line, i) => (
                                 <div key={i} style={{ fontFamily:'monospace', fontSize:11,
@@ -24913,10 +24984,10 @@ Steven 不是在收藏電影台詞。
         {/* ── 電影資料同步（全域，只在片庫首頁出現一次）── */}
         <div style={{ display:'flex', flexDirection:'column', gap:8,
           background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:13, padding:'14px 16px' }}>
-          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>
+          <div style={{ fontFamily:MONO, fontSize:11, color:T.txt2, letterSpacing:'0.1em' }}>
             🎬 電影資料同步 (Google Sheets)
           </div>
-          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.7 }}>
+          <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.7 }}>
             同步範圍：場景、句子、⭐收藏、單字庫、逐字稿、📚知識庫、📚背誦庫、練習日期與游標（涵蓋所有電影）
           </div>
           <div style={{ display:'flex', gap:8 }}>
@@ -24925,7 +24996,7 @@ Steven 不是在收藏電影台詞。
                 background: pushSyncing ? T.surf2 : T.blueD,
                 border:`1px solid ${pushSyncing ? T.bdr : T.blue+'50'}`,
                 borderRadius:9, padding:'10px', textAlign:'center',
-                fontFamily:MONO, fontSize:10, color: pushSyncing ? T.txt3 : T.blue,
+                fontFamily:MONO, fontSize:11, color: pushSyncing ? T.txt3 : T.blue,
                 display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
               {pushSyncing && <span style={{ display:'inline-block', width:8, height:8,
                 border:'1.5px solid transparent', borderTopColor:T.blue,
@@ -24937,7 +25008,7 @@ Steven 不是在收藏電影台詞。
                 background: pullSyncing ? T.surf2 : T.grnD,
                 border:`1px solid ${pullSyncing ? T.bdr : T.grn+'50'}`,
                 borderRadius:9, padding:'10px', textAlign:'center',
-                fontFamily:MONO, fontSize:10, color: pullSyncing ? T.txt3 : T.grn,
+                fontFamily:MONO, fontSize:11, color: pullSyncing ? T.txt3 : T.grn,
                 display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
               {pullSyncing && <span style={{ display:'inline-block', width:8, height:8,
                 border:'1.5px solid transparent', borderTopColor:T.grn,
@@ -24946,7 +25017,7 @@ Steven 不是在收藏電影台詞。
             </div>
           </div>
           {movieSyncMsg && (
-            <div style={{ fontFamily:MONO, fontSize:9, lineHeight:1.7,
+            <div style={{ fontFamily:MONO, fontSize:11, lineHeight:1.7,
               color: movieSyncMsg.startsWith('✓') ? T.grn : movieSyncMsg.startsWith('✗') ? T.red : T.txt3 }}>
               {movieSyncMsg}
             </div>
@@ -24967,7 +25038,7 @@ Steven 不是在收藏電影台詞。
       {/* ← 片庫按鈕 */}
       <div onClick={() => setView('library')}
         style={{ cursor:'pointer', display:'inline-flex', alignItems:'center', gap:6,
-          fontFamily:MONO, fontSize:10, color:T.amber, background:T.amberD,
+          fontFamily:MONO, fontSize:11, color:T.amber, background:T.amberD,
           border:`1px solid ${T.amber}50`, borderRadius:9, padding:'6px 12px',
           alignSelf:'flex-start' }}>
         ← 片庫
@@ -24978,10 +25049,10 @@ Steven 不是在收藏電影台詞。
           <span style={{ fontSize:20 }}>🎬</span>
           <div style={{ flex:1 }}>
             <div style={{ fontFamily:DISP, fontSize:16, color:T.txt }}>{movie?.title}</div>
-            <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>{movie?.titleEn} · {movie?.year}</div>
+            <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>{movie?.titleEn} · {movie?.year}</div>
           </div>
           {/* 自動同步狀態 */}
-          <div style={{ fontFamily:MONO, fontSize:8, color:
+          <div style={{ fontFamily:MONO, fontSize:11, color:
             autoSyncStatus === 'syncing' ? T.amber :
             autoSyncStatus === 'ok' ? T.grn :
             autoSyncStatus === 'err' ? T.red : T.txt3 }}>
@@ -25017,7 +25088,7 @@ Steven 不是在收藏電影台詞。
               } catch {}
               setView('manageTranscript')
             }}
-            style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+            style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
               color:T.amber, background:T.amberD, border:`1px solid ${T.amber}50`,
               borderRadius:8, padding:'5px 10px', whiteSpace:'nowrap' }}>
             ＋ 新增場景
@@ -25056,13 +25127,13 @@ Steven 不是在收藏電影台詞。
         {/* ── 多場景批次播放列（選了場景才顯示）── */}
         {/* 場景範圍快速選取：輸入起訖場景號，不用一個個勾選 */}
         <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:4 }}>
-          <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3, flexShrink:0 }}>範圍選取</span>
+          <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3, flexShrink:0 }}>範圍選取</span>
           <input type="number" inputMode="numeric" placeholder="起" value={sceneRangeFrom}
             onChange={e => setSceneRangeFrom(e.target.value)}
             style={{ width:44, fontFamily:MONO, fontSize:11, textAlign:'center',
               background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:7,
               color:T.txt, padding:'5px 2px' }} />
-          <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>～</span>
+          <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>～</span>
           <input type="number" inputMode="numeric" placeholder="迄" value={sceneRangeTo}
             onChange={e => setSceneRangeTo(e.target.value)}
             style={{ width:44, fontFamily:MONO, fontSize:11, textAlign:'center',
@@ -25085,7 +25156,7 @@ Steven 不是在收藏電影台詞。
               if (ids.length === 0) { showMovieToast('這個範圍沒有場景'); return }
               setSelectedSceneIds(new Set(ids))
             }}
-            style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700, color:T.bg,
+            style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700, color:T.bg,
               background:T.amber, borderRadius:7, padding:'6px 10px', flexShrink:0 }}>
             選取
           </div>
@@ -25094,7 +25165,7 @@ Steven 不是在收藏電影台詞。
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
             gap:8, background:'#1a1500', border:`2px solid ${T.amber}`,
             borderRadius:12, padding:'9px 14px', marginTop:4 }}>
-            <div style={{ fontFamily:MONO, fontSize:10, color:T.amber, lineHeight:1.4 }}>
+            <div style={{ fontFamily:MONO, fontSize:11, color:T.amber, lineHeight:1.4 }}>
               ☑ {selectedSceneIds.size} 個場景・
               {(() => {
                 const total = [...selectedSceneIds].reduce((acc, sid) => {
@@ -25111,7 +25182,7 @@ Steven 不是在收藏電影台詞。
             </div>
             <div style={{ display:'flex', gap:6, flexShrink:0 }}>
               <div onClick={() => setSelectedSceneIds(new Set())}
-                style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.txt3,
                   padding:'5px 8px', background:T.surf2, borderRadius:8,
                   border:`1px solid ${T.bdr}` }}>✕ 清除</div>
               <div onClick={() => {
@@ -25127,7 +25198,7 @@ Steven 不是在收藏電影台詞。
                   setStarMode('list')  // 多場景模式預設全部顯示
                   setView('starred')
                 }}
-                style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                   color:'#000', padding:'6px 12px', background:T.amber,
                   borderRadius:8 }}>▶ 播放重點句</div>
               {/* v6.99: ▶ 全部——選中場景的每一句依時間順序送進同一個練習畫面（騎車連續聽用）。
@@ -25146,7 +25217,7 @@ Steven 不是在收藏電影台詞。
                   setView('starred')
                 }}
                 style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
-                  fontFamily:MONO, fontSize:10, fontWeight:700,
+                  fontFamily:MONO, fontSize:11, fontWeight:700,
                   color:T.amber, padding:'6px 12px', background:'transparent',
                   border:`1px solid ${T.amber}`, borderRadius:8 }}>▶ 全部</div>
             </div>
@@ -25156,7 +25227,7 @@ Steven 不是在收藏電影台詞。
         <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10,
           background:T.surf2, borderRadius:9, padding:'8px 12px',
           border:`1px solid ${audioReady ? T.grn+'50' : T.bdr}` }}>
-          <span style={{ fontFamily:MONO, fontSize:9, flex:1, overflow:'hidden',
+          <span style={{ fontFamily:MONO, fontSize:11, flex:1, overflow:'hidden',
             textOverflow:'ellipsis', whiteSpace:'nowrap',
             color: audioReady ? T.grn : T.txt3 }}>
             {audioReady
@@ -25169,7 +25240,7 @@ Steven 不是在收藏電影台詞。
           </span>
           {/* P2~P4 狀態 */}
           {[1,2,3].map(i => (
-            <span key={i} style={{ fontFamily:MONO, fontSize:9, flexShrink:0,
+            <span key={i} style={{ fontFamily:MONO, fontSize:11, flexShrink:0,
               color: partStatus[i]==='cached' ? T.grn : partStatus[i]==='loading' ? T.amber : T.txt3 }}>
               {partStatus[i]==='cached' ? `📦 P${i+1} ✅`
                : partStatus[i]==='loading' ? `⏳ P${i+1}…`
@@ -25178,7 +25249,7 @@ Steven 不是在收藏電影台詞。
             </span>
           ))}
           <div onClick={() => { const p0 = getMovieMp3Parts(movie)[0]; if (p0) loadAudioUrl(p0.idbKey, `${movie?.title ?? ''} Part 1`) }}
-            style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+            style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
               color:T.grn, padding:'4px 10px', background:T.grnD,
               borderRadius:7, border:`1px solid ${T.grn}50`, whiteSpace:'nowrap', flexShrink:0 }}>
             ↺ 重新載入
@@ -25193,12 +25264,12 @@ Steven 不是在收藏電影台詞。
             background:`linear-gradient(90deg,${T.amber},${T.amber}cc)`, transition:'width 0.3s' }}/>
         </div>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-          <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+          <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
             總進度 {totalPlayed}/{totalPhrases} 句 · {totalPct}% · {movie?.scenes.length ?? 0} 個場景
           </span>
           <div style={{ display:'flex', gap:6 }}>
             <span onClick={() => { setTranscriptDraft(''); setTranscriptEditMode(false); setView('manageTranscript') }}
-              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9,
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:11,
                 color: movie?.transcript ? T.grn : T.txt3,
                 background: movie?.transcript ? T.grnD : T.surf2,
                 border:`1px solid ${movie?.transcript ? T.grn+'40' : T.bdr}`,
@@ -25284,22 +25355,22 @@ Steven 不是在收藏電影台詞。
                   }
                 }}
                 title={s.lastVisited ? '點擊清除練習記錄（需確認）' : '點擊標記今天練習'}
-                style={{ fontFamily:MONO, fontSize:9, lineHeight:1.2, textAlign:'center',
+                style={{ fontFamily:MONO, fontSize:11, lineHeight:1.2, textAlign:'center',
                   flexShrink:0, minWidth:32, cursor:'pointer',
                   opacity: s.lastVisited ? 1 : 0.5,
                   transition:'opacity 0.15s' }}>
                 {s.lastVisited ? (
                   <>
-                    <div style={{ color:T.grn, fontSize:8 }}>📅</div>
+                    <div style={{ color:T.grn, fontSize:11 }}>📅</div>
                     <div style={{ color:T.grn }}>
                       {s.lastVisited.slice(5).replace('-','/')}
                     </div>
                   </>
                 ) : (
-                  <div style={{ color:T.txt3, fontSize:10 }}>📅</div>
+                  <div style={{ color:T.txt3, fontSize:11 }}>📅</div>
                 )}
               </div>
-              <span style={{ fontFamily:'monospace', fontSize:10, color:T.amber,
+              <span style={{ fontFamily:'monospace', fontSize:11, color:T.amber,
                 background:'#2a1f00', border:`1px solid ${T.amber}40`,
                 borderRadius:5, padding:'1px 5px', flexShrink:0, letterSpacing:'0.05em' }}>
                 {String(sceneNo).padStart(2,'0')}
@@ -25342,15 +25413,15 @@ Steven 不是在收藏電影台詞。
                 </span>
               )}
               <div onClick={e => { e.stopPropagation(); setEditingSceneNameId(s.id); setEditingSceneNameText(s.name) }}
-                style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.txt3,
                   padding:'2px 6px', background:T.surf2, borderRadius:5, border:`1px solid ${T.bdr}`,
                   marginRight:4 }}>✏️</div>
               <div onClick={e=>{e.stopPropagation();deleteScene(s.id)}}
-                style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.txt3,
                   padding:'2px 6px', background:T.surf2, borderRadius:5, border:`1px solid ${T.bdr}` }}>✕</div>
             </div>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, marginBottom: spc>0?7:0 }}>
-              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                 {s.timeRange} · {s.phrases.length} 句
                 {(() => {
                   const starCount = s.phrases.filter(p => p.starred).length
@@ -25402,7 +25473,7 @@ Steven 不是在收藏電影台詞。
                   else fallback()
                   showMovieToast('✅「' + sceneTitle + '」指令已複製')
                 }}
-                style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#c084fc',
+                style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:'#c084fc',
                   padding:'3px 8px', background:'#2d1a4a', borderRadius:6,
                   border:'1px solid #c084fc50', fontWeight:700, display:'inline-flex',
                   alignItems:'center', gap:4, flexShrink:0 }}>
@@ -25413,7 +25484,7 @@ Steven 不是在收藏電影台詞。
             {matchedPhrases.length > 0 && (
               <div style={{ marginTop:8, display:'flex', flexDirection:'column', gap:4 }}>
                 {matchedPhrases.slice(0, 3).map(p => (
-                  <div key={p.id} style={{ fontFamily:MONO, fontSize:9, color:T.txt3,
+                  <div key={p.id} style={{ fontFamily:MONO, fontSize:11, color:T.txt3,
                     background:T.surf2, borderRadius:6, padding:'4px 8px',
                     borderLeft:`2px solid ${T.amber}` }}>
                     <span style={{ color:T.txt }}>{p.en}</span>
@@ -25421,7 +25492,7 @@ Steven 不是在收藏電影台詞。
                   </div>
                 ))}
                 {matchedPhrases.length > 3 && (
-                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                  <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                     +{matchedPhrases.length - 3} 句…
                   </div>
                 )}
@@ -25433,10 +25504,10 @@ Steven 不是在收藏電影台詞。
             {/* ── 雲端 MP3 設定 ── */}
       <div style={{ display:'flex', flexDirection:'column', gap:8,
         background:T.surf, border:`1px solid ${audioReady ? T.grn+'50' : T.bdr}`, borderRadius:13, padding:'14px 16px' }}>
-        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>
+        <div style={{ fontFamily:MONO, fontSize:11, color:T.txt2, letterSpacing:'0.1em' }}>
           ☁️ 電影原音（GitHub）
         </div>
-        <div style={{ fontFamily:MONO, fontSize:9, color: audioReady ? T.grn : T.txt3 }}>
+        <div style={{ fontFamily:MONO, fontSize:11, color: audioReady ? T.grn : T.txt3 }}>
           {audioReady
             ? `✅ ${audioFileName} 已載入`
             : audioFileName?.startsWith('❌')
@@ -25445,14 +25516,14 @@ Steven 不是在收藏電影台詞。
         </div>
         <div style={{ display:'flex', gap:8 }}>
           <div onClick={() => { const p0 = getMovieMp3Parts(movie)[0]; if (p0) loadAudioUrl(p0.idbKey, `${movie?.title ?? ''} Part 1`) }}
-            style={{ flex:2, cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+            style={{ flex:2, cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
               color:T.grn, padding:'9px', background:T.grnD,
               borderRadius:8, border:`1px solid ${T.grn}50`, textAlign:'center' }}>
             ↺ 重新載入雲端 MP3
           </div>
           {getMovieMp3Parts(movie).map((p, i) => (
             <div key={i} onClick={() => pickAudioFile(p.idbKey)}
-              style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:9,
+              style={{ flex:1, cursor:'pointer', fontFamily:MONO, fontSize:11,
                 color: partStatus[i]==='cached' ? T.grn : T.amber,
                 padding:'9px', background: partStatus[i]==='cached' ? T.grnD : T.amberD,
                 borderRadius:8, border:`1px solid ${partStatus[i]==='cached' ? T.grn : T.amber}50`,
@@ -25465,7 +25536,7 @@ Steven 不是在收藏電影台詞。
 
       <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
             <span onClick={runMovieHealthCheck}
-              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9,
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:11,
                 color: '#38bdf8', background:'#0d2a3a',
                 border:'1px solid #38bdf850',
                 padding:'2px 9px', borderRadius:8 }}>
@@ -25481,28 +25552,28 @@ Steven 不是在收藏電影台詞。
                   (result.notFound > 0 ? `（${result.notFound}句找不到對應，維持原時間碼）` : '')
                 )
               }}
-              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9,
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:11,
                 color: '#a78bfa', background:'#1a0f2e',
                 border:'1px solid #a78bfa40',
                 padding:'2px 9px', borderRadius:8 }}>
               🔁 全片重新比對
             </span>
             <span onClick={() => setCorrectionPanelOpen(v => !v)}
-              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9,
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:11,
                 color: T.amber, background:T.amberD,
                 border:`1px solid ${T.amber}40`,
                 padding:'2px 9px', borderRadius:8 }}>
               📊 校正紀錄
             </span>
             <span onClick={() => setBlindStatsOpen(v => !v)}
-              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9,
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:11,
                 color: '#38bdf8', background:'#0d2a3a',
                 border:'1px solid #38bdf840',
                 padding:'2px 9px', borderRadius:8 }}>
               🎧 聽力統計
             </span>
             <span onClick={() => setListenLibOpen(v => !v)}
-              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9,
+              style={{ cursor:'pointer', fontFamily:MONO, fontSize:11,
                 color: '#38bdf8', background:'#0d2a3a',
                 border:'1px solid #38bdf840',
                 padding:'2px 9px', borderRadius:8 }}>
@@ -25515,7 +25586,7 @@ Steven 不是在收藏電影台詞。
           try { log = JSON.parse(localStorage.getItem('fsi:blind:log') ?? '[]') } catch(e) {}
           if (log.length === 0) return (
             <div style={{ background:'#0a1520', border:'1px solid #38bdf830', borderRadius:10, padding:12,
-              fontFamily:MONO, fontSize:10, color:T.txt3 }}>
+              fontFamily:MONO, fontSize:11, color:T.txt3 }}>
               尚無盲聽紀錄。進入場景開啟「🎧盲聽模式」練習，標記結果後這裡就會有統計。
             </div>
           )
@@ -25565,12 +25636,12 @@ Steven 不是在收藏電影台詞。
           const origThis = thisWeek.filter(e => e.mode === 'original')
           const ttsThis  = thisWeek.filter(e => e.mode !== 'original')
           const line = (label, val, prevVal) => (
-            <div key={label} style={{ display:'flex', justifyContent:'space-between', fontFamily:MONO, fontSize:10, padding:'4px 0' }}>
+            <div key={label} style={{ display:'flex', justifyContent:'space-between', fontFamily:MONO, fontSize:11, padding:'4px 0' }}>
               <span style={{ color:T.txt3 }}>{label}</span>
               <span style={{ color:T.txt }}>
                 {val ?? '—'}{typeof val === 'number' ? '%' : ''}
                 {(typeof val === 'number' && typeof prevVal === 'number') && (
-                  <span style={{ marginLeft:6, fontSize:8,
+                  <span style={{ marginLeft:6, fontSize:11,
                     color: val > prevVal ? T.grn : val < prevVal ? '#f87171' : T.txt3 }}>
                     {val > prevVal ? `↑上週${prevVal}%` : val < prevVal ? `↓上週${prevVal}%` : '→持平'}
                   </span>
@@ -25581,7 +25652,7 @@ Steven 不是在收藏電影台詞。
           return (
             <div style={{ background:'#0a1520', border:'1px solid #38bdf830', borderRadius:10, padding:12,
               display:'flex', flexDirection:'column', gap:2 }}>
-              <div style={{ fontFamily:MONO, fontSize:9, color:'#38bdf8', fontWeight:700, marginBottom:4 }}>
+              <div style={{ fontFamily:MONO, fontSize:11, color:'#38bdf8', fontWeight:700, marginBottom:4 }}>
                 🎧 本週盲聽 {thisWeek.length} 句次（觀察改善用，不是考試）
               </div>
               {line('✓ 完全聽懂率', pct(thisWeek,'good'), pct(prevWeek,'good'))}
@@ -25589,18 +25660,18 @@ Steven 不是在收藏電影台詞。
               {line('✗ 幾乎沒聽懂率', pct(thisWeek,'bad'), pct(prevWeek,'bad'))}
               {line('平均播放次數', avgPlays(thisWeek) === '—' ? null : Number(avgPlays(thisWeek)), avgPlays(prevWeek) === '—' ? null : Number(avgPlays(prevWeek)))}
               <div style={{ height:1, background:T.bdr, margin:'6px 0' }}/>
-              <div style={{ fontFamily:MONO, fontSize:9, color:T.amber }}>
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>
                 ⭐ 首聽成績（第一次盲聽新句子的表現，聽力真實進步指標）
               </div>
               {line('首聽完全聽懂率', pct(firstThis,'good'), pct(firstPrev,'good'))}
               <div style={{ height:1, background:T.bdr, margin:'6px 0' }}/>
-              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                 依音源（🎬電影原音才是真實世界難度）
               </div>
               {line('🎬 電影原音聽懂率', pct(origThis,'good'), null)}
               {line('🔊 系統音聽懂率', pct(ttsThis,'good'), null)}
               {(pct(origThis,'good') != null && pct(ttsThis,'good') != null) && (
-                <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, marginTop:4, lineHeight:1.5 }}>
+                <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, marginTop:4, lineHeight:1.5 }}>
                   兩者的差距 = 連音解碼缺口，差距逐漸縮小才代表往「聽得懂真人」邁進
                 </div>
               )}
@@ -25609,21 +25680,21 @@ Steven 不是在收藏電影台詞。
               {dictLog.length > 0 && (
                 <>
                   <div style={{ height:1, background:T.bdr, margin:'8px 0 6px' }}/>
-                  <div style={{ fontFamily:MONO, fontSize:9, color:'#38bdf8', fontWeight:700 }}>
+                  <div style={{ fontFamily:MONO, fontSize:11, color:'#38bdf8', fontWeight:700 }}>
                     🖊 聽寫診斷 · 本週 {dThis.length} 句次
                   </div>
                   {line('全詞抓字率（誠實）', wRate(dThis), wRate(dPrev))}
                   {line('實詞抓字率（看進步）', wCRate(dThis), wCRate(dPrev))}
                   {(wRate(dThis) != null && wCRate(dThis) != null) && (
                     <div style={{ display:'flex', justifyContent:'space-between',
-                      fontFamily:MONO, fontSize:10, padding:'4px 0' }}>
+                      fontFamily:MONO, fontSize:11, padding:'4px 0' }}>
                       <span style={{ color:T.amber }}>弱讀解碼缺口</span>
                       <span style={{ color:T.amber, fontWeight:700 }}>
                         {wCRate(dThis) - wRate(dThis)}pt
                       </span>
                     </div>
                   )}
-                  <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
+                  <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.5 }}>
                     缺口大 = 實詞聽得到、虛詞聽不到。這個數字縮小，才是連音解碼真的在進步。
                   </div>
                   {(() => {
@@ -25632,7 +25703,7 @@ Steven 不是在收藏電影台詞。
                     const ks = Object.keys(spdMap)
                     if (ks.length === 0) return null
                     return (
-                      <div style={{ fontFamily:MONO, fontSize:8, color: ks.length > 1 ? T.amber : T.txt3, lineHeight:1.5 }}>
+                      <div style={{ fontFamily:MONO, fontSize:11, color: ks.length > 1 ? T.amber : T.txt3, lineHeight:1.5 }}>
                         本週語速組成：{ks.map(k => `${k}x×${spdMap[k]}`).join(' · ')}
                         {ks.length > 1 && '　⚠ 混了不同語速，趨勢比較會失真'}
                       </div>
@@ -25642,7 +25713,7 @@ Steven 不是在收藏電影台詞。
                   {(dCold.length > 0 || dHot.length > 0) && (
                     <>
                       <div style={{ height:1, background:T.bdr, margin:'6px 0' }}/>
-                      <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                      <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                         冷聽 vs 熱聽（熱聽是練過的重點句，成績偏高不代表聽力）
                       </div>
                       {line(`🧊 冷聽全詞率（${dCold.length}句次）`, wRate(dCold), null)}
@@ -25652,18 +25723,18 @@ Steven 不是在收藏電影台詞。
 
                   <div style={{ height:1, background:T.bdr, margin:'6px 0' }}/>
                   <div style={{ display:'flex', justifyContent:'space-between',
-                    fontFamily:MONO, fontSize:9, padding:'2px 0' }}>
+                    fontFamily:MONO, fontSize:11, padding:'2px 0' }}>
                     <span style={{ color:T.txt3 }}>🩺 診斷樣本（首聽且≤3次）</span>
                     <span style={{ color:T.grn, fontWeight:700 }}>{dDiag.length} 句</span>
                   </div>
                   <div style={{ display:'flex', justifyContent:'space-between',
-                    fontFamily:MONO, fontSize:9, padding:'2px 0' }}>
+                    fontFamily:MONO, fontSize:11, padding:'2px 0' }}>
                     <span style={{ color:T.txt3 }}>💪 練習樣本（重聽或聽&gt;3次）</span>
                     <span style={{ color:T.amber, fontWeight:700 }}>{dPractice.length} 句</span>
                   </div>
                   {dDiag.length > 0 && (
                     <div style={{ display:'flex', justifyContent:'space-between',
-                      fontFamily:MONO, fontSize:10, padding:'3px 0' }}>
+                      fontFamily:MONO, fontSize:11, padding:'3px 0' }}>
                       <span style={{ color:T.grn }}>診斷基準：全詞抓字率</span>
                       <span style={{ color:T.grn, fontWeight:700 }}>{wRate(dDiag) ?? '—'}%</span>
                     </div>
@@ -25672,14 +25743,14 @@ Steven 不是在收藏電影台詞。
                   {topMiss.length > 0 && (
                     <>
                       <div style={{ height:1, background:T.bdr, margin:'6px 0' }}/>
-                      <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:4 }}>
+                      <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, marginBottom:4 }}>
                         ⚪ 最常漏掉的字 Top 10（只算診斷樣本，共 {dDiag.length} 句）
                       </div>
                       <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
                         {topMiss.map(([w, n]) => {
                           const isFunc = FUNC_WORDS.has(w)
                           return (
-                            <span key={w} style={{ fontFamily:MONO, fontSize:9, fontWeight:700,
+                            <span key={w} style={{ fontFamily:MONO, fontSize:11, fontWeight:700,
                               color: isFunc ? T.amber : '#f87171',
                               background: isFunc ? T.amberD : '#3a1a1a',
                               border:`1px solid ${(isFunc ? T.amber : '#f87171')}40`,
@@ -25689,7 +25760,7 @@ Steven 不是在收藏電影台詞。
                           )
                         })}
                       </div>
-                      <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, marginTop:5, lineHeight:1.5 }}>
+                      <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, marginTop:5, lineHeight:1.5 }}>
                         <span style={{ color:T.amber }}>橘色</span>=功能詞（認識但聽不出 → 連音弱讀問題，練耳朵）·
                         <span style={{ color:'#f87171' }}> 紅色</span>=實詞（可能真的不認識 → 查字典）
                       </div>
@@ -25699,12 +25770,12 @@ Steven 不是在收藏電影台詞。
                   {topPairs.length > 0 && (
                     <>
                       <div style={{ height:1, background:T.bdr, margin:'6px 0' }}/>
-                      <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:4 }}>
+                      <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, marginBottom:4 }}>
                         🔴 誤聽配對（你聽成 → 原文是）
                       </div>
                       <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
                         {topPairs.map(([k, n]) => (
-                          <span key={k} style={{ fontFamily:MONO, fontSize:9, color:'#f87171',
+                          <span key={k} style={{ fontFamily:MONO, fontSize:11, color:'#f87171',
                             background:'#3a1a1a', border:'1px solid #f8717140',
                             padding:'3px 8px', borderRadius:7 }}>
                             {k} ×{n}
@@ -25715,7 +25786,7 @@ Steven 不是在收藏電影台詞。
                   )}
 
                   {dFirst.length < 15 && (
-                    <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, marginTop:6, lineHeight:1.5 }}>
+                    <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, marginTop:6, lineHeight:1.5 }}>
                       ⓘ 診斷樣本只有 {dDiag.length} 句，未滿 15 句，漏字排行還不穩定，先繼續累積。
                     </div>
                   )}
@@ -25735,7 +25806,7 @@ Steven 不是在收藏電影台詞。
               <div style={{ fontFamily:MONO, fontSize:12, color:T.amber, fontWeight:700 }}>
                 「{vocabConfirm.word}」是功能詞
               </div>
-              <div style={{ fontFamily:MONO, fontSize:10, color:T.txt2, lineHeight:1.7 }}>
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.txt2, lineHeight:1.7 }}>
                 功能詞（of / the / is…）你其實都認識，問題是<b>聽不出來</b>，不是不懂意思。
                 加進單字庫幫助不大 —— 該練的是連音，去 🎯 聽力庫打它的關卡。
               </div>
@@ -25819,9 +25890,9 @@ Steven 不是在收藏電影台詞。
                 <span style={{ fontFamily:MONO, fontSize:12, color:'#38bdf8', fontWeight:700 }}>🌅 今日盲聽</span>
                 {/* v6.91: 主指標改「近 7 天練了幾天」——不會歸零，漏一天不必當判決；
                     連續天數退成小字（它仍有動力價值，只是不該當主角）。 */}
-                <span style={{ fontFamily:MONO, fontSize:10, color:T.amber, fontWeight:700 }}>
+                <span style={{ fontFamily:MONO, fontSize:11, color:T.amber, fontWeight:700 }}>
                   📅 近 7 天 {act7}/7 天
-                  <span style={{ color:T.txt3, fontSize:8, fontWeight:400 }}>
+                  <span style={{ color:T.txt3, fontSize:11, fontWeight:400 }}>
                     {' '}· 🔥 連續 {streak.days ?? 0}
                     {streak.best > (streak.days ?? 0) && ` · 最佳 ${streak.best}`}
                   </span>
@@ -25834,7 +25905,7 @@ Steven 不是在收藏電影台詞。
                   做成可調不寫死——句首還是趕就加大，沾到上一句就縮小。 */}
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
                 gap:8, padding:'6px 9px', borderRadius:8, background:T.surf, border:`1px solid ${T.bdr}` }}>
-                <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3, minWidth:0 }}>
+                <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3, minWidth:0 }}>
                   🔊 句首緩衝 {headPad > 0 ? `${headPad}s` : '關'}
                   <span>　救回被切掉的 And / So</span>
                 </span>
@@ -25842,7 +25913,7 @@ Steven 不是在收藏電影台詞。
                   {[0, 0.1, 0.15, 0.25].map(v => (
                     <div key={v} onClick={() => saveHeadPad(v)}
                       style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
-                        fontFamily:MONO, fontSize:9, fontWeight:700, padding:'3px 7px', borderRadius:6,
+                        fontFamily:MONO, fontSize:11, fontWeight:700, padding:'3px 7px', borderRadius:6,
                         background: headPad === v ? T.amberD : 'transparent',
                         color: headPad === v ? T.amber : T.txt3,
                         border:`1px solid ${headPad === v ? T.amber : T.bdr}` }}>
@@ -25854,7 +25925,7 @@ Steven 不是在收藏電影台詞。
               {/* v7.10: 🔊 句尾緩衝——終點往後延，救回被切掉的句尾最後一個字 */}
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
                 gap:8, padding:'6px 9px', borderRadius:8, background:T.surf, border:`1px solid ${T.bdr}` }}>
-                <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3, minWidth:0 }}>
+                <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3, minWidth:0 }}>
                   🔊 句尾緩衝 {tailPad > 0 ? `${tailPad}s` : '關'}
                   <span>　救回被切掉的最後一個字</span>
                 </span>
@@ -25862,7 +25933,7 @@ Steven 不是在收藏電影台詞。
                   {[0, 0.1, 0.15, 0.25].map(v => (
                     <div key={v} onClick={() => saveTailPad(v)}
                       style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
-                        fontFamily:MONO, fontSize:9, fontWeight:700, padding:'3px 7px', borderRadius:6,
+                        fontFamily:MONO, fontSize:11, fontWeight:700, padding:'3px 7px', borderRadius:6,
                         background: tailPad === v ? T.amberD : 'transparent',
                         color: tailPad === v ? T.amber : T.txt3,
                         border:`1px solid ${tailPad === v ? T.amber : T.bdr}` }}>
@@ -25880,11 +25951,11 @@ Steven 不是在收藏電影台詞。
                 <div onClick={() => setTrendOpen(v => !v)}
                   style={{ cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between',
                     padding:'7px 10px', borderRadius:9, background:T.surf, border:`1px solid ${T.bdr}` }}>
-                  <span style={{ fontFamily:MONO, fontSize:10, color:T.txt2, fontWeight:700 }}>
+                  <span style={{ fontFamily:MONO, fontSize:11, color:T.txt2, fontWeight:700 }}>
                     📈 練習趨勢
                     <span style={{ color:T.txt3, fontWeight:400 }}>　近 14 天</span>
                   </span>
-                  <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>{trendOpen ? '▲' : '▼'}</span>
+                  <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>{trendOpen ? '▲' : '▼'}</span>
                 </div>
 
                 {trendOpen && (
@@ -25893,7 +25964,7 @@ Steven 不是在收藏電影台詞。
 
                     {/* ① 每日練習量 */}
                     <div>
-                      <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:7 }}>
+                      <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, marginBottom:7 }}>
                         每日句數（近 14 天）· 最高 {maxN} 句
                       </div>
                       <div style={{ display:'flex', alignItems:'flex-end', gap:3, height:52 }}>
@@ -25906,14 +25977,14 @@ Steven 不是在收藏電影台詞。
                                 style={{ width:'100%', height: x.n ? Math.max(4, Math.round(40 * x.n / maxN)) : 2,
                                   borderRadius:2,
                                   background: x.n ? (isToday ? T.amber : '#38bdf8') : T.bdr2 }}/>
-                              <span style={{ fontFamily:MONO, fontSize:7, color: isToday ? T.amber : T.txt3 }}>
+                              <span style={{ fontFamily:MONO, fontSize:11, color: isToday ? T.amber : T.txt3 }}>
                                 {x.d.slice(8)}
                               </span>
                             </div>
                           )
                         })}
                       </div>
-                      <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, marginTop:6, lineHeight:1.6 }}>
+                      <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, marginTop:6, lineHeight:1.6 }}>
                         近 7 天練了 <b style={{ color:T.amber }}>{act7}</b> 天
                         {' · '}近 14 天共 {trend14.reduce((a,x) => a + x.n, 0)} 句
                         {' · '}重聽 {trend14.reduce((a,x) => a + x.plays, 0)} 次
@@ -25928,16 +25999,16 @@ Steven 不是在收藏電影台詞。
 
                     {/* ② 首測 → 最近（能力指標） */}
                     <div style={{ borderTop:`1px solid ${T.bdr}`, paddingTop:10 }}>
-                      <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:7 }}>
+                      <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, marginBottom:7 }}>
                         同一句：首測 → 最近（{cmpPairs.length} 句已重測）
                       </div>
                       {cmpPairs.length === 0 ? (
-                        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                        <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                           還沒有句子重測過，等 ① 到期重測做完就會出現。
                         </div>
                       ) : (
                         <>
-                          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, marginBottom:8, lineHeight:1.7 }}>
+                          <div style={{ fontFamily:MONO, fontSize:11, color:T.txt2, marginBottom:8, lineHeight:1.7 }}>
                             <span style={{ color:T.grn, fontWeight:700 }}>↑ {upN}</span> 進步
                             {' · '}<span style={{ color:T.txt3 }}>→ {flatN}</span> 持平
                             {' · '}<span style={{ color:'#f87171' }}>↓ {downN}</span> 退步
@@ -25955,7 +26026,7 @@ Steven 不是在收藏電影台詞。
                               const lo = Math.min(x.a, x.b), hi = Math.max(x.a, x.b)
                               return (
                                 <div key={x.id} style={{ display:'flex', alignItems:'center', gap:7, minWidth:0 }}>
-                                  <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3, width:78,
+                                  <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3, width:78,
                                     flexShrink:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                                     {x.en}
                                   </span>
@@ -25968,14 +26039,14 @@ Steven 不是在收藏電影台詞。
                                     <div style={{ position:'absolute', top:1, left:`${x.b}%`, width:7, height:7,
                                       borderRadius:'50%', background:col, transform:'translateX(-50%)' }}/>
                                   </div>
-                                  <span style={{ fontFamily:MONO, fontSize:8, color:col, width:34, flexShrink:0, textAlign:'right' }}>
+                                  <span style={{ fontFamily:MONO, fontSize:11, color:col, width:34, flexShrink:0, textAlign:'right' }}>
                                     {x.delta > 0 ? '+' : ''}{x.delta}pt
                                   </span>
                                 </div>
                               )
                             })}
                           </div>
-                          <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, marginTop:8, lineHeight:1.6 }}>
+                          <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, marginTop:8, lineHeight:1.6 }}>
                             ⚠ 單句會受當天狀態影響，別把一條紅線當判決。真正的裁判是 14 天二測的整體 +15pt。
                           </div>
                         </>
@@ -26011,9 +26082,9 @@ Steven 不是在收藏電影台詞。
                             background: isAct ? T.amberD : (s.done ? T.grn + '12' : T.surf),
                             border: isAct ? `2px solid ${T.amber}` : `1px solid ${s.done ? T.grn + '50' : T.bdr}`,
                             display:'flex', flexDirection:'column', gap:2 }}>
-                          <span style={{ fontFamily:MONO, fontSize:10, fontWeight:700,
+                          <span style={{ fontFamily:MONO, fontSize:11, fontWeight:700,
                             color: isAct ? T.amber : (s.done ? T.grn : T.txt3) }}>{s.t}</span>
-                          <span style={{ fontFamily:MONO, fontSize:8, fontWeight: isAct ? 700 : 400,
+                          <span style={{ fontFamily:MONO, fontSize:11, fontWeight: isAct ? 700 : 400,
                             color: isAct ? T.amber : (s.done ? T.grn : T.txt3),
                             overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                             {s.done ? s.doneTxt : (isAct ? `● ${s.pendTxt}` : s.pendTxt)}
@@ -26028,9 +26099,9 @@ Steven 不是在收藏電影台詞。
               {/* ① 重測：到期的聽力庫句子（原④搬上來）*/}
               <div ref={stepRefs[0]} style={{ borderLeft:'2px solid #38bdf8', paddingLeft:10, display:'flex', flexDirection:'column', gap:6,
                 minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
-                <div style={{ fontFamily:MONO, fontSize:10, color:'#38bdf8', fontWeight:700 }}>① 重測 · 到期句子</div>
+                <div style={{ fontFamily:MONO, fontSize:11, color:'#38bdf8', fontWeight:700 }}>① 重測 · 到期句子</div>
                 {due.length === 0 ? (
-                  <div style={{ fontFamily:MONO, fontSize:9, color:T.grn, fontWeight:700 }}>✓ 今天沒有到期句，債清了。往下做新句。</div>
+                  <div style={{ fontFamily:MONO, fontSize:11, color:T.grn, fontWeight:700 }}>✓ 今天沒有到期句，債清了。往下做新句。</div>
                 ) : (
                   <div onClick={() => { setListenLibOpen(true); setLibView('sent'); setLibDueOnly(true); setLibWord(null)
                                         setTimeout(() => scrollToTop(listenLibRef.current), 120) }}
@@ -26045,19 +26116,19 @@ Steven 不是在收藏電影台詞。
               {/* ② 鞏固：昨天的句子（位置不變，維持第二）*/}
               <div ref={stepRefs[1]} style={{ borderLeft:`2px solid ${T.bdr}`, paddingLeft:10, display:'flex', flexDirection:'column', gap:6,
                 minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
-                <div style={{ fontFamily:MONO, fontSize:10, color:T.txt2, fontWeight:700 }}>
+                <div style={{ fontFamily:MONO, fontSize:11, color:T.txt2, fontWeight:700 }}>
                   ② 鞏固 · 昨天聽寫過的句子 <span style={{ color:T.txt3 }}>{yPhrases.length} 句</span>
                 </div>
                 {yPhrases.length === 0 ? (
-                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>昨天沒有紀錄，跳過。</div>
+                  <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>昨天沒有紀錄，跳過。</div>
                 ) : (
                   <>
-                    <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
+                    <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.5 }}>
                       <b>不是新句</b> —— 是你昨天（{yest}）聽寫過的句子，取<b>抓字率最低的 5 句</b>。
                       🔁 三步驟跑一遍，<b>不計分</b>。耳朵訓練靠重複曝露，不是靠考試。
                     </div>
                     <div onClick={() => startQueue(yPhrases, 'three')}
-                      style={{ cursor:'pointer', textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
+                      style={{ cursor:'pointer', textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
                         padding:'9px 0', borderRadius:8,
                         background: queuePlay?.mode === 'three' ? T.amber : T.amberD,
                         color: queuePlay?.mode === 'three' ? '#1a1207' : T.amber,
@@ -26078,12 +26149,12 @@ Steven 不是在收藏電影台詞。
                             {threeStep?.pid === p.id ? `${threeStep.step}` : '🔁'}
                           </span>
                           <span style={{ flex:1, minWidth:0, display:'flex', flexDirection:'column', gap:2 }}>
-                            <span style={{ fontFamily:MONO, fontSize:10, color:T.txt2, lineHeight:1.5 }}>{p.en}</span>
+                            <span style={{ fontFamily:MONO, fontSize:11, color:T.txt2, lineHeight:1.5 }}>{p.en}</span>
                             {p.zh?.trim() && (
-                              <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.5 }}>{p.zh}</span>
+                              <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.5 }}>{p.zh}</span>
                             )}
                           </span>
-                          <span style={{ fontFamily:MONO, fontSize:9, fontWeight:700, color:lv.c, flexShrink:0,
+                          <span style={{ fontFamily:MONO, fontSize:11, fontWeight:700, color:lv.c, flexShrink:0,
                             background:lv.c+'20', border:`1px solid ${lv.c}50`, padding:'1px 6px', borderRadius:6 }}>
                             {r}%
                           </span>
@@ -26097,7 +26168,7 @@ Steven 不是在收藏電影台詞。
               {/* ③ 診斷：新句聽寫（原①）*/}
               <div ref={stepRefs[2]} style={{ borderLeft:'2px solid #38bdf8', paddingLeft:10, display:'flex', flexDirection:'column', gap:7,
                 minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
-                <div style={{ fontFamily:MONO, fontSize:10, color:'#38bdf8', fontWeight:700 }}>
+                <div style={{ fontFamily:MONO, fontSize:11, color:'#38bdf8', fontWeight:700 }}>
                   ③ 診斷 · 新句聽寫
                   {trainN != null && <span style={{ color:T.txt3, marginLeft:6 }}>{Math.min(trainIdx, trainQueue.length)}/{trainQueue.length}</span>}
                   {doneStep1 && <span style={{ color:T.grn, marginLeft:6 }}>✓ 完成</span>}
@@ -26110,7 +26181,7 @@ Steven 不是在收藏電影台詞。
                   due.length > 5 && !debtOverride ? (
                     <>
                       <div style={{ background:'#2a1a0d', border:'1px solid #f5a62350', borderRadius:8, padding:'10px 12px',
-                        fontFamily:MONO, fontSize:9, color:T.amber, lineHeight:1.7 }}>
+                        fontFamily:MONO, fontSize:11, color:T.amber, lineHeight:1.7 }}>
                         ⏰ 重測債 <b>{due.length} 句</b>（紀律上限 5 句）— 先還債，再開新句。<br/>
                         <span style={{ color:T.txt3 }}>加新句的成就感 ≠ 練習。積壓的重測才是間隔複習的本體，債不還，第 14 天二測（你的方向裁判）就失準。</span>
                       </div>
@@ -26122,13 +26193,13 @@ Steven 不是在收藏電影台詞。
                       </div>
                       <div onClick={() => { if (window.confirm(`重測債還有 ${due.length} 句。確定今天例外、仍要開新句？\n（例外會讓債越滾越大，二測數據也會被積壓污染）`)) setDebtOverride(true) }}
                         style={{ cursor:'pointer', userSelect:'none', WebkitUserSelect:'none', touchAction:'manipulation',
-                          textAlign:'center', fontFamily:MONO, fontSize:8, color:T.txt3, padding:'4px 0' }}>
+                          textAlign:'center', fontFamily:MONO, fontSize:11, color:T.txt3, padding:'4px 0' }}>
                         今天例外，仍要開新句
                       </div>
                     </>
                   ) : (
                   <>
-                    <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
+                    <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.6 }}>
                       依場景順序自動抽「從未聽寫過」的句子。今天要練幾句？
                     </div>
 
@@ -26138,7 +26209,7 @@ Steven 不是在收藏電影台詞。
                       return (
                         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
                           gap:8, padding:'6px 9px', borderRadius:8, background:T.surf, border:`1px solid ${T.bdr}` }}>
-                          <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3, minWidth:0 }}>
+                          <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3, minWidth:0 }}>
                             ✂️ 只抽 ≤ {chunkLimit > 0 ? `${chunkLimit} 塊` : '不限'} 的句子
                             {chunkLimit > 0 && held > 0 && <span style={{ color:T.amber }}>　{held} 句暫緩</span>}
                           </span>
@@ -26146,7 +26217,7 @@ Steven 不是在收藏電影台詞。
                             {[2, 3, 4, 0].map(v => (
                               <div key={v} onClick={() => saveChunkLimit(v)}
                                 style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
-                                  fontFamily:MONO, fontSize:9, fontWeight:700, padding:'3px 7px', borderRadius:6,
+                                  fontFamily:MONO, fontSize:11, fontWeight:700, padding:'3px 7px', borderRadius:6,
                                   background: chunkLimit === v ? T.amberD : 'transparent',
                                   color: chunkLimit === v ? T.amber : T.txt3,
                                   border:`1px solid ${chunkLimit === v ? T.amber : T.bdr}` }}>
@@ -26171,7 +26242,7 @@ Steven 不是在收藏電影台詞。
                   </>
                   )
                 ) : doneStep1 ? (
-                  <div style={{ fontFamily:MONO, fontSize:9, color:T.grn, lineHeight:1.6 }}>
+                  <div style={{ fontFamily:MONO, fontSize:11, color:T.grn, lineHeight:1.6 }}>
                     今天的診斷做完了。資料已落袋。
                   </div>
                 ) : cur ? (
@@ -26189,7 +26260,7 @@ Steven 不是在收藏電影台詞。
                               border:'1px solid #38bdf850' }}>
                             {blindPlayingId === cur.id ? '⏹' : '▶'}
                           </div>
-                          <div style={{ flex:1, fontFamily:MONO, fontSize:10, color:T.txt3 }}>
+                          <div style={{ flex:1, fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                             {blindPlayingId === cur.id ? '🎧 播放中…專心聽' : '🎧 ●●●●●●●●●●'}
                           </div>
                         </div>
@@ -26197,7 +26268,7 @@ Steven 不是在收藏電影台詞。
                           const nP = blindPlays[cur.id] ?? 0
                           const isDiag = nP > 0 && nP <= 3
                           return (
-                            <div style={{ fontFamily:MONO, fontSize:8, lineHeight:1.5,
+                            <div style={{ fontFamily:MONO, fontSize:11, lineHeight:1.5,
                               color: nP === 0 ? T.txt3 : isDiag ? T.grn : T.amber }}>
                               {nP === 0 ? '按 ▶ 聽一次 → 慢慢打字 → 想再聽就再按 ▶（不用趕）'
                                 : isDiag ? `已聽 ${nP} 次 · 🩺 診斷樣本`
@@ -26207,10 +26278,10 @@ Steven 不是在收藏電影台詞。
                         })()}
                         {/* 語速 + 每按一次播幾次（跟場景頁共用同一設定）*/}
                         <div style={{ display:'flex', alignItems:'center', gap:5, flexWrap:'wrap' }}>
-                          <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>每按播</span>
+                          <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>每按播</span>
                           {[1, 2, 3].map(nn => (
                             <div key={nn} onClick={() => { setBlindPlayCount(nn); try { localStorage.setItem('fsi:blind:playCount', String(nn)) } catch(e) {} }}
-                              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                              style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                                 padding:'4px 8px', borderRadius:6,
                                 color: blindPlayCount===nn ? '#0d2a3a' : T.txt3,
                                 background: blindPlayCount===nn ? '#38bdf8' : T.surf2,
@@ -26218,10 +26289,10 @@ Steven 不是在收藏電影台詞。
                               {nn}次
                             </div>
                           ))}
-                          <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3, marginLeft:6 }}>語速</span>
+                          <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3, marginLeft:6 }}>語速</span>
                           {[[0.6,'🐢'], [0.8,'🚶'], [1.0,'🏃']].map(([r, ic]) => (
                             <div key={r} onClick={() => { setPlayRate(r); try { localStorage.setItem('fsi:movie:playRate', String(r)) } catch(e) {} }}
-                              style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                              style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                                 padding:'4px 8px', borderRadius:6,
                                 color: playRate===r ? '#0d2a3a' : T.txt3,
                                 background: playRate===r ? '#38bdf8' : T.surf2,
@@ -26248,7 +26319,7 @@ Steven 不是在收藏電影台詞。
                         </div>
                         <div onClick={() => excludeAndRefill(cur)}
                           title="這句沒有學習價值（如歌詞），不用送出直接排除"
-                          style={{ cursor:'pointer', alignSelf:'center', fontFamily:MONO, fontSize:9, color:T.txt3,
+                          style={{ cursor:'pointer', alignSelf:'center', fontFamily:MONO, fontSize:11, color:T.txt3,
                             padding:'5px 12px', borderRadius:6, opacity:0.7 }}>
                           🚫 這句沒學習價值（如音樂），排除並遞補
                         </div>
@@ -26284,13 +26355,13 @@ Steven 不是在收藏電影台詞。
                           )}
                           <WordCard phraseId={cur.id}/>
                           <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
-                            <span style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:lv.c,
+                            <span style={{ fontFamily:MONO, fontSize:11, fontWeight:700, color:lv.c,
                               background:lv.c+'20', border:`1px solid ${lv.c}50`, padding:'2px 8px', borderRadius:6 }}>{lv.label}</span>
-                            <span style={{ fontFamily:MONO, fontSize:10, color:T.txt2 }}>全詞 <b style={{ color:T.txt }}>{c.rate}%</b></span>
-                            <span style={{ fontFamily:MONO, fontSize:10, color:T.txt2 }}>實詞 <b style={{ color:T.grn }}>{c.cRate}%</b></span>
+                            <span style={{ fontFamily:MONO, fontSize:11, color:T.txt2 }}>全詞 <b style={{ color:T.txt }}>{c.rate}%</b></span>
+                            <span style={{ fontFamily:MONO, fontSize:11, color:T.txt2 }}>實詞 <b style={{ color:T.grn }}>{c.cRate}%</b></span>
                           </div>
                           {c.missed.length > 0 && (
-                            <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                            <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                               ⚪ 漏掉：{c.missed.map((w,i) => (
                                 <span key={i} style={{ color: FUNC_WORDS.has(w) ? T.amber : '#f87171', marginRight:6 }}>{w}</span>
                               ))}
@@ -26326,7 +26397,7 @@ Steven 不是在收藏電影台詞。
                           <div style={{ display:'flex', gap:8 }}>
                             {!cur.link && (
                               <div onClick={() => analyzeLinking(cur)}
-                                style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
+                                style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
                                   padding:'9px 0', borderRadius:8,
                                   background: linkBusy === cur.id ? '#a78bfa' : '#1a1030',
                                   color: linkBusy === cur.id ? '#1a1030' : '#a78bfa',
@@ -26336,7 +26407,7 @@ Steven 不是在收藏電影台詞。
                             )}
                             <div onClick={() => excludeAndRefill(cur)}
                               title="這句沒有學習價值，排除掉並遞補新句"
-                              style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
+                              style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
                                 padding:'9px 0', borderRadius:8,
                                 background:T.surf, color:T.txt3, border:`1px solid ${T.bdr}` }}>
                               🚫 排除並遞補
@@ -26344,7 +26415,7 @@ Steven 不是在收藏電影台詞。
                           </div>
                           {/* v6.69: 解析錯誤上卡——停留到重試，不再一閃即逝 */}
                           {linkErr[cur.id] && (
-                            <div style={{ fontFamily:MONO, fontSize:9, color:'#f87171', background:'#2a0d0d',
+                            <div style={{ fontFamily:MONO, fontSize:11, color:'#f87171', background:'#2a0d0d',
                               border:'1px solid #f8717150', borderRadius:8, padding:'8px 10px', lineHeight:1.6,
                               overflowWrap:'break-word' }}>
                               ⚠ 解析失敗：{linkErr[cur.id]}<br/>（再按一次 🎬 連音解析重試；若持續失敗請截圖此訊息）
@@ -26360,9 +26431,9 @@ Steven 不是在收藏電影台詞。
               {/* ④ 轟炸：今日弱點字（原③）*/}
               <div ref={stepRefs[3]} style={{ borderLeft:`2px solid ${T.bdr}`, paddingLeft:10, display:'flex', flexDirection:'column', gap:6,
                 minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
-                <div style={{ fontFamily:MONO, fontSize:10, color:T.txt2, fontWeight:700 }}>④ 轟炸 · 今日弱點字</div>
+                <div style={{ fontFamily:MONO, fontSize:11, color:T.txt2, fontWeight:700 }}>④ 轟炸 · 今日弱點字</div>
                 {!topWord ? (
-                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>還沒有夠格的弱點字（要遇到 ≥3 次），先多做幾句 ③。</div>
+                  <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>還沒有夠格的弱點字（要遇到 ≥3 次），先多做幾句 ③。</div>
                 ) : (
                   <div onClick={() => { setListenLibOpen(true); setLibView('weak'); setLibWord(topWord.w)
                                         setTimeout(() => scrollToTop(listenLibRef.current), 120) }}
@@ -26370,7 +26441,7 @@ Steven 不是在收藏電影台詞。
                       padding:'10px 0', borderRadius:8,
                       background:T.amberD, color:T.amber, border:`1px solid ${T.amber}60` }}>
                     🎯 進入「{topWord.w}」關卡 · 漏掉率 {topWord.rate}%（{topWord.miss}/{topWord.enc}）
-                    <div style={{ fontSize:8, color:T.txt3, fontWeight:400, marginTop:2 }}>
+                    <div style={{ fontSize:11, color:T.txt3, fontWeight:400, marginTop:2 }}>
                       {topWordSents} 句連著聽 · 🗣 可跟讀連播
                     </div>
                   </div>
@@ -26381,13 +26452,13 @@ Steven 不是在收藏電影台詞。
               {tDiag.length > 0 && (
                 <div style={{ background:'#0d2a3a', border:'1px solid #38bdf840', borderRadius:9, padding:'10px 11px',
                   display:'flex', flexDirection:'column', gap:6, minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
-                  <div style={{ fontFamily:MONO, fontSize:10, color:'#38bdf8', fontWeight:700 }}>📊 今日摘要</div>
-                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, lineHeight:1.7 }}>
+                  <div style={{ fontFamily:MONO, fontSize:11, color:'#38bdf8', fontWeight:700 }}>📊 今日摘要</div>
+                  <div style={{ fontFamily:MONO, fontSize:11, color:T.txt2, lineHeight:1.7 }}>
                     診斷 {tDiag.length} 句 · 全詞率 <b style={{ color:T.txt }}>{rateT ?? '—'}%</b> · 實詞率 <b style={{ color:T.grn }}>{cRateT ?? '—'}%</b>
                     {(rateT != null && cRateT != null) && <> · 弱讀缺口 <b style={{ color:T.amber }}>{cRateT - rateT}pt</b></>}
                   </div>
                   {topMissToday.length > 0 && (
-                    <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.7 }}>
+                    <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.7 }}>
                       今日漏字：{topMissToday.map(([w,n]) => (
                         <span key={w} style={{ color: FUNC_WORDS.has(w) ? T.amber : '#f87171', marginRight:7 }}>{w}×{n}</span>
                       ))}
@@ -26401,7 +26472,7 @@ Steven 不是在收藏電影台詞。
                     return (
                       <>
                         <div onClick={() => setTodayListOpen(v => !v)}
-                          style={{ cursor:'pointer', alignSelf:'flex-start', fontFamily:MONO, fontSize:9, fontWeight:700,
+                          style={{ cursor:'pointer', alignSelf:'flex-start', fontFamily:MONO, fontSize:11, fontWeight:700,
                             padding:'5px 10px', borderRadius:7, marginTop:2,
                             color: todayListOpen ? '#0d2a3a' : '#38bdf8',
                             background: todayListOpen ? '#38bdf8' : T.surf,
@@ -26438,22 +26509,22 @@ Steven 不是在收藏電影台詞。
                                     })}
                                   </div>
                                   {p.zh?.trim() && (
-                                    <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, lineHeight:1.6 }}>
+                                    <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.6 }}>
                                       {p.zh}
                                     </div>
                                   )}
                                   <WordCard phraseId={p.id}/>
                                   <div style={{ display:'flex', alignItems:'center', gap:7, flexWrap:'wrap' }}>
-                                    <span style={{ fontFamily:MONO, fontSize:9, fontWeight:700, color:lv.c,
+                                    <span style={{ fontFamily:MONO, fontSize:11, fontWeight:700, color:lv.c,
                                       background:lv.c+'20', border:`1px solid ${lv.c}50`, padding:'1px 7px', borderRadius:6 }}>
                                       {rec.rate}%
                                     </span>
-                                    <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
+                                    <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                                       實詞 {rec.cRate}% · 聽 {rec.plays ?? '—'} 次
                                       {rec.spd ? ` · ${rec.spd}x` : ''}
                                     </span>
                                     <div onClick={() => playThreeStep(p)}
-                                      style={{ cursor:'pointer', marginLeft:'auto', fontFamily:MONO, fontSize:9, fontWeight:700,
+                                      style={{ cursor:'pointer', marginLeft:'auto', fontFamily:MONO, fontSize:11, fontWeight:700,
                                         padding:'5px 10px', borderRadius:7,
                                         background: threeStep?.pid === p.id ? '#38bdf8' : T.surf2,
                                         color: threeStep?.pid === p.id ? '#0d2a3a' : '#38bdf8',
@@ -26473,7 +26544,7 @@ Steven 不是在收藏電影台詞。
                                 </div>
                               )
                             })}
-                            <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
+                            <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.5 }}>
                               橘底 = 你漏掉的字。綠色 = 抓到的。趁記憶還熱，用 🔁 三步驟把橘色的字聽回來。<br/>
                               👆 長按任何一個單字 → 加入單字庫。
                             </div>
@@ -26500,14 +26571,14 @@ Steven 不是在收藏電影台詞。
                 return (
                   <div style={{ display:'flex', flexDirection:'column', gap:6,
                     background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:10, padding:'10px 12px' }}>
-                    <div style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:T.txt2 }}>
+                    <div style={{ fontFamily:MONO, fontSize:11, fontWeight:700, color:T.txt2 }}>
                       🧭 錯誤成因分布 <span style={{ color:T.txt3, fontWeight:400 }}>（已標記 {tot} 句）</span>
                     </div>
                     {top.filter(t => t.n > 0).map(t => {
                       const pct = Math.round(t.n / tot * 100)
                       return (
                         <div key={t.k} style={{ display:'flex', flexDirection:'column', gap:3 }}>
-                          <div style={{ display:'flex', justifyContent:'space-between', fontFamily:MONO, fontSize:9 }}>
+                          <div style={{ display:'flex', justifyContent:'space-between', fontFamily:MONO, fontSize:11 }}>
                             <span style={{ color:t.color }}>{t.icon} {t.label}</span>
                             <span style={{ color:T.txt3 }}>{t.n} 句 · {pct}%</span>
                           </div>
@@ -26517,7 +26588,7 @@ Steven 不是在收藏電影台詞。
                         </div>
                       )
                     })}
-                    <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.6 }}>
+                    <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.6 }}>
                       {top[0].k === 'nohear'  ? '主因是「聽不到」→ 時間配給 ④ 弱點轟炸與跟讀。'
                      : top[0].k === 'nosplit' ? '主因是「切不開」→ 時間配給連音解析與 chunk 邊界，轟炸效益較低。'
                      : top[0].k === 'nomean'  ? '主因是「認不出字」→ 聲音層已通，補詞彙與語境。'
@@ -26545,11 +26616,11 @@ Steven 不是在收藏電影台詞。
                 return (
                   <div style={{ display:'flex', flexDirection:'column', gap:8,
                     background:'#08222e', border:'1px solid #38bdf850', borderRadius:10, padding:'11px 12px' }}>
-                    <div style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:'#38bdf8' }}>
+                    <div style={{ fontFamily:MONO, fontSize:11, fontWeight:700, color:'#38bdf8' }}>
                       ✂️ 切不開靶場 <span style={{ color:T.txt3, fontWeight:400 }}>· {targets.length} 句</span>
                       {isRunning && <span style={{ color:T.amber }}>　▶ {queuePlay.idx + 1}/{queuePlay.ids.length}</span>}
                     </div>
-                    <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.6 }}>
+                    <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.6 }}>
                       這些是你標「聽到一團音、拆不開字」的句子。意思你懂，專心攻聲音——反覆聽，每次試著多切出一個糊掉的音。
                     </div>
                     <div
@@ -26570,7 +26641,7 @@ Steven 不是在收藏電影台詞。
                               display:'flex', alignItems:'center', gap:8, padding:'8px 10px', borderRadius:8,
                               background: cur ? '#0d2a38' : T.surf2, border:`1px solid ${cur ? '#38bdf8' : T.bdr}` }}>
                             <span style={{ fontSize:12, flexShrink:0 }}>{cur ? '🔊' : '🔈'}</span>
-                            <span style={{ fontFamily:MONO, fontSize:10, color:T.txt2, lineHeight:1.4,
+                            <span style={{ fontFamily:MONO, fontSize:11, color:T.txt2, lineHeight:1.4,
                               overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.en}</span>
                           </div>
                         )
@@ -26580,7 +26651,7 @@ Steven 不是在收藏電影台詞。
                 )
               })()}
 
-              <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.6 }}>
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.6 }}>
                 💡 只做完 ① 就算今天有練。②③④ 是加分題。做到一半離開也沒關係，紀錄都存好了。
               </div>
             </div>
@@ -26631,14 +26702,14 @@ Steven 不是在收藏電影台詞。
                   )
                 })()}
                 <div onClick={() => setGoldOpen(false)}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.txt3,
                     padding:'4px 9px', borderRadius:7, border:`1px solid ${T.bdr}` }}>
                   收起
                 </div>
               </div>
 
               {goldList.length === 0 ? (
-                <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.7, padding:'8px 2px' }}>
+                <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.7, padding:'8px 2px' }}>
                   還沒有收藏。看到「換掉一個部分就能套用到別處」的句子，按卡片上的 🎬 金句就會收進這裡。
                 </div>
               ) : [...goldList].reverse().map(item => {
@@ -26650,9 +26721,9 @@ Steven 不是在收藏電影台詞。
                     <div style={{ fontFamily:MONO, fontSize:11, color:T.txt, lineHeight:1.6, fontWeight:700 }}>
                       {item.en}
                     </div>
-                    {item.zh && <div style={{ fontSize:10, color:T.txt3, lineHeight:1.5 }}>{item.zh}</div>}
+                    {item.zh && <div style={{ fontSize:11, color:T.txt3, lineHeight:1.5 }}>{item.zh}</div>}
                     {!editing && item.note && (
-                      <div style={{ fontFamily:MONO, fontSize:10, color:'#a78bfa', lineHeight:1.7,
+                      <div style={{ fontFamily:MONO, fontSize:11, color:'#a78bfa', lineHeight:1.7,
                         padding:'7px 9px', borderRadius:7, background:'#1a0f2e', whiteSpace:'pre-wrap' }}>
                         ✏️ {item.note}
                       </div>
@@ -26661,14 +26732,14 @@ Steven 不是在收藏電影台詞。
                       {p && (
                         <div onClick={() => speakPhrase(p.id, p.en, undefined, p)}
                           style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
-                            fontFamily:MONO, fontSize:9, fontWeight:700, padding:'5px 10px', borderRadius:7,
+                            fontFamily:MONO, fontSize:11, fontWeight:700, padding:'5px 10px', borderRadius:7,
                             color:'#38bdf8', background:'#0d2a3a', border:'1px solid #38bdf840' }}>
                           ▶ 播放
                         </div>
                       )}
                       <div onClick={() => setGoldEditId(editing ? null : item.id)}
                         style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
-                          fontFamily:MONO, fontSize:9, fontWeight:700, padding:'5px 10px', borderRadius:7,
+                          fontFamily:MONO, fontSize:11, fontWeight:700, padding:'5px 10px', borderRadius:7,
                           color:'#a78bfa', background:'#1a0f2e', border:'1px solid #a78bfa40' }}>
                         {editing ? '✕ 關閉' : '✏️ 改成句型'}
                       </div>
@@ -26677,13 +26748,13 @@ Steven 不是在收藏電影台詞。
                           showMovieToast('📋 已複製')
                         }}
                         style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
-                          fontFamily:MONO, fontSize:9, padding:'5px 9px', borderRadius:7,
+                          fontFamily:MONO, fontSize:11, padding:'5px 9px', borderRadius:7,
                           color:T.txt3, background:'transparent', border:`1px solid ${T.bdr}` }}>
                         📋
                       </div>
                       <div onClick={() => { if (confirm('從電影金句移除？')) setGoldList(removeGoldById(item.id)) }}
                         style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
-                          fontFamily:MONO, fontSize:9, padding:'5px 9px', borderRadius:7,
+                          fontFamily:MONO, fontSize:11, padding:'5px 9px', borderRadius:7,
                           color:T.txt3, background:'transparent', border:`1px solid ${T.bdr}` }}>
                         🗑
                       </div>
@@ -26694,11 +26765,11 @@ Steven 不是在收藏電影台詞。
                           placeholder={`把要替換的部分改成 {X}，例如：{X} has to read in a glance`}
                           onChange={e => setGoldList(updateGoldItem(item.id, { note: e.target.value }))}
                           style={{ background:T.surf2, border:'1px solid #a78bfa40', borderRadius:7,
-                            padding:'7px 9px', fontFamily:MONO, fontSize:10, color:T.txt,
+                            padding:'7px 9px', fontFamily:MONO, fontSize:11, color:T.txt,
                             outline:'none', resize:'vertical', lineHeight:1.6 }} />
                         <div onClick={() => setGoldList(updateGoldItem(item.id, { note: item.en }))}
                           style={{ cursor:'pointer', userSelect:'none', textAlign:'center',
-                            fontFamily:MONO, fontSize:8, color:T.txt3, padding:'5px', borderRadius:6,
+                            fontFamily:MONO, fontSize:11, color:T.txt3, padding:'5px', borderRadius:6,
                             border:`1px solid ${T.bdr}` }}>
                           ↩ 先帶入原句再改
                         </div>
@@ -26736,7 +26807,7 @@ Steven 不是在收藏電影台詞。
                   🎓 家教專區
                 </span>
                 <div onClick={() => setTutorOpen(false)}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:T.txt3,
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:T.txt3,
                     padding:'4px 9px', borderRadius:7, border:`1px solid ${T.bdr}` }}>
                   收起
                 </div>
@@ -26746,7 +26817,7 @@ Steven 不是在收藏電影台詞。
                 {[['待問', false, pending.length], ['已問', true, done.length]].map(([label, v, n]) => (
                   <div key={label} onClick={() => setTutorShowDone(v)}
                     style={{ cursor:'pointer', userSelect:'none', flex:1, textAlign:'center',
-                      fontFamily:MONO, fontSize:10, fontWeight:700, padding:'6px 4px', borderRadius:8,
+                      fontFamily:MONO, fontSize:11, fontWeight:700, padding:'6px 4px', borderRadius:8,
                       background: tutorShowDone === v ? '#0d2a1f' : 'transparent',
                       color: tutorShowDone === v ? '#34d399' : T.txt3,
                       border:`1px solid ${tutorShowDone === v ? '#34d399' : T.bdr}` }}>
@@ -26756,7 +26827,7 @@ Steven 不是在收藏電影台詞。
               </div>
 
               {shown.length === 0 ? (
-                <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.7, padding:'8px 2px' }}>
+                <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.7, padding:'8px 2px' }}>
                   {tutorShowDone
                     ? '還沒有問完的句子。問完後按「✓ 已問」並記下老師怎麼說。'
                     : '還沒有標記的句子。平時盲聽撞到聽不出來的句子，按卡片上的 🎓 就會收進這裡。'}
@@ -26772,17 +26843,17 @@ Steven 不是在收藏電影台詞。
                       {item.en}
                     </div>
                     {item.zh && (
-                      <div style={{ fontSize:10, color:T.txt3, lineHeight:1.5 }}>{item.zh}</div>
+                      <div style={{ fontSize:11, color:T.txt3, lineHeight:1.5 }}>{item.zh}</div>
                     )}
 
                     {/* 誤聽是老師最需要的資訊——她要知道你卡在哪，才能對症示範 */}
                     {item.heard && (
-                      <div style={{ fontFamily:MONO, fontSize:9, color:'#f87171', lineHeight:1.6 }}>
+                      <div style={{ fontFamily:MONO, fontSize:11, color:'#f87171', lineHeight:1.6 }}>
                         🔴 我聽成：{item.heard}
                       </div>
                     )}
                     {item.note && (
-                      <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, lineHeight:1.6 }}>
+                      <div style={{ fontFamily:MONO, fontSize:11, color:T.amber, lineHeight:1.6 }}>
                         ❓ {item.note}
                       </div>
                     )}
@@ -26792,35 +26863,35 @@ Steven 不是在收藏電影台詞。
                       {p && (
                         <div onClick={() => speakPhrase(p.id, p.en, undefined, p)}
                           style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
-                            fontFamily:MONO, fontSize:9, fontWeight:700, padding:'5px 10px', borderRadius:7,
+                            fontFamily:MONO, fontSize:11, fontWeight:700, padding:'5px 10px', borderRadius:7,
                             color:'#38bdf8', background:'#0d2a3a', border:'1px solid #38bdf840' }}>
                           ▶ 播放
                         </div>
                       )}
                       <div onClick={() => setTutorEditId(editing ? null : item.id)}
                         style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
-                          fontFamily:MONO, fontSize:9, fontWeight:700, padding:'5px 10px', borderRadius:7,
+                          fontFamily:MONO, fontSize:11, fontWeight:700, padding:'5px 10px', borderRadius:7,
                           color:T.amber, background:T.amberD, border:`1px solid ${T.amber}40` }}>
                         {editing ? '✕ 關閉' : '📝 記筆記'}
                       </div>
                       {!item.done ? (
                         <div onClick={() => setTutorList(updateTutorItem(item.id, { done:true, answeredAt: Date.now() }))}
                           style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
-                            fontFamily:MONO, fontSize:9, fontWeight:700, padding:'5px 10px', borderRadius:7,
+                            fontFamily:MONO, fontSize:11, fontWeight:700, padding:'5px 10px', borderRadius:7,
                             color:'#34d399', background:'#0d2a1f', border:'1px solid #34d39940' }}>
                           ✓ 已問
                         </div>
                       ) : (
                         <div onClick={() => setTutorList(updateTutorItem(item.id, { done:false }))}
                           style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
-                            fontFamily:MONO, fontSize:9, padding:'5px 10px', borderRadius:7,
+                            fontFamily:MONO, fontSize:11, padding:'5px 10px', borderRadius:7,
                             color:T.txt3, background:'transparent', border:`1px solid ${T.bdr}` }}>
                           ↩ 放回待問
                         </div>
                       )}
                       <div onClick={() => { if (confirm('從家教專區移除這句？')) setTutorList(removeTutorItem(item.id)) }}
                         style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
-                          fontFamily:MONO, fontSize:9, padding:'5px 9px', borderRadius:7,
+                          fontFamily:MONO, fontSize:11, padding:'5px 9px', borderRadius:7,
                           color:T.txt3, background:'transparent', border:`1px solid ${T.bdr}` }}>
                         🗑
                       </div>
@@ -26831,18 +26902,18 @@ Steven 不是在收藏電影台詞。
                         <input type="text" value={item.note} placeholder="想問什麼？（可留空）"
                           onChange={e => setTutorList(updateTutorItem(item.id, { note: e.target.value }))}
                           style={{ background:T.surf2, border:`1px solid ${T.bdr2}`, borderRadius:7,
-                            padding:'7px 9px', fontFamily:MONO, fontSize:10, color:T.txt, outline:'none' }} />
+                            padding:'7px 9px', fontFamily:MONO, fontSize:11, color:T.txt, outline:'none' }} />
                         <textarea value={item.answer} placeholder="老師怎麼說？（母語者的回答＝最高證據等級，之後要進案例庫）"
                           rows={3}
                           onChange={e => setTutorList(updateTutorItem(item.id, { answer: e.target.value }))}
                           style={{ background:T.surf2, border:'1px solid #34d39940', borderRadius:7,
-                            padding:'7px 9px', fontFamily:MONO, fontSize:10, color:T.txt,
+                            padding:'7px 9px', fontFamily:MONO, fontSize:11, color:T.txt,
                             outline:'none', resize:'vertical', lineHeight:1.6 }} />
                       </div>
                     )}
 
                     {!editing && item.answer && (
-                      <div style={{ fontFamily:MONO, fontSize:9, color:'#34d399', lineHeight:1.7,
+                      <div style={{ fontFamily:MONO, fontSize:11, color:'#34d399', lineHeight:1.7,
                         padding:'7px 9px', borderRadius:7, background:'#0d2a1f', whiteSpace:'pre-wrap' }}>
                         🎓 {item.answer}
                       </div>
@@ -26861,13 +26932,13 @@ Steven 不是在收藏電影台詞。
                   showMovieToast(`📋 已複製 ${pending.length} 句`)
                 }}
                   style={{ cursor:'pointer', userSelect:'none', textAlign:'center',
-                    fontFamily:MONO, fontSize:9, fontWeight:700, padding:'8px', borderRadius:8,
+                    fontFamily:MONO, fontSize:11, fontWeight:700, padding:'8px', borderRadius:8,
                     color:T.txt2, background:T.surf, border:`1px solid ${T.bdr}` }}>
                   📋 複製整份清單
                 </div>
               )}
 
-              <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.6 }}>
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.6 }}>
                 💡 老師的回答留著不刪——它是連音案例庫最高等級的種子，AI 的解析被否定過。
               </div>
             </div>
@@ -26921,7 +26992,7 @@ Steven 不是在收藏電影台詞。
           // 空庫提示：lib/grad/dictated 全空才顯示（若 dictated 有資料，弱點關卡仍可運作）
           if (lib.length === 0 && grad.length === 0 && dictated.length === 0) return (
             <div style={{ background:'#0a1520', border:'1px solid #38bdf830', borderRadius:10, padding:12,
-              fontFamily:MONO, fontSize:10, color:T.txt3, lineHeight:1.6 }}>
+              fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.6 }}>
               聽力庫還是空的。開盲聽模式做聽寫，<b style={{ color:'#38bdf8' }}>首次全詞率 &lt;60%</b> 的句子會自動收錄進來。
             </div>
           )
@@ -26949,12 +27020,12 @@ Steven 不是在收藏電影台詞。
               display:'flex', flexDirection:'column', gap:9,
               minWidth:0, maxWidth:'100%', boxSizing:'border-box', overflowX:'hidden' }}>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:6 }}>
-                <span style={{ fontFamily:MONO, fontSize:10, color:'#38bdf8', fontWeight:700 }}>
+                <span style={{ fontFamily:MONO, fontSize:11, color:'#38bdf8', fontWeight:700 }}>
                   🎯 聽力庫 {lib.length} 句待練
                   {duePending.length > 0 && <span style={{ color:T.amber, marginLeft:6 }}>· 今天該複習 {duePending.length}</span>}
                   {grad.length > 0 && <span style={{ color:T.grn, marginLeft:6 }}>· 🎓 已畢業 {grad.length}</span>}
                 </span>
-                <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>本片</span>
+                <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>本片</span>
               </div>
               {/* v7.06: 🏅 過關區——過關兩次以上＋已畢業的句子，隨時回來複習。
                   電影原音只能播目前這部片 → 列本片句子；其他片給可點的切片晶片（同 v6.95 做法）。 */}
@@ -27000,7 +27071,7 @@ Steven 不是在收藏電影台詞。
                                   setTimeout(() => scrollToTop(listenLibRef.current), 160)
                                 }}
                                 style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
-                                  fontFamily:MONO, fontSize:10, fontWeight:700, padding:'5px 9px', borderRadius:6,
+                                  fontFamily:MONO, fontSize:11, fontWeight:700, padding:'5px 9px', borderRadius:6,
                                   color:T.grn, background:T.grnD, border:`1px solid ${T.grn}40`,
                                   maxWidth:'100%', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                                 🎬 {m.title} <b style={{ color:T.amber }}>{m.n}</b>
@@ -27017,7 +27088,7 @@ Steven 不是在收藏電影台詞。
                           return (
                             <div key={p.id} style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:8,
                               padding:10, display:'flex', flexDirection:'column', gap:7, minWidth:0 }}>
-                              <div style={{ fontFamily:MONO, fontSize:10, color: p.dict.grad ? T.grn : T.txt3 }}>
+                              <div style={{ fontFamily:MONO, fontSize:11, color: p.dict.grad ? T.grn : T.txt3 }}>
                                 {p.dict.grad ? '🎓 已畢業' : `進度 ${p.dict.stage ?? 0}/${REVIEW_INTERVALS.length}`}
                                 {' · '}首次 全詞 {p.dict.first?.rate ?? '?'}%
                               </div>
@@ -27088,7 +27159,7 @@ Steven 不是在收藏電影台詞。
                                       color:T.txt2, textDecoration:'underline' }}>
                                     再測一次
                                   </span>
-                                  <div style={{ fontSize:10, color:T.txt3 }}>（自測結果不寫入進度）</div>
+                                  <div style={{ fontSize:11, color:T.txt3 }}>（自測結果不寫入進度）</div>
                                 </div>
                               )}
                             </div>
@@ -27102,7 +27173,7 @@ Steven 不是在收藏電影台詞。
               {/* v6.84: Header 徽章是跨片總數，這裡只算本片——差額寫出來，不然會以為數字壞了
                   v6.95: 每一片都可點，直接切過去練，不必自己回片庫換片再進聽力庫 */}
               {otherDue > 0 && (
-                <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6,
+                <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.6,
                   background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:7, padding:'7px 9px',
                   display:'flex', flexDirection:'column', gap:6 }}>
                   <div>
@@ -27127,22 +27198,33 @@ Steven 不是在收藏電影台詞。
                           setTimeout(() => scrollToTop(listenLibRef.current), 160)
                         }}
                         style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
-                          fontFamily:MONO, fontSize:9, fontWeight:700, padding:'5px 9px', borderRadius:6,
+                          fontFamily:MONO, fontSize:11, fontWeight:700, padding:'5px 9px', borderRadius:6,
                           color:'#38bdf8', background:'#0d2a3a', border:'1px solid #38bdf840',
                           maxWidth:'100%', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                         🎬 {m.title} <b style={{ color:T.amber }}>{m.n}</b>
                       </div>
                     ))}
                   </div>
-                  <div style={{ fontSize:8, opacity:0.7 }}>
+                  <div style={{ fontSize:11, opacity:0.7 }}>
                     上方 🎯 聽力庫紅點是跨片總數，本面板只算本片
                   </div>
                 </div>
               )}
 
               <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+                {/* v7.11: 偶爾才用的東西收起來，第一張卡不用捲那麼久才看到 */}
+                <div onClick={() => setLibToolsOpen(v => !v)}
+                  style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                    fontFamily:MONO, fontSize:12, fontWeight:700, flexShrink:0,
+                    padding:'8px 12px', borderRadius:8,
+                    color: libToolsOpen ? T.amber : T.txt2,
+                    background: libToolsOpen ? T.amberD : T.surf2,
+                    border:`1px solid ${libToolsOpen ? T.amber+'60' : T.bdr}` }}>
+                  ⚙ 設定與工具 {libToolsOpen ? '▲' : '▼'}
+                </div>
+                {libToolsOpen && (<>
                 <div onClick={() => setRulesOpen(v => !v)}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700, flexShrink:0,
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700, flexShrink:0,
                     padding:'5px 10px', borderRadius:7,
                     color: rulesOpen ? '#1a1207' : T.amber,
                     background: rulesOpen ? T.amber : T.amberD,
@@ -27150,7 +27232,7 @@ Steven 不是在收藏電影台詞。
                   📋 訓練守則
                 </div>
                 <div onClick={() => setLinkTableOpen(v => !v)}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700, flexShrink:0,
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700, flexShrink:0,
                     padding:'5px 10px', borderRadius:7,
                     color: linkTableOpen ? '#1a1030' : '#a78bfa',
                     background: linkTableOpen ? '#a78bfa' : '#1a1030',
@@ -27160,13 +27242,14 @@ Steven 不是在收藏電影台詞。
                 {/* v6.53: 批次重跑舊版句級解析（無時間戳=舊 prompt 世代）*/}
                 <div onClick={batchReanalyzeLinks}
                   title="⚠ 消耗大量 API 額度：全庫每句最多 2 次呼叫。額度不足會中途失敗，建議先確認餘額，或改用單句 🔄 重新解析。"
-                  style={{ cursor:'pointer', userSelect:'none', fontFamily:MONO, fontSize:9, fontWeight:700, flexShrink:0,
+                  style={{ cursor:'pointer', userSelect:'none', fontFamily:MONO, fontSize:11, fontWeight:700, flexShrink:0,
                     padding:'5px 10px', borderRadius:7,
                     color: batchLink ? '#1a1030' : '#fbbf24',
                     background: batchLink ? '#a78bfa' : 'transparent',
                     border:'1px solid #fbbf2440' }}>
                   {batchLink ? `🔄 ${batchLink.i}/${batchLink.n}…` : '🔄 重跑舊解析 💸'}
                 </div>
+                </>)}
                 <SpeedBar/>
               </div>
 
@@ -27191,17 +27274,17 @@ Steven 不是在收藏電影台詞。
                 return (
                   <div style={{ display:'flex', flexDirection:'column', gap:5,
                     background:'#1a0d0d', border:'1px solid #f8717130', borderRadius:9, padding:'9px 11px' }}>
-                    <div style={{ fontFamily:MONO, fontSize:9, color:'#f87171', fontWeight:700 }}>
+                    <div style={{ fontFamily:MONO, fontSize:11, color:'#f87171', fontWeight:700 }}>
                       ⚠ 解析品質追蹤 · 共回報 {reps.length} 句
                     </div>
                     {rows.map(r => (
                       <div key={r.pv} style={{ display:'flex', justifyContent:'space-between',
-                        fontFamily:MONO, fontSize:8, color: r.pv === curPv ? '#fbbf24' : T.txt3 }}>
+                        fontFamily:MONO, fontSize:11, color: r.pv === curPv ? '#fbbf24' : T.txt3 }}>
                         <span>{r.pv === curPv ? '▶ 目前世代' : `舊世代 ${String(r.pv).slice(0, 6)}`}</span>
                         <span>{r.err} 錯{r.rate !== null ? ` / ${r.tot} 句 · ${r.rate}%` : ''}</span>
                       </div>
                     ))}
-                    <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
+                    <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.5 }}>
                       目前世代的比率若高於舊世代，代表 prompt 改壞了——該回退，不是繼續加規則。
                     </div>
                   </div>
@@ -27221,7 +27304,7 @@ Steven 不是在收藏電影台詞。
                     <div style={{ fontFamily:MONO, fontSize:11, color:'#a78bfa', fontWeight:700 }}>
                       📖 連讀速查表 · 11 條通則
                     </div>
-                    <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
+                    <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.5 }}>
                       單句解析講「這一句」為什麼聽不到；這張表是「所有句子」的共同規律。
                       依你的診斷，最該看的排最前面。
                     </div>
@@ -27233,39 +27316,40 @@ Steven 不是在收藏電影台詞。
                           border: isTop ? '1px solid #a78bfa40' : 'none',
                           borderLeft:'2px solid #a78bfa60', borderRadius: isTop ? 8 : 0,
                           padding: isTop ? '8px 10px' : '3px 0 3px 9px' }}>
-                          <div style={{ fontFamily:MONO, fontSize:10, color:T.txt, fontWeight:700 }}>
+                          <div style={{ fontFamily:MONO, fontSize:11, color:T.txt, fontWeight:700 }}>
                             {isTop && <span style={{ color:'#a78bfa' }}>▶ </span>}{r.t}
                           </div>
                           <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
                             <span style={{ fontFamily:MONO, fontSize:11, color:T.txt2 }}>{r.eg}</span>
-                            <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>→</span>
+                            <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>→</span>
                             <MarkedIPA text={r.ipa} size={13}/>
                           </div>
-                          <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>{r.note}</div>
+                          <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.5 }}>{r.note}</div>
                         </div>
                       )
                     })}
-                    <div style={{ display:'flex', gap:8, flexWrap:'wrap', fontFamily:MONO, fontSize:8, marginTop:2 }}>
+                    <div style={{ display:'flex', gap:8, flexWrap:'wrap', fontFamily:MONO, fontSize:11, marginTop:2 }}>
                       <span style={{ color:'#facc15', fontWeight:700 }}>弱讀</span>
                       <span style={{ color:'#38bdf8', borderBottom:'1.5px solid #38bdf8' }}>連讀</span>
                       <span style={{ color:'#4ade80', textDecoration:'line-through' }}>不發音</span>
                       <span style={{ color:'#fb923c', borderBottom:'1.5px dotted #fb923c' }}>音變/彈舌</span>
                       <span style={{ color:'#f87171', fontWeight:700 }}>滑音</span>
                     </div>
-                    <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>📴 不需網路、不用 AI，隨時可查。</div>
+                    <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>📴 不需網路、不用 AI，隨時可查。</div>
                   </div>
                 )
               })()}
-              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
+              {libToolsOpen && <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.6 }}>
                 👆 <b style={{ color:T.txt2 }}>長按句子裡任何一個單字</b> → 查音標/中文 → 加入單字庫　·
                 🔊 點連音塊 → 只播那一小段電影原音
-              </div>
+              </div>}
               {(() => {
+                if (!libToolsOpen) return null   // v7.11: 收進「設定與工具」
                 const excluded = all.filter(p => p.noBlind)
                 if (excluded.length === 0) return null
                 return (
                   <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap',
-                    fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                    fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                     <span>🚫 已排除 <b style={{ color:T.txt2 }}>{excluded.length}</b> 句（不列入弱點排行與診斷）</span>
                     <span onClick={() => {
                         saveDb({ ...db, movies: db.movies.map(m => m.id !== movieId ? m : {
@@ -27287,8 +27371,8 @@ Steven 不是在收藏電影台詞。
                   {LISTEN_RULES.map((r, i) => (
                     <div key={i} style={{ display:'flex', flexDirection:'column', gap:2,
                       borderLeft:`2px solid ${T.amber}50`, paddingLeft:8 }}>
-                      <div style={{ fontFamily:MONO, fontSize:10, color:T.txt, fontWeight:700 }}>{r.icon} {r.t}</div>
-                      <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, lineHeight:1.6 }}>{r.d}</div>
+                      <div style={{ fontFamily:MONO, fontSize:11, color:T.txt, fontWeight:700 }}>{r.icon} {r.t}</div>
+                      <div style={{ fontFamily:MONO, fontSize:11, color:T.txt2, lineHeight:1.6 }}>{r.d}</div>
                     </div>
                   ))}
                 </div>
@@ -27298,7 +27382,7 @@ Steven 不是在收藏電影台詞。
               <div style={{ display:'flex', gap:6 }}>
                 {[['freq','🎵 連音高頻'], ['weak','🎯 依弱點'], ['sent','📋 依句子']].map(([v, label]) => (
                   <div key={v} onClick={() => { setLibView(v); setLibWord(null); stopFreqQueue() }}
-                    style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:9, fontWeight:700,
+                    style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
                       padding:'7px 2px', borderRadius:7, whiteSpace:'nowrap',
                       background: libView===v ? '#38bdf8' : T.surf2,
                       color: libView===v ? '#0d2a3a' : T.txt3,
@@ -27311,13 +27395,13 @@ Steven 不是在收藏電影台詞。
               {/* 🎵 連音高頻：跨句聚合同類連音，純原音耳朵訓練（不進句子）*/}
               {libView === 'freq' && (
                 <>
-                  <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.6 }}>
+                  <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.6 }}>
                     把你<b style={{ color:T.amber }}>盲聽時最常漏</b>的功能詞（of/are/to…）跨句聚合。
                     排序 = 漏聽率 × 出現次數：又常出現、又常漏的排最前面。
                     點 <b style={{ color:'#38bdf8' }}>🔥 連續聽</b> 會把同一個字在各句的連音<b>原音</b>一個接一個播 —— 純練耳朵，不看句子、不看中文。
                   </div>
                   {freqLinks.length === 0 ? (
-                    <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
+                    <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.6 }}>
                       還沒有夠格的高頻連音（功能詞要「遇到 ≥2 次」且句子有時間碼）。多做幾句盲聽聽寫就會長出來。
                     </div>
                   ) : (
@@ -27336,10 +27420,10 @@ Steven 不是在收藏電影台詞。
                                   color:T.amber, minWidth:36, flexShrink:0, whiteSpace:'nowrap' }}>
                                 ⚠ {w}
                               </span>
-                              <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3, flexShrink:0, whiteSpace:'nowrap' }}>
+                              <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3, flexShrink:0, whiteSpace:'nowrap' }}>
                                 漏 {miss}/{enc}·{rate}%
                               </span>
-                              <span style={{ fontFamily:MONO, fontSize:8,
+                              <span style={{ fontFamily:MONO, fontSize:11,
                                 color: unverified > 0 ? T.amber : '#4ade80', flex:1, minWidth:0,
                                 whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
                                 {items.length}塊{unverified > 0 ? `·🟡${unverified}待校` : '·🟢全校驗'}
@@ -27347,7 +27431,7 @@ Steven 不是在收藏電影台詞。
                               {unverified > 0 && (
                                 <span onClick={() => verifyLinkWord(w, items)}
                                   style={{ cursor:'pointer', userSelect:'none', WebkitUserSelect:'none', WebkitTouchCallout:'none',
-                                    touchAction:'manipulation', flexShrink:0, whiteSpace:'nowrap', fontFamily:MONO, fontSize:9, fontWeight:700,
+                                    touchAction:'manipulation', flexShrink:0, whiteSpace:'nowrap', fontFamily:MONO, fontSize:11, fontWeight:700,
                                     padding:'5px 7px', borderRadius:7,
                                     background: verifying ? '#a78bfa' : '#1a1030',
                                     color: verifying ? '#1a1030' : '#a78bfa', border:'1px solid #a78bfa60' }}>
@@ -27356,7 +27440,7 @@ Steven 不是在收藏電影台詞。
                               )}
                               <span onClick={() => playFreqQueue(w, items)}
                                 style={{ cursor:'pointer', userSelect:'none', WebkitUserSelect:'none', WebkitTouchCallout:'none',
-                                  touchAction:'manipulation', flexShrink:0, whiteSpace:'nowrap', fontFamily:MONO, fontSize:10, fontWeight:700,
+                                  touchAction:'manipulation', flexShrink:0, whiteSpace:'nowrap', fontFamily:MONO, fontSize:11, fontWeight:700,
                                   padding:'5px 8px', borderRadius:7,
                                   background: playing ? T.amber : '#38bdf8', color: playing ? '#1a1207' : '#0d2a3a' }}>
                                 {playing ? `⏹ ${freqQueue.idx + 1}/${freqQueue.items.length}` : `🔥 ${items.length}`}
@@ -27376,21 +27460,21 @@ Steven 不是在收藏電影台詞。
                                         touchAction:'manipulation', display:'inline-flex', alignItems:'center', gap:5,
                                         background: cur ? T.amber : '#1a1030',
                                         border:`1px solid ${bd}`, borderRadius:7, padding:'4px 9px' }}>
-                                      <span style={{ fontSize:10 }}>{it.verified ? '🟢' : '🔊'}</span>
-                                      <span style={{ fontFamily:MONO, fontSize:10, color: cur ? '#1a1207' : T.txt2 }}>{it.text}</span>
+                                      <span style={{ fontSize:11 }}>{it.verified ? '🟢' : '🔊'}</span>
+                                      <span style={{ fontFamily:MONO, fontSize:11, color: cur ? '#1a1207' : T.txt2 }}>{it.text}</span>
                                       {it.verified ? (
                                         <>
-                                          <span style={{ fontFamily:MONO, fontSize:9, color: cur ? '#1a1207' : T.txt3 }}>→</span>
+                                          <span style={{ fontFamily:MONO, fontSize:11, color: cur ? '#1a1207' : T.txt3 }}>→</span>
                                           <span style={{ fontFamily:MONO, fontSize:12, fontWeight:700, color: cur ? '#1a1207' : '#a78bfa' }}>{it.ipa}</span>
                                           {/* v6.37: 重校入口——校驗結果錯了（如 kd 沒母音、該彈舌沒彈舌）可單塊重送 AI 覆蓋 */}
                                           <span onClick={(e) => { e.stopPropagation(); verifyLinkWord(w, [it], true) }}
                                             title="這個音標怪怪的？重新送 AI 校驗一次（覆蓋舊結果）"
-                                            style={{ cursor:'pointer', fontSize:9, opacity:0.55, padding:'1px 3px',
+                                            style={{ cursor:'pointer', fontSize:11, opacity:0.55, padding:'1px 3px',
                                               userSelect:'none', WebkitUserSelect:'none', touchAction:'manipulation' }}>🔄</span>
                                         </>
                                       ) : (
                                         // 選項B：未校驗不給可能錯的音標，只提示待校 —— 逼「校驗→綠→才練」的正路
-                                        <span style={{ fontFamily:MONO, fontSize:9, color: cur ? '#1a1207' : '#facc15', fontWeight:700 }}>· 🔍待校</span>
+                                        <span style={{ fontFamily:MONO, fontSize:11, color: cur ? '#1a1207' : '#facc15', fontWeight:700 }}>· 🔍待校</span>
                                       )}
                     </span>
                                   )
@@ -27404,7 +27488,7 @@ Steven 不是在收藏電影台詞。
                                 const shown = linkCardsMore ? vItems : vItems.slice(0, 3)
                                 return (
                                   <div style={{ display:'flex', flexDirection:'column', gap:6, marginTop:2 }}>
-                                    <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, letterSpacing:'0.05em' }}>
+                                    <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, letterSpacing:'0.05em' }}>
                                       ── 🔗 連音解析（點卡片聽原音）──
                                     </div>
                                     {shown.map((it, ci) => {
@@ -27435,7 +27519,7 @@ Steven 不是在收藏電影台詞。
                                             /{it.ipa}/
                                           </div>
                                           {it.note && (
-                                            <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, lineHeight:1.5 }}>
+                                            <div style={{ fontFamily:MONO, fontSize:11, color:T.txt2, lineHeight:1.5 }}>
                                               💡 {it.note}
                                             </div>
                                           )}
@@ -27445,7 +27529,7 @@ Steven 不是在收藏電影台詞。
                                     {!linkCardsMore && vItems.length > 3 && (
                                       <div onClick={(e) => { e.stopPropagation(); setLinkCardsMore(true) }}
                                         style={{ cursor:'pointer', userSelect:'none', WebkitUserSelect:'none',
-                                          touchAction:'manipulation', textAlign:'center', fontFamily:MONO, fontSize:10,
+                                          touchAction:'manipulation', textAlign:'center', fontFamily:MONO, fontSize:11,
                                           fontWeight:700, color:'#38bdf8', padding:'6px 0',
                                           border:`1px dashed #38bdf860`, borderRadius:8 }}>
                                         ▼ 展開更多 ({vItems.length - 3})
@@ -27461,7 +27545,7 @@ Steven 不是在收藏電影台詞。
                       })}
                     </div>
                   )}
-                  <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.6 }}>
+                  <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.6 }}>
                     🔍待校=規則版只找出連音塊、還沒給音標（規則版補不完，不假裝算得準）· 🟢=AI 校驗過（音標可信）。
                     按 <b style={{ color:'#a78bfa' }}>🔍 校驗</b> 讓 AI 補上正確音標，永久變綠、不重複校；音標怪怪的按塊內 <b>🔄</b> 單塊重校覆蓋。無論如何<b style={{ color:T.amber }}>以耳朵聽到的原音為準</b>。
                   </div>
@@ -27472,13 +27556,13 @@ Steven 不是在收藏電影台詞。
               {libView === 'weak' && renderDiagnosis(dictated, true)}
               {libView === 'weak' && (
                 <>
-                  <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
+                  <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.5 }}>
                     依「<b style={{ color:T.amber }}>漏掉率</b>」排，不是漏掉次數。
                     the 漏 5/50=10%（你其實聽得到）；as 漏 6/6=100%（這才是關卡）。
                     用次數排會被 the/i/and 洗版，害你練已經會的東西。
                   </div>
                   {weakWords.length === 0 ? (
-                    <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
+                    <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.6 }}>
                       還沒有夠格的弱點字（要「遇到 ≥3 次」才列入，避免樣本太少誤判）。多做幾句聽寫。
                     </div>
                   ) : (
@@ -27497,7 +27581,7 @@ Steven 不是在收藏電影台詞。
                               minWidth:74, flexShrink:0 }}>
                               {isFunc ? '⚠' : '🔴'} {w}
                             </span>
-                            <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3, minWidth:42, flexShrink:0 }}>
+                            <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3, minWidth:42, flexShrink:0 }}>
                               {miss}/{enc}
                             </span>
                             <span style={{ fontFamily:MONO, fontSize:11, fontWeight:700, color:col,
@@ -27514,14 +27598,14 @@ Steven 不是在收藏電影台詞。
                       })}
                     </div>
                   )}
-                  <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
+                  <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.5 }}>
                     <span style={{ color:T.amber }}>⚠橘</span>=功能詞（認識但聽不出 → 連音弱讀，練耳朵）·
                     <span style={{ color:'#f87171' }}> 🔴紅</span>=實詞（可能真的不認識 → 查字典）<br/>
                     這個 % 就是進步指標：as 從 100% 掉到 40%，是實打實的進步。
                   </div>
                   {libWord && (
                     <div style={{ display:'flex', flexDirection:'column', gap:6, marginTop:2 }}>
-                      <div style={{ fontFamily:MONO, fontSize:10, color:'#38bdf8', fontWeight:700 }}>
+                      <div style={{ fontFamily:MONO, fontSize:11, color:'#38bdf8', fontWeight:700 }}>
                         「{libWord}」關卡 · {shown.length} 句
                         {queuePlay && (queuePlay.gap
                           ? <span style={{ color:'#4ade80' }}>　🗣 換你唸 {queuePlay.idx + 1}/{queuePlay.ids.length}</span>
@@ -27529,7 +27613,7 @@ Steven 不是在收藏電影台詞。
                       </div>
                       <div style={{ display:'flex', gap:6 }}>
                         <div onClick={() => startQueue(shown, 'plain')}
-                          style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
+                          style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
                             padding:'9px 0', borderRadius:8,
                             background: queuePlay?.mode === 'plain' ? '#38bdf8' : T.surf2,
                             color: queuePlay?.mode === 'plain' ? '#0d2a3a' : '#38bdf8',
@@ -27537,7 +27621,7 @@ Steven 不是在收藏電影台詞。
                           {queuePlay?.mode === 'plain' ? '⏹ 停止' : `▶ 連著聽 ${shown.length} 句`}
                         </div>
                         <div onClick={() => startQueue(shown, 'three')}
-                          style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
+                          style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
                             padding:'9px 0', borderRadius:8,
                             background: queuePlay?.mode === 'three' ? T.amber : T.amberD,
                             color: queuePlay?.mode === 'three' ? '#1a1207' : T.amber,
@@ -27551,7 +27635,7 @@ Steven 不是在收藏電影台詞。
                       <div style={{ display:'flex', gap:6 }}>
                         <div onClick={() => startQueue(shown, 'shadow')}
                           style={{ cursor:'pointer', userSelect:'none', WebkitUserSelect:'none', touchAction:'manipulation',
-                            flex:1, textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
+                            flex:1, textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
                             padding:'9px 0', borderRadius:8,
                             background: queuePlay?.mode === 'shadow' ? '#4ade80' : '#0d2417',
                             color: queuePlay?.mode === 'shadow' ? '#062012' : '#4ade80',
@@ -27563,20 +27647,20 @@ Steven 不是在收藏電影台詞。
                         <div onClick={cycleShadowGap}
                           title="每句播完的留白秒數（實際留白不會短於原音長度）"
                           style={{ cursor:'pointer', userSelect:'none', WebkitUserSelect:'none', touchAction:'manipulation',
-                            flexShrink:0, textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
+                            flexShrink:0, textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
                             padding:'9px 12px', borderRadius:8,
                             background:T.surf2, color:T.txt2, border:`1px solid ${T.bdr}` }}>
                           留白 {shadowGap}s
                         </div>
                       </div>
-                      <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
+                      <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.5 }}>
                         連續轟炸同一個音塊，大腦才會建立「那團模糊的 əz = as」的映射。放著聽，不用一句一句點。
                       </div>
                       {/* v6.67: 👩‍🏫 家教模式——課堂用：全卡遮罩（英文/中文/解析全藏），逐卡揭答案；
                           📋 匯出：純英文句子清單複製到剪貼簿，事前傳給老師當唸稿 */}
                       <div style={{ display:'flex', gap:6 }}>
                         <div onClick={() => { setTutorMode(v => !v); setTutorReveal({}) }}
-                          style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
+                          style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
                             padding:'8px 0', borderRadius:8,
                             background: tutorMode ? '#a78bfa' : T.surf2,
                             color: tutorMode ? '#1a1030' : '#a78bfa',
@@ -27588,7 +27672,7 @@ Steven 不是在收藏電影台詞。
                           try { await navigator.clipboard.writeText(txt); showMovieToast(`📋 已複製 ${shown.length} 句，傳給老師當唸稿`) }
                           catch { showMovieToast('⚠ 複製失敗，請手動長按選取') }
                         }}
-                          style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
+                          style={{ cursor:'pointer', flex:1, textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
                             padding:'8px 0', borderRadius:8, background:T.surf2, color:T.txt2, border:`1px solid ${T.bdr}` }}>
                           📋 匯出句子給老師
                         </div>
@@ -27602,7 +27686,7 @@ Steven 不是在收藏電影台詞。
               {libWord && (
                 <div onClick={() => setWordDueOnly(v => !v)}
                   style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
-                    fontFamily:MONO, fontSize:9, fontWeight:700,
+                    fontFamily:MONO, fontSize:11, fontWeight:700,
                     alignSelf:'flex-start', padding:'5px 10px', borderRadius:7,
                     background: wordDueOnly ? T.amber : T.surf2,
                     color: wordDueOnly ? '#1a1207' : T.txt3,
@@ -27616,7 +27700,7 @@ Steven 不是在收藏電影台詞。
               {/* 依句子：只看今天該複習 */}
               {libView === 'sent' && (
                 <div onClick={() => setLibDueOnly(v => !v)}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, fontWeight:700,
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                     alignSelf:'flex-start', padding:'5px 10px', borderRadius:7,
                     background: libDueOnly ? T.amber : T.surf2,
                     color: libDueOnly ? '#1a1207' : T.txt3,
@@ -27628,15 +27712,16 @@ Steven 不是在收藏電影台詞。
               {/* 句子清單 */}
               {/* v6.75: 弱點關卡在「只看今天可測」下清空時的提示，避免畫面一片空白 */}
               {libWord && wordDueOnly && shown.length === 0 && (
-                <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3, lineHeight:1.7,
+                <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.7,
                   background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:9, padding:'11px 12px' }}>
                   這個關卡今天沒有到期的句子了 ✓<br/>
-                  <span style={{ fontSize:9 }}>點上面的按鈕可以看全部 {wordAll.length} 句（播放／跟讀不受到期限制）。</span>
+                  <span style={{ fontSize:11 }}>點上面的按鈕可以看全部 {wordAll.length} 句（播放／跟讀不受到期限制）。</span>
                 </div>
               )}
               {libView !== 'freq' && (libView === 'sent' || libWord) && shown.map((p, si) => {
                 const f = p.dict.first
                 const testing = libTestId === p.id
+                const libMenuOpen = libMenuId === p.id   // v7.11
                 const res = dictResult[p.id]
                 const missSet = new Set(f.miss ?? [])
                 const isDue = !p.dict.next || p.dict.next <= today
@@ -27665,7 +27750,7 @@ Steven 不是在收藏電影台詞。
                 return (
                   <Fragment key={p.id}>
                   {secHeader && (
-                    <div style={{ fontFamily:MONO, fontSize:9, fontWeight:700, letterSpacing:'0.05em',
+                    <div style={{ fontFamily:MONO, fontSize:11, fontWeight:700, letterSpacing:'0.05em',
                       color: secHeader.startsWith('✓') ? T.grn : T.amber,
                       borderBottom:`1px dashed ${secHeader.startsWith('✓') ? T.grn : T.amber}40`,
                       paddingBottom:3, marginTop: si === 0 ? 0 : 4 }}>
@@ -27680,7 +27765,7 @@ Steven 不是在收藏電影台詞。
                     borderRadius:10, padding:'11px 12px', display:'flex', flexDirection:'column', gap:7,
                     minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
                     {isQueueCur && (
-                      <div style={{ fontFamily:MONO, fontSize:9, fontWeight:700,
+                      <div style={{ fontFamily:MONO, fontSize:11, fontWeight:700,
                         color: queuePlay.gap ? '#4ade80' : '#38bdf8' }}>
                         {queuePlay.gap
                           ? `🗣 換你唸 ${queuePlay.idx + 1}/${queuePlay.ids.length}`
@@ -27702,14 +27787,14 @@ Steven 不是在收藏電影台詞。
                           {tutorMasked ? (
                             <span onClick={() => setTutorReveal(r => ({ ...r, [p.id]: true }))}
                               style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
-                                fontFamily:MONO, fontSize:9, color:'#a78bfa', padding:'3px 8px',
+                                fontFamily:MONO, fontSize:11, color:'#a78bfa', padding:'3px 8px',
                                 background:'#1a1030', borderRadius:6, border:'1px solid #a78bfa50' }}>
                               👁 揭答案（報完抓到的字再按）
                             </span>
                           ) : !testing && (
                             <span onClick={() => setLibRevealed(r => ({ ...r, [p.id]: true }))}
                               style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
-                                fontFamily:MONO, fontSize:9, color:T.txt3, padding:'3px 8px',
+                                fontFamily:MONO, fontSize:11, color:T.txt3, padding:'3px 8px',
                                 background:T.surf2, borderRadius:6, border:`1px solid ${T.bdr}` }}>
                               👁 看答案（看了這次重測就不準）
                             </span>
@@ -27775,20 +27860,31 @@ Steven 不是在收藏電影台詞。
                       )
                     )}
                     {!tutorMasked && <WordCard phraseId={p.id}/>}
-                    {!tutorMasked && <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
-                      首次 全詞 {f.rate}% · 實詞 {f.cRate}%
-                      {p.dict.count > 1 && ` · 最近 全詞 ${p.dict.last.rate}%`}
-                      {' · '}進度 {p.dict.stage ?? 0}/{REVIEW_INTERVALS.length}
-                      {isDue && <span style={{ color:T.amber, fontWeight:700 }}> · ⏰ 今天可重測</span>}
+                    {/* v7.11: 數據列改成一眼可讀——進度四格＋首次→最近＋何時重測（原本一行 8 級字） */}
+                    {!tutorMasked && <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap',
+                      fontFamily:MONO, fontSize:12, color:T.txt2 }}>
+                      <span title={`進度 ${p.dict.stage ?? 0}/${REVIEW_INTERVALS.length}`} style={{ display:'inline-flex', gap:3 }}>
+                        {REVIEW_INTERVALS.map((_, k) => (
+                          <span key={k} style={{ width:14, height:6, borderRadius:3,
+                            background: k < (p.dict.stage ?? 0) ? T.grn : T.bdr }}/>
+                        ))}
+                      </span>
+                      <span>
+                        首次 {f.rate}%
+                        {p.dict.count > 1 && <> → 最近 <b style={{ color: p.dict.last.rate >= f.rate ? T.grn : '#f87171' }}>{p.dict.last.rate}%</b></>}
+                      </span>
+                      <span style={{ marginLeft:'auto', color: isDue ? T.amber : T.txt3, fontWeight: isDue ? 700 : 400 }}>
+                        {isDue ? '⏰ 今天可重測' : (p.dict.next ? `${p.dict.next} 重測` : '')}
+                      </span>
                     </div>}
 
                     {/* v6.81: 統一連音卡 */}
-                    {!testing && !dueMasked && !tutorMasked && <LinkCard p={p}/>}
+                    {!testing && !dueMasked && !tutorMasked && <LinkCard p={p} rowHidden/>}
 
                     {/* 弱點關卡模式：快速連音塊（規則版，免費即時）*/}
                     {/* v6.69: 解析錯誤上卡（聽力庫/弱點關卡卡片） */}
                     {linkErr[p.id] && !tutorMasked && (
-                      <div style={{ fontFamily:MONO, fontSize:9, color:'#f87171', background:'#2a0d0d',
+                      <div style={{ fontFamily:MONO, fontSize:11, color:'#f87171', background:'#2a0d0d',
                         border:'1px solid #f8717150', borderRadius:8, padding:'8px 10px', lineHeight:1.6,
                         overflowWrap:'break-word' }}>
                         ⚠ 解析失敗：{linkErr[p.id]}（再按一次重試；持續失敗請截圖）
@@ -27807,7 +27903,7 @@ Steven 不是在收藏電影台詞。
                               padding:'4px 9px' }}>
                               <span style={{ fontSize:12 }}>🔊</span>
                               <span style={{ fontFamily:MONO, fontSize:11, color:T.txt2 }}>{c.text}</span>
-                              <span style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>→</span>
+                              <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>→</span>
                               <span style={{ fontFamily:MONO, fontSize:13, color:'#a78bfa', fontWeight:700 }}>{c.ipa}</span>
                             </span>
                           ))}
@@ -27822,14 +27918,14 @@ Steven 不是在收藏電影台詞。
                           <>
                             <div style={{ display:'flex', gap:6 }}>
                               <div onClick={() => playBlindPhrase(p)}
-                                style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                                style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                                   padding:'8px 14px', borderRadius:7,
                                   background: blindPlayingId === p.id ? '#38bdf8' : '#0d2a3a',
                                   color: blindPlayingId === p.id ? '#0d2a3a' : '#38bdf8',
                                   border:'1px solid #38bdf850' }}>
                                 {blindPlayingId === p.id ? '⏹' : `▶ 聽${blindPlayCount}次`}
                               </div>
-                              <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3, alignSelf:'center' }}>
+                              <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3, alignSelf:'center' }}>
                                 已聽 {blindPlays[p.id] ?? 0} 次
                               </span>
                               {/* v7.03: 聽力庫重測卡就地切換「每按播幾次」——原本只能繞到今日盲聽／場景頁改。
@@ -27838,7 +27934,7 @@ Steven 不是在收藏電影台詞。
                                 {[1, 2, 3].map(nn => (
                                   <div key={nn} onClick={() => { setBlindPlayCount(nn); try { localStorage.setItem('fsi:blind:playCount', String(nn)) } catch(e) {} }}
                                     style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
-                                      fontFamily:MONO, fontSize:10, fontWeight:700,
+                                      fontFamily:MONO, fontSize:11, fontWeight:700,
                                       padding:'6px 10px', borderRadius:7,
                                       color: blindPlayCount===nn ? '#0d2a3a' : T.txt2,
                                       background: blindPlayCount===nn ? '#38bdf8' : T.surf2,
@@ -27899,14 +27995,14 @@ Steven 不是在收藏電影台詞。
                                 </div>
                               )}
                               {/* v6.56: WordCard 移除——外層已常駐一個，兩個同時渲染會讓長按彈兩張單字卡 */}
-                              <div style={{ fontFamily:MONO, fontSize:10, color: pass ? T.grn : T.amber, fontWeight:700 }}>
+                              <div style={{ fontFamily:MONO, fontSize:11, color: pass ? T.grn : T.amber, fontWeight:700 }}>
                                 {manualOk ? '✅ 過關（我判定）' : pass ? '✅ 過關（≥80% 且原本漏的字都抓到）' : '✗ 還沒過關'}
                                 <span style={{ color:T.txt2, fontWeight:400, marginLeft:6 }}>
                                   全詞 {res.rate}% · 實詞 {res.cRate}%
                                 </span>
                               </div>
                               {/* 首次 vs 這次：看得到進步 */}
-                              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                              <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                                 首次 {f.rate}% → 這次 <b style={{ color: res.rate > f.rate ? T.grn : res.rate < f.rate ? '#f87171' : T.txt2 }}>
                                   {res.rate}%</b>
                                 {res.rate !== f.rate && (
@@ -27916,7 +28012,7 @@ Steven 不是在收藏電影台詞。
                                 )}
                               </div>
                               {stillMiss.length > 0 && !manualOk && (
-                                <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, lineHeight:1.6 }}>
+                                <div style={{ fontFamily:MONO, fontSize:11, color:T.amber, lineHeight:1.6 }}>
                                   ⚠ 原本漏的字，這次<b>還是漏</b>：{stillMiss.join(' ')}
                                 </div>
                               )}
@@ -27944,16 +28040,16 @@ Steven 不是在收藏電影台詞。
                               )}
                               {/* v7.10: 縮寫差異（算對，但提醒拍數） */}
                               {(res.cnotes ?? []).length > 0 && (
-                                <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, lineHeight:1.6 }}>
+                                <div style={{ fontFamily:MONO, fontSize:11, color:T.txt2, lineHeight:1.6 }}>
                                   ℹ️ {res.cnotes.map(w => `${APOS_SHOW[w] ?? w} ≈ ${(APOS_EXPAND[w] ?? []).join(' ')}`).join('、')}
                                   <span style={{ color:T.txt3 }}>（縮寫差異，已算對；縮寫一拍、展開兩拍）</span>
                                 </div>
                               )}
                               {res.misheard.length > 0 && (
-                                <div style={{ fontFamily:MONO, fontSize:9, color:'#f87171', lineHeight:1.6 }}>
+                                <div style={{ fontFamily:MONO, fontSize:11, color:'#f87171', lineHeight:1.6 }}>
                                   🔴 誤聽：{res.misheard.join(' ')}
                                   {res.pairs.length > 0 && (
-                                    <span style={{ color:T.txt3, fontSize:8 }}>
+                                    <span style={{ color:T.txt3, fontSize:11 }}>
                                       （{res.pairs.map(([a,b]) => `${a}→${b}`).join('、')}）
                                     </span>
                                   )}
@@ -27964,7 +28060,7 @@ Steven 不是在收藏電影台詞。
                                 <CauseRow pid={p.id} rate={res.rate} compact/>
                               )}
                               <div onClick={() => playThreeStep(p)}
-                                style={{ cursor:'pointer', textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
+                                style={{ cursor:'pointer', textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
                                   padding:'8px 0', borderRadius:8,
                                   background: threeStep?.pid === p.id ? '#38bdf8' : T.surf2,
                                   color: threeStep?.pid === p.id ? '#0d2a3a' : '#38bdf8',
@@ -27978,7 +28074,7 @@ Steven 不是在收藏電影台詞。
                                 <GoldBtn p={p} fs={11} pad='7px 16px' radius={7}/>
                               </div>
                               <div onClick={() => { setLibTestId(null); setDictResult(r => { const n={...r}; delete n[p.id]; return n }); setDictInput(v => ({ ...v, [p.id]: '' })) }}
-                                style={{ cursor:'pointer', textAlign:'center', fontFamily:MONO, fontSize:10,
+                                style={{ cursor:'pointer', textAlign:'center', fontFamily:MONO, fontSize:11,
                                   padding:'7px 0', borderRadius:7, background:T.surf2, color:T.txt3, border:`1px solid ${T.bdr}` }}>
                                 收起
                               </div>
@@ -27991,25 +28087,55 @@ Steven 不是在收藏電影台詞。
                       {/* v6.90: 播放鍵上方常駐原句——痛點是「句子長，捲到底按播放時看不到英文，每次要往上滑」。
                           sticky 原句綁在連音卡內、捲出卡片就消失，解決不了；直接把原句放在播放鍵正上方最實在。
                           套用與連音卡相同的遮罩條件（!testing && !dueMasked && !tutorMasked），重測未揭曉時不顯示，不破壞盲測。 */}
-                      {!testing && !dueMasked && !tutorMasked && (
+                      {/* v7.11: 沒有解析框的卡片很短，上面已有原句，不再重複一次 */}
+                      {!testing && !dueMasked && !tutorMasked && !!(p.link && p.link.ipa) && (
                         <div style={{ fontFamily:MONO, fontSize:11, fontWeight:700, color:T.txt2, lineHeight:1.5,
                           padding:'6px 2px', marginBottom:2, overflowWrap:'break-word' }}>
                           {p.en}
-                          {p.zh && <span style={{ fontSize:9, fontWeight:400, color:T.txt3 }}>　{p.zh}</span>}
+                          {p.zh && <span style={{ fontSize:11, fontWeight:400, color:T.txt3 }}>　{p.zh}</span>}
                         </div>
                       )}
-                      <div style={{ display:'flex', gap:5 }}>
+                      {/* v7.11: 按鈕一排——到期：[開始重測][播放][⋯]；未到期：[播放][三步驟][跟讀][⋯]。
+                          其餘（連音解析／金句／問老師／排除，到期卡的三步驟／跟讀）按 ⋯ 才出現在第二列。
+                          用 CSS order 排位置，不搬動原本的按鈕程式。 */}
+                      <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+                        <div onClick={() => setLibMenuId(libMenuOpen ? null : p.id)}
+                          title="更多"
+                          style={{ order:3, cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                            flexShrink:0, minWidth:46, textAlign:'center',
+                            fontFamily:MONO, fontSize:18, fontWeight:700, lineHeight:1, padding:'12px 0', borderRadius:9,
+                            background: libMenuOpen ? '#2a1f00' : T.surf2,
+                            color: libMenuOpen ? T.amber : T.txt2,
+                            border:`1px solid ${libMenuOpen ? T.amber : T.bdr}` }}>
+                          ⋯
+                        </div>
+                        {libMenuOpen && <div style={{ order:4, flexBasis:'100%', height:0 }}/>}
+                        {libMenuOpen && !dueMasked && !tutorMasked && !(p.link && p.link.ipa) && (
+                          <div onClick={() => analyzeLinking(p)}
+                            style={{ order:5, flex:'1 1 40%', minWidth:0, cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+                              textAlign:'center', whiteSpace:'nowrap',
+                              fontFamily:MONO, fontSize:13, fontWeight:700, padding:'13px 4px', borderRadius:9,
+                              background: linkBusy === p.id ? '#a78bfa' : '#1a1030',
+                              color: linkBusy === p.id ? '#1a1030' : '#a78bfa', border:'1px solid #a78bfa50' }}>
+                            {linkBusy === p.id ? (linkStage === 'verify' ? '② 校驗中…' : '① 生成中…') : '🎬 連音解析'}
+                          </div>
+                        )}
+                        {libMenuOpen && !dueMasked && !tutorMasked && (
+                          <div style={{ order:5, display:'flex' }}>
+                            <GoldBtn p={p} fs={13} pad='13px 12px' radius={9}/>
+                          </div>
+                        )}
                         <div onClick={() => playBlindPhrase(p)}
-                          style={{ cursor:'pointer', flex:1, minWidth:0, textAlign:'center', whiteSpace:'nowrap',
-                            fontFamily:MONO, fontSize:10, fontWeight:700, padding:'8px 4px', borderRadius:7,
+                          style={{ order:1, cursor:'pointer', flex:1, minWidth:0, textAlign:'center', whiteSpace:'nowrap',
+                            fontFamily:MONO, fontSize:13, fontWeight:700, padding:'13px 4px', borderRadius:9,
                             background: blindPlayingId === p.id ? '#38bdf8' : T.surf2,
                             color: blindPlayingId === p.id ? '#0d2a3a' : '#38bdf8',
                             border:'1px solid #38bdf850' }}>
                           {blindPlayingId === p.id ? '⏹' : '▶ 播放'}
                         </div>
                         <div onClick={() => playThreeStep(p)}
-                          style={{ cursor:'pointer', flex:1, minWidth:0, textAlign:'center', whiteSpace:'nowrap',
-                            fontFamily:MONO, fontSize:10, fontWeight:700, padding:'8px 4px', borderRadius:7,
+                          style={{ order: isDue ? 5 : 2, display: (!isDue || libMenuOpen) ? 'block' : 'none', cursor:'pointer', flex: isDue ? '1 1 40%' : 1, minWidth:0, textAlign:'center', whiteSpace:'nowrap',
+                            fontFamily:MONO, fontSize:13, fontWeight:700, padding:'13px 4px', borderRadius:9,
                             background: threeStep?.pid === p.id ? '#38bdf8' : T.surf2,
                             color: threeStep?.pid === p.id ? '#0d2a3a' : '#38bdf8',
                             border:'1px solid #38bdf850' }}>
@@ -28026,16 +28152,15 @@ Steven 不是在收藏電影台詞。
                             if (lastRetestId !== p.id) setLastRetestId(null)   // v6.54: 開始測下一句，前一句歸檔到已重測段
                           }}
                           title={isDue ? '重測' : `${p.dict.next} 才開放`}
-                          style={{ cursor:'pointer', flex:1, minWidth:0, textAlign:'center', whiteSpace:'nowrap',
-                            fontFamily:MONO, fontSize:10, fontWeight:700, padding:'8px 4px', borderRadius:7,
-                            background: isDue ? T.amberD : T.surf2, color: isDue ? T.amber : T.txt3,
-                            border:`1px solid ${isDue ? T.amber+'60' : T.bdr}`,
-                            opacity: isDue ? 1 : 0.45 }}>
-                          {isDue ? '🖊 重測' : '🔒 重測'}
+                          style={{ order:0, display: isDue ? 'block' : 'none', cursor:'pointer', flex:2, minWidth:0, textAlign:'center', whiteSpace:'nowrap',
+                            fontFamily:MONO, fontSize:13, fontWeight:700, padding:'13px 4px', borderRadius:9,
+                            background: T.amber, color:'#1a1200',
+                            border:`1px solid ${T.amber}` }}>
+                          🖊 開始重測
                         </div>
                         <div onClick={() => setShadowId(shadowId === p.id ? null : p.id)}
-                          style={{ cursor:'pointer', flex:1, minWidth:0, textAlign:'center', whiteSpace:'nowrap',
-                            fontFamily:MONO, fontSize:10, fontWeight:700, padding:'8px 4px', borderRadius:7,
+                          style={{ order: isDue ? 5 : 2, display: (!isDue || libMenuOpen) ? 'block' : 'none', cursor:'pointer', flex: isDue ? '1 1 40%' : 1, minWidth:0, textAlign:'center', whiteSpace:'nowrap',
+                            fontFamily:MONO, fontSize:13, fontWeight:700, padding:'13px 4px', borderRadius:9,
                             background: shadowId === p.id ? '#a78bfa' : T.surf2,
                             color: shadowId === p.id ? '#1a1030' : '#a78bfa',
                             border:'1px solid #a78bfa60' }}>
@@ -28062,21 +28187,23 @@ Steven 不是在收藏電影台詞。
                               }
                             }}
                               title={inQ ? '已在家教專區（再按一次移除）' : '上課想問這句'}
-                              style={{ cursor:'pointer', flexShrink:0, textAlign:'center',
-                                fontFamily:MONO, fontSize:12, padding:'8px 9px', borderRadius:7,
+                              style={{ order:6, display: libMenuOpen ? 'block' : 'none', flex:'1 1 40%', minWidth:0, whiteSpace:'nowrap',
+                                cursor:'pointer', textAlign:'center',
+                                fontFamily:MONO, fontSize:13, fontWeight:700, padding:'13px 4px', borderRadius:9,
                                 background: inQ ? '#0d2a1f' : T.surf2,
-                                color: inQ ? '#34d399' : T.txt3,
-                                border:`1px solid ${inQ ? '#34d399' : T.bdr}`, opacity: inQ ? 1 : 0.6 }}>
-                              🎓
+                                color: inQ ? '#34d399' : T.txt2,
+                                border:`1px solid ${inQ ? '#34d399' : T.bdr}` }}>
+                              {inQ ? '🎓 已加入' : '🎓 問老師'}
                             </div>
                           )
                         })()}
                         <div onClick={() => excludeFromBlind(p)}
                           title="這句沒有學習價值，排除掉"
-                          style={{ cursor:'pointer', flexShrink:0, textAlign:'center',
-                            fontFamily:MONO, fontSize:12, padding:'8px 9px', borderRadius:7,
-                            background:T.surf2, color:T.txt3, border:`1px solid ${T.bdr}`, opacity:0.6 }}>
-                          🚫
+                          style={{ order:9, display: libMenuOpen ? 'block' : 'none', flex:'1 1 40%', minWidth:0, whiteSpace:'nowrap',
+                            cursor:'pointer', textAlign:'center',
+                            fontFamily:MONO, fontSize:13, fontWeight:700, padding:'13px 4px', borderRadius:9,
+                            background:T.surf2, color:'#ff7b72', border:'1px solid #f8514940' }}>
+                          🚫 排除這句
                         </div>
                       </div>
                       </>
@@ -28091,7 +28218,7 @@ Steven 不是在收藏電影台詞。
                         <div style={{ background:'#1a1030', border:'1px solid #a78bfa40', borderRadius:9,
                           padding:'10px 11px', display:'flex', flexDirection:'column', gap:8,
                           minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
-                          <div style={{ fontFamily:MONO, fontSize:10, color:'#a78bfa', fontWeight:700 }}>
+                          <div style={{ fontFamily:MONO, fontSize:11, color:'#a78bfa', fontWeight:700 }}>
                             🗣 跟讀 · 唸得出來，才聽得出來
                           </div>
 
@@ -28109,22 +28236,22 @@ Steven 不是在收藏電影台詞。
                                   <span style={{ fontFamily:MONO, fontSize:15, color:'#a78bfa', fontWeight:700 }}>「{c.ipa}」</span>
                                 </div>
                               ))}
-                              <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
+                              <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.5 }}>
                                 點 🔊 只播這一小段電影原音（位置是依比例估算的，前後各留 0.35 秒）。
                               </div>
-                              <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, lineHeight:1.6, fontWeight:700 }}>
+                              <div style={{ fontFamily:MONO, fontSize:11, color:T.amber, lineHeight:1.6, fontWeight:700 }}>
                                 👉 不要唸成兩個字，唸成<b>一個字</b>。
                               </div>
                             </div>
                           ) : (
-                            <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                            <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                               這句沒有可標示的連音塊，直接整句跟讀。
                             </div>
                           )}
 
                           {/* 三速階梯 */}
                           <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
-                            <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+                            <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                               三速階梯 · 每一速播一次、你跟唸一次（{done}/3）
                             </div>
                             <div style={{ display:'flex', gap:6 }}>
@@ -28134,7 +28261,7 @@ Steven 不是在收藏電影台詞。
                                 return (
                                   <div key={r} onClick={() => playShadowStep(p, i)}
                                     style={{ cursor:'pointer', flex:1, textAlign:'center',
-                                      fontFamily:MONO, fontSize:10, fontWeight:700, padding:'9px 0', borderRadius:8,
+                                      fontFamily:MONO, fontSize:11, fontWeight:700, padding:'9px 0', borderRadius:8,
                                       background: ok ? '#a78bfa' : T.surf2,
                                       color: ok ? '#1a1030' : '#a78bfa',
                                       border:'1px solid #a78bfa50' }}>
@@ -28148,7 +28275,7 @@ Steven 不是在收藏電影台詞。
                           {/* 錄音回放 */}
                           <div style={{ display:'flex', gap:6, alignItems:'center', flexWrap:'wrap' }}>
                             <div onClick={() => recording === p.id ? stopShadowRec() : startShadowRec(p.id)}
-                              style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                              style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                                 padding:'8px 13px', borderRadius:8,
                                 background: recording === p.id ? '#f87171' : T.surf2,
                                 color: recording === p.id ? '#2a0d0d' : '#f87171',
@@ -28160,7 +28287,7 @@ Steven 不是在收藏電影台詞。
                                 style={{ height:34, flex:1, minWidth:150, maxWidth:'100%' }}/>
                             )}
                           </div>
-                          <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
+                          <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.5 }}>
                             不評分——自己聽自己跟得像不像就好。重點不是唸得標準，是唸成「一團」。
                           </div>
 
@@ -28170,12 +28297,12 @@ Steven 不是在收藏電影台詞。
                               ? (p.endSecs - p.startSecs) : null
                             const mine = recDur[p.id]
                             if (!refDur) return (
-                              <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
+                              <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                                 （這句沒有時間碼，算不出節奏比）
                               </div>
                             )
                             if (!mine) return (
-                              <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>
+                              <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                                 ⏱ 錄一次跟讀，就會算出「節奏比」——原音 {refDur.toFixed(1)}s
                               </div>
                             )
@@ -28190,9 +28317,9 @@ Steven 不是在收藏電影台詞。
                               <div style={{ display:'flex', flexDirection:'column', gap:4,
                                 background:'#0f0a1f', border:`1px solid ${band.c}40`, borderRadius:8,
                                 padding:'9px 10px', minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
-                                <div style={{ fontFamily:MONO, fontSize:10, fontWeight:700, color:band.c }}>
+                                <div style={{ fontFamily:MONO, fontSize:11, fontWeight:700, color:band.c }}>
                                   ⏱ 節奏比 {ratio.toFixed(2)}x
-                                  <span style={{ color:T.txt3, fontWeight:400, fontSize:9 }}>
+                                  <span style={{ color:T.txt3, fontWeight:400, fontSize:11 }}>
                                     　你 {mine.toFixed(1)}s / 原音 {refDur.toFixed(1)}s
                                     {pct > 0 ? `　慢 ${pct}%` : pct < 0 ? `　快 ${-pct}%` : ''}
                                   </span>
@@ -28201,10 +28328,10 @@ Steven 不是在收藏電影台詞。
                                   <span style={{ display:'block', width:`${Math.min(100, ratio/2*100)}%`,
                                     height:'100%', background:band.c, borderRadius:4 }}/>
                                 </span>
-                                <div style={{ fontFamily:MONO, fontSize:9, color:band.c, fontWeight:700 }}>
+                                <div style={{ fontFamily:MONO, fontSize:11, color:band.c, fontWeight:700 }}>
                                   {tooFast ? '⚠ 比原音還快 — 可能沒唸完整句，或錄音被截掉' : band.t}
                                 </div>
-                                <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
+                                <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.5 }}>
                                   目標是 <b style={{ color:T.grn }}>1.0x</b>。這個數字不受音色、麥克風、背景音影響——它量的是時間，不是聲學。
                                 </div>
                               </div>
@@ -28228,11 +28355,11 @@ Steven 不是在收藏電影台詞。
                               <div style={{ display:'flex', flexDirection:'column', gap:5,
                                 background:'#0f0a1f', border:`1px solid ${ok ? '#4ade80' : T.amber}40`,
                                 borderRadius:8, padding:'9px 10px', minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
-                                <div style={{ fontFamily:MONO, fontSize:10, fontWeight:700,
+                                <div style={{ fontFamily:MONO, fontSize:11, fontWeight:700,
                                   color: ok ? T.grn : T.amber }}>
                                   {ok ? '✅' : '⚠'} 機器聽懂 {cmp.hit}/{cmp.total} 字（{cmp.rate}%）
                                 </div>
-                                <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6,
+                                <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.6,
                                   overflowWrap:'break-word' }}>
                                   機器聽成：<span style={{ color:T.txt2 }}>{text || '（沒聽到）'}</span>
                                 </div>
@@ -28251,11 +28378,11 @@ Steven 不是在收藏電影台詞。
                                   ))}
                                 </div>
                                 {cmp.pairs.length > 0 && (
-                                  <div style={{ fontFamily:MONO, fontSize:9, color:'#f87171', lineHeight:1.6 }}>
+                                  <div style={{ fontFamily:MONO, fontSize:11, color:'#f87171', lineHeight:1.6 }}>
                                     機器誤聽：{cmp.pairs.map(([a,b]) => `${a}→${b}`).join('、')}
                                   </div>
                                 )}
-                                <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, lineHeight:1.5 }}>
+                                <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.5 }}>
                                   ⓘ 測的是「別人聽不聽得懂你」，不是發音標不標準。
                                   辨識器有語言模型會自動糾錯（會幫你補），所以它抓得到大錯，抓不到細微的連音品質——
                                   <b style={{ color:T.amber }}>橘色的字就是你沒唸清楚的地方</b>。
@@ -28281,10 +28408,10 @@ Steven 不是在收藏電影台詞。
                             return (
                               <div style={{ background:c+'12', border:`1px solid ${c}40`, borderRadius:8,
                                 padding:'9px 10px', minWidth:0, maxWidth:'100%', boxSizing:'border-box' }}>
-                                <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:3 }}>
+                                <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, marginBottom:3 }}>
                                   🔬 兩訊號合看：可懂度 {asr.cmp.rate}% · 節奏 {ratio.toFixed(2)}x
                                 </div>
-                                <div style={{ fontFamily:MONO, fontSize:9, color:c, lineHeight:1.75, fontWeight:700 }}>
+                                <div style={{ fontFamily:MONO, fontSize:11, color:c, lineHeight:1.75, fontWeight:700 }}>
                                   {verdict}
                                 </div>
                               </div>
@@ -28293,20 +28420,20 @@ Steven 不是在收藏電影台詞。
 
                           {/* AI 精解 */}
                           <div onClick={() => target && aiExplainLink(p, target)}
-                            style={{ cursor:'pointer', textAlign:'center', fontFamily:MONO, fontSize:10, fontWeight:700,
+                            style={{ cursor:'pointer', textAlign:'center', fontFamily:MONO, fontSize:11, fontWeight:700,
                               padding:'8px 0', borderRadius:8,
                               background: aiTipBusy === p.id ? T.surf2 : '#0f0a1f',
                               color:'#a78bfa', border:'1px solid #a78bfa50' }}>
                             {aiTipBusy === p.id ? '🤖 分析中…' : `🤖 AI 精解「${target ?? ''}」的連音`}
                           </div>
                           {aiTip[p.id] && (
-                            <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, lineHeight:1.8,
+                            <div style={{ fontFamily:MONO, fontSize:11, color:T.txt2, lineHeight:1.8,
                               whiteSpace:'pre-wrap', background:'#0f0a1f', border:'1px solid #a78bfa25',
                               borderRadius:8, padding:'9px 10px', minWidth:0, maxWidth:'100%',
                               overflowWrap:'break-word' }}>
                               <div onClick={() => setAiTip(t => { const n = { ...t }; delete n[p.id]; return n })}
                                 style={{ cursor:'pointer', userSelect:'none', textAlign:'right', fontFamily:MONO,
-                                  fontSize:9, color:T.txt3, fontWeight:700, marginBottom:4 }}>
+                                  fontSize:11, color:T.txt3, fontWeight:700, marginBottom:4 }}>
                                 ✕ 收起精解
                               </div>
                               {aiTip[p.id]}
@@ -28315,7 +28442,7 @@ Steven 不是在收藏電影台詞。
                           {/* v6.48: 跟讀面板收起（跟讀按鈕再點一次也可收，這裡給明顯出口）*/}
                           <div onClick={() => setShadowId(null)}
                             style={{ cursor:'pointer', userSelect:'none', textAlign:'center', fontFamily:MONO,
-                              fontSize:10, fontWeight:700, color:T.txt3, padding:'7px 0',
+                              fontSize:11, fontWeight:700, color:T.txt3, padding:'7px 0',
                               border:`1px dashed ${T.bdr}`, borderRadius:8 }}>
                             ✕ 收起跟讀
                           </div>
@@ -28328,7 +28455,7 @@ Steven 不是在收藏電影台詞。
               })}
 
               {libView === 'weak' && !libWord && (
-                <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, textAlign:'center', padding:'6px 0' }}>
+                <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, textAlign:'center', padding:'6px 0' }}>
                   ↑ 點一個字，連聽含該字的所有句子
                 </div>
               )}
@@ -28347,14 +28474,14 @@ Steven 不是在收藏電影台詞。
           return (
             <div style={{ marginTop:8, background:'#0d0d0d', border:`1px solid ${T.amber}30`,
               borderRadius:10, padding:'10px 12px', display:'flex', flexDirection:'column', gap:6 }}>
-              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
                 依場景開始時間排序（共 {withCorrection.length} 個場景有校正紀錄）
               </div>
               {withCorrection.length === 0 ? (
-                <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>目前沒有任何場景做過時間碼校正</div>
+                <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>目前沒有任何場景做過時間碼校正</div>
               ) : withCorrection.map(sc => (
                 <div key={sc.id} style={{ display:'flex', alignItems:'center', gap:8,
-                  fontFamily:MONO, fontSize:10, color:T.txt2, borderBottom:`1px solid ${T.bdr}`, paddingBottom:4 }}>
+                  fontFamily:MONO, fontSize:11, color:T.txt2, borderBottom:`1px solid ${T.bdr}`, paddingBottom:4 }}>
                   <span style={{ color:T.txt3, flexShrink:0, width:56 }}>{secsToTimeStr(sc.startSecs)}</span>
                   <span style={{ flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{sc.name}</span>
                   <span style={{ color: sc.offset > 0 ? T.grn : '#f87171', flexShrink:0 }}>
@@ -28371,12 +28498,12 @@ Steven 不是在收藏電影台詞。
             {advTools && !!(movie?.transcript?.trim()) && (
               <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:13,
                 padding:'14px 16px', display:'flex', flexDirection:'column', gap:10 }}>
-                <span style={{ fontFamily:MONO, fontSize:10, color:'#f87171', fontWeight:700 }}>
+                <span style={{ fontFamily:MONO, fontSize:11, color:'#f87171', fontWeight:700 }}>
                   🗑 刪除時間段
                 </span>
                 <div style={{ display:'flex', gap:8, alignItems:'center' }}>
                   <div style={{ flex:1 }}>
-                    <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:3 }}>開始</div>
+                    <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, marginBottom:3 }}>開始</div>
                     <input type="text" placeholder="00:45:00"
                       value={deleteRangeStart}
                       onChange={e => setDeleteRangeStart(e.target.value)}
@@ -28385,7 +28512,7 @@ Steven 不是在收藏電影台詞。
                         fontFamily:'monospace', fontSize:12, outline:'none', boxSizing:'border-box' }}/>
                   </div>
                   <div style={{ flex:1 }}>
-                    <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginBottom:3 }}>結束</div>
+                    <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, marginBottom:3 }}>結束</div>
                     <input type="text" placeholder="00:47:00"
                       value={deleteRangeEnd}
                       onChange={e => setDeleteRangeEnd(e.target.value)}
@@ -28401,13 +28528,13 @@ Steven 不是在收藏電影台詞。
                     setDeleteRangeMsg(n > 0 ? `✅ 已刪除 ${n} 個區塊` : '⚠️ 找不到該時間段的內容')
                     setDeleteRangeStart(''); setDeleteRangeEnd('')
                   }}
-                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:10, fontWeight:700,
+                  style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, fontWeight:700,
                     color:'#fff', padding:'9px', background:'#7f1d1d',
                     borderRadius:8, border:'1px solid #f8717150', textAlign:'center' }}>
                   🗑 刪除此時間段
                 </div>
                 {deleteRangeMsg && (
-                  <div style={{ fontFamily:MONO, fontSize:10,
+                  <div style={{ fontFamily:MONO, fontSize:11,
                     color: deleteRangeMsg.startsWith('✅') ? T.grn : T.amber,
                     textAlign:'center' }}>{deleteRangeMsg}</div>
                 )}
@@ -28441,15 +28568,15 @@ function AchieveTab({ stats, earned, sentences, vocab }) {
     <div style={{ padding:'16px 16px 0', display:'flex', flexDirection:'column', gap:16 }} className="fadeUp">
       {/* Level card */}
       <div style={{ background:T.surf, border:`1px solid ${level.clr}35`, borderRadius:16, padding:24, textAlign:'center' }}>
-        <div style={{ fontFamily:DISP, fontSize:9.5, color:'#9aa5b0', letterSpacing:'0.18em', marginBottom:10 }}>CURRENT LEVEL</div>
+        <div style={{ fontFamily:DISP, fontSize:11, color:'#9aa5b0', letterSpacing:'0.18em', marginBottom:10 }}>CURRENT LEVEL</div>
         <div style={{ fontFamily:DISP, fontSize:28, color:level.clr, marginBottom:6 }}>{level.name}</div>
         <div style={{ fontFamily:MONO, fontSize:28, color:T.amber, fontWeight:600, marginBottom:18 }}>{xp.toLocaleString()} XP</div>
         <div style={{ background:T.bdr2, borderRadius:4, height:7, overflow:'hidden', marginBottom:9 }}>
           <div style={{ width:`${pct}%`, height:'100%', background:`linear-gradient(90deg, ${level.clr}cc, ${level.clr})`, borderRadius:4, transition:'width 0.9s ease' }}/>
         </div>
         {nextLevel
-          ? <div style={{ fontFamily:MONO, fontSize:10, color:T.txt3 }}>{nextLevel.min - xp} XP to <span style={{ color:nextLevel.clr }}>{nextLevel.name}</span></div>
-          : <div style={{ fontFamily:MONO, fontSize:10, color:T.grn }}>Max level reached!</div>
+          ? <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>{nextLevel.min - xp} XP to <span style={{ color:nextLevel.clr }}>{nextLevel.name}</span></div>
+          : <div style={{ fontFamily:MONO, fontSize:11, color:T.grn }}>Max level reached!</div>
         }
       </div>
 
@@ -28458,7 +28585,7 @@ function AchieveTab({ stats, earned, sentences, vocab }) {
         {STATS.map(({ lbl, val }) => (
           <div key={lbl} style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:10, padding:'14px 12px', textAlign:'center' }}>
             <div style={{ fontFamily:MONO, fontSize:24, color:T.amber, fontWeight:600 }}>{val}</div>
-            <div style={{ fontFamily:MONO, fontSize:8.5, color:'#9aa5b0', letterSpacing:'0.08em', marginTop:5 }}>{lbl.toUpperCase()}</div>
+            <div style={{ fontFamily:MONO, fontSize:11, color:'#9aa5b0', letterSpacing:'0.08em', marginTop:5 }}>{lbl.toUpperCase()}</div>
           </div>
         ))}
       </div>
@@ -28484,15 +28611,15 @@ function AchieveTab({ stats, earned, sentences, vocab }) {
           const sorted = WEAKNESS_TAGS.map(t => ({ ...t, count: counts[t.id] })).sort((a,b) => b.count - a.count)
           return (
             <div style={{ background:T.surf, border:`1px solid ${T.bdr}`, borderRadius:14, padding:'16px 16px' }}>
-              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, letterSpacing:'0.12em', marginBottom:12 }}>⚑ 弱點分析</div>
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, letterSpacing:'0.12em', marginBottom:12 }}>⚑ 弱點分析</div>
               <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
                 {sorted.filter(t => t.count > 0).map(t => (
                   <div key={t.id} style={{ display:'flex', alignItems:'center', gap:10 }}>
                     <span style={{ width:16, textAlign:'center' }}>{t.icon}</span>
                     <div style={{ flex:1 }}>
                       <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
-                        <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2 }}>{t.label}</span>
-                        <span style={{ fontFamily:MONO, fontSize:9, color:t.color }}>{t.count} 次</span>
+                        <span style={{ fontFamily:MONO, fontSize:11, color:T.txt2 }}>{t.label}</span>
+                        <span style={{ fontFamily:MONO, fontSize:11, color:t.color }}>{t.count} 次</span>
                       </div>
                       <div style={{ background:T.bdr2, borderRadius:3, height:4, overflow:'hidden' }}>
                         <div style={{ height:'100%', borderRadius:3, background:t.color, width:`${Math.round(t.count/total*100)}%`, transition:'width 0.5s' }}/>
@@ -28501,7 +28628,7 @@ function AchieveTab({ stats, earned, sentences, vocab }) {
                   </div>
                 ))}
               </div>
-              <div style={{ fontFamily:MONO, fontSize:8, color:T.txt3, marginTop:8 }}>共標記 {total} 次（在 DRILL 評分後可選填）</div>
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, marginTop:8 }}>共標記 {total} 次（在 DRILL 評分後可選填）</div>
             </div>
           )
         } catch { return null }
@@ -28510,8 +28637,8 @@ function AchieveTab({ stats, earned, sentences, vocab }) {
       {/* Badges */}
       <div>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
-          <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3, letterSpacing:'0.12em' }}>BADGES</span>
-          <span style={{ fontFamily:MONO, fontSize:9, color:T.amber }}>{earnedCount} / {BADGES.length}</span>
+          <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3, letterSpacing:'0.12em' }}>BADGES</span>
+          <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>{earnedCount} / {BADGES.length}</span>
         </div>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
           {BADGES.map(b => {
@@ -28521,7 +28648,7 @@ function AchieveTab({ stats, earned, sentences, vocab }) {
                 <div style={{ fontSize:22, marginBottom:6 }}>{b.icon}</div>
                 <div style={{ fontFamily:MONO, fontSize:11, color: done ? T.amber : T.txt2, fontWeight:500, marginBottom:3 }}>{b.name}</div>
                 <div style={{ fontFamily:SERIF, fontSize:11, color:T.txt3, lineHeight:1.4, marginBottom:5 }}>{b.desc}</div>
-                <div style={{ fontFamily:MONO, fontSize:9, color: done ? T.amber : T.txt3 }}>+{b.xp} XP</div>
+                <div style={{ fontFamily:MONO, fontSize:11, color: done ? T.amber : T.txt3 }}>+{b.xp} XP</div>
               </div>
             )
           })}
@@ -28558,19 +28685,19 @@ function GPT5Diagnose() {
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:0 }}>
-      <div style={{ fontFamily:MONO, fontSize:9, color:'#6b7785',
+      <div style={{ fontFamily:MONO, fontSize:11, color:'#6b7785',
         padding:'8px 0', borderTop:'1px solid #2e3338', marginTop:8 }}>
         🔍 GPT-5 Response 診斷
       </div>
       <div onClick={busy ? undefined : runDiagnose}
         style={{ cursor: busy ? 'default' : 'pointer',
           background:'#22262b', borderRadius:10, padding:'10px',
-          textAlign:'center', fontFamily:MONO, fontSize:10,
+          textAlign:'center', fontFamily:MONO, fontSize:11,
           fontWeight:700, color: busy ? '#6b7785' : '#10a37f',
           border:'1px solid #10a37f40' }}>
         {busy ? '診斷中…' : '🔍 列出所有 Response Keys'}
       </div>
-      <div style={{ fontFamily:MONO, fontSize:9, color:'#6b7785', marginTop:4 }}>
+      <div style={{ fontFamily:MONO, fontSize:11, color:'#6b7785', marginTop:4 }}>
         點後看 alert，找 gpt-5 實際輸出欄位
       </div>
     </div>
@@ -28622,7 +28749,7 @@ function TranslateTest() {
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:0 }}>
       <div onClick={() => setOpen(o => !o)}
-        style={{ cursor:'pointer', fontFamily:MONO, fontSize:9, color:'#6b7785',
+        style={{ cursor:'pointer', fontFamily:MONO, fontSize:11, color:'#6b7785',
           padding:'8px 0', display:'flex', alignItems:'center', gap:6,
           borderTop:'1px solid #2e3338', marginTop:8 }}>
         <span>{open ? '▲' : '▼'}</span>
@@ -28652,7 +28779,7 @@ function TranslateTest() {
             <div key={p.id} style={{ background:'#22262b', borderRadius:10,
               padding:'10px 12px', border:`1px solid ${results[p.id] ? p.color+'40' : '#2e3338'}` }}>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:5 }}>
-                <span style={{ fontFamily:MONO, fontSize:9, fontWeight:700, color:p.color }}>{p.label}</span>
+                <span style={{ fontFamily:MONO, fontSize:11, fontWeight:700, color:p.color }}>{p.label}</span>
                 {busy[p.id] && <span style={{ display:'inline-block', width:8, height:8,
                   border:'1.5px solid transparent', borderTopColor:p.color,
                   borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>}
@@ -29031,7 +29158,7 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
 
       {/* ── AI 供應商切換 ── */}
       <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
-        <label style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>🤖 AI 供應商</label>
+        <label style={{ fontFamily:MONO, fontSize:11, color:T.txt2, letterSpacing:'0.1em' }}>🤖 AI 供應商</label>
         <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
           {[
             { id:'anthropic', label:'Anthropic Claude', sub:'claude-haiku',      color:T.amber },
@@ -29045,9 +29172,9 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
                   background: active ? p.color+'18' : T.surf2,
                   border:`2px solid ${active ? p.color+'90' : T.bdr}`,
                   display:'flex', flexDirection:'column', gap:3, transition:'all 0.14s' }}>
-                <span style={{ fontFamily:MONO, fontSize:10, color: active ? p.color : T.txt2, fontWeight: active ? 700 : 400 }}>{p.label}</span>
-                <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>{p.sub}</span>
-                {active && <span style={{ fontFamily:MONO, fontSize:8, color:p.color }}>✓ 使用中</span>}
+                <span style={{ fontFamily:MONO, fontSize:11, color: active ? p.color : T.txt2, fontWeight: active ? 700 : 400 }}>{p.label}</span>
+                <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>{p.sub}</span>
+                {active && <span style={{ fontFamily:MONO, fontSize:11, color:p.color }}>✓ 使用中</span>}
               </div>
             )
           })}
@@ -29069,8 +29196,8 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
         const warn = total > 4 * 1048576
         return (
           <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
-            <label style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>📦 本機儲存用量</label>
-            <span style={{ fontFamily:MONO, fontSize:10, color: warn ? T.amber : T.txt3 }}>
+            <label style={{ fontFamily:MONO, fontSize:11, color:T.txt2, letterSpacing:'0.1em' }}>📦 本機儲存用量</label>
+            <span style={{ fontFamily:MONO, fontSize:11, color: warn ? T.amber : T.txt3 }}>
               App 資料（fsi:）{mb(fsi)} MB · 全站共 {mb(total)} MB · Chrome 上限約 5–10 MB
               {warn && ' — ⚠ 接近上限，資料已上雲的舊 log 可考慮清理'}
             </span>
@@ -29080,7 +29207,7 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
 
       {/* Anthropic API Key */}
       <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
-        <label style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>
+        <label style={{ fontFamily:MONO, fontSize:11, color:T.txt2, letterSpacing:'0.1em' }}>
           ANTHROPIC API KEY {aiProvider === 'anthropic' && <span style={{color:T.amber}}>★ 使用中</span>}
         </label>
         <div style={{ display:'flex', gap:8 }}>
@@ -29089,14 +29216,14 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
             {showKey ? '🙈' : '👁'}
           </button>
         </div>
-        <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+        <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
           免費版：<a href="https://console.anthropic.com" target="_blank" rel="noreferrer" style={{color:T.amber}}>console.anthropic.com</a> → API Keys
         </span>
       </div>
 
       {/* OpenAI API Key */}
       <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
-        <label style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>
+        <label style={{ fontFamily:MONO, fontSize:11, color:T.txt2, letterSpacing:'0.1em' }}>
           OPENAI API KEY {aiProvider === 'openai' && <span style={{color:'#10a37f'}}>★ 使用中</span>}
         </label>
         <div style={{ display:'flex', gap:8 }}>
@@ -29105,14 +29232,14 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
             {showOpenaiKey ? '🙈' : '👁'}
           </button>
         </div>
-        <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+        <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
           <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer" style={{color:'#10a37f'}}>platform.openai.com</a> → API Keys（使用 gpt-4o-mini）
         </span>
       </div>
 
       {/* Gemini API Key */}
       <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
-        <label style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>
+        <label style={{ fontFamily:MONO, fontSize:11, color:T.txt2, letterSpacing:'0.1em' }}>
           GEMINI API KEY {aiProvider === 'gemini' && <span style={{color:'#4285f4'}}>★ 使用中</span>}
         </label>
         <div style={{ display:'flex', gap:8 }}>
@@ -29121,14 +29248,14 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
             {showGeminiKey ? '🙈' : '👁'}
           </button>
         </div>
-        <span style={{ fontFamily:MONO, fontSize:9, color:T.txt3 }}>
+        <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>
           免費版：<a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{color:'#4285f4'}}>aistudio.google.com</a> → Get API Key
         </span>
       </div>
 
       {/* ElevenLabs Key */}
       <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
-        <label style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>ELEVENLABS API KEY <span style={{ color:T.amber }}>★ 高品質語音</span></label>
+        <label style={{ fontFamily:MONO, fontSize:11, color:T.txt2, letterSpacing:'0.1em' }}>ELEVENLABS API KEY <span style={{ color:T.amber }}>★ 高品質語音</span></label>
         <div style={{ display:'flex', gap:8 }}>
           <input type={showElevenKey ? 'text' : 'password'} value={elevenKey} onChange={e=>{ setElevenKey(e.target.value); setElevenUsage(null) }} placeholder="sk_xxxxxxxxxxxxxxxx…" style={{ flex:1 }}/>
           <button className="btn" onClick={()=>setShowElevenKey(s=>!s)} style={{ background:T.bdr, color:T.txt2, padding:'10px 13px', fontSize:13 }}>
@@ -29136,7 +29263,7 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
           </button>
         </div>
         <button className="btn" onClick={checkElevenUsage} disabled={elevenUsage === 'loading'}
-          style={{ background:T.surf2, border:`1px solid ${T.bdr2}`, color:T.txt2, fontSize:10 }}>
+          style={{ background:T.surf2, border:`1px solid ${T.bdr2}`, color:T.txt2, fontSize:11 }}>
           {elevenUsage === 'loading' ? '查詢中…' : '📊 查詢剩餘用量'}
         </button>
         {elevenUsage && elevenUsage !== 'loading' && elevenUsage !== 'error' && (() => {
@@ -29146,24 +29273,24 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
           return (
             <div style={{ background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:9, padding:'11px 13px', display:'flex', flexDirection:'column', gap:7 }}>
               <div style={{ display:'flex', justifyContent:'space-between' }}>
-                <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2 }}>本月用量</span>
-                <span style={{ fontFamily:MONO, fontSize:10, color }}>
+                <span style={{ fontFamily:MONO, fontSize:11, color:T.txt2 }}>本月用量</span>
+                <span style={{ fontFamily:MONO, fontSize:11, color }}>
                   {elevenUsage.used.toLocaleString()} / {elevenUsage.limit.toLocaleString()} 字元
                 </span>
               </div>
               <div style={{ background:T.bdr, borderRadius:4, height:5, overflow:'hidden' }}>
                 <div style={{ height:'100%', borderRadius:4, background:color, width:`${pct}%`, transition:'width 0.4s' }}/>
               </div>
-              <div style={{ fontFamily:MONO, fontSize:9, color }}>
+              <div style={{ fontFamily:MONO, fontSize:11, color }}>
                 剩餘 {remaining.toLocaleString()} 字元（{100 - pct}%）
               </div>
             </div>
           )
         })()}
         {elevenUsage === 'error' && (
-          <div style={{ fontFamily:MONO, fontSize:9, color:T.red }}>✗ 查詢失敗，請確認 Key 正確</div>
+          <div style={{ fontFamily:MONO, fontSize:11, color:T.red }}>✗ 查詢失敗，請確認 Key 正確</div>
         )}
-        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.7 }}>
+        <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.7 }}>
           用於 chunk 連音按鈕 + 單字騎車模式（自然真人語音）<br/>
           未設定時自動使用瀏覽器 TTS。免費版 10,000 字元/月。
         </div>
@@ -29193,7 +29320,7 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
         const lifeHard   = realCards.filter(s => s.mode==='hard'   && isLife(s)).length
         return (
           <div style={{ background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:10, padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }}>
-            <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>📊 資料統計</div>
+            <div style={{ fontFamily:MONO, fontSize:11, color:T.txt2, letterSpacing:'0.1em' }}>📊 資料統計</div>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:4 }}>
               {[
                 ['總計（含 SEED）', all.length, T.amber],
@@ -29207,7 +29334,7 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
                 ['🏠 LIFE Simple', lifeSimple, T.txt],
                 ['🏠 LIFE Hard', lifeHard, T.txt],
               ].map(([label, val, color], i) => label ? (
-                <div key={i} style={{ fontFamily:MONO, fontSize:9, color:T.txt3, display:'flex', justifyContent:'space-between', paddingRight:8 }}>
+                <div key={i} style={{ fontFamily:MONO, fontSize:11, color:T.txt3, display:'flex', justifyContent:'space-between', paddingRight:8 }}>
                   <span>{label}</span>
                   <span style={{ color, fontWeight: val > 0 ? 600 : 400 }}>{val}</span>
                 </div>
@@ -29217,7 +29344,7 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
               <button className="btn" onClick={() => {
                 updateSentences(prev => prev.filter(c => !SEED_IDS.has(c.id)))
                 flash(`✓ 已清除 ${seedCards.length} 張 SEED 預設卡`)
-              }} style={{ background:T.redD, border:`1px solid ${T.red}50`, color:T.red, fontSize:10, marginTop:2 }}>
+              }} style={{ background:T.redD, border:`1px solid ${T.red}50`, color:T.red, fontSize:11, marginTop:2 }}>
                 🗑 立即清除 {seedCards.length} 張 SEED 預設卡
               </button>
             )}
@@ -29280,16 +29407,16 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
 
         if (allBadCards.length === 0) return (
           <div style={{ background:T.surf2, border:`1px solid ${T.grn}30`, borderRadius:10, padding:'10px 14px', display:'flex', alignItems:'center', gap:8 }}>
-            <span style={{ fontFamily:MONO, fontSize:9, color:T.grn }}>✓ 所有卡片 slot 結構正常</span>
+            <span style={{ fontFamily:MONO, fontSize:11, color:T.grn }}>✓ 所有卡片 slot 結構正常</span>
           </div>
         )
 
         return (
           <div style={{ background:T.surf2, border:`1px solid ${T.red}40`, borderRadius:10, padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }}>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>🔍 卡片完整性掃描</div>
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.txt2, letterSpacing:'0.1em' }}>🔍 卡片完整性掃描</div>
               <button className="btn" onClick={() => { setShowScan(v => !v); setEditingCardId(null); setDeleteConfirmId(null) }}
-                style={{ fontSize:9, padding:'3px 10px', background: showScan ? T.surf : T.amberD, border:`1px solid ${T.amber}50`, color:T.amber }}>
+                style={{ fontSize:11, padding:'3px 10px', background: showScan ? T.surf : T.amberD, border:`1px solid ${T.amber}50`, color:T.amber }}>
                 {showScan ? '收起' : `查看 ${allBadCards.length} 張問題卡`}
               </button>
             </div>
@@ -29310,23 +29437,23 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
                       <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:8 }}>
                         <div style={{ display:'flex', flexDirection:'column', gap:3, flex:1 }}>
                           <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                            <span style={{ fontFamily:MONO, fontSize:8, color: isMissing ? T.red : T.amber }}>
+                            <span style={{ fontFamily:MONO, fontSize:11, color: isMissing ? T.red : T.amber }}>
                               {isMissing ? '⚠ Slot 缺少' : '⚠ Slot 多餘'}
                             </span>
-                            <span style={{ fontFamily:MONO, fontSize:8, color:T.txt3 }}>tpl {tplCount} / subs {subsCount}</span>
+                            <span style={{ fontFamily:MONO, fontSize:11, color:T.txt3 }}>tpl {tplCount} / subs {subsCount}</span>
                           </div>
-                          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt2 }}>{c.context}</div>
+                          <div style={{ fontFamily:MONO, fontSize:11, color:T.txt2 }}>{c.context}</div>
                           <div style={{ fontFamily:SERIF, fontSize:11, color:T.txt3, fontStyle:'italic', lineHeight:1.4 }}>{c.template}</div>
                         </div>
                         {/* Action buttons */}
                         {!isEditing && !isDeleting && (
                           <div style={{ display:'flex', gap:5, flexShrink:0 }}>
                             <button className="btn" onClick={() => startEdit(c)}
-                              style={{ fontSize:9, padding:'3px 9px', background:T.blueD, border:`1px solid ${T.blue}50`, color:T.blue }}>
+                              style={{ fontSize:11, padding:'3px 9px', background:T.blueD, border:`1px solid ${T.blue}50`, color:T.blue }}>
                               ✏ 編輯
                             </button>
                             <button className="btn" onClick={() => { setDeleteConfirmId(c.id); setEditingCardId(null) }}
-                              style={{ fontSize:9, padding:'3px 9px', background:T.redD, border:`1px solid ${T.red}50`, color:T.red }}>
+                              style={{ fontSize:11, padding:'3px 9px', background:T.redD, border:`1px solid ${T.red}50`, color:T.red }}>
                               🗑
                             </button>
                           </div>
@@ -29336,12 +29463,12 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
                       {/* Delete confirm */}
                       {isDeleting && (
                         <div style={{ background:T.redD, border:`1px solid ${T.red}50`, borderRadius:7, padding:'8px 10px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}>
-                          <span style={{ fontFamily:MONO, fontSize:9, color:T.red }}>確定刪除這張卡？</span>
+                          <span style={{ fontFamily:MONO, fontSize:11, color:T.red }}>確定刪除這張卡？</span>
                           <div style={{ display:'flex', gap:6 }}>
                             <button className="btn" onClick={() => deleteCard(c.id)}
-                              style={{ fontSize:9, padding:'3px 10px', background:T.red, color:T.bg, border:'none' }}>確定刪除</button>
+                              style={{ fontSize:11, padding:'3px 10px', background:T.red, color:T.bg, border:'none' }}>確定刪除</button>
                             <button className="btn" onClick={() => setDeleteConfirmId(null)}
-                              style={{ fontSize:9, padding:'3px 10px', background:T.surf2, border:`1px solid ${T.bdr}`, color:T.txt3 }}>取消</button>
+                              style={{ fontSize:11, padding:'3px 10px', background:T.surf2, border:`1px solid ${T.bdr}`, color:T.txt3 }}>取消</button>
                           </div>
                         </div>
                       )}
@@ -29354,12 +29481,12 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
                             return (
                               <div key={gi} style={{ display:'flex', flexDirection:'column', gap:5 }}>
                                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                                  <span style={{ fontFamily:MONO, fontSize:8.5, color: isExtra ? T.amber : T.txt2, letterSpacing:'0.1em' }}>
+                                  <span style={{ fontFamily:MONO, fontSize:11, color: isExtra ? T.amber : T.txt2, letterSpacing:'0.1em' }}>
                                     SLOT {gi + 1}{isExtra ? ' ⚠ 多餘' : ''}
                                   </span>
                                   {isExtra && (
                                     <button className="btn" onClick={() => removeSlot(gi)}
-                                      style={{ fontSize:8, padding:'1px 7px', background:T.amberD, border:`1px solid ${T.amber}40`, color:T.amber }}>
+                                      style={{ fontSize:11, padding:'1px 7px', background:T.amberD, border:`1px solid ${T.amber}40`, color:T.amber }}>
                                       刪除此 Slot
                                     </button>
                                   )}
@@ -29374,13 +29501,13 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
                                         style={{ flex:1, background:T.surf2, border:`1px solid ${T.bdr2}`, borderRadius:6, padding:'5px 8px', fontFamily:MONO, fontSize:11, color:T.txt, outline:'none' }}
                                       />
                                       <div onClick={() => removeOpt(gi, oi)}
-                                        style={{ cursor:'pointer', color:T.txt3, padding:'4px 6px', borderRadius:5, background:T.surf2, fontFamily:MONO, fontSize:10, flexShrink:0 }}
+                                        style={{ cursor:'pointer', color:T.txt3, padding:'4px 6px', borderRadius:5, background:T.surf2, fontFamily:MONO, fontSize:11, flexShrink:0 }}
                                         onMouseOver={e=>e.currentTarget.style.color=T.red}
                                         onMouseOut={e=>e.currentTarget.style.color=T.txt3}>✕</div>
                                     </div>
                                   ))}
                                   <button className="btn" onClick={() => addOpt(gi)}
-                                    style={{ alignSelf:'flex-start', fontSize:9, padding:'3px 10px', background:T.surf2, border:`1px solid ${T.bdr}`, color:T.txt3 }}>
+                                    style={{ alignSelf:'flex-start', fontSize:11, padding:'3px 10px', background:T.surf2, border:`1px solid ${T.bdr}`, color:T.txt3 }}>
                                     + 新增選項
                                   </button>
                                 </div>
@@ -29391,15 +29518,15 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
                           {/* Save / Cancel */}
                           <div style={{ display:'flex', gap:6, paddingTop:4 }}>
                             <button className="btn" onClick={saveEdit}
-                              style={{ flex:1, background:T.grn, border:'none', color:T.bg, fontSize:10, fontWeight:600 }}>
+                              style={{ flex:1, background:T.grn, border:'none', color:T.bg, fontSize:11, fontWeight:600 }}>
                               ✓ 儲存
                             </button>
                             <button className="btn" onClick={() => { setEditingCardId(null); setDeleteConfirmId(null) }}
-                              style={{ flex:1, background:T.surf2, border:`1px solid ${T.bdr}`, color:T.txt3, fontSize:10 }}>
+                              style={{ flex:1, background:T.surf2, border:`1px solid ${T.bdr}`, color:T.txt3, fontSize:11 }}>
                               取消
                             </button>
                             <button className="btn" onClick={() => { setDeleteConfirmId(c.id); setEditingCardId(null) }}
-                              style={{ background:T.redD, border:`1px solid ${T.red}50`, color:T.red, fontSize:10, padding:'5px 12px' }}>
+                              style={{ background:T.redD, border:`1px solid ${T.red}50`, color:T.red, fontSize:11, padding:'5px 12px' }}>
                               🗑 刪除
                             </button>
                           </div>
@@ -29416,21 +29543,21 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
 
       {/* Sheets Sync */}
       <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
-        <label style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>GOOGLE SHEETS SYNC</label>
+        <label style={{ fontFamily:MONO, fontSize:11, color:T.txt2, letterSpacing:'0.1em' }}>GOOGLE SHEETS SYNC</label>
         <div style={{ background:T.surf2, borderRadius:9, padding:13, display:'flex', flexDirection:'column', gap:5 }}>
-          <div style={{ fontFamily:MONO, fontSize:9, color:T.amber, letterSpacing:'0.08em' }}>FSI Practice Sentences + FSI Vocab</div>
-          <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.7 }}>
+          <div style={{ fontFamily:MONO, fontSize:11, color:T.amber, letterSpacing:'0.08em' }}>FSI Practice Sentences + FSI Vocab</div>
+          <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.7 }}>
             推送：App → Sheets（覆蓋 Sheets 舊資料）<br/>
             讀入：Sheets → App（<span style={{color:T.amber}}>完全覆蓋</span> localStorage，SRS 進度保留）
           </div>
         </div>
         <div style={{ display:'flex', gap:8 }}>
           <button className="btn" onClick={pushToSheets} disabled={syncing}
-            style={{ flex:1, background:T.blueD, border:`1px solid ${T.blue}50`, color:T.blue, fontSize:10 }}>
+            style={{ flex:1, background:T.blueD, border:`1px solid ${T.blue}50`, color:T.blue, fontSize:11 }}>
             {syncing ? '同步中…' : '☁ 推送到 Sheets'}
           </button>
           <button className="btn" onClick={syncSheets} disabled={syncing}
-            style={{ flex:1, background:T.grnD, border:`1px solid ${T.grn}50`, color:T.grn, fontSize:10 }}>
+            style={{ flex:1, background:T.grnD, border:`1px solid ${T.grn}50`, color:T.grn, fontSize:11 }}>
             {syncing ? '讀取中…' : '⟳ 從 Sheets 讀入'}
           </button>
         </div>
@@ -29442,14 +29569,14 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
 
       {/* ── LINKED HINT BATCH ── */}
       <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
-        <label style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>LINKED HINT 批次產生</label>
+        <label style={{ fontFamily:MONO, fontSize:11, color:T.txt2, letterSpacing:'0.1em' }}>LINKED HINT 批次產生</label>
         {(() => {
           const total = (sentences ?? []).length
           const missing = (sentences ?? []).filter(s => !s.linked_hint).length
           const isRunning = batchProgress && batchProgress.current < batchProgress.total && !batchProgress.stopped
           return (
             <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.7 }}>
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.7 }}>
                 目前：<span style={{color:T.txt}}>{total - missing}</span> / {total} 張有連音標注
                 {missing > 0 && <span style={{color:T.amber}}>（{missing} 張空白）</span>}
               </div>
@@ -29458,29 +29585,29 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
                   <button className="btn"
                     onClick={() => batchGenLinkedHint('missing')}
                     disabled={missing === 0}
-                    style={{ flex:1, background:T.blueD, border:`1px solid ${T.blue}50`, color:T.blue, fontSize:10 }}>
+                    style={{ flex:1, background:T.blueD, border:`1px solid ${T.blue}50`, color:T.blue, fontSize:11 }}>
                     ✨ 補空白 ({missing})
                   </button>
                   <button className="btn"
                     onClick={() => batchGenLinkedHint('all')}
                     disabled={total === 0}
-                    style={{ flex:1, background:T.amberD, border:`1px solid ${T.amber}50`, color:T.amber, fontSize:10 }}>
+                    style={{ flex:1, background:T.amberD, border:`1px solid ${T.amber}50`, color:T.amber, fontSize:11 }}>
                     🔄 全部重新產生
                   </button>
                 </div>
               ) : (
                 <button className="btn" onClick={() => { batchStop.current = true }}
-                  style={{ background:T.redD, border:`1px solid ${T.red}50`, color:T.red, fontSize:10 }}>
+                  style={{ background:T.redD, border:`1px solid ${T.red}50`, color:T.red, fontSize:11 }}>
                   ■ 停止
                 </button>
               )}
               {batchProgress && (
                 <div style={{ background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:9, padding:'11px 13px', display:'flex', flexDirection:'column', gap:6 }}>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                    <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2 }}>
+                    <span style={{ fontFamily:MONO, fontSize:11, color:T.txt2 }}>
                       {batchProgress.stopped ? '已停止' : batchProgress.current >= batchProgress.total ? '完成' : '處理中…'}
                     </span>
-                    <span style={{ fontFamily:MONO, fontSize:10, color:T.amber }}>
+                    <span style={{ fontFamily:MONO, fontSize:11, color:T.amber }}>
                       {batchProgress.current} / {batchProgress.total}
                     </span>
                   </div>
@@ -29488,10 +29615,10 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
                   <div style={{ background:T.bdr, borderRadius:4, height:4, overflow:'hidden' }}>
                     <div style={{ height:'100%', borderRadius:4, background: batchProgress.stopped ? T.red : T.amber, width:`${(batchProgress.current/batchProgress.total)*100}%`, transition:'width 0.3s' }}/>
                   </div>
-                  <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                  <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
                     {batchProgress.label}
                   </div>
-                  <div style={{ fontFamily:MONO, fontSize:9, display:'flex', gap:14 }}>
+                  <div style={{ fontFamily:MONO, fontSize:11, display:'flex', gap:14 }}>
                     <span style={{color:T.grn}}>✓ {batchProgress.done}</span>
                     {batchProgress.errors > 0 && <span style={{color:T.red}}>✗ {batchProgress.errors}</span>}
                   </div>
@@ -29504,14 +29631,14 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
 
       {/* ── VOCAB 批次補全 IPA + 中文 ── */}
       <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
-        <label style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>📖 VOCAB 批次補全 IPA ＋ 中文</label>
+        <label style={{ fontFamily:MONO, fontSize:11, color:T.txt2, letterSpacing:'0.1em' }}>📖 VOCAB 批次補全 IPA ＋ 中文</label>
         {(() => {
           const totalV = (vocab ?? []).length
           const missingV = (vocab ?? []).filter(v => !v.ipa_us || !v.zh).length
           const isRunningV = batchProgress && batchProgress.mode === 'vocab' && batchProgress.current < batchProgress.total && !batchProgress.stopped
           return (
             <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-              <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.7 }}>
+              <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.7 }}>
                 目前：<span style={{color:T.txt}}>{totalV - missingV}</span> / {totalV} 個單字已有 IPA ＋ 中文
                 {missingV > 0 && <span style={{color:T.amber}}>（{missingV} 個缺少）</span>}
               </div>
@@ -29519,32 +29646,32 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
                 <button className="btn"
                   onClick={batchFillVocabMeta}
                   disabled={missingV === 0}
-                  style={{ background:T.blueD, border:`1px solid ${T.blue}50`, color:T.blue, fontSize:10 }}>
+                  style={{ background:T.blueD, border:`1px solid ${T.blue}50`, color:T.blue, fontSize:11 }}>
                   🤖 AI 批次補全 ({missingV} 個)
                 </button>
               ) : (
                 <button className="btn" onClick={() => { batchStop.current = true }}
-                  style={{ background:T.redD, border:`1px solid ${T.red}50`, color:T.red, fontSize:10 }}>
+                  style={{ background:T.redD, border:`1px solid ${T.red}50`, color:T.red, fontSize:11 }}>
                   ■ 停止
                 </button>
               )}
               {batchProgress && batchProgress.mode === 'vocab' && (
                 <div style={{ background:T.surf2, border:`1px solid ${T.bdr}`, borderRadius:9, padding:'11px 13px', display:'flex', flexDirection:'column', gap:6 }}>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                    <span style={{ fontFamily:MONO, fontSize:9, color:T.txt2 }}>
+                    <span style={{ fontFamily:MONO, fontSize:11, color:T.txt2 }}>
                       {batchProgress.stopped ? '已停止' : batchProgress.current >= batchProgress.total ? '完成！' : '補全中…'}
                     </span>
-                    <span style={{ fontFamily:MONO, fontSize:10, color:T.blue }}>
+                    <span style={{ fontFamily:MONO, fontSize:11, color:T.blue }}>
                       {batchProgress.current} / {batchProgress.total}
                     </span>
                   </div>
                   <div style={{ background:T.bdr, borderRadius:4, height:4, overflow:'hidden' }}>
                     <div style={{ height:'100%', borderRadius:4, background: batchProgress.stopped ? T.red : T.blue, width:`${(batchProgress.current/batchProgress.total)*100}%`, transition:'width 0.3s' }}/>
                   </div>
-                  <div style={{ fontFamily:MONO, fontSize:9, color:T.blue, fontWeight:500 }}>
+                  <div style={{ fontFamily:MONO, fontSize:11, color:T.blue, fontWeight:500 }}>
                     {batchProgress.label}
                   </div>
-                  <div style={{ fontFamily:MONO, fontSize:9, display:'flex', gap:14 }}>
+                  <div style={{ fontFamily:MONO, fontSize:11, display:'flex', gap:14 }}>
                     <span style={{color:T.grn}}>✓ {batchProgress.done}</span>
                     {batchProgress.errors > 0 && <span style={{color:T.red}}>✗ {batchProgress.errors}</span>}
                   </div>
@@ -29557,7 +29684,7 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
 
       {/* ── BACKUP / EXPORT ── */}
       <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
-        <label style={{ fontFamily:MONO, fontSize:9, color:T.txt2, letterSpacing:'0.1em' }}>DATA BACKUP</label>
+        <label style={{ fontFamily:MONO, fontSize:11, color:T.txt2, letterSpacing:'0.1em' }}>DATA BACKUP</label>
         {(() => {
           const SEED_IDS = new Set(SEED_S.map(c => c.id))
           const seedCount = (sentences ?? []).filter(c => SEED_IDS.has(c.id)).length
@@ -29565,22 +29692,22 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
             <button className="btn" onClick={() => {
               updateSentences(prev => prev.filter(c => !SEED_IDS.has(c.id)))
               flash(`✓ 已清除 ${seedCount} 張 SEED 預設卡`)
-            }} style={{ background:T.redD, border:`1px solid ${T.red}50`, color:T.red, fontSize:10 }}>
+            }} style={{ background:T.redD, border:`1px solid ${T.red}50`, color:T.red, fontSize:11 }}>
               🗑 清除 {seedCount} 張 SEED 預設卡（保留 Sheets 資料）
             </button>
           ) : null
         })()}
         <button className="btn" onClick={exportJSON}
-          style={{ background:T.grnD, border:`1px solid ${T.grn}50`, color:T.grn, fontSize:10 }}>
+          style={{ background:T.grnD, border:`1px solid ${T.grn}50`, color:T.grn, fontSize:11 }}>
           ⬇ 備份 JSON（完整還原用）
         </button>
         <button className="btn" onClick={() => fileInputRef.current?.click()}
-          style={{ background:T.blueD, border:`1px solid ${T.blue}50`, color:T.blue, fontSize:10 }}>
+          style={{ background:T.blueD, border:`1px solid ${T.blue}50`, color:T.blue, fontSize:11 }}>
           ⬆ 從 JSON 匯入還原
         </button>
         <input ref={fileInputRef} type="file" accept=".json,application/json"
           onChange={handleImportFile} style={{ display:'none' }}/>
-        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, lineHeight:1.6 }}>
+        <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, lineHeight:1.6 }}>
           JSON 備份包含所有資料與 SRS 進度，可完整還原。<br/>
           匯入時 SRS 進度自動保留，資料完全覆蓋。
         </div>
@@ -29591,12 +29718,12 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
         <div style={{ position:'fixed', inset:0, background:'#00000090', zIndex:999, display:'flex', alignItems:'center', justifyContent:'center', padding:24 }}>
           <div style={{ background:T.surf, border:`1px solid ${T.amber}50`, borderRadius:16, padding:24, width:'100%', maxWidth:400, display:'flex', flexDirection:'column', gap:16 }}>
             <div style={{ fontFamily:DISP, fontSize:13, color:T.amber, letterSpacing:'0.1em' }}>確認匯入？</div>
-            <div style={{ fontFamily:MONO, fontSize:10, color:T.txt2, lineHeight:1.8 }}>
+            <div style={{ fontFamily:MONO, fontSize:11, color:T.txt2, lineHeight:1.8 }}>
               <div>📅 備份時間：<span style={{color:T.txt}}>{importPreview.exportedAt.slice(0,10)}</span></div>
               <div>📝 句子：<span style={{color:T.txt}}>{importPreview.sentences.length} 筆</span></div>
               <div>📖 單字：<span style={{color:T.txt}}>{importPreview.vocab.length} 筆</span></div>
             </div>
-            <div style={{ fontFamily:MONO, fontSize:9, color:T.red, lineHeight:1.7, background:T.redD, border:`1px solid ${T.red}30`, borderRadius:8, padding:'10px 12px' }}>
+            <div style={{ fontFamily:MONO, fontSize:11, color:T.red, lineHeight:1.7, background:T.redD, border:`1px solid ${T.red}30`, borderRadius:8, padding:'10px 12px' }}>
               ⚠ 目前資料將被完全覆蓋（{(sentences??[]).length} 句 + {(vocab??[]).length} 單字）<br/>
               SRS 進度（已有 id 的卡片）會自動保留。
             </div>
@@ -29627,14 +29754,14 @@ function SettingsTab({ sentences, vocab, updateSentences, updateVocab, settings,
           iOS Safari: tap Share → "Add to Home Screen"<br/>
           Android Chrome: tap ⋮ → "Add to Home Screen"
         </div>
-        <div style={{ fontFamily:MONO, fontSize:9, color:T.txt3, marginTop:9, lineHeight:1.7 }}>
+        <div style={{ fontFamily:MONO, fontSize:11, color:T.txt3, marginTop:9, lineHeight:1.7 }}>
           All data is stored locally in your browser.<br/>
           Gmail integration: paste email text into the AI tab.
         </div>
       </div>
 
       {/* Sentence count */}
-      <div style={{ textAlign:'center', fontFamily:MONO, fontSize:9, color:T.txt3, paddingBottom:4 }}>
+      <div style={{ textAlign:'center', fontFamily:MONO, fontSize:11, color:T.txt3, paddingBottom:4 }}>
         {(sentences??[]).length} sentences in practice library
       </div>
 
@@ -29860,7 +29987,7 @@ export default function App() {
       <style>{G}</style>
       <AppIcon size={56}/>
       <div style={{ fontFamily:MONO, fontWeight:700, fontSize:24, color:'#f5a623', letterSpacing:'0.02em' }}>Keep Moving</div>
-      <div style={{ fontFamily:MONO, fontSize:10, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
+      <div style={{ fontFamily:MONO, fontSize:11, color:'#484f58', letterSpacing:'0.1em', animation:'pulse 1.5s infinite' }}>INITIALIZING…</div>
     </div>
   )
 
