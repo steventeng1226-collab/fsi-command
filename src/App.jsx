@@ -7519,7 +7519,7 @@ function Header({ audioMode, toggleAudioMode, onOpenKnowledgeBase, onOpenMyProdu
         <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:0 }}>
           <span style={{ fontFamily:MONO, fontWeight:700, fontSize:19, color:T.amber,
             letterSpacing:'0.02em', lineHeight:1.15, flexShrink:0 }}>Keep Moving</span>
-          <span style={{ fontFamily:MONO, fontSize:11, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v7.11</span>
+          <span style={{ fontFamily:MONO, fontSize:11, fontWeight:400, color:T.txt3, letterSpacing:'0.05em', flexShrink:0 }}>v7.12</span>
           {(() => {
             const se = getAISettings()
             const p = se.aiProvider || 'anthropic'
@@ -14376,7 +14376,7 @@ function dailyPractice(days = 14) {
   return out
 }
 
-// ── 📖 連讀速查表（v7.11）：12 條通則，靜態、離線、隨時可查 ──
+// ── 📖 連讀速查表（v7.12）：12 條通則，靜態、離線、隨時可查 ──
 // 每條綁一個 cls（詞類/現象），會依使用者的診斷結果把「最該看的」排前面。
 const LINK_RULES = [
   { cls:'lk', t:'子音 + 母音 → 直接連',  eg:'an apple',   ipa:'ə-<lk>næ-pəl</lk>',      note:'前字尾子音黏到後字頭母音' },
@@ -14604,6 +14604,7 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
   const [starCfgOpen, setStarCfgOpen] = useState(false)   // v7.11: 練習畫面「播放設定」展開
   const [starMenuId, setStarMenuId] = useState(null)      // v7.11: 練習卡片 ⋯ 選單
   const [libMenuId, setLibMenuId] = useState(null)        // v7.11: 聽力庫卡片 ⋯ 選單
+  const [libLinkOpen, setLibLinkOpen] = useState({})      // v7.12: 聽力庫卡片連音解析展開（預設收起；不存 localStorage）
   const [libToolsOpen, setLibToolsOpen] = useState(false) // v7.11: 聽力庫「設定與工具」展開
   const [starDelId, setStarDelId] = useState(null) // v7.01: 練習畫面 ✕ 刪除的兩段式確認
   const [editingZhId,     setEditingZhId]     = useState(null)
@@ -15241,12 +15242,29 @@ function MovieTab({ audioMode, setAudioMode, movieToast, showMovieToast, kbJumpS
     )
   }
   // v6.81: 統一連音卡——根治「雙渲染路徑」家族。collapsible 版供知識庫/場景頁用。
-  const LinkCard = ({ p, collapsible = false, noGenBtn = false, rowHidden = false }) => {
+  const LinkCard = ({ p, collapsible = false, noGenBtn = false, rowHidden = false, foldable = false }) => {
     if (!p) return null
     const busy = linkBusy === p.id
-    const open = collapsible ? !!starLinkOpen[p.id] : true
+    // v7.12: foldable＝聽力庫卡片用——已解析的框預設收起，點標題列展開／收起
+    const open = collapsible ? !!starLinkOpen[p.id] : foldable ? !!libLinkOpen[p.id] : true
+    const c0 = foldable ? (p.link?.chunks ?? [])[0] : null
     return (
       <div style={{ display:'flex', flexDirection:'column', gap:7, minWidth:0, maxWidth:'100%' }}>
+        {foldable && p.link && p.link.ipa && (
+          <div onClick={() => setLibLinkOpen(o => ({ ...o, [p.id]: !o[p.id] }))}
+            style={{ cursor:'pointer', userSelect:'none', touchAction:'manipulation',
+              display:'flex', alignItems:'center', gap:8, minWidth:0,
+              fontFamily:MONO, fontSize:12, padding:'10px 12px', borderRadius:9,
+              background:'#1a1030', border:`1px solid ${open ? '#a78bfa' : '#a78bfa40'}` }}>
+            <span style={{ color:'#a78bfa', fontWeight:700, flexShrink:0 }}>🎬 連音解析</span>
+            {!open && c0 && (
+              <span style={{ color:T.txt2, minWidth:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                {c0.en} → {stripMark(c0.ipa ?? '')}
+              </span>
+            )}
+            <span style={{ marginLeft:'auto', color:'#a78bfa', flexShrink:0 }}>{open ? '▲ 收起' : '▼'}</span>
+          </div>
+        )}
         {collapsible && !rowHidden && (
           <div style={{ display:'flex', gap:6, alignItems:'center', flexWrap:'wrap' }}>
             <div onClick={() => {
@@ -27879,7 +27897,7 @@ Steven 不是在收藏電影台詞。
                     </div>}
 
                     {/* v6.81: 統一連音卡 */}
-                    {!testing && !dueMasked && !tutorMasked && <LinkCard p={p} rowHidden/>}
+                    {!testing && !dueMasked && !tutorMasked && <LinkCard p={p} rowHidden foldable/>}
 
                     {/* 弱點關卡模式：快速連音塊（規則版，免費即時）*/}
                     {/* v6.69: 解析錯誤上卡（聽力庫/弱點關卡卡片） */}
@@ -28088,7 +28106,7 @@ Steven 不是在收藏電影台詞。
                           sticky 原句綁在連音卡內、捲出卡片就消失，解決不了；直接把原句放在播放鍵正上方最實在。
                           套用與連音卡相同的遮罩條件（!testing && !dueMasked && !tutorMasked），重測未揭曉時不顯示，不破壞盲測。 */}
                       {/* v7.11: 沒有解析框的卡片很短，上面已有原句，不再重複一次 */}
-                      {!testing && !dueMasked && !tutorMasked && !!(p.link && p.link.ipa) && (
+                      {!testing && !dueMasked && !tutorMasked && !!(p.link && p.link.ipa) && !!libLinkOpen[p.id] && (
                         <div style={{ fontFamily:MONO, fontSize:11, fontWeight:700, color:T.txt2, lineHeight:1.5,
                           padding:'6px 2px', marginBottom:2, overflowWrap:'break-word' }}>
                           {p.en}
